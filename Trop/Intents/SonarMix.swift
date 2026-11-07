@@ -8,6 +8,7 @@ import UIKit
 
 /// "Pon música": empieza a sonar una mezcla de lo que le gusta a la persona, sin abrir pantallas.
 /// Orden de preferencia:
+/// 0. Canciones descargadas (suenan al instante desde el archivo; luego sigue la mezcla guardada).
 /// 1. La ultima mezcla guardada (arranca sin esperar a la red; se refresca despues).
 /// 2. La primera lista de "Mezclado para ti" de YouTube Music (tu Supermix o similar).
 /// 3. La radio de una cancion cualquiera de tu inicio.
@@ -29,6 +30,27 @@ enum SonarMix {
             }
         }
 
+        // 0) Lo mas rapido: canciones descargadas. Suenan desde el archivo, sin tokens ni red, asi que no
+        // hay que esperar a que arranque en frio el navegador oculto que genera los tokens de YouTube
+        // (cuando la app la lanza una accion en segundo plano ese arranque tarda muchisimo).
+        let downloaded = await downloadedSongs()
+        if !downloaded.isEmpty {
+            var queue = Array(downloaded.shuffled().prefix(40))
+            if let cached = cachedMix() {
+                let ids = Set(queue.map(\.videoId))
+                queue += cached.shuffled().filter { !ids.contains($0.videoId) }.prefix(30)
+            }
+            if await play(queue, context: "downloaded first") {
+                // Mientras suena la descargada se calienta lo necesario para las siguientes.
+                let seed = queue.last?.videoId ?? ""
+                Task {
+                    await warmUpTokens(videoId: seed)
+                    await refreshCache()
+                }
+                return true
+            }
+        }
+
         // 1) Ultima mezcla guardada: sin esperar a la red.
         if let cached = cachedMix(), await play(cached.shuffled(), context: "cached mix") {
             Task { await refreshCache() }
@@ -47,6 +69,19 @@ enum SonarMix {
 
         // 4) Sin red.
         return await playLikedSongs()
+    }
+
+    // MARK: - Descargadas y calentamiento
+
+    private static func downloadedSongs() async -> [SongItem] {
+        await DownloadManager.shared.fetchAll().map { SongItem(entity: $0) }
+    }
+
+    /// Arranca el generador de tokens (navegador oculto + BotGuard) para que, cuando haga falta
+    /// resolver una cancion por red, ya este listo.
+    private static func warmUpTokens(videoId: String) async {
+        guard !videoId.isEmpty else { return }
+        _ = try? await PoTokenGenerator.shared.generate(videoId: videoId, sessionId: PlaybackManager.sessionId)
     }
 
     // MARK: - Reproduccion
