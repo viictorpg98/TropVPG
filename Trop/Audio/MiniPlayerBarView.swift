@@ -32,16 +32,17 @@ struct MiniPlayerBarView: View {
         case vertical
     }
 
+    /// La barra ya no se encoge al desplazar: siempre es la barra completa.
     private var isInline: Bool {
-        scrollState.isInline
+        false
     }
 
     private var barHeight: CGFloat {
-        54
+        62
     }
 
     private var artworkSize: CGFloat {
-        40
+        46
     }
 
     private var isDarkMode: Bool {
@@ -65,25 +66,18 @@ struct MiniPlayerBarView: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            pagingArea
-                .mask(textFadeMask)
-            transportControls
-                .padding(.trailing, 18)
+        VStack(spacing: 0) {
+            MiniProgressLine()
+            HStack(spacing: 0) {
+                pagingArea
+                    .mask(textFadeMask)
+                transportControls
+                    .padding(.trailing, 8)
+            }
+            .frame(height: barHeight)
         }
-        .frame(height: barHeight)
         .frame(maxWidth: .infinity)
-        .background(
-            // Velo con el color de la caratula (cambia suavemente de cancion a cancion).
-            LinearGradient(
-                colors: [(np.dominantColors.first ?? .clear).opacity(0.38), .clear],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-            .animation(.easeInOut(duration: 0.6), value: np.dominantColors)
-        )
-        .overlay(alignment: .bottom) { MiniProgressLine(color: titleColor) }
-        .clipShape(Capsule())
+        .background(Color(.secondarySystemBackground))
         .onChange(of: np.videoId) { _, _ in
             dragOffset = 0
             preloadLyrics()
@@ -178,18 +172,17 @@ struct MiniPlayerBarView: View {
             }
         }
         .frame(width: artworkSize, height: artworkSize)
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
     }
 
     private var playPauseButton: some View {
         Button(action: { player.togglePlayPause() }, label: {
             Image(systemName: np.isPlaying ? "pause.fill" : "play.fill")
                 .contentTransition(.symbolEffect(.replace))
-                .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(isDarkMode ? Color.black : Color.white)
-                .frame(width: 36, height: 36)
-                .background(Circle().fill(titleColor))
+                .font(.system(size: 28))
+                .foregroundStyle(titleColor)
+                .frame(width: 48, height: 48)
+                .contentShape(Rectangle())
         })
         .buttonStyle(.plain)
         .accessibilityLabel(np.isPlaying ? "Pause" : "Play")
@@ -209,12 +202,14 @@ struct MiniPlayerBarView: View {
     }
 
     private var transportControls: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 0) {
             playPauseButton
             Button(action: { np.playNext() }, label: {
                 Image(systemName: "forward.fill")
-                    .font(.system(size: 20))
+                    .font(.system(size: 22))
                     .foregroundStyle(np.hasNext ? titleColor : titleColor.opacity(0.35))
+                    .frame(width: 48, height: 48)
+                    .contentShape(Rectangle())
             })
             .disabled(!np.hasNext)
             .accessibilityLabel("Next")
@@ -316,22 +311,18 @@ struct MiniPlayerBarView: View {
 // MARK: - Barra de progreso fina (vista propia: solo ella se redibuja con el tiempo)
 
 private struct MiniProgressLine: View {
-    let color: Color
     private let np = NowPlaying.shared
 
     var body: some View {
         GeometryReader { geo in
-            let track = max(0, geo.size.width - 44)
-            let filled = max(0, min(track, track * CGFloat(np.progress)))
             ZStack(alignment: .leading) {
-                Capsule().fill(color.opacity(0.15))
-                Capsule().fill(color.opacity(0.85)).frame(width: filled)
+                Rectangle().fill(Color.primary.opacity(0.12))
+                Rectangle()
+                    .fill(.tint)
+                    .frame(width: max(0, min(geo.size.width, geo.size.width * CGFloat(np.progress))))
             }
-            .frame(width: track, height: 3)
-            .frame(maxWidth: .infinity)
         }
-        .frame(height: 3)
-        .padding(.bottom, 4)
+        .frame(height: 2)
         .allowsHitTesting(false)
     }
 }

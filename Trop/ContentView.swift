@@ -18,36 +18,22 @@ struct ContentView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             Tab("Home", systemImage: "music.note.house.fill", value: 0) {
-                HomeScreenView()
+                withMiniPlayer { HomeScreenView() }
             }
 
             Tab("Library", systemImage: "music.note.square.stack", value: 1) {
-                LibraryView()
+                withMiniPlayer { LibraryView() }
             }
 
             Tab("Explore", systemImage: "flame", value: 2) {
-                ExploreView()
+                withMiniPlayer { ExploreView() }
             }
 
             Tab("Search", systemImage: "magnifyingglass", value: 3) {
-                SearchView()
+                withMiniPlayer { SearchView() }
             }
         }
         .tabBarMinimizeBehavior(.never)
-            .tabViewBottomAccessory(isEnabled: nowPlaying.isBarPresented) {
-                MiniPlayerBarView(onExpand: {
-                    // Dismiss the keyboard before expanding the player so the reveal is visible on the first tap.
-                    UIApplication.shared.sendAction(
-                        #selector(UIResponder.resignFirstResponder),
-                        to: nil,
-                        from: nil,
-                        for: nil
-                    )
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
-                        isExpanded = true
-                    }
-                })
-            }
             .background {
                 backgroundLayer
             }
@@ -87,6 +73,28 @@ struct ContentView: View {
             }
         }
         .simultaneousGesture(backSwipeGesture)
+    }
+
+    /// Barra del mini reproductor: rectangular, a ancho completo y justo encima de la barra de pestanas.
+    private func withMiniPlayer<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        content().safeAreaInset(edge: .bottom, spacing: 0) {
+            if nowPlaying.isBarPresented {
+                MiniPlayerBarView(onExpand: expandPlayer)
+            }
+        }
+    }
+
+    private func expandPlayer() {
+        // Dismiss the keyboard before expanding the player so the reveal is visible on the first tap.
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder),
+            to: nil,
+            from: nil,
+            for: nil
+        )
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+            isExpanded = true
+        }
     }
 
     private var backSwipeGesture: some Gesture {

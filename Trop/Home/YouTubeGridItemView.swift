@@ -133,7 +133,7 @@ struct YouTubeListItemView: View {
             }
             .contentShape(Rectangle())
             .onTapGesture(perform: onTap)
-            .padding(.horizontal, 16)
+            .padding(.horizontal, detailed ? 0 : 16)
             .padding(.vertical, 6)
         }
     }

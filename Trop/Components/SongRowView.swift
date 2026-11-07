@@ -94,7 +94,7 @@ struct SongRowView: View {
             }
         }
         .background(DownloadCellProgressView(song: song))
-        .padding(.horizontal, DesignTokens.screenHPadding)
+        .padding(.horizontal, detailed ? 0 : DesignTokens.screenHPadding)
         .padding(.vertical, DesignTokens.rowVPadding)
         .contentShape(Rectangle())
         .onTapGesture(perform: onTap)

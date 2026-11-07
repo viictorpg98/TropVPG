@@ -166,7 +166,7 @@ struct HomeScreenView: View {
                             onTap: { handleSongTap(song, in: combinedQueue) },
                             onNavigate: { pendingRoute = $0 }, detailed: true
                         )
-                        .containerRelativeFrame(.horizontal) { width, _ in width - 40 }
+                        .songColumnWidth()
                         .overlay(alignment: .topTrailing) {
                             Image(systemName: "pin.fill")
                                 .font(.system(size: 9, weight: .bold))
@@ -193,10 +193,10 @@ struct HomeScreenView: View {
                                 onTap: { handleSongTap(s, in: combinedQueue) },
                                 onNavigate: { pendingRoute = $0 }, detailed: true
                             )
-                                .containerRelativeFrame(.horizontal) { width, _ in width - 40 }
+                                .songColumnWidth()
                         } else {
                             YouTubeListItemView(item: item, onTap: { handleItemTap(item) }, onNavigate: { pendingRoute = $0 }, detailed: true)
-                                .containerRelativeFrame(.horizontal) { width, _ in width - 40 }
+                                .songColumnWidth()
                         }
                     }
                 }
@@ -257,10 +257,10 @@ struct HomeScreenView: View {
                     let item = section.items[i]
                     if case .song(let s) = item {
                         YouTubeListItemView(item: item, onTap: { handleSongTap(s, in: queue) }, onNavigate: { pendingRoute = $0 }, detailed: true)
-                            .containerRelativeFrame(.horizontal) { width, _ in width - 40 }
+                            .songColumnWidth()
                     } else {
                         YouTubeListItemView(item: item, onTap: { handleItemTap(item) }, onNavigate: { pendingRoute = $0 }, detailed: true)
-                            .containerRelativeFrame(.horizontal) { width, _ in width - 40 }
+                            .songColumnWidth()
                     }
                 }
             }

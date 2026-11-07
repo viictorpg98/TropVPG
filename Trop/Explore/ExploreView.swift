@@ -143,7 +143,7 @@ struct ExploreSectionsList: View {
                     YouTubeListItemView(item: item, onTap: {
                         openItem(item)
                     }, onNavigate: { pendingRoute.wrappedValue = $0 }, detailed: true)
-                    .containerRelativeFrame(.horizontal) { width, _ in width - 40 }
+                    .songColumnWidth()
                 }
             }
         }
