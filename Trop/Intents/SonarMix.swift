@@ -4,29 +4,74 @@
 //
 
 import Foundation
+import UIKit
 
 /// "Pon música": empieza a sonar una mezcla de lo que le gusta a la persona, sin abrir pantallas.
 /// Orden de preferencia:
-/// 1. La primera lista de "Mezclado para ti" de YouTube Music (tu Supermix o similar).
-/// 2. La radio de una canción cualquiera de tu inicio.
-/// 3. Sin red: canciones que te gustan, guardadas en el dispositivo.
+/// 1. La ultima mezcla guardada (arranca sin esperar a la red; se refresca despues).
+/// 2. La primera lista de "Mezclado para ti" de YouTube Music (tu Supermix o similar).
+/// 3. La radio de una cancion cualquiera de tu inicio.
+/// 4. Sin red: canciones que te gustan, guardadas en el dispositivo.
+///
+/// La accion no termina hasta que el audio esta sonando: si devolviera el control antes, iOS podria
+/// suspender la app y la musica empezaria "al rato" (y Siri diria que hubo un problema).
 @MainActor
 enum SonarMix {
+    private static let cacheKey = "sonarMix.cachedSongs"
+
     /// Devuelve `true` si ha empezado a sonar algo.
     static func start() async -> Bool {
+        // Mantiene la app con CPU mientras se prepara y arranca el audio.
+        let backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "SonarMix")
+        defer {
+            if backgroundTask != .invalid {
+                UIApplication.shared.endBackgroundTask(backgroundTask)
+            }
+        }
+
+        // 1) Ultima mezcla guardada: sin esperar a la red.
+        if let cached = cachedMix(), await play(cached.shuffled(), context: "cached mix") {
+            Task { await refreshCache() }
+            return true
+        }
+
+        // 2) y 3) Con red.
+        await prepareSession()
+        if let sections = await loadHomeSections() {
+            if let songs = await mixedForYouSongs(in: sections) {
+                saveCache(songs)
+                if await play(songs.shuffled(), context: "mixed for you") { return true }
+            }
+            if await playRadioOfAnySong(in: sections) { return true }
+        }
+
+        // 4) Sin red.
+        return await playLikedSongs()
+    }
+
+    // MARK: - Reproduccion
+
+    /// Pone la cola y espera a que la primera cancion este sonando.
+    private static func play(_ songs: [SongItem], context: String) async -> Bool {
+        guard let first = songs.first else { return false }
+        NowPlaying.shared.setQueue(songs, startIndex: 0)
+        do {
+            try await PlaybackManager.shared.resolveAndPlay(videoId: first.videoId)
+            return true
+        } catch {
+            Log.nowPlaying.error("Intent playback failed (\(context)): \(error)")
+            return false
+        }
+    }
+
+    // MARK: - Sesion e inicio
+
+    private static func prepareSession() async {
         let cookieStore = CookieStore()
         if await cookieStore.isLoggedIn() {
             await InnerTubeClient.tropShared.loadState(from: cookieStore)
         }
-
-        if let sections = await loadHomeSections() {
-            if await playMixedForYou(in: sections) { return true }
-            if playAnySong(in: sections) { return true }
-        }
-        return await playLikedSongs()
     }
-
-    // MARK: - Inicio
 
     /// Las secciones del inicio de YouTube Music (la primera pagina y, si hace falta, las siguientes,
     /// porque "Mezclado para ti" suele venir mas abajo).
@@ -51,48 +96,67 @@ enum SonarMix {
         sections.first { $0.title.lowercased().contains("mixed for you") }
     }
 
-    // MARK: - 1) Mezclado para ti
+    // MARK: - Mezclado para ti
 
-    private static func playMixedForYou(in sections: [HomePage.Section]) async -> Bool {
-        guard let section = mixedForYou(in: sections) else { return false }
+    private static func mixedForYouSongs(in sections: [HomePage.Section]) async -> [SongItem]? {
+        guard let section = mixedForYou(in: sections) else { return nil }
         let playlists = section.items.compactMap { item -> PlaylistItem? in
             if case .playlist(let playlist) = item { return playlist }
             return nil
         }
         guard let first = playlists.first,
               let (_, rows) = try? await SyncBridge.playlistDetail.fetchPlaylistRows(playlistId: first.id) else {
-            return false
+            return nil
         }
         let songs = rows.compactMap { item -> SongItem? in
             guard let renderer = item["musicResponsiveListItemRenderer"] as? [String: Any] else { return nil }
             return SongItem.from(renderer)
         }
-        guard songs.count >= 3 else { return false }
-        PlaybackQueue.play(songs, log: Log.nowPlaying, context: "Intent: mixed for you")
-        return true
+        return songs.count >= 3 ? songs : nil
     }
 
-    // MARK: - 2) Radio de una cancion del inicio
+    /// Vuelve a pedir la mezcla y la guarda, para que la proxima vez arranque al instante.
+    private static func refreshCache() async {
+        await prepareSession()
+        guard let sections = await loadHomeSections(),
+              let songs = await mixedForYouSongs(in: sections) else { return }
+        saveCache(songs)
+    }
 
-    private static func playAnySong(in sections: [HomePage.Section]) -> Bool {
+    // MARK: - Radio de una cancion del inicio
+
+    private static func playRadioOfAnySong(in sections: [HomePage.Section]) async -> Bool {
         var songs: [SongItem] = []
         for section in sections {
             for item in section.items {
                 if case .song(let song) = item { songs.append(song) }
             }
         }
-        guard let pick = songs.randomElement() else { return false }
-        PlaybackQueue.playSingleWithRadio(pick, log: Log.nowPlaying)
+        guard let pick = songs.randomElement(),
+              await play([pick], context: "radio seed") else { return false }
+        PlaybackQueue.startRadio(for: pick)
         return true
     }
 
-    // MARK: - 3) Sin red
+    // MARK: - Sin red
 
     private static func playLikedSongs() async -> Bool {
         guard let liked = try? await DatabaseService.shared.fetchLikedSongs(), !liked.isEmpty else { return false }
-        let songs = liked.shuffled().prefix(40).toSongItems()
-        guard !songs.isEmpty else { return false }
-        PlaybackQueue.play(Array(songs), log: Log.nowPlaying, context: "Intent: liked songs")
-        return true
+        let songs = Array(liked.shuffled().prefix(40).toSongItems())
+        return await play(songs, context: "liked songs")
+    }
+
+    // MARK: - Guardado de la mezcla
+
+    private static func saveCache(_ songs: [SongItem]) {
+        guard let data = try? JSONEncoder().encode(Array(songs.prefix(60))) else { return }
+        UserDefaults.standard.set(data, forKey: cacheKey)
+    }
+
+    private static func cachedMix() -> [SongItem]? {
+        guard let data = UserDefaults.standard.data(forKey: cacheKey),
+              let songs = try? JSONDecoder().decode([SongItem].self, from: data),
+              songs.count >= 3 else { return nil }
+        return songs
     }
 }
