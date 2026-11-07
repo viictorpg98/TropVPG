@@ -7,22 +7,22 @@ import SwiftUI
 
 struct DownloadsView: View {
     @Environment(SettingsStore.self) private var settings
-    @ObservedObject private var downloadManager = DownloadManager.shared
+    private let downloadManager = DownloadManager.shared
+    // Copias locales: esta pantalla no observa el gestor entero, asi que el progreso de cada descarga
+    // no la redibuja (antes se reconstruia la lista completa con cada avance).
+    @State private var tracks: [DownloadedTrackEntity] = DownloadManager.shared.tracks
+    @State private var songs: [SongItem] = DownloadManager.shared.tracks.map { SongItem(entity: $0) }
+    @State private var isLoaded = DownloadManager.shared.isLoaded
+    @State private var hasActiveDownloads = DownloadManager.shared.hasActiveDownloads
     @State private var pendingRoute: DetailRoute?
     @State private var showMoreSheet = false
 
-    private var tracks: [DownloadedTrackEntity] { downloadManager.tracks }
-    private var songs: [SongItem] { tracks.map { SongItem(entity: $0) } }
-    private var activeDownloads: [(videoId: String, progress: Double)] {
-        downloadManager.activeDownloads
-    }
-
     var body: some View {
         Group {
-            if !downloadManager.isLoaded {
+            if !isLoaded {
                 LoadingStateView("Loading downloads…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if tracks.isEmpty && activeDownloads.isEmpty {
+            } else if tracks.isEmpty && !hasActiveDownloads {
                 emptyView
             } else {
                 contentView
@@ -36,6 +36,18 @@ struct DownloadsView: View {
             if !downloadManager.isLoaded {
                 await downloadManager.reload()
             }
+        }
+        .task {
+            for await newTracks in downloadManager.$tracks.values {
+                tracks = newTracks
+                songs = newTracks.map { SongItem(entity: $0) }
+            }
+        }
+        .task {
+            for await loaded in downloadManager.$isLoaded.values { isLoaded = loaded }
+        }
+        .task {
+            for await active in downloadManager.$hasActiveDownloads.values { hasActiveDownloads = active }
         }
         .detailRouteSheet(item: $pendingRoute)
     }
@@ -64,16 +76,27 @@ struct DownloadsView: View {
                 header
                     .padding(.bottom, 8)
 
-                if !activeDownloads.isEmpty {
-                    activeDownloadsSection
+                if hasActiveDownloads {
+                    ActiveDownloadsSection()
                 }
 
-                if !songs.isEmpty {
-                    songList
+                // Las filas van directamente en el contenedor perezoso: solo se construyen las visibles.
+                ForEach(songs, id: \.videoId) { song in
+                    VStack(spacing: 0) {
+                        SongRowView(
+                            song: song,
+                            artSize: 48,
+                            artRadius: 8,
+                            onTap: { playSong(song) },
+                            onNavigate: { pendingRoute = $0 }
+                        )
+                        Divider()
+                            .padding(.leading, 76)
+                    }
                 }
             }
         }
-        .scrollDisabled(!downloadManager.isLoaded)
+        .scrollDisabled(!isLoaded)
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .miniPlayerTracksScroll()
@@ -92,39 +115,6 @@ struct DownloadsView: View {
         )
         .sheet(isPresented: $showMoreSheet) {
             DownloadsMoreSheet(songs: songs)
-        }
-    }
-
-    private var activeDownloadsSection: some View {
-        VStack(spacing: 0) {
-            SectionLabel(title: "Downloading", systemImage: "arrow.down.circle")
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
-            ForEach(activeDownloads, id: \.videoId) { item in
-                ActiveDownloadRow(videoId: item.videoId, progress: item.progress)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 4)
-            }
-        }
-        .padding(.bottom, 16)
-    }
-
-    private var songList: some View {
-        VStack(spacing: 0) {
-            ForEach(Array(songs.enumerated()), id: \.offset) { index, song in
-                SongRowView(
-                    song: song,
-                    artSize: 48,
-                    artRadius: 8,
-                    onTap: { playSong(song) },
-                    onNavigate: { pendingRoute = $0 }
-                )
-
-                if index < songs.count - 1 {
-                    Divider()
-                        .padding(.leading, 76)
-                }
-            }
         }
     }
 
@@ -170,5 +160,35 @@ struct DownloadsView: View {
         await MainActor.run {
             NowPlaying.shared.updateVideoAvailability()
         }
+    }
+}
+
+/// Descargas en marcha. Es una vista aparte para que el progreso (que cambia muchas veces por
+/// segundo) solo redibuje esta seccion, y muestra unas pocas filas aunque haya cientos en cola.
+private struct ActiveDownloadsSection: View {
+    @ObservedObject private var downloadManager = DownloadManager.shared
+    private static let maxShown = 8
+
+    var body: some View {
+        let active = downloadManager.activeDownloads
+        VStack(spacing: 0) {
+            HStack {
+                SectionLabel(title: "Downloading", systemImage: "arrow.down.circle")
+                Spacer()
+                Text(verbatim: "\(active.count)")
+                    .font(.footnote.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
+
+            ForEach(Array(active.prefix(Self.maxShown)), id: \.videoId) { item in
+                ActiveDownloadRow(videoId: item.videoId, progress: item.progress)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 4)
+            }
+        }
+        .padding(.bottom, 16)
     }
 }

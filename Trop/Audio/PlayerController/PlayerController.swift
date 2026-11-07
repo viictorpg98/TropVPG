@@ -1043,7 +1043,8 @@ extension PlayerController {
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
     }
 
-    func updateNowPlayingProgress() {
+    func updateNowPlayingProgress(publishToSystem: Bool = true) {
+        let hadPendingSeek = pendingSeek != nil
         let props: (dur: Double, pos: Double)? = withMpv { mpv in
             var dur = Double(0)
             mpv_get_property(mpv, "duration", MPV_FORMAT_DOUBLE, &dur)
@@ -1064,13 +1065,14 @@ extension PlayerController {
 
         var info = nowPlayingInfo
         info[MPMediaItemPropertyPlaybackDuration] = props.dur
-        np.duration = props.dur
+        if np.duration != props.dur { np.duration = props.dur }
         info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = props.pos
-        np.currentTime = props.pos
+        if np.currentTime != props.pos { np.currentTime = props.pos }
         info[MPNowPlayingInfoPropertyPlaybackRate] = np.isPlaying ? 1 : 0
         info[MPNowPlayingInfoPropertyPlaybackQueueIndex] = np.queueIndex
         info[MPNowPlayingInfoPropertyPlaybackQueueCount] = np.queueSongs.count
         nowPlayingInfo = info
+        guard publishToSystem || hadPendingSeek else { return }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
         MPNowPlayingInfoCenter.default().playbackState = np.isPlaying ? .playing : .paused
     }

@@ -19,10 +19,16 @@ import ffmpegkit
 final class DownloadManager: ObservableObject {
     static let shared = DownloadManager()
 
-    @Published private(set) var downloads: [String: DownloadState] = [:]
+    @Published private(set) var downloads: [String: DownloadState] = [:] {
+        didSet { refreshActiveFlag() }
+    }
     @Published private(set) var tracks: [DownloadedTrackEntity] = []
     @Published private(set) var persistedDownloadCount = 0
     @Published private(set) var isLoaded = false
+    /// Ids de las canciones descargadas: cada fila consulta su estado sin recorrer toda la lista.
+    @Published private(set) var completedIds: Set<String> = []
+    /// `true` mientras haya alguna descarga en marcha o en cola.
+    @Published private(set) var hasActiveDownloads = false
 
     enum DownloadState: Equatable {
         case notStarted
@@ -31,7 +37,9 @@ final class DownloadManager: ObservableObject {
         case failed(String)
     }
 
-    private static let minimumAudioBytes = 8_192
+    nonisolated private static let minimumAudioBytes = 8_192
+    /// Descargas simultaneas como maximo: lanzar cientos de golpe satura CPU, memoria y red.
+    private static let maxConcurrentDownloads = 3
 
     private let fileManager = FileManager.default
     private let pathMonitor = NWPathMonitor()
@@ -40,6 +48,8 @@ final class DownloadManager: ObservableObject {
     private var cancelledDownloadIds: Set<String> = []
     private var lastReportedProgress: [String: Double] = [:]
     private var activeFFmpegSessions: [String: FFmpegSession] = [:]
+    private var activeSlots = 0
+    private var slotWaiters: [CheckedContinuation<Void, Never>] = []
 
     private var tracksById: [String: DownloadedTrackEntity] = [:]
 
@@ -75,6 +85,26 @@ final class DownloadManager: ObservableObject {
         guard let currentPath else { return true }
         return currentPath.usesInterfaceType(.wifi) == true
             || currentPath.usesInterfaceType(.wiredEthernet) == true
+    }
+
+    private func refreshActiveFlag() {
+        let active = downloads.values.contains {
+            if case .downloading = $0 { return true }
+            return false
+        }
+        if hasActiveDownloads != active { hasActiveDownloads = active }
+    }
+
+    /// Estado de UNA cancion. Solo emite cuando cambia el estado de esa cancion, para que las filas
+    /// no se redibujen cada vez que avanza cualquier otra descarga.
+    func statePublisher(for videoId: String) -> AnyPublisher<DownloadState, Never> {
+        Publishers.CombineLatest($downloads, $completedIds)
+            .map { downloads, completed -> DownloadState in
+                if let state = downloads[videoId], state != .notStarted { return state }
+                return completed.contains(videoId) ? .completed : .notStarted
+            }
+            .removeDuplicates()
+            .eraseToAnyPublisher()
     }
 
     // MARK: - Paths
@@ -154,7 +184,11 @@ final class DownloadManager: ObservableObject {
         defer { isReloading = false }
 
         ensureDirectories()
-        let scanned = scanDownloadedFiles()
+        // Recorrer la carpeta (un stat por archivo) se hace fuera del hilo principal.
+        let directory = downloadsDir
+        let scanned = await Task.detached(priority: .utility) {
+            Self.scanDownloadedFiles(in: directory)
+        }.value
 
         var rebuilt: [String: DownloadedTrackEntity] = [:]
         let databaseTracks = await fetchAllFromDatabase()
@@ -202,12 +236,18 @@ final class DownloadManager: ObservableObject {
         let sorted = newTracks.values.sorted { $0.downloadedAt > $1.downloadedAt }
         if tracks != sorted { tracks = sorted }
         if persistedDownloadCount != newTracks.count { persistedDownloadCount = newTracks.count }
+        let ids = Set(newTracks.keys)
+        if completedIds != ids { completedIds = ids }
     }
 
     private func scanDownloadedFiles() -> [String: URL] {
+        Self.scanDownloadedFiles(in: downloadsDir)
+    }
+
+    nonisolated private static func scanDownloadedFiles(in directory: URL) -> [String: URL] {
         let keys: [URLResourceKey] = [.fileSizeKey, .contentModificationDateKey]
-        guard let urls = try? fileManager.contentsOfDirectory(
-            at: downloadsDir,
+        guard let urls = try? FileManager.default.contentsOfDirectory(
+            at: directory,
             includingPropertiesForKeys: keys,
             options: [.skipsHiddenFiles]
         ) else { return [:] }
@@ -271,6 +311,23 @@ extension DownloadManager {
             return
         }
 
+        if SettingsStore.shared.wifiOnlyDownloads, !isOnWiFi {
+            downloads[videoId] = .failed("Wi-Fi Only is enabled and you are not on Wi-Fi.")
+            return
+        }
+
+        // En cola desde ya (se ve en la lista), pero solo trabajan `maxConcurrentDownloads` a la vez.
+        cancelledDownloadIds.remove(videoId)
+        lastReportedProgress.removeValue(forKey: videoId)
+        downloads[videoId] = .downloading(0)
+        await acquireDownloadSlot()
+        defer { releaseDownloadSlot() }
+        if cancelledDownloadIds.contains(videoId) {
+            cancelledDownloadIds.remove(videoId)
+            downloads[videoId] = .notStarted
+            return
+        }
+
         var bgTask: UIBackgroundTaskIdentifier = .invalid
         bgTask = UIApplication.shared.beginBackgroundTask(withName: "trop-download-\(videoId)") {
             UIApplication.shared.endBackgroundTask(bgTask)
@@ -280,16 +337,9 @@ extension DownloadManager {
             if bgTask != .invalid { UIApplication.shared.endBackgroundTask(bgTask) }
         }
 
-        cancelledDownloadIds.remove(videoId)
-        lastReportedProgress.removeValue(forKey: videoId)
         let artist = song.artists.map(\.name).joined(separator: ", ")
         let downloadStart = CFAbsoluteTimeGetCurrent()
         Log.downloadManager.debug("Starting download: \(artist) - \(song.title) (\(videoId))")
-
-        if SettingsStore.shared.wifiOnlyDownloads, !isOnWiFi {
-            downloads[videoId] = .failed("Wi-Fi Only is enabled and you are not on Wi-Fi.")
-            return
-        }
 
         setProgress(0.02, for: videoId)
 
@@ -420,6 +470,22 @@ extension DownloadManager {
         }
     }
 
+    private func acquireDownloadSlot() async {
+        if activeSlots < Self.maxConcurrentDownloads {
+            activeSlots += 1
+            return
+        }
+        await withCheckedContinuation { slotWaiters.append($0) }
+    }
+
+    private func releaseDownloadSlot() {
+        if slotWaiters.isEmpty {
+            activeSlots -= 1
+        } else {
+            slotWaiters.removeFirst().resume()
+        }
+    }
+
     private func adoptExistingFile(at url: URL, song: SongItem) async {
         let entity = DownloadedTrackEntity(
             id: song.videoId,
@@ -547,7 +613,10 @@ extension DownloadManager {
             }
         }
         guard let image = loaded else { return nil }
-        return image.jpegData(compressionQuality: 0.9)
+        // Codificar el JPEG es trabajo de CPU: fuera del hilo principal.
+        return await Task.detached(priority: .utility) {
+            image.jpegData(compressionQuality: 0.9)
+        }.value
     }
 
     // MARK: - File Transfer (ffmpeg)

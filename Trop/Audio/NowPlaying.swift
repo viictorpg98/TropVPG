@@ -63,6 +63,7 @@ final class NowPlaying {
     }
 
     private var timer: Timer?
+    private var tickCount = 0
     var lastManualSkipTime: Date?
     private var isResolvingNext = false
     /// Timestamps of the last mid-play failure per videoId, to bound retries.
@@ -102,21 +103,27 @@ final class NowPlaying {
         queueIndex = max(0, queueIndex)
     }
 
+    private static let persistQueueQueue = DispatchQueue(label: "com.sonar.persistQueue", qos: .utility)
+
     func persistQueueState() {
         guard SettingsStore.shared.persistQueue else { return }
-        if queueSongs.isEmpty {
-            UserDefaults.standard.removeObject(forKey: Self.queueKey)
-            UserDefaults.standard.removeObject(forKey: Self.queueIndexKey)
-            UserDefaults.standard.removeObject(forKey: Self.shuffleKey)
-            UserDefaults.standard.removeObject(forKey: Self.repeatKey)
-            return
+        let songs = queueSongs
+        let index = queueIndex
+        let shuffle = isShuffleOn
+        let repeatOn = isRepeatOn
+        let keys = (Self.queueKey, Self.queueIndexKey, Self.shuffleKey, Self.repeatKey)
+        // Codificar una cola de cientos de canciones lleva tiempo: se hace fuera del hilo principal.
+        Self.persistQueueQueue.async {
+            let defaults = UserDefaults.standard
+            if songs.isEmpty {
+                for key in [keys.0, keys.1, keys.2, keys.3] { defaults.removeObject(forKey: key) }
+                return
+            }
+            if let data = try? JSONEncoder().encode(songs) { defaults.set(data, forKey: keys.0) }
+            defaults.set(index, forKey: keys.1)
+            defaults.set(shuffle, forKey: keys.2)
+            defaults.set(repeatOn, forKey: keys.3)
         }
-        if let data = try? JSONEncoder().encode(queueSongs) {
-            UserDefaults.standard.set(data, forKey: Self.queueKey)
-        }
-        UserDefaults.standard.set(queueIndex, forKey: Self.queueIndexKey)
-        UserDefaults.standard.set(isShuffleOn, forKey: Self.shuffleKey)
-        UserDefaults.standard.set(isRepeatOn, forKey: Self.repeatKey)
     }
 
     func setQueue(_ songs: [SongItem], startIndex: Int) {
@@ -564,9 +571,14 @@ final class NowPlaying {
 
     @MainActor
     private func timerTick() {
-        currentTime = PlayerController.shared.currentTime
-        duration = PlayerController.shared.duration
-        PlayerController.shared.updateNowPlayingProgress()
+        // Solo se asigna si cambia: cada asignacion avisa a las vistas que leen estos valores.
+        let position = PlayerController.shared.currentTime
+        if position != currentTime { currentTime = position }
+        let length = PlayerController.shared.duration
+        if length != duration { duration = length }
+        tickCount &+= 1
+        // El sistema extrapola la posicion con la velocidad: basta con avisarle una vez por segundo.
+        PlayerController.shared.updateNowPlayingProgress(publishToSystem: tickCount % 4 == 0)
         SponsorBlockIntegration.shared.tick()
         if let videoId, duration >= 600 || musicVideoType == "MUSIC_VIDEO_TYPE_PODCAST_EPISODE" {
             let vid = videoId

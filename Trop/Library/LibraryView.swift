@@ -22,7 +22,7 @@ struct LibraryView: View {
     @State private var playlistSongCounts: [String: Int] = [:]
 
     @ObservedObject private var router = AppRouter.shared
-    @ObservedObject private var downloadManager = DownloadManager.shared
+    @State private var downloadCount = DownloadManager.shared.persistedDownloadCount
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
@@ -42,9 +42,9 @@ struct LibraryView: View {
     }
 
     private var downloadsSubtitle: String {
-        downloadManager.persistedDownloadCount == 0
+        downloadCount == 0
             ? "Offline"
-            : CountText.songs(downloadManager.persistedDownloadCount)
+            : CountText.songs(downloadCount)
     }
 
     enum LibraryFilter: String, CaseIterable {
@@ -103,9 +103,17 @@ struct LibraryView: View {
                 await loadContent()
                 await accountState.restoreSession()
                 await accountState.fetchAccountInfo()
+                // Solo si hace tiempo que no se sincroniza (antes se forzaba una sincronizacion completa
+                // cada vez que se entraba en Biblioteca). Para forzarla, tirar de la lista hacia abajo.
                 Task {
-                    await SyncBridge.forceFullSync()
+                    await SyncBridge.checkAndSyncIfStale()
                     await loadContent()
+                }
+            }
+            .task {
+                // Solo el numero de descargas: no se redibuja la Biblioteca con cada progreso.
+                for await count in DownloadManager.shared.$persistedDownloadCount.values {
+                    downloadCount = count
                 }
             }
             .task(id: isLoading) {

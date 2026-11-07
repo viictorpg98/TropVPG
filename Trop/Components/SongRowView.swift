@@ -40,6 +40,25 @@ struct SongRowView: View {
     @State private var durations = DurationResolver()
     @State private var showSongMenu = false
     @State private var fetchedViews: Int64?
+    /// Estado de descarga de ESTA cancion; solo cambia cuando cambia el de esta cancion.
+    @State private var downloadState: DownloadManager.DownloadState
+
+    init(
+        song: SongItem,
+        artSize: CGFloat = DesignTokens.thumbSmall,
+        artRadius: CGFloat = DesignTokens.thumbRadius,
+        onTap: @escaping () -> Void,
+        onNavigate: ((DetailRoute) -> Void)? = nil,
+        detailed: Bool = false
+    ) {
+        self.song = song
+        self.artSize = artSize
+        self.artRadius = artRadius
+        self.onTap = onTap
+        self.onNavigate = onNavigate
+        self.detailed = detailed
+        _downloadState = State(initialValue: DownloadManager.shared.state(for: song.videoId))
+    }
 
     private var subtitleText: String {
         let duration = durations.effectiveDuration(known: song.duration)
@@ -67,7 +86,9 @@ struct SongRowView: View {
 
                 HStack(spacing: 5) {
                     if detailed {
-                        DownloadedBadge(videoId: song.videoId)
+                        if case .completed = downloadState {
+                            DownloadedBadge()
+                        }
                         if song.isExplicit {
                             ExplicitBadge()
                         }
@@ -93,7 +114,7 @@ struct SongRowView: View {
                 )
             }
         }
-        .background(DownloadCellProgressView(song: song))
+        .background(DownloadCellProgressView(state: downloadState))
         .padding(.horizontal, detailed ? 0 : DesignTokens.screenHPadding)
         .padding(.vertical, DesignTokens.rowVPadding)
         .pressable(onTap: onTap, onLongPress: { showSongMenu = true })
@@ -101,6 +122,11 @@ struct SongRowView: View {
         .task(id: song.videoId) {
             guard detailed, song.viewCount == nil else { return }
             fetchedViews = await ViewCountStore.shared.views(for: song.videoId)
+        }
+        .task(id: song.videoId) {
+            for await state in DownloadManager.shared.statePublisher(for: song.videoId).values {
+                downloadState = state
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .durationDidUpdate)) { notification in
             durations.handleUpdate(notification, videoId: song.videoId)
@@ -110,15 +136,10 @@ struct SongRowView: View {
 
 /// Icono de "descargada" junto al subtitulo de una fila.
 struct DownloadedBadge: View {
-    let videoId: String
-    @ObservedObject private var downloadManager = DownloadManager.shared
-
     var body: some View {
-        if case .completed = downloadManager.state(for: videoId) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-        }
+        Image(systemName: "checkmark.circle.fill")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
     }
 }
 
@@ -136,12 +157,10 @@ struct ExplicitBadge: View {
 
 /// Full-cell progress background shown while a song is downloading.
 struct DownloadCellProgressView: View {
-    let song: SongItem
-    @ObservedObject private var downloadManager = DownloadManager.shared
+    let state: DownloadManager.DownloadState
 
     var body: some View {
-        let state = downloadManager.state(for: song.videoId)
-        return GeometryReader { geo in
+        GeometryReader { geo in
             if case .downloading(let fraction) = state {
                 Color.accentColor.opacity(0.25)
                     .frame(

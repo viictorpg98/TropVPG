@@ -372,7 +372,7 @@ struct AlbumDetailView: View {
 
     @ViewBuilder
     private func songList(for album: AlbumDetailInfo) -> some View {
-        VStack(spacing: 0) {
+        LazyVStack(spacing: 0) {
             ForEach(Array(album.songs.enumerated()), id: \.offset) { index, song in
                 SongRowView(
                     song: song,

@@ -548,7 +548,7 @@ struct PodcastDetailView: View {
 
     @ViewBuilder
     private func episodeList(for podcast: PodcastDetailInfo) -> some View {
-        VStack(spacing: 0) {
+        LazyVStack(spacing: 0) {
             ForEach(Array(podcast.episodes.enumerated()), id: \.offset) { index, episode in
                 EpisodeRowView(
                     episode: episode,
