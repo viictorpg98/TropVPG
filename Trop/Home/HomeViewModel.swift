@@ -273,7 +273,6 @@ final class HomeViewModel {
         // Como en YouTube Music: al elegir un chip la portada se vacia al momento y se rellena con lo
         // que YouTube devuelve para ese chip (sin las secciones propias de la app).
         isChipLoading = true
-        homeSections = []
         let generation = loadGeneration
         cleanup.chipTask = Task {
             do {

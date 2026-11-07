@@ -41,7 +41,6 @@ struct DownloadSettingsView: View {
                 if settings.offlineMixEnabled {
                     SettingsStepperRow(
                         "Offline Mix Size",
-                        icon: "number",
                         value: mixSizeBinding,
                         in: 10...60,
                         step: 10,
