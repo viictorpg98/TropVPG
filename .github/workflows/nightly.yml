@@ -1,6 +1,9 @@
 name: Compilar IPA
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 concurrency:
