@@ -34,6 +34,9 @@ struct ExploreView: View {
             .navigationDestination(for: MoodItem.self) { mood in
                 MoodDetailView(mood: mood)
             }
+            .navigationDestination(for: ExploreButton.self) { button in
+                ExploreBrowseView(button: button)
+            }
             .onChange(of: pendingRoute) { _, route in
                 if let route {
                     router.explorePath.append(route)
@@ -79,9 +82,17 @@ struct ExploreView: View {
         }
     }
 
+    /// En la portada de Explorar solo van los botones, las tendencias y los videoclips nuevos;
+    /// novedades y animo/generos viven dentro de sus botones.
+    private var mainSections: [ExploreSection] {
+        viewModel.sections.filter { section in
+            section.kind != .moods && section.title.lowercased() != "new albums & singles"
+        }
+    }
+
     private var sectionsList: some View {
         ScrollView {
-            ExploreSectionsList(sections: viewModel.sections, pendingRoute: $pendingRoute)
+            ExploreSectionsList(sections: mainSections, pendingRoute: $pendingRoute)
                 .padding(.bottom, 16)
         }
         .scrollIndicators(.automatic)
@@ -109,6 +120,8 @@ struct ExploreSectionsList: View {
                     cardsCarousel(section)
                 case .moods:
                     moodsGrid(section)
+                case .buttons:
+                    buttonsRow(section)
                 }
             }
         }
@@ -124,24 +137,46 @@ struct ExploreSectionsList: View {
 
     /// Song rows in a 4-row grid scrolling horizontally.
     private func songGrid(_ section: ExploreSection) -> some View {
-        HorizontalSection(title: section.title) {
-            LazyHGrid(
-                rows: [
-                    GridItem(.flexible(), spacing: 0),
-                    GridItem(.flexible(), spacing: 0),
-                    GridItem(.flexible(), spacing: 0),
-                    GridItem(.flexible(), spacing: 0)
-                ],
-                spacing: 12
-            ) {
+        HorizontalSection(title: section.title, snapsToColumns: true) {
+            SongColumnsGrid {
                 ForEach(section.items, id: \.id) { item in
                     YouTubeListItemView(item: item, onTap: {
                         openItem(item)
-                    }, onNavigate: { pendingRoute.wrappedValue = $0 })
-                    .frame(width: 320, alignment: .leading)
+                    }, onNavigate: { pendingRoute.wrappedValue = $0 }, detailed: true)
+                    .containerRelativeFrame(.horizontal) { width, _ in width - 40 }
                 }
             }
         }
+    }
+
+    // MARK: - Botones superiores
+
+    private func buttonsRow(_ section: ExploreSection) -> some View {
+        HStack(spacing: 10) {
+            ForEach(section.buttons) { button in
+                NavigationLink(value: button) {
+                    VStack(spacing: 6) {
+                        Image(systemName: button.symbol)
+                            .font(.title3)
+                        Text(LocalizedStringKey(button.title))
+                            .font(.footnote)
+                            .fontWeight(.semibold)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.center)
+                    }
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, minHeight: 72)
+                    .padding(.horizontal, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(.systemGray5).opacity(0.6))
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
     }
 
     // MARK: - Cards carousel
@@ -198,6 +233,49 @@ struct ExploreSectionsList: View {
             playSong: { PlaybackQueue.playSingleWithRadio($0, log: Log.explore) },
             appendRoute: { router.explorePath.append($0) }
         )
+    }
+}
+
+// MARK: - Pagina de un boton superior
+
+private struct ExploreBrowseView: View {
+    let button: ExploreButton
+
+    @State private var sections: [ExploreSection]?
+    @State private var pendingRoute: DetailRoute?
+
+    var body: some View {
+        Group {
+            if let sections {
+                if sections.isEmpty {
+                    ContentUnavailableView(
+                        "Nothing here",
+                        systemImage: "square.grid.2x2",
+                        description: Text("Try again later.")
+                    )
+                } else {
+                    ScrollView {
+                        ExploreSectionsList(sections: sections, pendingRoute: $pendingRoute)
+                            .padding(.bottom, 16)
+                    }
+                    .scrollIndicators(.automatic)
+                    .miniPlayerTracksScroll()
+                }
+            } else {
+                MoodDetailSkeletonView()
+            }
+        }
+        .navigationTitle(LocalizedStringKey(button.title))
+        .navigationBarTitleDisplayMode(.large)
+        .onChange(of: pendingRoute) { _, route in
+            if let route {
+                AppRouter.shared.explorePath.append(route)
+                pendingRoute = nil
+            }
+        }
+        .task {
+            sections = await ExploreViewModel.loadBrowseDetail(browseId: button.browseId, params: button.params)
+        }
     }
 }
 

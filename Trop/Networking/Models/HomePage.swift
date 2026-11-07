@@ -38,6 +38,8 @@ struct ExploreSection: Identifiable {
         case cards
         /// Mood & genre tiles (title + browse params, no artwork).
         case moods
+        /// Fila de botones que abren otra pagina (Novedades, Listas de exitos, Animo y generos).
+        case buttons
     }
 
     let id = UUID()
@@ -45,6 +47,24 @@ struct ExploreSection: Identifiable {
     var kind: Kind
     var items: [YTItem]
     var moods: [MoodItem]
+    var buttons: [ExploreButton] = []
+}
+
+/// Boton de la parte alta de Explorar: abre una pagina completa (`browseId`).
+struct ExploreButton: Identifiable, Hashable {
+    let id = UUID()
+    var title: String
+    var browseId: String
+    var params: String?
+
+    var symbol: String {
+        switch browseId {
+        case "FEmusic_new_releases": return "sparkles"
+        case "FEmusic_charts": return "chart.line.uptrend.xyaxis"
+        case "FEmusic_moods_and_genres": return "face.smiling"
+        default: return "music.note"
+        }
+    }
 }
 
 /// Mood/genre shortcut: drills into `FEmusic_moods_and_genres_category`.

@@ -176,6 +176,19 @@ extension HomePageParser {
         }
         if let grid = sectionDict["gridRenderer"] as? [String: Any] {
             let rawItems = grid["items"] as? [[String: Any]] ?? []
+            let navButtons = rawItems.filter { $0["musicNavigationButtonRenderer"] != nil }
+            if !navButtons.isEmpty {
+                let buttons = navButtons.compactMap(parseExploreButton)
+                if buttons.count == navButtons.count {
+                    return ExploreSection(title: "", kind: .buttons, items: [], moods: [], buttons: buttons)
+                }
+                let gridMoods = navButtons
+                    .compactMap { parseMood(from: $0, sectionIndex: index) }
+                    .filter { $0.params != nil }
+                if !gridMoods.isEmpty {
+                    return ExploreSection(title: gridTitle(grid) ?? "Moods & genres", kind: .moods, items: [], moods: gridMoods)
+                }
+            }
             let items = parseItems(from: rawItems)
             Log.explore.debug(
                 "Explore section[\(index)] grid keys=\(grid.keys.sorted()) items=\(items.count) " +
@@ -185,6 +198,23 @@ extension HomePageParser {
             return ExploreSection(title: "More", kind: .cards, items: items, moods: [])
         }
         return nil
+    }
+
+    /// Boton de navegacion de la parte alta de Explorar (Novedades, Listas de exitos...).
+    private static func parseExploreButton(_ item: [String: Any]) -> ExploreButton? {
+        guard let button = item["musicNavigationButtonRenderer"] as? [String: Any],
+              let title = InnerTubeJSON.runsText(button["buttonText"] as? [String: Any]),
+              let command = button["clickCommand"] as? [String: Any],
+              let browse = command["browseEndpoint"] as? [String: Any],
+              let browseId = browse["browseId"] as? String,
+              browseId != moodsCategoryBrowseId else { return nil }
+        return ExploreButton(title: title, browseId: browseId, params: browse["params"] as? String)
+    }
+
+    private static func gridTitle(_ grid: [String: Any]) -> String? {
+        guard let header = grid["header"] as? [String: Any],
+              let gridHeader = header["gridHeaderRenderer"] as? [String: Any] else { return nil }
+        return InnerTubeJSON.runsText(gridHeader["title"] as? [String: Any])
     }
 
     private static func parseExploreCarousel(

@@ -87,6 +87,18 @@ final class ExploreViewModel {
         sections[index].kind = .rows
     }
 
+    // MARK: - Paginas de los botones (Novedades, Listas de exitos, Animo y generos)
+
+    static func loadBrowseDetail(browseId: String, params: String?) async -> [ExploreSection] {
+        do {
+            let json = try await InnerTubeClient.tropShared.browse(browseId: browseId, params: params)
+            return HomePageParser.parseExploreSections(from: json)
+        } catch {
+            Log.explore.error("Explore page \(browseId) failed: \(error)")
+            return []
+        }
+    }
+
     // MARK: - Moods
 
     /// Full category page (songs, playlists, videos, albums shelves).

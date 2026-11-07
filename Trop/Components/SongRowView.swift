@@ -34,9 +34,22 @@ struct SongRowView: View {
     var artRadius: CGFloat = DesignTokens.thumbRadius
     var onTap: () -> Void
     var onNavigate: ((DetailRoute) -> Void)?
+    /// Fila ancha: anade reproducciones y la marca de descargada.
+    var detailed: Bool = false
 
     @State private var durations = DurationResolver()
     @State private var showSongMenu = false
+
+    private var subtitleText: String {
+        let duration = durations.effectiveDuration(known: song.duration)
+        guard detailed else { return song.subtitleLine(duration: duration) }
+        var parts: [String] = []
+        if !song.artistNamesDisplay.isEmpty { parts.append(song.artistNamesDisplay) }
+        if let views = song.viewCount, views > 0 { parts.append(CountText.plays(views)) }
+        let length = duration.formattedDuration
+        if !length.isEmpty { parts.append(length) }
+        return parts.joined(separator: " • ")
+    }
 
     var body: some View {
         HStack(spacing: DesignTokens.rowSpacing) {
@@ -51,10 +64,15 @@ struct SongRowView: View {
                     .foregroundColor(.primary)
                     .lineLimit(1)
 
-                Text(song.subtitleLine(duration: durations.effectiveDuration(known: song.duration)))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
+                HStack(spacing: 4) {
+                    if detailed {
+                        DownloadedBadge(videoId: song.videoId)
+                    }
+                    Text(subtitleText)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
             }
 
             Spacer()
@@ -79,6 +97,20 @@ struct SongRowView: View {
         .task { await durations.resolve(videoId: song.videoId, knownDuration: song.duration) }
         .onReceive(NotificationCenter.default.publisher(for: .durationDidUpdate)) { notification in
             durations.handleUpdate(notification, videoId: song.videoId)
+        }
+    }
+}
+
+/// Icono de "descargada" junto al subtitulo de una fila.
+struct DownloadedBadge: View {
+    let videoId: String
+    @ObservedObject private var downloadManager = DownloadManager.shared
+
+    var body: some View {
+        if case .completed = downloadManager.state(for: videoId) {
+            Image(systemName: "arrow.down.circle.fill")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
     }
 }

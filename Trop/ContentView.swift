@@ -63,8 +63,14 @@ struct ContentView: View {
             }
             .environment(scrollState)
         .onAppear { AppRouter.shared.selectedTabIndex = selectedTab }
-        .onChange(of: selectedTab) { _, newValue in
+        .onChange(of: selectedTab) { oldValue, newValue in
             AppRouter.shared.selectedTabIndex = newValue
+            if newValue == 3 { AppRouter.shared.previousTabIndex = oldValue }
+        }
+        .onReceive(AppRouter.shared.$tabRequest) { request in
+            guard let request else { return }
+            selectedTab = request
+            AppRouter.shared.tabRequest = nil
         }
         .onReceive(AppRouter.shared.$activeRoute) { route in
             // A detail page was opened from an overlay: collapse the player so

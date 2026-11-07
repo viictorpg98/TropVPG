@@ -157,16 +157,16 @@ struct HomeScreenView: View {
         if combinedQueue.isEmpty {
             EmptyView()
         } else {
-            HorizontalSection(title: section.displayTitle, vSpacing: 8, contentVerticalPadding: 0) {
-                LazyHGrid(rows: Array(repeating: GridItem(.fixed(60)), count: 4), spacing: 12) {
+            HorizontalSection(title: section.displayTitle, vSpacing: 8, contentVerticalPadding: 0, snapsToColumns: true) {
+                SongColumnsGrid {
                     ForEach(speedDialEntries, id: \.videoId) { entry in
                         let song = entry.toSongItem()
                         YouTubeListItemView(
                             item: .song(song),
                             onTap: { handleSongTap(song, in: combinedQueue) },
-                            onNavigate: { pendingRoute = $0 }
+                            onNavigate: { pendingRoute = $0 }, detailed: true
                         )
-                        .frame(width: 280)
+                        .containerRelativeFrame(.horizontal) { width, _ in width - 40 }
                         .overlay(alignment: .topTrailing) {
                             Image(systemName: "pin.fill")
                                 .font(.system(size: 9, weight: .bold))
@@ -191,12 +191,12 @@ struct HomeScreenView: View {
                             YouTubeListItemView(
                                 item: item,
                                 onTap: { handleSongTap(s, in: combinedQueue) },
-                                onNavigate: { pendingRoute = $0 }
+                                onNavigate: { pendingRoute = $0 }, detailed: true
                             )
-                                .frame(width: 280)
+                                .containerRelativeFrame(.horizontal) { width, _ in width - 40 }
                         } else {
-                            YouTubeListItemView(item: item, onTap: { handleItemTap(item) }, onNavigate: { pendingRoute = $0 })
-                                .frame(width: 280)
+                            YouTubeListItemView(item: item, onTap: { handleItemTap(item) }, onNavigate: { pendingRoute = $0 }, detailed: true)
+                                .containerRelativeFrame(.horizontal) { width, _ in width - 40 }
                         }
                     }
                 }
@@ -251,16 +251,16 @@ struct HomeScreenView: View {
 
     private func songsSection(_ section: HomeSection) -> some View {
         let queue = section.items.compactMap { if case .song(let s) = $0 { return s } else { return nil } }
-        return HorizontalSection(title: section.displayTitle, vSpacing: 8, contentVerticalPadding: 0) {
-            LazyHGrid(rows: Array(repeating: GridItem(.fixed(60)), count: 4), spacing: 12) {
+        return HorizontalSection(title: section.displayTitle, vSpacing: 8, contentVerticalPadding: 0, snapsToColumns: true) {
+            SongColumnsGrid {
                 ForEach(section.items.indices, id: \.self) { i in
                     let item = section.items[i]
                     if case .song(let s) = item {
-                        YouTubeListItemView(item: item, onTap: { handleSongTap(s, in: queue) }, onNavigate: { pendingRoute = $0 })
-                            .frame(width: 280)
+                        YouTubeListItemView(item: item, onTap: { handleSongTap(s, in: queue) }, onNavigate: { pendingRoute = $0 }, detailed: true)
+                            .containerRelativeFrame(.horizontal) { width, _ in width - 40 }
                     } else {
-                        YouTubeListItemView(item: item, onTap: { handleItemTap(item) }, onNavigate: { pendingRoute = $0 })
-                            .frame(width: 280)
+                        YouTubeListItemView(item: item, onTap: { handleItemTap(item) }, onNavigate: { pendingRoute = $0 }, detailed: true)
+                            .containerRelativeFrame(.horizontal) { width, _ in width - 40 }
                     }
                 }
             }
@@ -291,7 +291,7 @@ struct HomeScreenView: View {
 
     private func handleSongTap(_ song: SongItem, in queue: [SongItem]) {
         Log.homeScreenView.debug("Tapped song in queue: \(song.title) queueCount=\(queue.count)")
-        PlaybackQueue.play(song, in: queue, log: Log.homeScreenView, context: "Tapped song")
+        PlaybackQueue.playSingleWithRadio(song, log: Log.homeScreenView)
     }
 
     private func handleItemTap(_ item: YTItem) {

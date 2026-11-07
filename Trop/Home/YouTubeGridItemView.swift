@@ -81,6 +81,7 @@ struct YouTubeListItemView: View {
     var item: YTItem
     var onTap: () -> Void
     var onNavigate: ((DetailRoute) -> Void)?
+    var detailed: Bool = false
 
     private var songItem: SongItem? {
         switch item {
@@ -96,7 +97,8 @@ struct YouTubeListItemView: View {
                 song: song,
                 artSize: 48,
                 onTap: onTap,
-                onNavigate: onNavigate
+                onNavigate: onNavigate,
+                detailed: detailed
             )
         } else {
             HStack(spacing: 12) {

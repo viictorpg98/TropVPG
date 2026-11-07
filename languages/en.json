@@ -449,5 +449,14 @@
   "%lld offline tracks": "%lld offline tracks",
   "Trending 20 %@": "Trending 20 %@",
   "Daily Top Music Videos - %@": "Daily Top Music Videos - %@",
-  "Top 100 Music Videos %@": "Top 100 Music Videos %@"
+  "Top 100 Music Videos %@": "Top 100 Music Videos %@",
+  "Charts": "Charts",
+  "Albums & singles": "Albums & singles",
+  "Video charts": "Video charts",
+  "Top artists": "Top artists",
+  "For you": "For you",
+  "Moods & moments": "Moods & moments",
+  "Genres": "Genres",
+  "%@ plays": "%@ plays",
+  "Back": "Back"
 }

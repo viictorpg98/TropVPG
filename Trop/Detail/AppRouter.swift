@@ -21,6 +21,15 @@ final class AppRouter: ObservableObject {
     @Published var searchPath = NavigationPath()
     @Published var selectedTabIndex = 0
 
+    /// Pestana a la que debe cambiar ContentView (la consume y vuelve a nil).
+    @Published var tabRequest: Int?
+    var previousTabIndex = 0
+
+    /// Salir de Buscar hacia la pestana anterior (el teclado tapa la barra inferior).
+    func leaveSearch() {
+        tabRequest = previousTabIndex == 3 ? 0 : previousTabIndex
+    }
+
     /// Last route opened from an overlay; ContentView listens to collapse the player.
     @Published private(set) var activeRoute: DetailRoute?
 

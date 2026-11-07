@@ -20,6 +20,12 @@ enum CountText {
         format(count == 1 ? "%lld offline track" : "%lld offline tracks", count)
     }
 
+    /// "8,3 M reproducciones"
+    static func plays(_ count: Int64) -> String {
+        let compact = Double(count).formatted(.number.notation(.compactName).precision(.fractionLength(0...1)))
+        return String(format: NSLocalizedString("%@ plays", comment: "View count"), compact)
+    }
+
     private static func format(_ key: String, _ count: Int) -> String {
         String(format: NSLocalizedString(key, comment: "Count label"), count)
     }

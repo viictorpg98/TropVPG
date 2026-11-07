@@ -449,5 +449,14 @@
   "%lld offline tracks": "%lld canciones sin conexión",
   "Trending 20 %@": "Tendencias 20 %@",
   "Daily Top Music Videos - %@": "Videoclips más populares del día - %@",
-  "Top 100 Music Videos %@": "Top 100 videoclips %@"
+  "Top 100 Music Videos %@": "Top 100 videoclips %@",
+  "Charts": "Listas de éxitos",
+  "Albums & singles": "Álbumes y sencillos",
+  "Video charts": "Listas de vídeos",
+  "Top artists": "Artistas más escuchados",
+  "For you": "Para ti",
+  "Moods & moments": "Estados de ánimo y momentos",
+  "Genres": "Géneros",
+  "%@ plays": "%@ reproducciones",
+  "Back": "Atrás"
 }

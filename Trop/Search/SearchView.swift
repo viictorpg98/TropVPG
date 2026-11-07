@@ -53,6 +53,18 @@ struct SearchView: View {
     /// Search field + sort menu pinned above the filter chips.
     private var searchTopBar: some View {
         HStack(spacing: 10) {
+            Button {
+                fieldFocused = false
+                router.leaveSearch()
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(Color(.systemGray5).opacity(0.6)))
+            }
+            .accessibilityLabel("Back")
+
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
