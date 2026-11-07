@@ -21,6 +21,7 @@ struct LibraryView: View {
     @State private var showCreateDialog = false
     @State private var playlistToDelete: PlaylistEntity?
     @State private var playlistSongCounts: [String: Int] = [:]
+    @State private var autoMenu: AutoPlaylistInfo?
 
     @ObservedObject private var router = AppRouter.shared
     @State private var downloadCount = DownloadManager.shared.persistedDownloadCount
@@ -192,17 +193,11 @@ struct LibraryView: View {
     private var playlistsSection: some View {
         librarySection(title: "Playlists", count: playlists.count) {
             ForEach(autoPlaylists) { info in
-                if let detailRoute = info.detailRoute {
-                    NavigationLink(value: detailRoute) {
-                        autoPlaylistCell(info: info)
-                    }
-                    .buttonStyle(PressableButtonStyle())
-                } else if let route = info.route {
-                    NavigationLink(value: DetailRoute.autoPlaylist(route)) {
-                        autoPlaylistCell(info: info)
-                    }
-                    .buttonStyle(PressableButtonStyle())
-                }
+                autoPlaylistCell(info: info)
+                    .pressable(
+                        onTap: { openAutoPlaylist(info) },
+                        onLongPress: { autoMenu = info }
+                    )
             }
 
             ForEach(playlists, id: \.id) { playlist in
@@ -218,6 +213,17 @@ struct LibraryView: View {
                     onDelete: playlist.isEditable ? { playlistToDelete = playlist } : nil
                 )
             }
+        }
+        .sheet(item: $autoMenu) { info in
+            AutoPlaylistMenuSheet(info: info)
+        }
+    }
+
+    private func openAutoPlaylist(_ info: AutoPlaylistInfo) {
+        if let detailRoute = info.detailRoute {
+            router.libraryPath.append(detailRoute)
+        } else if let route = info.route {
+            router.libraryPath.append(DetailRoute.autoPlaylist(route))
         }
     }
 
