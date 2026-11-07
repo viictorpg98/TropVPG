@@ -87,19 +87,52 @@ enum SonarMix {
             return true
         }
 
-        // 2) y 3) Con red.
+        // 2) Con red y con limite de tiempo: solo la primera pagina del inicio (una peticion), que ya
+        // trae canciones tuyas ("Volver a escuchar"...). Buscar "Mezclado para ti" exige varias
+        // peticiones mas, asi que eso se hace despues, en segundo plano.
         await prepareSession()
         trace("sesion preparada")
-        if let sections = await loadHomeSections() {
-            if let songs = await mixedForYouSongs(in: sections) {
-                saveCache(songs)
-                if await play(songs.shuffled(), context: "mixed for you") { return true }
+        let sections = await withTimeout(seconds: 10) { await loadHomeSections(deep: false) }
+        trace(sections.map { "inicio cargado: \($0.count) secciones" } ?? "inicio: sin respuesta a tiempo")
+        if let sections {
+            let songs = homeSongs(in: sections)
+            // Se guarda ya, para que la proxima vez arranque al instante desde la mezcla guardada.
+            if songs.count >= 3 { saveCache(songs) }
+            let started: Bool
+            if songs.count >= 3 {
+                started = await play(Array(songs.shuffled().prefix(40)), context: "canciones del inicio")
+            } else {
+                started = await playRadioOfAnySong(in: sections)
             }
-            if await playRadioOfAnySong(in: sections) { return true }
+            if started {
+                Task {
+                    await refreshCache()
+                    trace("mezcla refrescada (en segundo plano)")
+                }
+                return true
+            }
         }
 
-        // 4) Sin red.
+        // 3) Sin red o sin respuesta: canciones que te gustan, guardadas en el dispositivo.
         return await playLikedSongs()
+    }
+
+    /// Espera el resultado de `work`, pero como mucho `seconds`; pasado ese tiempo devuelve `nil`
+    /// (el trabajo sigue en segundo plano, pero ya no se espera).
+    private static func withTimeout<T>(seconds: Double, _ work: @escaping () async -> T?) async -> T? {
+        await withCheckedContinuation { (continuation: CheckedContinuation<T?, Never>) in
+            var finished = false
+            let finish: (T?) -> Void = { value in
+                guard !finished else { return }
+                finished = true
+                continuation.resume(returning: value)
+            }
+            Task { @MainActor in finish(await work()) }
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                finish(nil)
+            }
+        }
     }
 
     // MARK: - Descargadas y calentamiento
@@ -144,11 +177,16 @@ enum SonarMix {
 
     /// Las secciones del inicio de YouTube Music (la primera pagina y, si hace falta, las siguientes,
     /// porque "Mezclado para ti" suele venir mas abajo).
-    private static func loadHomeSections() async -> [HomePage.Section]? {
+    /// Con `deep: false` solo la primera pagina (una peticion).
+    private static func loadHomeSections(deep: Bool = true) async -> [HomePage.Section]? {
         guard let json = try? await InnerTubeClient.tropShared.browse(browseId: "FEmusic_home"),
-              let page = HomePageParser.parseHomePage(from: json) else { return nil }
+              let page = HomePageParser.parseHomePage(from: json) else {
+            trace("inicio: la peticion fallo")
+            return nil
+        }
 
         var sections = page.sections
+        guard deep else { return sections }
         var continuation = page.continuation
         var attempts = 0
         while attempts < 4, mixedForYou(in: sections) == nil, let token = continuation {
@@ -187,20 +225,38 @@ enum SonarMix {
     /// Vuelve a pedir la mezcla y la guarda, para que la proxima vez arranque al instante.
     private static func refreshCache() async {
         await prepareSession()
-        guard let sections = await loadHomeSections(),
-              let songs = await mixedForYouSongs(in: sections) else { return }
-        saveCache(songs)
+        guard let sections = await loadHomeSections() else { return }
+        if let songs = await mixedForYouSongs(in: sections) {
+            saveCache(songs)
+            trace("mezcla guardada: Mezclado para ti (\(songs.count))")
+            return
+        }
+        // Sin "Mezclado para ti": al menos algo guardado, pero sin pisar una mezcla mejor.
+        let songs = homeSongs(in: sections)
+        if cachedMix() == nil, songs.count >= 3 {
+            saveCache(songs)
+            trace("mezcla guardada: canciones del inicio (\(songs.count))")
+        } else {
+            trace("no se encontro Mezclado para ti")
+        }
     }
 
-    // MARK: - Radio de una cancion del inicio
+    // MARK: - Canciones del inicio
 
-    private static func playRadioOfAnySong(in sections: [HomePage.Section]) async -> Bool {
+    /// Todas las canciones sueltas que aparecen en el inicio, sin repetir.
+    private static func homeSongs(in sections: [HomePage.Section]) -> [SongItem] {
+        var seen = Set<String>()
         var songs: [SongItem] = []
         for section in sections {
             for item in section.items {
-                if case .song(let song) = item { songs.append(song) }
+                if case .song(let song) = item, seen.insert(song.videoId).inserted { songs.append(song) }
             }
         }
+        return songs
+    }
+
+    private static func playRadioOfAnySong(in sections: [HomePage.Section]) async -> Bool {
+        let songs = homeSongs(in: sections)
         guard let pick = songs.randomElement(),
               await play([pick], context: "radio seed") else { return false }
         PlaybackQueue.startRadio(for: pick)
