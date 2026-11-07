@@ -50,6 +50,12 @@ final class DownloadManager: ObservableObject {
     private var activeFFmpegSessions: [String: FFmpegSession] = [:]
     private var activeSlots = 0
     private var slotWaiters: [CheckedContinuation<Void, Never>] = []
+    /// Descargas en cola o en curso, guardadas en disco: si la app se cierra a medias, al abrirla se retoman.
+    private static let pendingKey = "downloads.pendingQueue"
+    private var pendingSongs: [String: SongItem] = [:]
+    private var pendingOrder: [String] = []
+    private var pendingSaveTask: Task<Void, Never>?
+    private var didResumePending = false
 
     private var tracksById: [String: DownloadedTrackEntity] = [:]
 
@@ -225,6 +231,7 @@ final class DownloadManager: ObservableObject {
 
         apply(rebuilt)
         isLoaded = true
+        resumePendingDownloads()
     }
 
     func reconcileDownloadedFiles() async {
@@ -320,6 +327,8 @@ extension DownloadManager {
         cancelledDownloadIds.remove(videoId)
         lastReportedProgress.removeValue(forKey: videoId)
         downloads[videoId] = .downloading(0)
+        addPending(song)
+        defer { removePending(videoId) }
         await acquireDownloadSlot()
         defer { releaseDownloadSlot() }
         if cancelledDownloadIds.contains(videoId) {
@@ -467,6 +476,57 @@ extension DownloadManager {
             downloads[videoId] = .failed(userFacingDownloadError(error))
             lastReportedProgress.removeValue(forKey: videoId)
             Log.downloadManager.error("Failed download \(videoId): \(error.localizedDescription)")
+        }
+    }
+
+    private func addPending(_ song: SongItem) {
+        if pendingSongs[song.videoId] == nil { pendingOrder.append(song.videoId) }
+        pendingSongs[song.videoId] = song
+        schedulePendingSave()
+    }
+
+    private func removePending(_ videoId: String) {
+        guard pendingSongs.removeValue(forKey: videoId) != nil else { return }
+        pendingOrder.removeAll { $0 == videoId }
+        schedulePendingSave()
+    }
+
+    /// Guarda la cola un segundo despues del ultimo cambio (una sola escritura por rafaga).
+    private func schedulePendingSave() {
+        pendingSaveTask?.cancel()
+        let songs = pendingOrder.compactMap { pendingSongs[$0] }
+        pendingSaveTask = Task {
+            try? await Task.sleep(for: .seconds(1))
+            guard !Task.isCancelled else { return }
+            if songs.isEmpty {
+                UserDefaults.standard.removeObject(forKey: Self.pendingKey)
+            } else if let data = try? JSONEncoder().encode(songs) {
+                UserDefaults.standard.set(data, forKey: Self.pendingKey)
+            }
+        }
+    }
+
+    /// Retoma las descargas que se quedaron en cola cuando se cerro la app (una vez por arranque).
+    func resumePendingDownloads() {
+        guard !didResumePending else { return }
+        didResumePending = true
+        guard let data = UserDefaults.standard.data(forKey: Self.pendingKey),
+              let stored = try? JSONDecoder().decode([SongItem].self, from: data) else { return }
+        let remaining = stored.filter { tracksById[$0.videoId] == nil }
+        guard !remaining.isEmpty else {
+            UserDefaults.standard.removeObject(forKey: Self.pendingKey)
+            return
+        }
+        // Primero en memoria, para que el guardado no pierda ninguna mientras se van lanzando.
+        for song in remaining where pendingSongs[song.videoId] == nil {
+            pendingSongs[song.videoId] = song
+            pendingOrder.append(song.videoId)
+        }
+        // Con "solo Wi-Fi" y sin Wi-Fi se conservan para el proximo arranque.
+        if SettingsStore.shared.wifiOnlyDownloads, !isOnWiFi { return }
+        Log.downloadManager.notice("Resuming \(remaining.count) queued downloads")
+        for song in remaining {
+            Task { await download(song: song) }
         }
     }
 
@@ -738,6 +798,9 @@ extension DownloadManager {
 
     func deleteAll() async {
         cancelAllActiveDownloads()
+        pendingSongs.removeAll()
+        pendingOrder.removeAll()
+        schedulePendingSave()
 
         // Remove files directly so orphaned downloads are cleaned too.
         for url in scanDownloadedFiles().values {

@@ -11,6 +11,8 @@ import SwiftUI
 struct CollectionMenuSheet: View {
     let item: YTItem
     var onNavigate: ((DetailRoute) -> Void)?
+    /// Solo para listas propias (desde la Biblioteca): anade la opcion de borrarla.
+    var onDelete: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.settingsStore) private var settings
@@ -189,6 +191,14 @@ struct CollectionMenuSheet: View {
                 icon: isSubscribed ? "person.crop.circle.badge.checkmark" : "person.crop.circle.badge.plus",
                 title: isSubscribed ? "Unsubscribe" : "Subscribe"
             ) { toggleSubscribe(a) }
+        case .playlist:
+            if let onDelete {
+                Divider()
+                MenuRow(icon: "trash", title: "Delete", destructive: true) {
+                    dismiss()
+                    onDelete()
+                }
+            }
         default:
             EmptyView()
         }

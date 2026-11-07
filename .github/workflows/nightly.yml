@@ -76,6 +76,16 @@ jobs:
               --notes "IPA de la ultima compilacion correcta. Se sustituye en cada ejecucion."
           fi
 
+          # Respaldo: antes de sustituir el IPA, se guarda el anterior como Trop-anterior.ipa.
+          if gh release download nightly --pattern Trop.ipa --output Trop-anterior.ipa --clobber 2>/dev/null; then
+            PREVIOUS_ID="$(gh api "repos/${{ github.repository }}/releases/tags/nightly" \
+              --jq '.assets[] | select(.name == "Trop-anterior.ipa") | .id' || true)"
+            if [ -n "${PREVIOUS_ID:-}" ]; then
+              gh api -X DELETE "repos/${{ github.repository }}/releases/assets/${PREVIOUS_ID}"
+            fi
+            gh release upload nightly Trop-anterior.ipa --clobber
+          fi
+
           # Remove prior Trop.ipa so upload is a clean overwrite.
           EXISTING_ASSET_ID="$(gh api "repos/${{ github.repository }}/releases/tags/nightly" \
             --jq '.assets[] | select(.name == "Trop.ipa") | .id' || true)"

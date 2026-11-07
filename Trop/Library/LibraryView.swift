@@ -206,23 +206,17 @@ struct LibraryView: View {
             }
 
             ForEach(playlists, id: \.id) { playlist in
-                NavigationLink(value: DetailRoute.playlist(playlistId: playlist.id)) {
-                    itemCell(
-                        url: playlist.thumbnailUrl,
-                        title: playlist.name,
-                        subtitle: playlistSongCounts[playlist.id].map { CountText.songs($0) }
-                    )
-                }
-                .buttonStyle(PressableButtonStyle())
-                .contextMenu {
-                    if playlist.isEditable {
-                        Button(role: .destructive) {
-                            playlistToDelete = playlist
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                    }
-                }
+                itemCell(
+                    url: playlist.thumbnailUrl,
+                    title: playlist.name,
+                    subtitle: playlistSongCounts[playlist.id].map { CountText.songs($0) }
+                )
+                .pressableItem(
+                    .playlist(PlaylistItem(entity: playlist)),
+                    onTap: { router.libraryPath.append(DetailRoute.playlist(playlistId: playlist.id)) },
+                    onNavigate: { router.libraryPath.append($0) },
+                    onDelete: playlist.isEditable ? { playlistToDelete = playlist } : nil
+                )
             }
         }
     }
@@ -232,13 +226,15 @@ struct LibraryView: View {
     private var artistsSection: some View {
         librarySection(title: "Artists", count: artists.count) {
             ForEach(artists, id: \.id) { artist in
-                NavigationLink(value: DetailRoute.artist(browseId: artist.id)) {
-                    artistCell(
-                        url: artist.thumbnailUrl,
-                        name: artist.name
-                    )
-                }
-                .buttonStyle(PressableButtonStyle())
+                artistCell(
+                    url: artist.thumbnailUrl,
+                    name: artist.name
+                )
+                .pressableItem(
+                    .artist(ArtistItem(entity: artist)),
+                    onTap: { router.libraryPath.append(DetailRoute.artist(browseId: artist.id)) },
+                    onNavigate: { router.libraryPath.append($0) }
+                )
             }
         }
     }
@@ -248,14 +244,16 @@ struct LibraryView: View {
     private var albumsSection: some View {
         librarySection(title: "Albums", count: albums.count) {
             ForEach(albums, id: \.id) { album in
-                NavigationLink(value: DetailRoute.album(browseId: album.id)) {
-                    itemCell(
-                        url: album.thumbnailUrl,
-                        title: album.title,
-                        subtitle: album.songCount > 0 ? CountText.songs(album.songCount) : nil
-                    )
-                }
-                .buttonStyle(PressableButtonStyle())
+                itemCell(
+                    url: album.thumbnailUrl,
+                    title: album.title,
+                    subtitle: album.songCount > 0 ? CountText.songs(album.songCount) : nil
+                )
+                .pressableItem(
+                    .album(AlbumItem(entity: album)),
+                    onTap: { router.libraryPath.append(DetailRoute.album(browseId: album.id)) },
+                    onNavigate: { router.libraryPath.append($0) }
+                )
             }
         }
     }
@@ -265,14 +263,21 @@ struct LibraryView: View {
     private var podcastsSection: some View {
         librarySection(title: "Podcasts", count: podcasts.count) {
             ForEach(podcasts, id: \.id) { podcast in
-                NavigationLink(value: DetailRoute.podcast(browseId: podcast.id)) {
-                    itemCell(
-                        url: podcast.thumbnailUrl,
+                itemCell(
+                    url: podcast.thumbnailUrl,
+                    title: podcast.name,
+                    subtitle: nil
+                )
+                .pressableItem(
+                    .podcast(PodcastItem(
+                        browseId: podcast.id,
                         title: podcast.name,
-                        subtitle: nil
-                    )
-                }
-                .buttonStyle(PressableButtonStyle())
+                        author: nil,
+                        thumbnailUrl: podcast.thumbnailUrl
+                    )),
+                    onTap: { router.libraryPath.append(DetailRoute.podcast(browseId: podcast.id)) },
+                    onNavigate: { router.libraryPath.append($0) }
+                )
             }
         }
     }

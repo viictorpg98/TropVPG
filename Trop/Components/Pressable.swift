@@ -100,6 +100,7 @@ private struct PressableItemModifier: ViewModifier {
     let item: YTItem
     let onTap: () -> Void
     let onNavigate: ((DetailRoute) -> Void)?
+    var onDelete: (() -> Void)?
 
     @State private var showMenu = false
 
@@ -113,7 +114,7 @@ private struct PressableItemModifier: ViewModifier {
                 case .episode(let episode):
                     SongMenuSheet(song: episode.toSongItem(), onNavigate: { onNavigate?($0) })
                 default:
-                    CollectionMenuSheet(item: item, onNavigate: onNavigate)
+                    CollectionMenuSheet(item: item, onNavigate: onNavigate, onDelete: onDelete)
                 }
             }
     }
@@ -123,9 +124,10 @@ extension View {
     func pressableItem(
         _ item: YTItem,
         onTap: @escaping () -> Void,
-        onNavigate: ((DetailRoute) -> Void)? = nil
+        onNavigate: ((DetailRoute) -> Void)? = nil,
+        onDelete: (() -> Void)? = nil
     ) -> some View {
-        modifier(PressableItemModifier(item: item, onTap: onTap, onNavigate: onNavigate))
+        modifier(PressableItemModifier(item: item, onTap: onTap, onNavigate: onNavigate, onDelete: onDelete))
     }
 
     func pressable(onTap: @escaping () -> Void, onLongPress: (() -> Void)? = nil) -> some View {

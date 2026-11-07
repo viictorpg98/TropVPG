@@ -1,0 +1,41 @@
+name: Marcar version estable
+
+# Se ejecuta a mano (pestana Actions > "Marcar version estable" > Run workflow).
+# Copia el IPA de la ultima compilacion a la release "estable", que NO se sustituye sola.
+# Util cuando una version ya esta probada y funciona bien: asi siempre queda una a la que volver.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  marcar:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Copiar la ultima compilacion a la release estable
+        run: |
+          set -euo pipefail
+
+          gh release download nightly --repo "$REPO" --pattern Trop.ipa --output Trop.ipa --clobber
+          test -s Trop.ipa
+
+          if ! gh release view estable --repo "$REPO" >/dev/null 2>&1; then
+            gh release create estable --repo "$REPO" --prerelease \
+              --title "Version estable" \
+              --notes "Version marcada a mano como estable."
+          fi
+
+          EXISTING_ID="$(gh api "repos/$REPO/releases/tags/estable" \
+            --jq '.assets[] | select(.name == "Trop.ipa") | .id' || true)"
+          if [ -n "${EXISTING_ID:-}" ]; then
+            gh api -X DELETE "repos/$REPO/releases/assets/${EXISTING_ID}"
+          fi
+          gh release upload estable Trop.ipa --repo "$REPO" --clobber
+
+          ORIGIN="$(gh release view nightly --repo "$REPO" --json body --jq .body | head -n 1 | tr -d '\r')"
+          gh release edit estable --repo "$REPO" \
+            --notes "Marcada como estable el $(date -u +%F). Origen: ${ORIGIN}"
