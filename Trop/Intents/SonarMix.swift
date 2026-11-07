@@ -65,12 +65,13 @@ enum SonarMix {
         let downloaded = await downloadedSongs()
         trace("descargadas: \(downloaded.count)")
         if !downloaded.isEmpty {
-            var queue = Array(downloaded.shuffled().prefix(40))
+            var queue = Array(await variedOrder(downloaded).prefix(40))
             if let cached = cachedMix() {
                 let ids = Set(queue.map(\.videoId))
                 queue += cached.shuffled().filter { !ids.contains($0.videoId) }.prefix(30)
             }
             if await play(queue, context: "downloaded first") {
+                if let first = queue.first { rememberStart(first.videoId) }
                 // Mientras suena la descargada se calienta lo necesario para las siguientes.
                 let seed = queue.last?.videoId ?? ""
                 Task {
@@ -144,6 +145,37 @@ enum SonarMix {
 
     private static func downloadedSongs() async -> [SongItem] {
         await DownloadManager.shared.fetchAll().map { SongItem(entity: $0) }
+    }
+
+    private static let recentStartsKey = "sonarMix.recentStarts"
+
+    /// Baraja las descargadas para que no suene siempre lo mismo: las que se han escuchado en los
+    /// ultimos dias van al final, y la primera nunca es una de las ultimas con las que ya se arranco.
+    private static func variedOrder(_ songs: [SongItem]) async -> [SongItem] {
+        let played = await OfflineMix.lastPlayedDates()
+        let recentCut = Date().addingTimeInterval(-3 * 86_400)
+        var fresh: [SongItem] = []
+        var heardRecently: [SongItem] = []
+        for song in songs.shuffled() {
+            if let when = played[song.videoId], when > recentCut {
+                heardRecently.append(song)
+            } else {
+                fresh.append(song)
+            }
+        }
+        var ordered = fresh + heardRecently
+        let recentStarts = Set(UserDefaults.standard.stringArray(forKey: recentStartsKey) ?? [])
+        if let index = ordered.firstIndex(where: { !recentStarts.contains($0.videoId) }), index > 0 {
+            ordered.swapAt(0, index)
+        }
+        return ordered
+    }
+
+    private static func rememberStart(_ videoId: String) {
+        var recent = UserDefaults.standard.stringArray(forKey: recentStartsKey) ?? []
+        recent.removeAll { $0 == videoId }
+        recent.append(videoId)
+        UserDefaults.standard.set(Array(recent.suffix(25)), forKey: recentStartsKey)
     }
 
     /// Arranca el generador de tokens (navegador oculto + BotGuard) para que, cuando haga falta
@@ -254,13 +286,15 @@ enum SonarMix {
     }
 
     /// Vuelve a pedir la mezcla y la guarda, para que la proxima vez arranque al instante.
-    private static func refreshCache() async {
+    /// Devuelve las canciones encontradas (para que la mezcla sin conexion las pueda descargar).
+    @discardableResult
+    static func refreshCache() async -> [SongItem] {
         await prepareSession()
-        guard let sections = await loadHomeSections() else { return }
+        guard let sections = await loadHomeSections() else { return [] }
         if let songs = await mixedForYouSongs(in: sections) {
             saveCache(songs)
             trace("mezcla guardada: Mezclado para ti (\(songs.count))")
-            return
+            return songs
         }
         // Sin "Mezclado para ti": al menos algo guardado, pero sin pisar una mezcla mejor.
         let songs = homeSongs(in: sections)
@@ -270,6 +304,7 @@ enum SonarMix {
         } else {
             trace("no se encontro Mezclado para ti")
         }
+        return songs
     }
 
     // MARK: - Canciones del inicio
@@ -309,7 +344,7 @@ enum SonarMix {
         UserDefaults.standard.set(data, forKey: cacheKey)
     }
 
-    private static func cachedMix() -> [SongItem]? {
+    static func cachedMix() -> [SongItem]? {
         guard let data = UserDefaults.standard.data(forKey: cacheKey),
               let songs = try? JSONDecoder().decode([SongItem].self, from: data),
               songs.count >= 3 else { return nil }

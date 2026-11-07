@@ -161,6 +161,7 @@
 "For you" = "For you";
 "Forgotten Favorites" = "遗忘的收藏";
 "Forgotten favorites" = "Forgotten favorites";
+"Free Up Space Automatically" = "Free Up Space Automatically";
 "Fresh finds, old favorites" = "Fresh finds, old favorites";
 "From the Community" = "来自社区";
 "From the community" = "From the community";
@@ -171,6 +172,7 @@
 "Get new episodes for your library" = "在你的资料库中获取新剧集";
 "Get new episodes in your library" = "在你的资料库中获取新剧集";
 "GitHub" = "GitHub";
+"Go to Downloads" = "Go to Downloads";
 "Guest" = "访客";
 "Hide Explicit Content" = "隐藏成人内容";
 "High" = "高";
@@ -189,7 +191,9 @@
 "July" = "七月";
 "June" = "六月";
 "Keep Listening" = "继续聆听";
+"Keep Mix Offline" = "Keep Mix Offline";
 "Keep listening" = "Keep listening";
+"Keeps some songs from your mix downloaded (only on Wi-Fi) so Play My Music starts instantly, even without a connection. The set rotates: songs you've heard are replaced by new ones." = "Keeps some songs from your mix downloaded (only on Wi-Fi) so Play My Music starts instantly, even without a connection. The set rotates: songs you've heard are replaced by new ones.";
 "Label" = "标签";
 "Last week" = "上周";
 "Last.fm" = "Last.fm";
@@ -279,7 +283,10 @@
 "October" = "十月";
 "Off" = "关闭";
 "Offline" = "Offline";
+"Offline Mix" = "Offline Mix";
+"Offline Mix Size" = "Offline Mix Size";
 "Online" = "在线";
+"Only your downloaded music is available." = "Only your downloaded music is available.";
 "Options" = "选项";
 "Party" = "派对";
 "Percent (30–95)" = "百分比（30–95）";
@@ -464,6 +471,7 @@
 "Waiting for login…" = "等待登录…";
 "Watching" = "观看中";
 "When off, searches and playback are not recorded locally." = "关闭后，搜索和播放记录不会保存在本地。";
+"When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on." = "When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on.";
 "Wi-Fi Only" = "仅 Wi‑Fi";
 "Wider mix around this song" = "围绕此歌曲的更广泛混合";
 "Workout" = "健身";

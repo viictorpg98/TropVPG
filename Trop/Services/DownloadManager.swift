@@ -232,6 +232,8 @@ final class DownloadManager: ObservableObject {
         apply(rebuilt)
         isLoaded = true
         resumePendingDownloads()
+        // Mezcla sin conexion y descargas inteligentes (se limita sola a una pasada cada pocas horas).
+        Task { await OfflineMix.shared.refreshIfNeeded() }
     }
 
     func reconcileDownloadedFiles() async {
@@ -301,8 +303,11 @@ final class DownloadManager: ObservableObject {
 
 extension DownloadManager {
 
-    func download(song: SongItem) async {
+    /// `fromOfflineMix`: la pide la mezcla sin conexion (solo con Wi-Fi y gestionada por ella); una
+    /// descarga normal, pedida por la persona, convierte la cancion en suya y la mezcla ya no la toca.
+    func download(song: SongItem, fromOfflineMix: Bool = false) async {
         let videoId = song.videoId
+        if !fromOfflineMix { OfflineMix.shared.release(videoId) }
         if case .downloading = downloads[videoId] {
             Log.downloadManager.debug("Download already in progress for \(videoId)")
             return
@@ -318,7 +323,7 @@ extension DownloadManager {
             return
         }
 
-        if SettingsStore.shared.wifiOnlyDownloads, !isOnWiFi {
+        if SettingsStore.shared.wifiOnlyDownloads || fromOfflineMix, !isOnWiFi {
             downloads[videoId] = .failed("Wi-Fi Only is enabled and you are not on Wi-Fi.")
             return
         }
@@ -526,7 +531,7 @@ extension DownloadManager {
         if SettingsStore.shared.wifiOnlyDownloads, !isOnWiFi { return }
         Log.downloadManager.notice("Resuming \(remaining.count) queued downloads")
         for song in remaining {
-            Task { await download(song: song) }
+            Task { await download(song: song, fromOfflineMix: OfflineMix.shared.isAuto(song.videoId)) }
         }
     }
 
@@ -863,6 +868,20 @@ extension DownloadManager {
 
     func isDownloaded(videoId: String) -> Bool {
         tracksById[videoId] != nil
+    }
+
+    var isOnWiFiNow: Bool { isOnWiFi }
+
+    /// En cola o descargandose ahora.
+    func isPendingOrActive(_ videoId: String) -> Bool {
+        if pendingSongs[videoId] != nil { return true }
+        if case .downloading = downloads[videoId] { return true }
+        return false
+    }
+
+    func fileSize(for videoId: String) -> Int64 {
+        guard let track = tracksById[videoId], let url = resolvedURL(for: track) else { return 0 }
+        return Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
     }
 
     func fetchAll() async -> [DownloadedTrackEntity] {

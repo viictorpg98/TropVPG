@@ -161,6 +161,7 @@
 "For you" = "For you";
 "Forgotten Favorites" = "Forgotten Favorites";
 "Forgotten favorites" = "Forgotten favorites";
+"Free Up Space Automatically" = "Free Up Space Automatically";
 "Fresh finds, old favorites" = "Fresh finds, old favorites";
 "From the Community" = "From the Community";
 "From the community" = "From the community";
@@ -171,6 +172,7 @@
 "Get new episodes for your library" = "Get new episodes for your library";
 "Get new episodes in your library" = "Get new episodes in your library";
 "GitHub" = "GitHub";
+"Go to Downloads" = "Go to Downloads";
 "Guest" = "Guest";
 "Hide Explicit Content" = "Hide Explicit Content";
 "High" = "High";
@@ -189,7 +191,9 @@
 "July" = "July";
 "June" = "June";
 "Keep Listening" = "Keep Listening";
+"Keep Mix Offline" = "Keep Mix Offline";
 "Keep listening" = "Keep listening";
+"Keeps some songs from your mix downloaded (only on Wi-Fi) so Play My Music starts instantly, even without a connection. The set rotates: songs you've heard are replaced by new ones." = "Keeps some songs from your mix downloaded (only on Wi-Fi) so Play My Music starts instantly, even without a connection. The set rotates: songs you've heard are replaced by new ones.";
 "Label" = "Label";
 "Last week" = "Last week";
 "Last.fm" = "Last.fm";
@@ -279,7 +283,10 @@
 "October" = "October";
 "Off" = "Off";
 "Offline" = "Offline";
+"Offline Mix" = "Offline Mix";
+"Offline Mix Size" = "Offline Mix Size";
 "Online" = "Online";
+"Only your downloaded music is available." = "Only your downloaded music is available.";
 "Options" = "Options";
 "Party" = "Party";
 "Percent (30–95)" = "Percent (30–95)";
@@ -464,6 +471,7 @@
 "Waiting for login…" = "Waiting for login…";
 "Watching" = "Watching";
 "When off, searches and playback are not recorded locally." = "When off, searches and playback are not recorded locally.";
+"When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on." = "When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on.";
 "Wi-Fi Only" = "Wi-Fi Only";
 "Wider mix around this song" = "Wider mix around this song";
 "Workout" = "Workout";

@@ -161,6 +161,7 @@
 "For you" = "Para ti";
 "Forgotten Favorites" = "Favoritas olvidadas";
 "Forgotten favorites" = "Favoritas olvidadas";
+"Free Up Space Automatically" = "Liberar espacio automáticamente";
 "Fresh finds, old favorites" = "Novedades y favoritas de siempre";
 "From the Community" = "De la comunidad";
 "From the community" = "De la comunidad";
@@ -171,6 +172,7 @@
 "Get new episodes for your library" = "Recibe episodios nuevos en tu biblioteca";
 "Get new episodes in your library" = "Recibe episodios nuevos en tu biblioteca";
 "GitHub" = "GitHub";
+"Go to Downloads" = "Ir a Descargas";
 "Guest" = "Invitado";
 "Hide Explicit Content" = "Ocultar contenido explícito";
 "High" = "Alta";
@@ -189,7 +191,9 @@
 "July" = "Julio";
 "June" = "Junio";
 "Keep Listening" = "Sigue escuchando";
+"Keep Mix Offline" = "Mantener la mezcla descargada";
 "Keep listening" = "Sigue escuchando";
+"Keeps some songs from your mix downloaded (only on Wi-Fi) so Play My Music starts instantly, even without a connection. The set rotates: songs you've heard are replaced by new ones." = "Mantiene descargadas algunas canciones de tu mezcla (solo con Wi-Fi) para que «Pon mi música» arranque al instante, incluso sin conexión. El conjunto va rotando: las canciones que ya has escuchado se sustituyen por otras nuevas.";
 "Label" = "Etiqueta";
 "Last week" = "La semana pasada";
 "Last.fm" = "Last.fm";
@@ -279,7 +283,10 @@
 "October" = "Octubre";
 "Off" = "Desactivado";
 "Offline" = "Sin conexión";
+"Offline Mix" = "Mezcla sin conexión";
+"Offline Mix Size" = "Canciones de la mezcla";
 "Online" = "En línea";
+"Only your downloaded music is available." = "Solo está disponible la música descargada.";
 "Options" = "Opciones";
 "Party" = "Fiesta";
 "Percent (30–95)" = "Porcentaje (30–95)";
@@ -464,6 +471,7 @@
 "Waiting for login…" = "Esperando el inicio de sesión…";
 "Watching" = "Viendo";
 "When off, searches and playback are not recorded locally." = "Si está desactivado, las búsquedas y reproducciones no se guardan en el dispositivo.";
+"When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on." = "Cuando queda poco espacio (menos de 3 GB), borra las descargas que llevas 3 meses sin escuchar. Las canciones que te gustan nunca se borran. Necesita tener activado el historial de reproducciones.";
 "Wi-Fi Only" = "Solo Wi-Fi";
 "Wider mix around this song" = "Mezcla más amplia en torno a esta canción";
 "Workout" = "Entrenamiento";

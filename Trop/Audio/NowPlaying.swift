@@ -292,6 +292,7 @@ final class NowPlaying {
         if hasVideo {
             PlayerController.shared.preloadVideoURL()
         }
+        PlayerController.shared.refreshRemoteCommandState()
     }
 
     /// Pre-warms artwork for the previous and upcoming songs so swiping the

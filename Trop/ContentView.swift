@@ -78,8 +78,11 @@ struct ContentView: View {
     /// Barra del mini reproductor: rectangular, a ancho completo y justo encima de la barra de pestanas.
     private func withMiniPlayer<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         content().safeAreaInset(edge: .bottom, spacing: 0) {
-            if nowPlaying.isBarPresented {
-                MiniPlayerBarView(onExpand: expandPlayer)
+            VStack(spacing: 0) {
+                OfflineBanner()
+                if nowPlaying.isBarPresented {
+                    MiniPlayerBarView(onExpand: expandPlayer)
+                }
             }
         }
     }

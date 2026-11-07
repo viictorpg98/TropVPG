@@ -82,6 +82,7 @@ final class PlayerController {
     var pendingResumeAt: TimeInterval = 0
     var nowPlayingInfo = [String: Any]()
     private var pendingSeek: (target: TimeInterval, deadline: Date)?
+    private var remoteStateCancellable: AnyCancellable?
 
     var currentTime: TimeInterval {
         withMpv { mpv in
@@ -995,6 +996,7 @@ extension PlayerController {
 extension PlayerController {
     func setNowPlayingMetadata() {
         assertAudioSession()
+        refreshRemoteCommandState()
         let np = NowPlaying.shared
         nowPlayingInfo.removeAll()
 
@@ -1145,6 +1147,40 @@ extension PlayerController {
             return .success
         }
 
+        // Me gusta desde la pantalla de bloqueo, los auriculares o CarPlay.
+        center.likeCommand.isEnabled = true
+        center.likeCommand.localizedTitle = NSLocalizedString("Like", comment: "")
+        center.likeCommand.addTarget { _ in
+            Task { @MainActor in
+                let np = NowPlaying.shared
+                guard let id = np.videoId,
+                      let song = np.queueSongs.first(where: { $0.videoId == id }) else { return }
+                await LikeStore.shared.toggle(song: song)
+            }
+            return .success
+        }
+
+        // Adelantar y atrasar 15 s: solo se activan con podcasts (ver `refreshRemoteCommandState`).
+        center.skipForwardCommand.preferredIntervals = [15]
+        center.skipBackwardCommand.preferredIntervals = [15]
+        center.skipForwardCommand.isEnabled = false
+        center.skipBackwardCommand.isEnabled = false
+        center.skipForwardCommand.addTarget { [weak self] _ in
+            Task { @MainActor [weak self] in self?.skip(by: 15) }
+            return .success
+        }
+        center.skipBackwardCommand.addTarget { [weak self] _ in
+            Task { @MainActor [weak self] in self?.skip(by: -15) }
+            return .success
+        }
+
+        // El corazon de la pantalla de bloqueo sigue al Me gusta de la app.
+        remoteStateCancellable = LikeStore.shared.$liked
+            .sink { [weak self] _ in
+                // Se publica antes de cambiar el valor: se espera al siguiente turno para leerlo.
+                Task { @MainActor [weak self] in self?.refreshRemoteCommandState() }
+            }
+
         NotificationCenter.default.addObserver(
             forName: UIApplication.didEnterBackgroundNotification,
             object: nil,
@@ -1182,6 +1218,27 @@ extension PlayerController {
                 self.updateNowPlayingProgress()
             }
         }
+    }
+}
+
+extension PlayerController {
+    /// Pone al dia los botones de la pantalla de bloqueo: corazon segun el Me gusta de la cancion y
+    /// +-15 s solo en podcasts (en musica se mantienen siguiente y anterior).
+    func refreshRemoteCommandState() {
+        let center = MPRemoteCommandCenter.shared()
+        let np = NowPlaying.shared
+        center.likeCommand.isActive = np.videoId.map { LikeStore.shared.isLiked(videoId: $0) } ?? false
+        let isPodcast = np.musicVideoType == "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+        center.skipForwardCommand.isEnabled = isPodcast
+        center.skipBackwardCommand.isEnabled = isPodcast
+    }
+
+    func skip(by seconds: TimeInterval) {
+        let length = duration
+        var target = max(0, currentTime + seconds)
+        if length > 0 { target = min(target, max(0, length - 1)) }
+        seek(to: target)
+        updateNowPlayingProgress()
     }
 }
 

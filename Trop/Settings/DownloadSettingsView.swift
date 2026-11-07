@@ -35,6 +35,30 @@ struct DownloadSettingsView: View {
             } footer: {
                 Text("Auto-download saves liked songs for offline playback. Wi-Fi Only blocks downloads on cellular data.")
             }
+
+            Section {
+                SettingsToggleRow("Keep Mix Offline", icon: "icloud.and.arrow.down", isOn: $settings.offlineMixEnabled)
+                if settings.offlineMixEnabled {
+                    SettingsStepperRow(
+                        "Offline Mix Size",
+                        icon: "number",
+                        value: mixSizeBinding,
+                        in: 10...60,
+                        step: 10,
+                        format: { String(Int($0)) }
+                    )
+                }
+            } header: {
+                Text("Offline Mix")
+            } footer: {
+                Text("Keeps some songs from your mix downloaded (only on Wi-Fi) so Play My Music starts instantly, even without a connection. The set rotates: songs you've heard are replaced by new ones.")
+            }
+
+            Section {
+                SettingsToggleRow("Free Up Space Automatically", icon: "sparkles", isOn: $settings.smartCleanupEnabled)
+            } footer: {
+                Text("When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on.")
+            }
         }
         .navigationTitle("Download Settings")
         .navigationBarTitleDisplayMode(.inline)
@@ -43,6 +67,13 @@ struct DownloadSettingsView: View {
         .onChange(of: downloadManager.persistedDownloadCount) { _, _ in
             Task { await refreshStats() }
         }
+    }
+
+    private var mixSizeBinding: Binding<Double> {
+        Binding(
+            get: { Double(settings.offlineMixSize) },
+            set: { settings.offlineMixSize = Int($0) }
+        )
     }
 
     private var storageCard: some View {

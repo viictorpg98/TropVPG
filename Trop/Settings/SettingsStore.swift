@@ -301,6 +301,20 @@ final class SettingsStore {
         didSet { Self.defaults.set(autoDownloadNewEpisodes, forKey: Keys.autoDownloadNewEpisodes) }
     }
 
+    /// Mantener descargadas unas canciones de la mezcla para "Pon mi musica" (solo con Wi-Fi).
+    var offlineMixEnabled: Bool {
+        didSet { Self.defaults.set(offlineMixEnabled, forKey: Keys.offlineMixEnabled) }
+    }
+
+    var offlineMixSize: Int {
+        didSet { Self.defaults.set(offlineMixSize, forKey: Keys.offlineMixSize) }
+    }
+
+    /// Con poco espacio, borrar las descargas que llevan meses sin escucharse.
+    var smartCleanupEnabled: Bool {
+        didSet { Self.defaults.set(smartCleanupEnabled, forKey: Keys.smartCleanupEnabled) }
+    }
+
     // MARK: - Sync
 
     var syncArtists: Bool {
@@ -369,6 +383,9 @@ final class SettingsStore {
         static let wifiOnlyDownloads = "settings.wifiOnlyDownloads"
         static let autoDownloadOnLike = "settings.autoDownloadOnLike"
         static let autoDownloadNewEpisodes = "settings.autoDownloadNewEpisodes"
+        static let offlineMixEnabled = "settings.offlineMixEnabled"
+        static let offlineMixSize = "settings.offlineMixSize"
+        static let smartCleanupEnabled = "settings.smartCleanupEnabled"
         static let syncArtists = "settings.syncArtists"
         static let syncPlaylists = "settings.syncPlaylists"
         static let syncAlbums = "settings.syncAlbums"
@@ -436,6 +453,9 @@ final class SettingsStore {
         wifiOnlyDownloads = Self.load(Keys.wifiOnlyDownloads, default: false)
         autoDownloadOnLike = Self.load(Keys.autoDownloadOnLike, default: false)
         autoDownloadNewEpisodes = Self.load(Keys.autoDownloadNewEpisodes, default: false)
+        offlineMixEnabled = Self.load(Keys.offlineMixEnabled, default: true)
+        offlineMixSize = Self.load(Keys.offlineMixSize, default: 30)
+        smartCleanupEnabled = Self.load(Keys.smartCleanupEnabled, default: true)
         syncArtists = Self.load(Keys.syncArtists, default: true)
         syncPlaylists = Self.load(Keys.syncPlaylists, default: true)
         syncAlbums = Self.load(Keys.syncAlbums, default: true)

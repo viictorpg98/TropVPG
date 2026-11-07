@@ -472,5 +472,13 @@
   "Starts a mix of music you like.": "Starts a mix of music you like.",
   "Resume Music": "Resume Music",
   "Resumes what was playing, or starts a mix if nothing was.": "Resumes what was playing, or starts a mix if nothing was.",
-  "Play Music": "Play Music"
+  "Play Music": "Play Music",
+  "Keep Mix Offline": "Keep Mix Offline",
+  "Offline Mix": "Offline Mix",
+  "Offline Mix Size": "Offline Mix Size",
+  "Keeps some songs from your mix downloaded (only on Wi-Fi) so Play My Music starts instantly, even without a connection. The set rotates: songs you've heard are replaced by new ones.": "Keeps some songs from your mix downloaded (only on Wi-Fi) so Play My Music starts instantly, even without a connection. The set rotates: songs you've heard are replaced by new ones.",
+  "Free Up Space Automatically": "Free Up Space Automatically",
+  "When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on.": "When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on.",
+  "Go to Downloads": "Go to Downloads",
+  "Only your downloaded music is available.": "Only your downloaded music is available."
 }

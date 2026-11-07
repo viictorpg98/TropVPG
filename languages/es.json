@@ -472,5 +472,13 @@
   "Starts a mix of music you like.": "Empieza una mezcla de música que te gusta.",
   "Resume Music": "Continuar la música",
   "Resumes what was playing, or starts a mix if nothing was.": "Retoma lo que sonaba o, si no había nada, empieza una mezcla.",
-  "Play Music": "Pon música"
+  "Play Music": "Pon música",
+  "Keep Mix Offline": "Mantener la mezcla descargada",
+  "Offline Mix": "Mezcla sin conexión",
+  "Offline Mix Size": "Canciones de la mezcla",
+  "Keeps some songs from your mix downloaded (only on Wi-Fi) so Play My Music starts instantly, even without a connection. The set rotates: songs you've heard are replaced by new ones.": "Mantiene descargadas algunas canciones de tu mezcla (solo con Wi-Fi) para que «Pon mi música» arranque al instante, incluso sin conexión. El conjunto va rotando: las canciones que ya has escuchado se sustituyen por otras nuevas.",
+  "Free Up Space Automatically": "Liberar espacio automáticamente",
+  "When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on.": "Cuando queda poco espacio (menos de 3 GB), borra las descargas que llevas 3 meses sin escuchar. Las canciones que te gustan nunca se borran. Necesita tener activado el historial de reproducciones.",
+  "Go to Downloads": "Ir a Descargas",
+  "Only your downloaded music is available.": "Solo está disponible la música descargada."
 }
