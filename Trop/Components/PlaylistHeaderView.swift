@@ -58,7 +58,7 @@ struct PlaylistHeaderView: View {
 
     private var textBlock: some View {
         VStack(spacing: 6) {
-            Text(title)
+            Text(ServerText.localize(title))
                 .font(.title2.weight(.bold))
             if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)
@@ -132,7 +132,7 @@ struct PlaylistHeaderView: View {
 
     private var metadataLine: String {
         var parts: [String] = []
-        parts.append("\(songCount) \(songCount == 1 ? "song" : "songs")")
+        parts.append(CountText.songs(songCount))
         if duration > 0 {
             parts.append(duration.formattedDuration)
         }

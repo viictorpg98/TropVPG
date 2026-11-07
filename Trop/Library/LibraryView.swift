@@ -34,7 +34,7 @@ struct LibraryView: View {
     }
     private var autoPlaylists: [AutoPlaylistInfo] {
         [
-            AutoPlaylistInfo(id: "liked", title: "Liked Songs", icon: "heart.fill", subtitle: "\(likedSongCount) songs", route: .likedSongs),
+            AutoPlaylistInfo(id: "liked", title: "Liked Songs", icon: "heart.fill", subtitle: CountText.songs(likedSongCount), route: .likedSongs),
             AutoPlaylistInfo(id: "downloads", title: "Downloads", icon: "arrow.down.circle.fill",
                              subtitle: downloadsSubtitle, route: nil, detailRoute: .downloads),
             AutoPlaylistInfo(id: "top100", title: "My Top 100", icon: "trophy.fill", subtitle: "Top 100", route: .topSongs(limit: 100))
@@ -44,7 +44,7 @@ struct LibraryView: View {
     private var downloadsSubtitle: String {
         downloadManager.persistedDownloadCount == 0
             ? "Offline"
-            : "\(downloadManager.persistedDownloadCount) songs"
+            : CountText.songs(downloadManager.persistedDownloadCount)
     }
 
     enum LibraryFilter: String, CaseIterable {
@@ -201,7 +201,7 @@ struct LibraryView: View {
                     itemCell(
                         url: playlist.thumbnailUrl,
                         title: playlist.name,
-                        subtitle: playlistSongCounts[playlist.id].map { "\($0) songs" }
+                        subtitle: playlistSongCounts[playlist.id].map { CountText.songs($0) }
                     )
                 }
                 .buttonStyle(.plain)
@@ -243,7 +243,7 @@ struct LibraryView: View {
                     itemCell(
                         url: album.thumbnailUrl,
                         title: album.title,
-                        subtitle: album.songCount > 0 ? "\(album.songCount) songs" : nil
+                        subtitle: album.songCount > 0 ? CountText.songs(album.songCount) : nil
                     )
                 }
                 .buttonStyle(.plain)

@@ -64,7 +64,7 @@ enum YTItem {
         case .song(let s): return s.title
         case .album(let a): return a.title
         case .artist(let a): return a.name
-        case .playlist(let p): return p.title
+        case .playlist(let p): return ServerText.localize(p.title)
         case .podcast(let p): return p.title
         case .episode(let e): return e.title
         }

@@ -369,7 +369,7 @@ struct AddSongToPlaylistSheet: View {
                                     Text(playlist.name)
                                         .foregroundStyle(.primary)
                                     if let count = playlist.remoteSongCount {
-                                        Text("\(count) songs")
+                                        Text(CountText.songs(count))
                                             .font(.footnote)
                                             .foregroundStyle(.secondary)
                                     }

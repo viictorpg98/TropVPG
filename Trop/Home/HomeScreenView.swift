@@ -129,7 +129,7 @@ struct HomeScreenView: View {
         case .quickPicks:
             quickPicksSection(section)
         case .keepListening:
-            mixedSection(section)
+            speedDialSection(section)
         case .forgottenFavorites:
             songsSection(section)
         case .homePageSection(let sectionData, _):
@@ -201,6 +201,51 @@ struct HomeScreenView: View {
                     }
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func speedDialSection(_ section: HomeSection) -> some View {
+        let items = Array(section.items.prefix(27))
+        let queue = items.compactMap { item -> SongItem? in
+            if case .song(let s) = item { return s } else { return nil }
+        }
+        if items.isEmpty {
+            EmptyView()
+        } else {
+            SpeedDialSectionView(
+                items: items,
+                onTap: { item in
+                    if case .song(let s) = item {
+                        handleSongTap(s, in: queue)
+                    } else {
+                        handleItemTap(item)
+                    }
+                },
+                onDice: { playRandomPick() }
+            )
+        }
+    }
+
+    /// El dado: elige una canción al azar entre todo lo que hay en el inicio y arranca su radio.
+    private func playRandomPick() {
+        var songs: [SongItem] = []
+        var seen = Set<String>()
+        for section in viewModel.homeSections {
+            for item in section.items {
+                if case .song(let s) = item, seen.insert(s.videoId).inserted {
+                    songs.append(s)
+                }
+            }
+        }
+        for entry in speedDialEntries {
+            let song = entry.toSongItem()
+            if seen.insert(song.videoId).inserted {
+                songs.append(song)
+            }
+        }
+        if let pick = songs.randomElement() {
+            PlaybackQueue.playSingleWithRadio(pick, log: Log.homeScreenView)
         }
     }
 
