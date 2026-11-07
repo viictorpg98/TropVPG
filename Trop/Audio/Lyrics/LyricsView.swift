@@ -375,7 +375,7 @@ struct LyricsView<ProgressSlider: View>: View {
                     .frame(width: 64, height: 64)
             }
 
-            PlayerTitleBlock(title: np.title, artist: np.displayArtist)
+            PlayerTitleBlock(title: np.title, artist: np.displayArtist, videoId: np.videoId)
 
             Spacer()
 

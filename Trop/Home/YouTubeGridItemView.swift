@@ -52,6 +52,7 @@ struct YouTubeGridItemView: View {
                 .aspectRatio(1, contentMode: .fill)
                 .frame(width: artworkSize, height: artworkSize)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
+                .downloadedBadge(videoId: videoId)
 
             Text(item.title)
                 .font(.caption)

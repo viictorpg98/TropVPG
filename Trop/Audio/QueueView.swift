@@ -137,7 +137,7 @@ struct QueueView<ProgressSlider: View>: View {
                     .frame(width: 64, height: 64)
             }
 
-            PlayerTitleBlock(title: np.title, artist: np.displayArtist)
+            PlayerTitleBlock(title: np.title, artist: np.displayArtist, videoId: np.videoId)
 
             Spacer()
 
@@ -325,7 +325,7 @@ struct QueueSongRow: View {
 
                 let artistStr = song.artists.map(\.name).joined(separator: ", ")
                 if !artistStr.isEmpty {
-                    Text(artistStr)
+                    SubtitleWithDownloadMark(videoId: song.videoId, text: artistStr)
                         .font(.caption)
                         .foregroundStyle(.white.opacity(isPlayed ? 0.35 : 0.6))
                         .lineLimit(1)

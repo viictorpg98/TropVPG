@@ -240,7 +240,8 @@ struct FullPlayerView: View {
                 artist: np.displayArtist,
                 spacing: 4,
                 titleFont: .title3.weight(.bold),
-                titleHeight: 28
+                titleHeight: 28,
+                videoId: np.videoId
             )
             .frame(maxWidth: .infinity, alignment: .leading)
             .layoutPriority(1)

@@ -86,13 +86,11 @@ struct SongRowView: View {
                     .lineLimit(1)
 
                 HStack(spacing: 5) {
-                    if detailed {
-                        if case .completed = downloadState {
-                            DownloadedBadge()
-                        }
-                        if song.isExplicit {
-                            ExplicitBadge()
-                        }
+                    if case .completed = downloadState {
+                        DownloadedBadge()
+                    }
+                    if detailed, song.isExplicit {
+                        ExplicitBadge()
                     }
                     Text(subtitleText)
                         .font(detailed ? Font.subheadline : Font.caption)

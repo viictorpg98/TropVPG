@@ -147,7 +147,7 @@ struct MiniPlayerBarView: View {
                     )
                 }
 
-                Text(artistLine(for: song))
+                SubtitleWithDownloadMark(videoId: song.videoId, text: artistLine(for: song))
                     .font(.system(size: 13, weight: .regular))
                     .foregroundStyle(artistColor)
                     .lineLimit(1)

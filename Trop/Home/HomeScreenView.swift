@@ -71,6 +71,7 @@ struct HomeScreenView: View {
     }
 
     private var homescreenContent: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             LazyVStack(spacing: 0) {
                 if let chips = viewModel.homePage?.chips, !chips.isEmpty {
@@ -79,11 +80,16 @@ struct HomeScreenView: View {
                         selectedChip: viewModel.selectedChip,
                         onChipTap: { viewModel.toggleChip($0) }
                     )
+                    .id("homeTop")
                 }
 
-                ForEach(viewModel.homeSections.indices, id: \.self) { index in
-                    let section = viewModel.homeSections[index]
-                    sectionView(for: section)
+                if viewModel.isChipLoading {
+                    chipLoadingPlaceholder
+                } else {
+                    ForEach(viewModel.homeSections.indices, id: \.self) { index in
+                        let section = viewModel.homeSections[index]
+                        sectionView(for: section)
+                    }
                 }
 
                 GeometryReader { _ in
@@ -120,6 +126,28 @@ struct HomeScreenView: View {
         }
         .onChange(of: settings.contentCountry) { _, _ in
             Task { await viewModel.refresh() }
+        }
+        // Al cambiar de chip se vuelve arriba, para ver la portada nueva desde el principio.
+        .onChange(of: viewModel.selectedChip?.title) { _, _ in
+            withAnimation { proxy.scrollTo("homeTop", anchor: .top) }
+        }
+        }
+    }
+
+    /// Esqueleto mientras llega la portada del chip.
+    private var chipLoadingPlaceholder: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(0..<3, id: \.self) { _ in
+                ShimmerSectionTitle()
+                    .padding(.top, 8)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(0..<5, id: \.self) { _ in ShimmerCard(showsSubtitle: false) }
+                    }
+                    .padding(.horizontal, DesignTokens.screenHPadding)
+                }
+                .scrollDisabled(true)
+            }
         }
     }
 

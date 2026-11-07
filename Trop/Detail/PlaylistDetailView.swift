@@ -706,7 +706,7 @@ struct AddSongToPlaylistView: View {
                                         .fontWeight(.medium)
                                         .lineLimit(1)
                                     if let artist = song.artistName {
-                                        Text(artist)
+                                        SubtitleWithDownloadMark(videoId: song.id, text: artist)
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                             .lineLimit(1)

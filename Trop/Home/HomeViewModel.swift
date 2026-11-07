@@ -16,6 +16,8 @@ final class HomeViewModel {
     var isLoading = true
     var isRefreshing = false
     var selectedChip: HomePage.Chip?
+    /// Mientras llega la portada del chip elegido (la lista se vacia y se muestra una carga).
+    var isChipLoading = false
     var error: Error?
 
     var isLoggedIn = false
@@ -258,6 +260,7 @@ final class HomeViewModel {
             homePage = previousHomePage
             previousHomePage = nil
             selectedChip = nil
+            isChipLoading = false
             mergeSections(stable: false)
             return
         }
@@ -267,6 +270,10 @@ final class HomeViewModel {
         }
 
         selectedChip = chip
+        // Como en YouTube Music: al elegir un chip la portada se vacia al momento y se rellena con lo
+        // que YouTube devuelve para ese chip (sin las secciones propias de la app).
+        isChipLoading = true
+        homeSections = []
         let generation = loadGeneration
         cleanup.chipTask = Task {
             do {
@@ -280,17 +287,26 @@ final class HomeViewModel {
                     // The filtered feed carries its own continuation; reusing
                     // the unfiltered one would page wrong sections in below.
                     homePage?.continuation = page.continuation
+                    isChipLoading = false
                     mergeSections(stable: false)
+                } else {
+                    restoreAfterChipFailure()
                 }
             } catch {
                 guard !Task.isCancelled else { return }
                 guard generation == loadGeneration else { return }
-                homePage = previousHomePage
-                previousHomePage = nil
-                selectedChip = nil
-                mergeSections(stable: false)
+                restoreAfterChipFailure()
             }
         }
+    }
+
+    /// Si el chip no se puede cargar, se vuelve a la portada normal.
+    private func restoreAfterChipFailure() {
+        homePage = previousHomePage
+        previousHomePage = nil
+        selectedChip = nil
+        isChipLoading = false
+        mergeSections(stable: false)
     }
 
     func loadMoreIfNeeded(currentIndex: Int, total: Int) {
@@ -335,6 +351,15 @@ final class HomeViewModel {
     /// final. Asi nada salta ni cambia mientras se desliza. Se pone a `false` cuando el cambio es
     /// intencionado (filtros, chips, cerrar sesion).
     private func mergeSections(stable: Bool = true) {
+        if selectedChip != nil {
+            // Con un chip elegido solo se muestra lo que YouTube devuelve para ese chip, en su orden:
+            // nada de Acceso rapido, Volver a escuchar ni las secciones propias de la app.
+            homeSections = (homePage?.sections ?? []).enumerated().compactMap { index, section in
+                let filtered = applyFilters(.homePageSection(section, index: index))
+                return filtered.items.isEmpty ? nil : filtered
+            }
+            return
+        }
         let serverSections = homePage?.sections.enumerated().map { mapServerSection($1, index: $0) } ?? []
         let all = cachedLocalSections + serverSections + cachedPhase2Sections
         let merged = orderSections(all)

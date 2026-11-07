@@ -15,6 +15,8 @@ struct PlayerTitleBlock: View {
     var spacing: CGFloat = 2
     var titleFont: Font = .body.weight(.semibold)
     var titleHeight: CGFloat = 24
+    /// Si se indica, delante del artista sale la marca de "descargada" cuando lo esta.
+    var videoId: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing) {
@@ -25,7 +27,7 @@ struct PlayerTitleBlock: View {
             )
 
             if !artist.isEmpty {
-                Text(artist)
+                SubtitleWithDownloadMark(videoId: videoId, text: artist)
                     .font(.subheadline)
                     .foregroundStyle(.white.opacity(0.7))
                     .lineLimit(1)

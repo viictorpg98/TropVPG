@@ -99,6 +99,14 @@ struct SpeedDialSectionView: View {
         .padding(.horizontal, 16)
     }
 
+    private func songVideoId(_ item: YTItem) -> String? {
+        switch item {
+        case .song(let song): return song.videoId
+        case .episode(let episode): return episode.videoId
+        default: return nil
+        }
+    }
+
     private func cell(_ item: YTItem) -> some View {
         tile(item)
             .accessibilityAddTraits(.isButton)
@@ -167,6 +175,7 @@ struct SpeedDialSectionView: View {
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .downloadedBadge(videoId: songVideoId(item), alignment: .topTrailing)
             .overlay {
                 if np.videoId != nil, np.videoId == item.id {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)

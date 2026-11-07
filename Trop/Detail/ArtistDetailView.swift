@@ -590,7 +590,10 @@ struct ArtistDetailView: View {
                                 .foregroundColor(.primary)
                                 .lineLimit(1)
 
-                            Text(song.artists.map(\.name).joined(separator: ", "))
+                            SubtitleWithDownloadMark(
+                                videoId: song.videoId,
+                                text: song.artists.map(\.name).joined(separator: ", ")
+                            )
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
