@@ -290,6 +290,8 @@
 "Pin to Quick Picks" = "Fijar en Selecciones rápidas";
 "Play" = "Reproducir";
 "Play All" = "Reproducir todo";
+"Play Music" = "Pon música";
+"Play My Music" = "Pon mi música";
 "Play Next" = "Reproducir a continuación";
 "Play all" = "Reproducir todo";
 "Play episodes from the top" = "Reproducir episodios desde el principio";
@@ -331,6 +333,8 @@
 "Remove from Playlist" = "Quitar de la lista";
 "Reset offset" = "Restablecer desfase";
 "Results" = "Resultados";
+"Resume Music" = "Continuar la música";
+"Resumes what was playing, or starts a mix if nothing was." = "Retoma lo que sonaba o, si no había nada, empieza una mezcla.";
 "Retry" = "Reintentar";
 "Return to artwork player" = "Volver al reproductor con portada";
 "Right" = "Derecha";
@@ -392,6 +396,7 @@
 "Spotify Login" = "Iniciar sesión en Spotify";
 "Standard (64–96 kbps)" = "Estándar (64–96 kbps)";
 "Start Radio" = "Iniciar radio";
+"Starts a mix of music you like." = "Empieza una mezcla de música que te gusta.";
 "State Template" = "Plantilla de estado";
 "Stats" = "Estadísticas";
 "Status" = "Estado";

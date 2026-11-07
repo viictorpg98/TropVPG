@@ -467,5 +467,10 @@
   "View Podcast": "Ver pódcast",
   "Unsubscribe": "Cancelar suscripción",
   "Artist": "Artista",
-  "Podcast": "Pódcast"
+  "Podcast": "Pódcast",
+  "Play My Music": "Pon mi música",
+  "Starts a mix of music you like.": "Empieza una mezcla de música que te gusta.",
+  "Resume Music": "Continuar la música",
+  "Resumes what was playing, or starts a mix if nothing was.": "Retoma lo que sonaba o, si no había nada, empieza una mezcla.",
+  "Play Music": "Pon música"
 }

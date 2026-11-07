@@ -290,6 +290,8 @@
 "Pin to Quick Picks" = "置顶到快捷精选";
 "Play" = "Play";
 "Play All" = "全部播放";
+"Play Music" = "Play Music";
+"Play My Music" = "Play My Music";
 "Play Next" = "下一首播放";
 "Play all" = "全部播放";
 "Play episodes from the top" = "从顶部播放剧集";
@@ -331,6 +333,8 @@
 "Remove from Playlist" = "从播放列表移除";
 "Reset offset" = "重置偏移";
 "Results" = "结果";
+"Resume Music" = "Resume Music";
+"Resumes what was playing, or starts a mix if nothing was." = "Resumes what was playing, or starts a mix if nothing was.";
 "Retry" = "重试";
 "Return to artwork player" = "返回封面播放器";
 "Right" = "右对齐";
@@ -392,6 +396,7 @@
 "Spotify Login" = "Spotify 登录";
 "Standard (64–96 kbps)" = "标准（64–96 kbps）";
 "Start Radio" = "开始电台";
+"Starts a mix of music you like." = "Starts a mix of music you like.";
 "State Template" = "状态模板";
 "Stats" = "统计";
 "Status" = "状态";

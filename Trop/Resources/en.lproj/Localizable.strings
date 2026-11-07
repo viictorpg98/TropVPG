@@ -290,6 +290,8 @@
 "Pin to Quick Picks" = "Pin to Quick Picks";
 "Play" = "Play";
 "Play All" = "Play All";
+"Play Music" = "Play Music";
+"Play My Music" = "Play My Music";
 "Play Next" = "Play Next";
 "Play all" = "Play all";
 "Play episodes from the top" = "Play episodes from the top";
@@ -331,6 +333,8 @@
 "Remove from Playlist" = "Remove from Playlist";
 "Reset offset" = "Reset offset";
 "Results" = "Results";
+"Resume Music" = "Resume Music";
+"Resumes what was playing, or starts a mix if nothing was." = "Resumes what was playing, or starts a mix if nothing was.";
 "Retry" = "Retry";
 "Return to artwork player" = "Return to artwork player";
 "Right" = "Right";
@@ -392,6 +396,7 @@
 "Spotify Login" = "Spotify Login";
 "Standard (64–96 kbps)" = "Standard (64–96 kbps)";
 "Start Radio" = "Start Radio";
+"Starts a mix of music you like." = "Starts a mix of music you like.";
 "State Template" = "State Template";
 "Stats" = "Stats";
 "Status" = "Status";

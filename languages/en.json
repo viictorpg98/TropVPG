@@ -467,5 +467,10 @@
   "View Podcast": "View Podcast",
   "Unsubscribe": "Unsubscribe",
   "Artist": "Artist",
-  "Podcast": "Podcast"
+  "Podcast": "Podcast",
+  "Play My Music": "Play My Music",
+  "Starts a mix of music you like.": "Starts a mix of music you like.",
+  "Resume Music": "Resume Music",
+  "Resumes what was playing, or starts a mix if nothing was.": "Resumes what was playing, or starts a mix if nothing was.",
+  "Play Music": "Play Music"
 }
