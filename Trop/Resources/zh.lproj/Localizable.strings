@@ -51,6 +51,7 @@
 "Auto-download saves liked songs for offline playback. Wi-Fi Only blocks downloads on cellular data." = "自动下载会保存已喜欢的歌曲以供离线播放。仅 Wi‑Fi 模式会阻止使用蜂窝数据下载。";
 "Autoplay Similar" = "自动播放相似歌曲";
 "Back" = "Back";
+"Based on Trop by SwiftyMedia (GPL-3.0)." = "Based on Trop by SwiftyMedia (GPL-3.0).";
 "Bass Boost" = "增强低音";
 "Bass Reducer" = "降低低音";
 "Bitrate" = "比特率";

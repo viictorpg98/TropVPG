@@ -27,6 +27,8 @@ struct AboutSettingsView: View {
                 }
             } header: {
                 Text("Links")
+            } footer: {
+                Text("Based on Trop by SwiftyMedia (GPL-3.0).")
             }
         }
         .navigationTitle("About")

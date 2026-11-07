@@ -51,6 +51,7 @@
 "Auto-download saves liked songs for offline playback. Wi-Fi Only blocks downloads on cellular data." = "La descarga automática guarda las canciones que te gustan para escucharlas sin conexión. «Solo Wi-Fi» bloquea las descargas con datos móviles.";
 "Autoplay Similar" = "Reproducción automática de similares";
 "Back" = "Atrás";
+"Based on Trop by SwiftyMedia (GPL-3.0)." = "Basada en Trop, de SwiftyMedia (GPL-3.0).";
 "Bass Boost" = "Realce de graves";
 "Bass Reducer" = "Reducción de graves";
 "Bitrate" = "Tasa de bits";
