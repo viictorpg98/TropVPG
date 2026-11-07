@@ -1,17 +1,10 @@
-name: Nightly Build
+name: Compilar IPA
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 concurrency:
-  # PRs each get their own group so they do not cancel one another
-  group: trop-nightly-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || 'main' }}
+  group: trop-build
   cancel-in-progress: true
 
 env:
@@ -21,12 +14,6 @@ jobs:
   build-ios:
     name: Build iOS IPA
     runs-on: macos-26
-    # Skip bot commits created by release publishing.
-    if: >-
-      github.event_name == 'pull_request' ||
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' &&
-       !contains(github.event.head_commit.message, '[skip ci]'))
     permissions:
       contents: write
     steps:
@@ -55,18 +42,10 @@ jobs:
       - name: Make build script executable
         run: chmod +x ./build_ipa.sh
 
-      - name: Fetch Discord Social SDK
-        uses: ./.github/actions/fetch-discord-sdk
-        with:
-          url: ${{ secrets.DISCORD_SOCIAL_SDK_URL }}
-          cache-version: "1"
-
       - name: Build iOS IPA
         run: ./build_ipa.sh
         env:
           FFMPEG_KIT_TAG: ${{ env.FFMPEG_KIT_TAG }}
-          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
-          LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
           CURRENT_PROJECT_VERSION: ${{ github.run_number }}
 
       - name: Upload iOS IPA artifact
@@ -76,11 +55,11 @@ jobs:
           path: build/Trop.ipa
 
       - name: Publish nightly release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_NUMBER: ${{ github.run_number }}
-          COMMIT_SUBJECT: ${{ github.event.head_commit.message }}
+          COMMIT_SUBJECT: ${{ github.sha }}
         run: |
           set -euo pipefail
           IPA_PATH="build/Trop.ipa"
@@ -90,8 +69,8 @@ jobs:
           if ! gh release view nightly >/dev/null 2>&1; then
             gh release create nightly \
               --prerelease \
-              --title "Nightly" \
-              --notes "Floating nightly IPA from the latest successful main build. Replaced on each push to main."
+              --title "Ultima compilacion" \
+              --notes "IPA de la ultima compilacion correcta. Se sustituye en cada ejecucion."
           fi
 
           # Remove prior Trop.ipa so upload is a clean overwrite.

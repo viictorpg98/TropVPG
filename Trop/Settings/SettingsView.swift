@@ -38,11 +38,8 @@ struct SettingsView: View {
                 SettingsNavigationRow("Content", icon: "globe") {
                     ContentSettingsView()
                 }
-                SettingsNavigationRow("Lyrics", icon: "text.quote") {
-                    LyricsSettingsView()
-                }
             } header: {
-                Text("Content & Lyrics")
+                Text("Content")
             }
 
             Section {

@@ -405,15 +405,6 @@ struct FullPlayerView: View {
             } else {
                 ZStack {
                     artworkImage
-                    CanvasVideoView(
-                        videoId: np.videoId,
-                        title: np.title,
-                        artist: np.artist,
-                        album: np.albumTitle.isEmpty ? nil : np.albumTitle,
-                        isPlaying: np.isPlaying,
-                        enabled: settings.canvasEnabled,
-                        onDominantColorsChange: { canvasDominantColors = $0 }
-                    )
                 }
                 .onTapGesture {
                     guard np.hasVideo else { return }

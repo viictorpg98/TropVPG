@@ -49,11 +49,6 @@ class LikeStore: ObservableObject {
             } else {
                 try await SyncBridge.mutations.unlikeSong(videoId: videoId)
             }
-            let artist = song.artists.map(\.name).joined(separator: ", ")
-            let track = song.title
-            if !artist.isEmpty, !track.isEmpty {
-                Task { await LastFMIntegration.shared.handleLove(artist: artist, track: track, love: target) }
-            }
         } catch {
             var reverted = liked
             reverted[videoId] = !target

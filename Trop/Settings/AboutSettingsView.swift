@@ -25,9 +25,6 @@ struct AboutSettingsView: View {
                 Link(destination: URL(string: "https://github.com/SwiftyMedia/Trop")!) {
                     Text("GitHub")
                 }
-                Link(destination: URL(string: "https://discord.gg/QrMwZAfU97")!) {
-                    Text("Discord")
-                }
             } header: {
                 Text("Links")
             }
