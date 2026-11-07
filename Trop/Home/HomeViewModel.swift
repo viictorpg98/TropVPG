@@ -177,7 +177,7 @@ final class HomeViewModel {
             isLoadingMore = true
             do {
                 let json = try await InnerTubeClient.tropShared.browse(continuation: continuation)
-                guard let (newSections, next) = HomePageParser.parseContinuationSections(from: json) else {
+                guard let (newSections, next) = await Self.parseContinuation(json) else {
                     isLoadingMore = false
                     break
                 }
@@ -202,7 +202,7 @@ final class HomeViewModel {
     private func fetchHomePage(generation: Int) async {
         do {
             let json = try await InnerTubeClient.tropShared.browse(browseId: "FEmusic_home")
-            guard let page = HomePageParser.parseHomePage(from: json) else {
+            guard let page = await Self.parseHome(json) else {
                 if generation == loadGeneration {
                     error = InnerTubeError.decodingFailed
                 }
@@ -275,7 +275,7 @@ final class HomeViewModel {
                     params: chip?.params
                 )
                 guard !Task.isCancelled, generation == loadGeneration else { return }
-                if let page = HomePageParser.parseHomePage(from: json) {
+                if let page = await Self.parseHome(json) {
                     homePage?.sections = page.sections
                     // The filtered feed carries its own continuation; reusing
                     // the unfiltered one would page wrong sections in below.
@@ -302,7 +302,7 @@ final class HomeViewModel {
             defer { isLoadingMore = false }
             do {
                 let json = try await InnerTubeClient.tropShared.browse(continuation: continuation)
-                if let (newSections, newContinuation) = HomePageParser.parseContinuationSections(from: json) {
+                if let (newSections, newContinuation) = await Self.parseContinuation(json) {
                     homePage?.sections.append(contentsOf: newSections)
                     homePage?.continuation = newContinuation
                     mergeSections()
@@ -311,6 +311,21 @@ final class HomeViewModel {
                 Log.homeViewModel.error("Continuation error: \(error)")
             }
         }
+    }
+
+    // El JSON de la portada es grande: se interpreta fuera del hilo principal para no frenar el desplazamiento.
+    nonisolated private static func parseHome(_ json: [String: Any]) async -> HomePage? {
+        await Task.detached(priority: .userInitiated) {
+            HomePageParser.parseHomePage(from: json)
+        }.value
+    }
+
+    nonisolated private static func parseContinuation(
+        _ json: [String: Any]
+    ) async -> (sections: [HomePage.Section], continuation: String?)? {
+        await Task.detached(priority: .userInitiated) {
+            HomePageParser.parseContinuationSections(from: json)
+        }.value
     }
 
     // MARK: - Section Management
