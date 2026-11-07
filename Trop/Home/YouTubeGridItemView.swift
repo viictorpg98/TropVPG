@@ -66,10 +66,8 @@ struct YouTubeGridItemView: View {
             }
         }
         .frame(width: artworkSize, height: 220, alignment: .top)
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onTap)
         .accessibilityAddTraits(.isButton)
-        .songMenuOnLongPress(menuSong)
+        .pressableSong(menuSong, onTap: onTap)
         .task {
             guard let vid = videoId else { return }
             let known: Int
@@ -141,8 +139,7 @@ struct YouTubeListItemView: View {
                     }
                 }
             }
-            .contentShape(Rectangle())
-            .onTapGesture(perform: onTap)
+            .pressable(onTap: onTap)
             .padding(.horizontal, detailed ? 0 : 16)
             .padding(.vertical, 6)
         }

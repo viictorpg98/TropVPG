@@ -528,7 +528,7 @@ struct PodcastDetailView: View {
                             .fill(Color(.secondarySystemGroupedBackground))
                     )
                 })
-                .buttonStyle(.plain)
+                .buttonStyle(PressableButtonStyle())
                 .accessibilityLabel(viewModel.isSubscribed ? "Unsubscribe from podcast" : "Subscribe to podcast")
 
                 Button(action: { showMoreSheet = true }, label: {
@@ -538,7 +538,7 @@ struct PodcastDetailView: View {
                         .frame(width: 48, height: 48)
                         .background(Circle().fill(Color(.secondarySystemGroupedBackground)))
                 })
-                .buttonStyle(.plain)
+                .buttonStyle(PressableButtonStyle())
                 .accessibilityLabel("More options")
             }
             .padding(.top, 4)

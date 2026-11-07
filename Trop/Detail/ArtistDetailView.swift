@@ -391,7 +391,7 @@ struct ArtistDetailView: View {
             .frame(width: 40, height: 40)
             .contentShape(Rectangle())
         })
-        .buttonStyle(.plain)
+        .buttonStyle(PressableButtonStyle())
         .accessibilityLabel(accessibilityLabel)
     }
 
@@ -516,7 +516,7 @@ struct ArtistDetailView: View {
                                     .stroke(.white, lineWidth: artist.isSubscribed ? 1.5 : 0)
                             )
                     })
-                    .buttonStyle(.plain)
+                    .buttonStyle(PressableButtonStyle())
 
                     Spacer(minLength: 0)
 
@@ -534,7 +534,7 @@ struct ArtistDetailView: View {
                             .frame(width: 52, height: 52)
                             .background(Circle().fill(Color.accentColor))
                     })
-                    .buttonStyle(.plain)
+                    .buttonStyle(PressableButtonStyle())
                     .accessibilityLabel("Shuffle artist")
                 }
             }
@@ -605,7 +605,7 @@ struct ArtistDetailView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 6)
                 })
-                .buttonStyle(.plain)
+                .buttonStyle(PressableButtonStyle())
 
                 if index < songs.count - 1 {
                     Divider()
@@ -628,7 +628,7 @@ struct ArtistDetailView: View {
                         size: 156
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressableButtonStyle())
             }
         }
     }
@@ -646,7 +646,7 @@ struct ArtistDetailView: View {
                         size: 156
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressableButtonStyle())
             }
         }
     }
@@ -674,7 +674,7 @@ struct ArtistDetailView: View {
                         }
                     }
                 })
-                .buttonStyle(.plain)
+                .buttonStyle(PressableButtonStyle())
             }
         }
     }
@@ -692,7 +692,7 @@ struct ArtistDetailView: View {
                         size: 156
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressableButtonStyle())
             }
         }
     }
@@ -713,7 +713,7 @@ struct ArtistDetailView: View {
                     }
                     .frame(width: 120)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressableButtonStyle())
             }
         }
     }

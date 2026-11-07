@@ -96,12 +96,7 @@ struct SongRowView: View {
         .background(DownloadCellProgressView(song: song))
         .padding(.horizontal, detailed ? 0 : DesignTokens.screenHPadding)
         .padding(.vertical, DesignTokens.rowVPadding)
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onTap)
-        .onLongPressGesture(minimumDuration: 0.4) {
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            showSongMenu = true
-        }
+        .pressable(onTap: onTap, onLongPress: { showSongMenu = true })
         .task { await durations.resolve(videoId: song.videoId, knownDuration: song.duration) }
         .task(id: song.videoId) {
             guard detailed, song.viewCount == nil else { return }

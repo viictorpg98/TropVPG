@@ -172,7 +172,7 @@ struct ExploreSectionsList: View {
                             .fill(Color(.systemGray5).opacity(0.6))
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressableButtonStyle())
             }
         }
         .padding(.horizontal, 16)
@@ -219,7 +219,7 @@ struct ExploreSectionsList: View {
                                     .fill(Color(.systemGray5).opacity(0.6))
                             )
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PressableButtonStyle())
                 }
             }
         }

@@ -67,7 +67,7 @@ struct SpeedDialSectionView: View {
                     .frame(width: 44, height: 32)
                     .background(Capsule().fill(Color(.secondarySystemFill)))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressableButtonStyle())
             .accessibilityLabel(Text("Surprise me"))
         }
         .padding(.horizontal, 16)
@@ -100,6 +100,45 @@ struct SpeedDialSectionView: View {
     }
 
     private func cell(_ item: YTItem) -> some View {
+        tile(item)
+            .accessibilityAddTraits(.isButton)
+            .pressableSong(menuSong(item), onTap: { onTap(item) }, onNavigate: onNavigate)
+    }
+
+    @ViewBuilder
+    private func tile(_ item: YTItem) -> some View {
+        if isArtist(item) {
+            artistTile(item)
+        } else {
+            imageTile(item)
+        }
+    }
+
+    /// Artista: circulo con el nombre debajo (dentro del circulo se cortaba).
+    private func artistTile(_ item: YTItem) -> some View {
+        Color.clear
+            .aspectRatio(1, contentMode: .fit)
+            .overlay {
+                VStack(spacing: 6) {
+                    AsyncImageView(url: item.thumbnailUrl)
+                        .aspectRatio(1, contentMode: .fit)
+                        .clipShape(Circle())
+                        .padding(.horizontal, 18)
+                    HStack(spacing: 4) {
+                        Text(item.title)
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.9))
+                    }
+                    .padding(.horizontal, 6)
+                }
+            }
+    }
+
+    private func imageTile(_ item: YTItem) -> some View {
         AsyncImageView(url: item.thumbnailUrl)
             .frame(maxWidth: .infinity)
             .aspectRatio(1, contentMode: .fit)
@@ -127,17 +166,13 @@ struct SpeedDialSectionView: View {
                     .padding(.bottom, 7)
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: isArtist(item) ? 200 : 12, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay {
                 if np.videoId != nil, np.videoId == item.id {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .strokeBorder(Color.white, lineWidth: 3)
                 }
             }
-            .contentShape(Rectangle())
-            .onTapGesture { onTap(item) }
-            .accessibilityAddTraits(.isButton)
-            .songMenuOnLongPress(menuSong(item), onNavigate: onNavigate)
     }
 
     private func opensAnotherScreen(_ item: YTItem) -> Bool {

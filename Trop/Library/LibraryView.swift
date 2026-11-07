@@ -187,12 +187,12 @@ struct LibraryView: View {
                     NavigationLink(value: detailRoute) {
                         autoPlaylistCell(info: info)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PressableButtonStyle())
                 } else if let route = info.route {
                     NavigationLink(value: DetailRoute.autoPlaylist(route)) {
                         autoPlaylistCell(info: info)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PressableButtonStyle())
                 }
             }
 
@@ -204,7 +204,7 @@ struct LibraryView: View {
                         subtitle: playlistSongCounts[playlist.id].map { CountText.songs($0) }
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressableButtonStyle())
                 .contextMenu {
                     if playlist.isEditable {
                         Button(role: .destructive) {
@@ -229,7 +229,7 @@ struct LibraryView: View {
                         name: artist.name
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressableButtonStyle())
             }
         }
     }
@@ -246,7 +246,7 @@ struct LibraryView: View {
                         subtitle: album.songCount > 0 ? CountText.songs(album.songCount) : nil
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressableButtonStyle())
             }
         }
     }
@@ -263,7 +263,7 @@ struct LibraryView: View {
                         subtitle: nil
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressableButtonStyle())
             }
         }
     }
@@ -528,7 +528,7 @@ struct CreatePlaylistDialog: View {
                                 .fill(Color(.systemGray6))
                         )
                 })
-                .buttonStyle(.plain)
+                .buttonStyle(PressableButtonStyle())
 
                 Button(action: {
                     guard !name.trimmingCharacters(in: .whitespaces).isEmpty else { return }
@@ -561,7 +561,7 @@ struct CreatePlaylistDialog: View {
                             .fill(name.trimmingCharacters(in: .whitespaces).isEmpty ? settings.accentColor.opacity(0.4) : settings.accentColor)
                     )
                 })
-                .buttonStyle(.plain)
+                .buttonStyle(PressableButtonStyle())
                 .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || isCreating)
             }
             .padding(.horizontal, 24)

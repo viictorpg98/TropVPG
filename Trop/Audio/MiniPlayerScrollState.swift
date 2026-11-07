@@ -23,6 +23,7 @@ struct MiniPlayerInlineOnScrollModifier: ViewModifier {
     @Environment(MiniPlayerScrollState.self) private var scrollState
 
     private let compactThreshold: CGFloat = 1
+    private let np = NowPlaying.shared
 
     func body(content: Content) -> some View {
         content
@@ -39,5 +40,7 @@ struct MiniPlayerInlineOnScrollModifier: ViewModifier {
                     }
                 }
             )
+            // Un poco de aire al final de las listas para que la ultima fila no quede pegada al mini.
+            .safeAreaPadding(.bottom, np.isBarPresented ? 28 : 0)
     }
 }

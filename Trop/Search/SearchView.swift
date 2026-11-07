@@ -80,7 +80,7 @@ struct SearchView: View {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(.secondary)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PressableButtonStyle())
                     .accessibilityLabel("Clear search")
                 }
             }
@@ -200,7 +200,7 @@ struct SearchView: View {
                         .padding(.vertical, 12)
                         .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PressableButtonStyle())
                     .contextMenu {
                         Button(role: .destructive) {
                             viewModel.deleteSearchHistoryEntry(entry)
@@ -277,7 +277,7 @@ struct SearchView: View {
             }
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableButtonStyle())
         .padding(.horizontal, 16)
         .padding(.top, 16)
         .padding(.bottom, 4)
@@ -305,7 +305,7 @@ struct SearchView: View {
                 }
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressableButtonStyle())
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
 
@@ -341,7 +341,7 @@ struct SearchView: View {
                                     .frame(width: 110)
                             }
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(PressableButtonStyle())
                     }
                 }
             }
@@ -365,7 +365,7 @@ struct SearchView: View {
                                 size: 140
                             )
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(PressableButtonStyle())
                     }
                 }
             }
