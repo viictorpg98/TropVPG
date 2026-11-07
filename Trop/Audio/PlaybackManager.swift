@@ -12,6 +12,7 @@ actor PlaybackManager {
     static let shared = PlaybackManager()
 
     private var inflightResolutions: [String: Task<PlaybackResult, Error>] = [:]
+    private static let lastClientKey = "playback.lastWorkingClient"
 
     private func resolutionKey(videoId: String, forDownload: Bool) -> String {
         forDownload ? "\(videoId):download" : videoId
@@ -90,11 +91,18 @@ actor PlaybackManager {
     private func resolveAndPlayFromNetwork(videoId: String) async throws -> PlaybackResult {
         var request = StreamResolveRequest.playback(videoId: videoId)
         request.options.audioQuality = SettingsStore.shared.audioQuality
+        // Prueba primero el cliente que funciono la ultima vez: si los de delante fallan, cada fallo
+        // es una peticion de red perdida antes de que suene nada.
+        if let last = UserDefaults.standard.string(forKey: Self.lastClientKey),
+           let index = request.chain.firstIndex(where: { $0.client.clientName == last }), index > 0 {
+            request.chain.insert(request.chain.remove(at: index), at: 0)
+        }
         let result = try await StreamFallback.resolveFirstValid(
             request,
             using: InnerTubeClient.tropShared,
             providers: .tropLive
         )
+        UserDefaults.standard.set(result.clientName, forKey: Self.lastClientKey)
         await playNetworkResult(result, videoId: videoId)
         return result
     }

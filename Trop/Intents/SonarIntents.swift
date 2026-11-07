@@ -36,6 +36,18 @@ struct ResumeMusicIntent: AudioPlaybackIntent {
     }
 }
 
+/// Cuenta como fue el ultimo "Pon mi musica": cuanto tardo cada paso y que cliente de YouTube sono.
+struct SonarReportIntent: AppIntent {
+    static let title: LocalizedStringResource = "Sonar Report"
+    static let description = IntentDescription("Shows how long the last music start took, step by step.")
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let report = SonarMix.lastReport
+        return .result(dialog: "\(report)")
+    }
+}
+
 /// Frases para Siri que funcionan sin configurar nada ("Mi mezcla en Sonar").
 /// Se evita decir "pon música": Siri lo trata como una peticion de musica a una app y, como Sonar
 /// no tiene soporte de SiriKit para eso, contesta que no lo permite. Las versiones en español van en `AppShortcuts.strings`.
@@ -58,6 +70,14 @@ struct SonarShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Resume Music",
             systemImageName: "play.fill"
+        )
+        AppShortcut(
+            intent: SonarReportIntent(),
+            phrases: [
+                "Report of \(.applicationName)"
+            ],
+            shortTitle: "Sonar Report",
+            systemImageName: "stopwatch"
         )
     }
 }

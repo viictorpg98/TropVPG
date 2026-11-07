@@ -3,3 +3,4 @@
 "My mix on ${applicationName}" = "Mi mezcla en ${applicationName}";
 "${applicationName} mix" = "Mezcla de ${applicationName}";
 "Continue with ${applicationName}" = "Sigue con ${applicationName}";
+"Report of ${applicationName}" = "Informe de ${applicationName}";

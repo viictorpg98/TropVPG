@@ -19,9 +19,33 @@ import UIKit
 @MainActor
 enum SonarMix {
     private static let cacheKey = "sonarMix.cachedSongs"
+    private static let reportKey = "sonarMix.lastReport"
+
+    // MARK: - Informe de tiempos
+
+    private static var traceStart = Date()
+    private static var traceLines: [String] = []
+
+    /// Apunta un paso con el tiempo transcurrido y lo guarda, para poder consultarlo despues
+    /// con la accion "Informe" (asi se ve donde se va el tiempo sin necesidad de un Mac).
+    private static func trace(_ text: String) {
+        let ms = Int(Date().timeIntervalSince(traceStart) * 1000)
+        traceLines.append("\(ms) ms: \(text)")
+        UserDefaults.standard.set(traceLines.joined(separator: "\n"), forKey: reportKey)
+    }
+
+    /// Texto del ultimo arranque de "Pon mi musica".
+    static var lastReport: String {
+        UserDefaults.standard.string(forKey: reportKey)
+            ?? "Todavia no hay datos: ejecuta antes Pon mi musica."
+    }
 
     /// Devuelve `true` si ha empezado a sonar algo.
     static func start() async -> Bool {
+        traceStart = Date()
+        traceLines = []
+        trace("inicio")
+
         // Mantiene la app con CPU mientras se prepara y arranca el audio.
         let backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "SonarMix")
         defer {
@@ -30,10 +54,9 @@ enum SonarMix {
             }
         }
 
-        // 0) Lo mas rapido: canciones descargadas. Suenan desde el archivo, sin tokens ni red, asi que no
-        // hay que esperar a que arranque en frio el navegador oculto que genera los tokens de YouTube
-        // (cuando la app la lanza una accion en segundo plano ese arranque tarda muchisimo).
+        // 0) Lo mas rapido: canciones descargadas. Suenan desde el archivo, sin red.
         let downloaded = await downloadedSongs()
+        trace("descargadas: \(downloaded.count)")
         if !downloaded.isEmpty {
             var queue = Array(downloaded.shuffled().prefix(40))
             if let cached = cachedMix() {
@@ -45,20 +68,28 @@ enum SonarMix {
                 let seed = queue.last?.videoId ?? ""
                 Task {
                     await warmUpTokens(videoId: seed)
+                    trace("tokens listos (en segundo plano)")
                     await refreshCache()
+                    trace("mezcla refrescada (en segundo plano)")
                 }
                 return true
             }
         }
 
         // 1) Ultima mezcla guardada: sin esperar a la red.
-        if let cached = cachedMix(), await play(cached.shuffled(), context: "cached mix") {
-            Task { await refreshCache() }
+        let cachedSongs = cachedMix()
+        trace("mezcla guardada: \(cachedSongs?.count ?? 0) canciones")
+        if let cached = cachedSongs, await play(cached.shuffled(), context: "mezcla guardada") {
+            Task {
+                await refreshCache()
+                trace("mezcla refrescada (en segundo plano)")
+            }
             return true
         }
 
         // 2) y 3) Con red.
         await prepareSession()
+        trace("sesion preparada")
         if let sections = await loadHomeSections() {
             if let songs = await mixedForYouSongs(in: sections) {
                 saveCache(songs)
@@ -90,10 +121,13 @@ enum SonarMix {
     private static func play(_ songs: [SongItem], context: String) async -> Bool {
         guard let first = songs.first else { return false }
         NowPlaying.shared.setQueue(songs, startIndex: 0)
+        trace("\(context): pidiendo la primera cancion")
         do {
-            try await PlaybackManager.shared.resolveAndPlay(videoId: first.videoId)
+            let result = try await PlaybackManager.shared.resolveAndPlay(videoId: first.videoId)
+            trace("\(context): suena (cliente \(result.clientName))")
             return true
         } catch {
+            trace("\(context): fallo (\(error.localizedDescription))")
             Log.nowPlaying.error("Intent playback failed (\(context)): \(error)")
             return false
         }
