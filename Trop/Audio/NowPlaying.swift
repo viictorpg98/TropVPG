@@ -417,14 +417,14 @@ final class NowPlaying {
         Task {
             // For downloaded songs, try to extract embedded artwork from the local file first.
             if let localURL = await DownloadManager.shared.localURL(for: videoId) {
-                loadArtworkFromLocalFile(localURL, videoId: videoId)
+                loadArtworkFromLocalFile(localURL, videoId: videoId, thumbnailUrl: thumb)
                 return
             }
             loadThumbnailFromCDN(videoId: videoId, thumbnailUrl: thumb)
         }
     }
 
-    private func loadArtworkFromLocalFile(_ fileURL: URL, videoId: String) {
+    private func loadArtworkFromLocalFile(_ fileURL: URL, videoId: String, thumbnailUrl: String? = nil) {
         Task {
             let asset = AVURLAsset(url: fileURL)
             let metadata = try? await asset.load(.metadata)
@@ -443,8 +443,14 @@ final class NowPlaying {
                 guard lastLoadedVideoId == videoId else { return }
                 if let artworkImage {
                     publishArtwork(artworkImage)
+                    // La imagen incrustada al descargar suele ser pequena: si lo es, se pide la buena
+                    // por encima, sin quitar la actual (y sin red se queda la incrustada).
+                    let side = min(artworkImage.size.width, artworkImage.size.height) * artworkImage.scale
+                    if side < 900 {
+                        loadThumbnailFromCDN(videoId: videoId, thumbnailUrl: thumbnailUrl, upgradeOnly: true)
+                    }
                 } else {
-                    loadThumbnailFromCDN(videoId: videoId)
+                    loadThumbnailFromCDN(videoId: videoId, thumbnailUrl: thumbnailUrl)
                 }
             }
         }
@@ -460,7 +466,7 @@ final class NowPlaying {
         PlayerController.shared.updateNowPlayingArtwork()
     }
 
-    private func loadThumbnailFromCDN(videoId: String, thumbnailUrl: String? = nil) {
+    private func loadThumbnailFromCDN(videoId: String, thumbnailUrl: String? = nil, upgradeOnly: Bool = false) {
         // Best source first: the track's own artwork upgraded to full
         // resolution, then ytimg step-downs, then the guaranteed hqdefault.
         var candidates: [String] = []
@@ -489,11 +495,13 @@ final class NowPlaying {
         // Phase 1: instant paint from the best cached candidate. A lesser
         // cached variant must not shadow a better one — Phase 2 upgrades.
         var paintedIndex: Int?
-        for (index, url) in urls.enumerated() {
-            if let cached = ArtworkLoader.cachedImage(for: url) {
-                publishArtwork(cached)
-                paintedIndex = index
-                break
+        if !upgradeOnly {
+            for (index, url) in urls.enumerated() {
+                if let cached = ArtworkLoader.cachedImage(for: url) {
+                    publishArtwork(cached)
+                    paintedIndex = index
+                    break
+                }
             }
         }
 
@@ -503,7 +511,7 @@ final class NowPlaying {
         if fetchCount == 0 {
             return
         }
-        if paintedIndex == nil {
+        if paintedIndex == nil, !upgradeOnly {
             thumbnailImage = nil
         }
         Task {
@@ -520,7 +528,7 @@ final class NowPlaying {
                     continue
                 }
             }
-            if paintedIndex == nil {
+            if paintedIndex == nil, !upgradeOnly {
                 await MainActor.run {
                     guard self.lastLoadedVideoId == videoId else { return }
                     thumbnailImage = Image(systemName: "music.note")

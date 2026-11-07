@@ -536,8 +536,17 @@ extension DownloadManager {
     }
 
     private func prefetchArtwork(from thumbnailUrl: String?) async -> Data? {
-        guard let thumbUrl = thumbnailUrl, let url = URL(string: thumbUrl) else { return nil }
-        guard let image = try? await ArtworkLoader.image(for: url) else { return nil }
+        guard let thumbUrl = thumbnailUrl else { return nil }
+        // Se incrusta la version grande de la caratula, no la miniatura de la fila.
+        let candidates = [ArtworkURLs.highRes(thumbUrl), thumbUrl].compactMap { $0 }.compactMap(URL.init(string:))
+        var loaded: UIImage?
+        for url in candidates {
+            if let image = try? await ArtworkLoader.image(for: url) {
+                loaded = image
+                break
+            }
+        }
+        guard let image = loaded else { return nil }
         return image.jpegData(compressionQuality: 0.9)
     }
 

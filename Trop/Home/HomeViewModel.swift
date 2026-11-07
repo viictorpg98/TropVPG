@@ -21,7 +21,7 @@ final class HomeViewModel {
     var isLoggedIn = false
 
     var hideExplicit = false {
-        didSet { mergeSections() }
+        didSet { mergeSections(stable: false) }
     }
 
     private var isHomeDataLoaded = false
@@ -129,7 +129,7 @@ final class HomeViewModel {
             }
         } else {
             cachedPhase2Sections = []
-            mergeSections()
+            mergeSections(stable: false)
         }
     }
 
@@ -258,7 +258,7 @@ final class HomeViewModel {
             homePage = previousHomePage
             previousHomePage = nil
             selectedChip = nil
-            mergeSections()
+            mergeSections(stable: false)
             return
         }
 
@@ -280,7 +280,7 @@ final class HomeViewModel {
                     // The filtered feed carries its own continuation; reusing
                     // the unfiltered one would page wrong sections in below.
                     homePage?.continuation = page.continuation
-                    mergeSections()
+                    mergeSections(stable: false)
                 }
             } catch {
                 guard !Task.isCancelled else { return }
@@ -288,7 +288,7 @@ final class HomeViewModel {
                 homePage = previousHomePage
                 previousHomePage = nil
                 selectedChip = nil
-                mergeSections()
+                mergeSections(stable: false)
             }
         }
     }
@@ -315,11 +315,23 @@ final class HomeViewModel {
 
     // MARK: - Section Management
 
-    private func mergeSections() {
+    /// `stable: true` (por defecto): una vez mostrada la portada, lo que ya se ve conserva su orden y su
+    /// contenido, y lo que llega despues (secciones de segundo plano, paginas siguientes) se anade al
+    /// final. Asi nada salta ni cambia mientras se desliza. Se pone a `false` cuando el cambio es
+    /// intencionado (filtros, chips, cerrar sesion).
+    private func mergeSections(stable: Bool = true) {
         let serverSections = homePage?.sections.enumerated().map { mapServerSection($1, index: $0) } ?? []
         let all = cachedLocalSections + serverSections + cachedPhase2Sections
         let merged = orderSections(all)
-        homeSections = merged
+        homeSections = stable ? stabilized(merged) : merged
+    }
+
+    private func stabilized(_ fresh: [HomeSection]) -> [HomeSection] {
+        guard !isLoading, !homeSections.isEmpty else { return fresh }
+        let freshIds = Set(fresh.map(\.id))
+        let kept = homeSections.filter { freshIds.contains($0.id) }
+        let keptIds = Set(kept.map(\.id))
+        return kept + fresh.filter { !keptIds.contains($0.id) }
     }
 
     private func mapServerSection(_ section: HomePage.Section, index: Int) -> HomeSection {

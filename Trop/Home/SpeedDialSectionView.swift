@@ -13,6 +13,7 @@ struct SpeedDialSectionView: View {
     let items: [YTItem]
     let onTap: (YTItem) -> Void
     let onDice: () -> Void
+    var onNavigate: ((DetailRoute) -> Void)?
 
     @State private var page: Int? = 0
     private let np = NowPlaying.shared
@@ -99,36 +100,59 @@ struct SpeedDialSectionView: View {
     }
 
     private func cell(_ item: YTItem) -> some View {
-        Button {
-            onTap(item)
-        } label: {
-            AsyncImageView(url: item.thumbnailUrl)
-                .frame(maxWidth: .infinity)
-                .aspectRatio(1, contentMode: .fit)
-                .overlay(alignment: .bottomLeading) {
-                    ZStack(alignment: .bottomLeading) {
-                        LinearGradient(
-                            colors: [.clear, .black.opacity(0.7)],
-                            startPoint: .center,
-                            endPoint: .bottom
-                        )
+        AsyncImageView(url: item.thumbnailUrl)
+            .frame(maxWidth: .infinity)
+            .aspectRatio(1, contentMode: .fit)
+            .overlay(alignment: .bottomLeading) {
+                ZStack(alignment: .bottomLeading) {
+                    LinearGradient(
+                        colors: [.clear, .black.opacity(0.7)],
+                        startPoint: .center,
+                        endPoint: .bottom
+                    )
+                    HStack(spacing: 4) {
                         Text(item.title)
                             .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(.white)
                             .lineLimit(1)
-                            .padding(.horizontal, 8)
-                            .padding(.bottom, 7)
+                        Spacer(minLength: 0)
+                        // Si no es una cancion, al pulsar se abre otra pantalla: lo avisa la flecha.
+                        if opensAnotherScreen(item) {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.9))
+                        }
                     }
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 7)
                 }
-                .clipShape(RoundedRectangle(cornerRadius: isArtist(item) ? 200 : 12, style: .continuous))
-                .overlay {
-                    if np.videoId != nil, np.videoId == item.id {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(Color.white, lineWidth: 3)
-                    }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: isArtist(item) ? 200 : 12, style: .continuous))
+            .overlay {
+                if np.videoId != nil, np.videoId == item.id {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(Color.white, lineWidth: 3)
                 }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture { onTap(item) }
+            .accessibilityAddTraits(.isButton)
+            .songMenuOnLongPress(menuSong(item), onNavigate: onNavigate)
+    }
+
+    private func opensAnotherScreen(_ item: YTItem) -> Bool {
+        switch item {
+        case .song, .episode: return false
+        default: return true
         }
-        .buttonStyle(.plain)
+    }
+
+    private func menuSong(_ item: YTItem) -> SongItem? {
+        switch item {
+        case .song(let s): return s
+        case .episode(let e): return e.toSongItem()
+        default: return nil
+        }
     }
 
     private func isArtist(_ item: YTItem) -> Bool {

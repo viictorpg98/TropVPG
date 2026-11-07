@@ -36,30 +36,40 @@ struct YouTubeGridItemView: View {
         }
     }
 
-    var body: some View {
-        Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 4) {
-                AsyncImageView(url: item.thumbnailUrl)
-                    .aspectRatio(1, contentMode: .fill)
-                    .frame(width: artworkSize, height: artworkSize)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-
-                Text(item.title)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundColor(.primary)
-                    .lineLimit(2)
-
-                if !subtitleText.isEmpty {
-                    Text(subtitleText)
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                }
-            }
-            .frame(width: artworkSize, height: 220, alignment: .top)
+    /// Canciones y episodios: el menu de opciones al mantener pulsado.
+    private var menuSong: SongItem? {
+        switch item {
+        case .song(let s): return s
+        case .episode(let e): return e.toSongItem()
+        default: return nil
         }
-        .buttonStyle(.plain)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            AsyncImageView(url: item.thumbnailUrl)
+                .aspectRatio(1, contentMode: .fill)
+                .frame(width: artworkSize, height: artworkSize)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+
+            Text(item.title)
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(.primary)
+                .lineLimit(2)
+
+            if !subtitleText.isEmpty {
+                Text(subtitleText)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .frame(width: artworkSize, height: 220, alignment: .top)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onTap)
+        .accessibilityAddTraits(.isButton)
+        .songMenuOnLongPress(menuSong)
         .task {
             guard let vid = videoId else { return }
             let known: Int

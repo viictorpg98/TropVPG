@@ -222,7 +222,8 @@ struct HomeScreenView: View {
                         handleItemTap(item)
                     }
                 },
-                onDice: { playRandomPick() }
+                onDice: { playRandomPick() },
+                onNavigate: { pendingRoute = $0 }
             )
         }
     }
