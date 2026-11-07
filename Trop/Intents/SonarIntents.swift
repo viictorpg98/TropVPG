@@ -36,15 +36,17 @@ struct ResumeMusicIntent: AudioPlaybackIntent {
     }
 }
 
-/// Frases para Siri que funcionan sin configurar nada ("Pon música en Sonar").
-/// Las versiones en español van en `AppShortcuts.strings`.
+/// Frases para Siri que funcionan sin configurar nada ("Mi mezcla en Sonar").
+/// Se evita decir "pon música": Siri lo trata como una peticion de musica a una app y, como Sonar
+/// no tiene soporte de SiriKit para eso, contesta que no lo permite. Las versiones en español van en `AppShortcuts.strings`.
 struct SonarShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
             intent: PlayMyMusicIntent(),
             phrases: [
-                "Play music on \(.applicationName)",
-                "Play my music on \(.applicationName)"
+                "Start my mix on \(.applicationName)",
+                "My mix on \(.applicationName)",
+                "\(.applicationName) mix"
             ],
             shortTitle: "Play Music",
             systemImageName: "waveform"
@@ -52,7 +54,7 @@ struct SonarShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: ResumeMusicIntent(),
             phrases: [
-                "Resume music on \(.applicationName)"
+                "Continue with \(.applicationName)"
             ],
             shortTitle: "Resume Music",
             systemImageName: "play.fill"

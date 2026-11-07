@@ -1,4 +1,5 @@
 /* Frases de Siri para las acciones de Sonar. */
-"Play music on ${applicationName}" = "Pon música en ${applicationName}";
-"Play my music on ${applicationName}" = "Pon mi música en ${applicationName}";
-"Resume music on ${applicationName}" = "Continúa la música en ${applicationName}";
+"Start my mix on ${applicationName}" = "Arranca mi mezcla en ${applicationName}";
+"My mix on ${applicationName}" = "Mi mezcla en ${applicationName}";
+"${applicationName} mix" = "Mezcla de ${applicationName}";
+"Continue with ${applicationName}" = "Sigue con ${applicationName}";
