@@ -151,19 +151,44 @@ enum SonarMix {
     // MARK: - Reproduccion
 
     /// Pone la cola y espera a que la primera cancion este sonando.
+    /// Prueba hasta 3 canciones de la cola y solo da por bueno el intento cuando el audio avanza de
+    /// verdad: que mpv acepte la orden de cargar no significa que se oiga algo.
     private static func play(_ songs: [SongItem], context: String) async -> Bool {
-        guard let first = songs.first else { return false }
-        NowPlaying.shared.setQueue(songs, startIndex: 0)
-        trace("\(context): pidiendo la primera cancion")
-        do {
-            let result = try await PlaybackManager.shared.resolveAndPlay(videoId: first.videoId)
-            trace("\(context): suena (cliente \(result.clientName))")
-            return true
-        } catch {
-            trace("\(context): fallo (\(error.localizedDescription))")
-            Log.nowPlaying.error("Intent playback failed (\(context)): \(error)")
-            return false
+        guard !songs.isEmpty else { return false }
+        trace("\(context): reproductor antes: \(PlayerController.shared.diagnosticSnapshot())")
+
+        for index in 0..<min(3, songs.count) {
+            let song = songs[index]
+            NowPlaying.shared.setQueue(songs, startIndex: index)
+            trace("\(context): intento \(index + 1), pidiendo la cancion")
+            do {
+                let result = try await PlaybackManager.shared.resolveAndPlay(videoId: song.videoId)
+                trace("\(context): ordenada (cliente \(result.clientName))")
+            } catch {
+                trace("\(context): fallo al resolver (\(error.localizedDescription))")
+                Log.nowPlaying.error("Intent playback failed (\(context)): \(error)")
+                continue
+            }
+
+            if await waitForAudio(seconds: 6) {
+                trace("\(context): audio confirmado")
+                return true
+            }
+            trace("\(context): SIN audio tras 6 s -> \(PlayerController.shared.diagnosticSnapshot())")
+            // Antes del siguiente intento, se reactiva la sesion de audio.
+            PlayerController.shared.assertAudioSession()
         }
+        return false
+    }
+
+    /// Espera a que mpv empiece a avanzar; `false` si no lo hace en `seconds`.
+    private static func waitForAudio(seconds: Double) async -> Bool {
+        let deadline = Date().addingTimeInterval(seconds)
+        while Date() < deadline {
+            if PlayerController.shared.isAudioAdvancing { return true }
+            try? await Task.sleep(nanoseconds: 300_000_000)
+        }
+        return PlayerController.shared.isAudioAdvancing
     }
 
     // MARK: - Sesion e inicio
