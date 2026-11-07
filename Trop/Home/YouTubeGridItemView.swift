@@ -10,6 +10,7 @@ import SwiftUI
 struct YouTubeGridItemView: View {
     var item: YTItem
     var onTap: () -> Void
+    var onNavigate: ((DetailRoute) -> Void)?
 
     @State private var durations = DurationResolver()
     private let artworkSize: CGFloat = 160
@@ -67,7 +68,7 @@ struct YouTubeGridItemView: View {
         }
         .frame(width: artworkSize, height: 220, alignment: .top)
         .accessibilityAddTraits(.isButton)
-        .pressableSong(menuSong, onTap: onTap)
+        .pressableItem(item, onTap: onTap, onNavigate: onNavigate)
         .task {
             guard let vid = videoId else { return }
             let known: Int
@@ -139,7 +140,7 @@ struct YouTubeListItemView: View {
                     }
                 }
             }
-            .pressable(onTap: onTap)
+            .pressableItem(item, onTap: onTap, onNavigate: onNavigate)
             .padding(.horizontal, detailed ? 0 : 16)
             .padding(.vertical, 6)
         }

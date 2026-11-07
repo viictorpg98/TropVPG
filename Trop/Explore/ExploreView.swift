@@ -187,7 +187,7 @@ struct ExploreSectionsList: View {
                 ForEach(section.items, id: \.id) { item in
                     YouTubeGridItemView(item: item, onTap: {
                         openItem(item)
-                    })
+                    }, onNavigate: { pendingRoute.wrappedValue = $0 })
                 }
             }
         }

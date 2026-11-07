@@ -327,21 +327,20 @@ struct SearchView: View {
             HStack(alignment: .top, spacing: 16) {
                 ForEach(items, id: \.id) { item in
                     if case .artist(let artist) = item {
-                        Button {
-                            router.searchPath.append(DetailRoute.artist(browseId: artist.browseId))
-                        } label: {
-                            VStack(spacing: 8) {
-                                AsyncImageView(url: artist.thumbnailUrl)
-                                    .frame(width: 110, height: 110)
-                                    .clipShape(Circle())
-                                Text(artist.name)
-                                    .font(.subheadline)
-                                    .foregroundStyle(.primary)
-                                    .lineLimit(1)
-                                    .frame(width: 110)
-                            }
+                        VStack(spacing: 8) {
+                            AsyncImageView(url: artist.thumbnailUrl)
+                                .frame(width: 110, height: 110)
+                                .clipShape(Circle())
+                            Text(artist.name)
+                                .font(.subheadline)
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                                .frame(width: 110)
                         }
-                        .buttonStyle(PressableButtonStyle())
+                        .accessibilityAddTraits(.isButton)
+                        .pressableItem(item, onTap: {
+                            router.searchPath.append(DetailRoute.artist(browseId: artist.browseId))
+                        }, onNavigate: { pendingRoute = $0 })
                     }
                 }
             }
@@ -355,17 +354,16 @@ struct SearchView: View {
             HStack(alignment: .top, spacing: 12) {
                 ForEach(items, id: \.id) { item in
                     if case .album(let album) = item {
-                        Button {
+                        MediaGridCell(
+                            thumbnailUrl: album.thumbnailUrl,
+                            title: album.title,
+                            subtitle: album.artists.map(\.name).joined(separator: ", "),
+                            size: 140
+                        )
+                        .accessibilityAddTraits(.isButton)
+                        .pressableItem(item, onTap: {
                             router.searchPath.append(DetailRoute.album(browseId: album.browseId))
-                        } label: {
-                            MediaGridCell(
-                                thumbnailUrl: album.thumbnailUrl,
-                                title: album.title,
-                                subtitle: album.artists.map(\.name).joined(separator: ", "),
-                                size: 140
-                            )
-                        }
-                        .buttonStyle(PressableButtonStyle())
+                        }, onNavigate: { pendingRoute = $0 })
                     }
                 }
             }

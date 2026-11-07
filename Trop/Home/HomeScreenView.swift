@@ -275,9 +275,9 @@ struct HomeScreenView: View {
                 ForEach(section.items.indices, id: \.self) { i in
                     let item = section.items[i]
                     if case .song(let s) = item, !queue.isEmpty {
-                        YouTubeGridItemView(item: item, onTap: { handleSongTap(s, in: queue) })
+                        YouTubeGridItemView(item: item, onTap: { handleSongTap(s, in: queue) }, onNavigate: { pendingRoute = $0 })
                     } else {
-                        YouTubeGridItemView(item: item, onTap: { handleItemTap(item) })
+                        YouTubeGridItemView(item: item, onTap: { handleItemTap(item) }, onNavigate: { pendingRoute = $0 })
                     }
                 }
             }

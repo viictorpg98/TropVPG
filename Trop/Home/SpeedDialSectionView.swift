@@ -102,7 +102,7 @@ struct SpeedDialSectionView: View {
     private func cell(_ item: YTItem) -> some View {
         tile(item)
             .accessibilityAddTraits(.isButton)
-            .pressableSong(menuSong(item), onTap: { onTap(item) }, onNavigate: onNavigate)
+            .pressableItem(item, onTap: { onTap(item) }, onNavigate: onNavigate)
     }
 
     @ViewBuilder

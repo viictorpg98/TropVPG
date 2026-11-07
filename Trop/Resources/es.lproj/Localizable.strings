@@ -38,6 +38,7 @@
 "Appearance" = "Apariencia";
 "Applies to buttons, highlights, and selected items." = "Se aplica a botones, resaltados y elementos seleccionados.";
 "April" = "Abril";
+"Artist" = "Artista";
 "Artists" = "Artistas";
 "Audio" = "Audio";
 "Audio Normalization" = "Normalización de audio";
@@ -287,6 +288,7 @@
 "Persist Queue" = "Conservar la cola";
 "Persist Queue restores your queue, shuffle, and repeat state when the app relaunches." = "«Conservar la cola» restaura tu cola, el modo aleatorio y la repetición al reabrir la app.";
 "Pin to Quick Picks" = "Fijar en Selecciones rápidas";
+"Play" = "Reproducir";
 "Play All" = "Reproducir todo";
 "Play Next" = "Reproducir a continuación";
 "Play all" = "Reproducir todo";
@@ -299,6 +301,7 @@
 "Playlist name" = "Nombre de la lista";
 "Playlists" = "Listas de reproducción";
 "Plays the looping video behind the player artwork when Spotify has one for the track." = "Reproduce el vídeo en bucle detrás de la portada cuando Spotify tiene uno para la canción.";
+"Podcast" = "Pódcast";
 "Podcasts" = "Pódcast";
 "Pop" = "Pop";
 "Preferences" = "Preferencias";
@@ -437,6 +440,7 @@
 "Unlike" = "Quitar Me gusta";
 "Unpin" = "Desfijar";
 "Unpin from Quick Picks" = "Desfijar de Selecciones rápidas";
+"Unsubscribe" = "Cancelar suscripción";
 "Unsubscribe from this podcast" = "Cancelar la suscripción a este pódcast";
 "Use cellular data" = "Usar datos móviles";
 "User Status" = "Estado del usuario";
@@ -448,6 +452,8 @@
 "Videos" = "Vídeos";
 "View Album" = "Ver álbum";
 "View Artist" = "Ver artista";
+"View Playlist" = "Ver lista de reproducción";
+"View Podcast" = "Ver pódcast";
 "Views" = "Reproducciones";
 "Vocal" = "Vocal";
 "Waiting for login…" = "Esperando el inicio de sesión…";

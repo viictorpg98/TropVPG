@@ -38,6 +38,7 @@
 "Appearance" = "Appearance";
 "Applies to buttons, highlights, and selected items." = "Applies to buttons, highlights, and selected items.";
 "April" = "April";
+"Artist" = "Artist";
 "Artists" = "Artists";
 "Audio" = "Audio";
 "Audio Normalization" = "Audio Normalization";
@@ -287,6 +288,7 @@
 "Persist Queue" = "Persist Queue";
 "Persist Queue restores your queue, shuffle, and repeat state when the app relaunches." = "Persist Queue restores your queue, shuffle, and repeat state when the app relaunches.";
 "Pin to Quick Picks" = "Pin to Quick Picks";
+"Play" = "Play";
 "Play All" = "Play All";
 "Play Next" = "Play Next";
 "Play all" = "Play all";
@@ -299,6 +301,7 @@
 "Playlist name" = "Playlist name";
 "Playlists" = "Playlists";
 "Plays the looping video behind the player artwork when Spotify has one for the track." = "Plays the looping video behind the player artwork when Spotify has one for the track.";
+"Podcast" = "Podcast";
 "Podcasts" = "Podcasts";
 "Pop" = "Pop";
 "Preferences" = "Preferences";
@@ -437,6 +440,7 @@
 "Unlike" = "Unlike";
 "Unpin" = "Unpin";
 "Unpin from Quick Picks" = "Unpin from Quick Picks";
+"Unsubscribe" = "Unsubscribe";
 "Unsubscribe from this podcast" = "Unsubscribe from this podcast";
 "Use cellular data" = "Use cellular data";
 "User Status" = "User Status";
@@ -448,6 +452,8 @@
 "Videos" = "Videos";
 "View Album" = "View Album";
 "View Artist" = "View Artist";
+"View Playlist" = "View Playlist";
+"View Podcast" = "View Podcast";
 "Views" = "Views";
 "Vocal" = "Vocal";
 "Waiting for login…" = "Waiting for login…";

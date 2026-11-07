@@ -461,5 +461,11 @@
   "Back": "Back",
   "Dislike": "Dislike",
   "Explicit": "Explicit",
-  "Based on Trop by SwiftyMedia (GPL-3.0).": "Based on Trop by SwiftyMedia (GPL-3.0)."
+  "Based on Trop by SwiftyMedia (GPL-3.0).": "Based on Trop by SwiftyMedia (GPL-3.0).",
+  "Play": "Play",
+  "View Playlist": "View Playlist",
+  "View Podcast": "View Podcast",
+  "Unsubscribe": "Unsubscribe",
+  "Artist": "Artist",
+  "Podcast": "Podcast"
 }

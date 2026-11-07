@@ -38,6 +38,7 @@
 "Appearance" = "外观";
 "Applies to buttons, highlights, and selected items." = "应用于按钮、高亮和选中项目。";
 "April" = "四月";
+"Artist" = "Artist";
 "Artists" = "艺人";
 "Audio" = "音频";
 "Audio Normalization" = "音频标准化";
@@ -287,6 +288,7 @@
 "Persist Queue" = "保持队列";
 "Persist Queue restores your queue, shuffle, and repeat state when the app relaunches." = "重新打开应用时恢复队列、随机播放和循环状态。";
 "Pin to Quick Picks" = "置顶到快捷精选";
+"Play" = "Play";
 "Play All" = "全部播放";
 "Play Next" = "下一首播放";
 "Play all" = "全部播放";
@@ -299,6 +301,7 @@
 "Playlist name" = "播放列表名称";
 "Playlists" = "播放列表";
 "Plays the looping video behind the player artwork when Spotify has one for the track." = "如果 Spotify 为歌曲提供视频，则在播放器封面后播放循环视频。";
+"Podcast" = "Podcast";
 "Podcasts" = "播客";
 "Pop" = "流行";
 "Preferences" = "偏好设置";
@@ -437,6 +440,7 @@
 "Unlike" = "取消喜欢";
 "Unpin" = "取消置顶";
 "Unpin from Quick Picks" = "从快捷精选取消置顶";
+"Unsubscribe" = "Unsubscribe";
 "Unsubscribe from this podcast" = "取消订阅此播客";
 "Use cellular data" = "使用蜂窝数据";
 "User Status" = "用户状态";
@@ -448,6 +452,8 @@
 "Videos" = "视频";
 "View Album" = "查看专辑";
 "View Artist" = "查看艺人";
+"View Playlist" = "View Playlist";
+"View Podcast" = "View Podcast";
 "Views" = "观看次数";
 "Vocal" = "人声";
 "Waiting for login…" = "等待登录…";

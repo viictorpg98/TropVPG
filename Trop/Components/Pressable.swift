@@ -94,7 +94,40 @@ private struct PressableSongModifier: ViewModifier {
     }
 }
 
+/// Como `pressable`, y al mantener pulsado abre el menu que corresponde al elemento:
+/// el de cancion para canciones y episodios, y el de coleccion para album, artista, lista y podcast.
+private struct PressableItemModifier: ViewModifier {
+    let item: YTItem
+    let onTap: () -> Void
+    let onNavigate: ((DetailRoute) -> Void)?
+
+    @State private var showMenu = false
+
+    func body(content: Content) -> some View {
+        content
+            .pressable(onTap: onTap, onLongPress: { showMenu = true })
+            .sheet(isPresented: $showMenu) {
+                switch item {
+                case .song(let song):
+                    SongMenuSheet(song: song, onNavigate: { onNavigate?($0) })
+                case .episode(let episode):
+                    SongMenuSheet(song: episode.toSongItem(), onNavigate: { onNavigate?($0) })
+                default:
+                    CollectionMenuSheet(item: item, onNavigate: onNavigate)
+                }
+            }
+    }
+}
+
 extension View {
+    func pressableItem(
+        _ item: YTItem,
+        onTap: @escaping () -> Void,
+        onNavigate: ((DetailRoute) -> Void)? = nil
+    ) -> some View {
+        modifier(PressableItemModifier(item: item, onTap: onTap, onNavigate: onNavigate))
+    }
+
     func pressable(onTap: @escaping () -> Void, onLongPress: (() -> Void)? = nil) -> some View {
         modifier(PressableModifier(onTap: onTap, onLongPress: onLongPress))
     }
