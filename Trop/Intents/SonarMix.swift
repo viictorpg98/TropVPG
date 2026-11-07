@@ -54,6 +54,13 @@ enum SonarMix {
             }
         }
 
+        // Antes de pedir ninguna cancion hay que cargar la sesion (cookies, identidad de visitante...).
+        // En la app normal lo hace la pantalla de inicio al abrirse; cuando la accion lanza la app en
+        // segundo plano esa pantalla no existe, y sin esto la primera peticion de stream va "anonima":
+        // YouTube devuelve una direccion que el reproductor rechaza y la musica no suena (o suena al rato).
+        await prepareSession()
+        trace("sesion cargada")
+
         // 0) Lo mas rapido: canciones descargadas. Suenan desde el archivo, sin red.
         let downloaded = await downloadedSongs()
         trace("descargadas: \(downloaded.count)")
@@ -90,8 +97,6 @@ enum SonarMix {
         // 2) Con red y con limite de tiempo: solo la primera pagina del inicio (una peticion), que ya
         // trae canciones tuyas ("Volver a escuchar"...). Buscar "Mezclado para ti" exige varias
         // peticiones mas, asi que eso se hace despues, en segundo plano.
-        await prepareSession()
-        trace("sesion preparada")
         let sections = await withTimeout(seconds: 10) { await loadHomeSections(deep: false) }
         trace(sections.map { "inicio cargado: \($0.count) secciones" } ?? "inicio: sin respuesta a tiempo")
         if let sections {
@@ -193,7 +198,8 @@ enum SonarMix {
 
     // MARK: - Sesion e inicio
 
-    private static func prepareSession() async {
+    static func prepareSession() async {
+        await InnerTubeClient.tropShared.syncTropLocale()
         let cookieStore = CookieStore()
         if await cookieStore.isLoggedIn() {
             await InnerTubeClient.tropShared.loadState(from: cookieStore)

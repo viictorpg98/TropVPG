@@ -28,6 +28,7 @@ struct ResumeMusicIntent: AudioPlaybackIntent {
         let np = NowPlaying.shared
         if np.isPlaying { return .result() }
         if let videoId = np.videoId, !np.queueSongs.isEmpty {
+            await SonarMix.prepareSession()
             try await PlaybackManager.shared.resolveAndPlay(videoId: videoId)
         } else {
             _ = await SonarMix.start()
