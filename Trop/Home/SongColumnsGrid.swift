@@ -11,7 +11,7 @@ struct SongColumnsGrid<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        LazyHGrid(rows: Array(repeating: GridItem(.fixed(60)), count: 4), spacing: 12) {
+        LazyHGrid(rows: Array(repeating: GridItem(.fixed(72)), count: 4), spacing: 12) {
             content()
         }
         .scrollTargetLayout()

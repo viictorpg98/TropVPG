@@ -95,7 +95,7 @@ struct YouTubeListItemView: View {
         if let song = songItem {
             SongRowView(
                 song: song,
-                artSize: 48,
+                artSize: detailed ? 56 : 48,
                 onTap: onTap,
                 onNavigate: onNavigate,
                 detailed: detailed

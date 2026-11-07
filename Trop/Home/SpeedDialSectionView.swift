@@ -15,6 +15,7 @@ struct SpeedDialSectionView: View {
     let onDice: () -> Void
 
     @State private var page: Int? = 0
+    private let np = NowPlaying.shared
 
     private let perPage = 9
     private let gridSpacing: CGFloat = 10
@@ -101,18 +102,31 @@ struct SpeedDialSectionView: View {
         Button {
             onTap(item)
         } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                AsyncImageView(url: item.thumbnailUrl)
-                    .frame(maxWidth: .infinity)
-                    .aspectRatio(1, contentMode: .fit)
-                    .clipShape(RoundedRectangle(cornerRadius: isArtist(item) ? 200 : 8))
-
-                Text(item.title)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundColor(.primary)
-                    .lineLimit(1)
-            }
+            AsyncImageView(url: item.thumbnailUrl)
+                .frame(maxWidth: .infinity)
+                .aspectRatio(1, contentMode: .fit)
+                .overlay(alignment: .bottomLeading) {
+                    ZStack(alignment: .bottomLeading) {
+                        LinearGradient(
+                            colors: [.clear, .black.opacity(0.7)],
+                            startPoint: .center,
+                            endPoint: .bottom
+                        )
+                        Text(item.title)
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .padding(.horizontal, 8)
+                            .padding(.bottom, 7)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: isArtist(item) ? 200 : 12, style: .continuous))
+                .overlay {
+                    if np.videoId != nil, np.videoId == item.id {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(Color.white, lineWidth: 3)
+                    }
+                }
         }
         .buttonStyle(.plain)
     }

@@ -39,13 +39,14 @@ struct SongRowView: View {
 
     @State private var durations = DurationResolver()
     @State private var showSongMenu = false
+    @State private var fetchedViews: Int64?
 
     private var subtitleText: String {
         let duration = durations.effectiveDuration(known: song.duration)
         guard detailed else { return song.subtitleLine(duration: duration) }
         var parts: [String] = []
         if !song.artistNamesDisplay.isEmpty { parts.append(song.artistNamesDisplay) }
-        if let views = song.viewCount, views > 0 { parts.append(CountText.plays(views)) }
+        if let views = song.viewCount ?? fetchedViews, views > 0 { parts.append(CountText.plays(views)) }
         let length = duration.formattedDuration
         if !length.isEmpty { parts.append(length) }
         return parts.joined(separator: " • ")
@@ -59,17 +60,20 @@ struct SongRowView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(song.title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                    .font(detailed ? Font.body : Font.subheadline)
+                    .fontWeight(detailed ? .semibold : .medium)
                     .foregroundColor(.primary)
                     .lineLimit(1)
 
-                HStack(spacing: 4) {
+                HStack(spacing: 5) {
                     if detailed {
                         DownloadedBadge(videoId: song.videoId)
+                        if song.isExplicit {
+                            ExplicitBadge()
+                        }
                     }
                     Text(subtitleText)
-                        .font(.caption)
+                        .font(detailed ? Font.subheadline : Font.caption)
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                 }
@@ -95,6 +99,10 @@ struct SongRowView: View {
         .contentShape(Rectangle())
         .onTapGesture(perform: onTap)
         .task { await durations.resolve(videoId: song.videoId, knownDuration: song.duration) }
+        .task(id: song.videoId) {
+            guard detailed, song.viewCount == nil else { return }
+            fetchedViews = await ViewCountStore.shared.views(for: song.videoId)
+        }
         .onReceive(NotificationCenter.default.publisher(for: .durationDidUpdate)) { notification in
             durations.handleUpdate(notification, videoId: song.videoId)
         }
@@ -108,10 +116,22 @@ struct DownloadedBadge: View {
 
     var body: some View {
         if case .completed = downloadManager.state(for: videoId) {
-            Image(systemName: "arrow.down.circle.fill")
-                .font(.caption2)
+            Image(systemName: "checkmark.circle.fill")
+                .font(.footnote)
                 .foregroundStyle(.secondary)
         }
+    }
+}
+
+/// Insignia "E" de contenido explicito.
+struct ExplicitBadge: View {
+    var body: some View {
+        Text(verbatim: "E")
+            .font(.system(size: 10, weight: .bold))
+            .foregroundStyle(Color.black.opacity(0.75))
+            .padding(.horizontal, 4)
+            .padding(.vertical, 1)
+            .background(RoundedRectangle(cornerRadius: 3).fill(Color.secondary))
     }
 }
 

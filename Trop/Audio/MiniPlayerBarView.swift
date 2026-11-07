@@ -41,7 +41,7 @@ struct MiniPlayerBarView: View {
     }
 
     private var artworkSize: CGFloat {
-        30
+        36
     }
 
     private var isDarkMode: Bool {
@@ -67,8 +67,9 @@ struct MiniPlayerBarView: View {
     var body: some View {
         HStack(spacing: 0) {
             pagingArea
-            playPauseButton
-                .padding(.trailing, 16)
+                .mask(textFadeMask)
+            transportControls
+                .padding(.trailing, 18)
         }
         .frame(height: barHeight)
         .frame(maxWidth: .infinity)
@@ -124,34 +125,34 @@ struct MiniPlayerBarView: View {
     }
 
     private func page(for song: SongItem, width: CGFloat) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 12) {
             barArtwork(for: song.videoId)
 
             VStack(alignment: .leading, spacing: 0) {
                 if isInline {
                     Text(song.title)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .foregroundStyle(titleColor)
                 } else {
                     MarqueeText(
                         text: song.title,
-                        font: .system(size: 13, weight: .semibold),
-                        frameHeight: 16,
+                        font: .system(size: 15, weight: .semibold),
+                        frameHeight: 19,
                         textColor: titleColor
                     )
                 }
 
                 Text(artistLine(for: song))
-                    .font(.system(size: 12, weight: .regular))
+                    .font(.system(size: 13, weight: .regular))
                     .foregroundStyle(artistColor)
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
         }
         .frame(width: width, alignment: .leading)
-        .padding(.leading, 16)
+        .padding(.leading, 14)
         .contentShape(Rectangle())
     }
 
@@ -175,10 +176,36 @@ struct MiniPlayerBarView: View {
                 Button(action: { player.togglePlayPause() }, label: {
             Image(systemName: np.isPlaying ? "pause.fill" : "play.fill")
                 .contentTransition(.symbolEffect(.replace))
-                .font(.system(size: 17))
-                .foregroundStyle(.tint)
+                .font(.system(size: 22))
+                .foregroundStyle(titleColor)
         })
         .accessibilityLabel(np.isPlaying ? "Pause" : "Play")
+    }
+
+    /// Desvanece el texto en el borde derecho para que no se meta bajo los botones.
+    private var textFadeMask: some View {
+        LinearGradient(
+            stops: [
+                .init(color: .black, location: 0),
+                .init(color: .black, location: 0.9),
+                .init(color: .clear, location: 1)
+            ],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+    }
+
+    private var transportControls: some View {
+        HStack(spacing: 20) {
+            playPauseButton
+            Button(action: { np.playNext() }, label: {
+                Image(systemName: "forward.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(np.hasNext ? titleColor : titleColor.opacity(0.35))
+            })
+            .disabled(!np.hasNext)
+            .accessibilityLabel("Next")
+        }
     }
 
     private var progressLine: some View {

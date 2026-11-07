@@ -116,6 +116,7 @@
 "Disabled providers are skipped when fetching lyrics." = "Los proveedores desactivados se omiten al buscar letras.";
 "Discord" = "Discord";
 "Discord Rich Presence uses Discord's Social SDK. Token stays encrypted in Keychain." = "Discord Rich Presence usa el SDK social de Discord. El token permanece cifrado en el llavero.";
+"Dislike" = "No me gusta";
 "Dismiss" = "Descartar";
 "Done" = "Listo";
 "Download" = "Descargar";
@@ -143,6 +144,7 @@
 "Equalizer On" = "Ecualizador activado";
 "Error" = "Error";
 "Expires in" = "Caduca en";
+"Explicit" = "Explícito";
 "Explore" = "Explorar";
 "Explore failed" = "Error al explorar";
 "Fans Also Like" = "A los fans también les gusta";

@@ -116,6 +116,7 @@
 "Disabled providers are skipped when fetching lyrics." = "获取歌词时会跳过已停用的提供方。";
 "Discord" = "Discord";
 "Discord Rich Presence uses Discord's Social SDK. Token stays encrypted in Keychain." = "Discord Rich Presence 使用 Discord Social SDK。令牌会加密保存在钥匙串中。";
+"Dislike" = "Dislike";
 "Dismiss" = "忽略";
 "Done" = "完成";
 "Download" = "下载";
@@ -143,6 +144,7 @@
 "Equalizer On" = "均衡器已开启";
 "Error" = "错误";
 "Expires in" = "剩余有效期";
+"Explicit" = "Explicit";
 "Explore" = "探索";
 "Explore failed" = "探索加载失败";
 "Fans Also Like" = "喜欢这些的用户也喜欢";

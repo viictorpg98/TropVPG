@@ -116,6 +116,7 @@
 "Disabled providers are skipped when fetching lyrics." = "Disabled providers are skipped when fetching lyrics.";
 "Discord" = "Discord";
 "Discord Rich Presence uses Discord's Social SDK. Token stays encrypted in Keychain." = "Discord Rich Presence uses Discord's Social SDK. Token stays encrypted in Keychain.";
+"Dislike" = "Dislike";
 "Dismiss" = "Dismiss";
 "Done" = "Done";
 "Download" = "Download";
@@ -143,6 +144,7 @@
 "Equalizer On" = "Equalizer On";
 "Error" = "Error";
 "Expires in" = "Expires in";
+"Explicit" = "Explicit";
 "Explore" = "Explore";
 "Explore failed" = "Explore failed";
 "Fans Also Like" = "Fans Also Like";
