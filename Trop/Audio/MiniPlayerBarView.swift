@@ -37,11 +37,11 @@ struct MiniPlayerBarView: View {
     }
 
     private var barHeight: CGFloat {
-        48
+        54
     }
 
     private var artworkSize: CGFloat {
-        36
+        40
     }
 
     private var isDarkMode: Bool {
@@ -73,7 +73,16 @@ struct MiniPlayerBarView: View {
         }
         .frame(height: barHeight)
         .frame(maxWidth: .infinity)
-        .overlay(alignment: .bottom) { progressLine }
+        .background(
+            // Velo con el color de la caratula (cambia suavemente de cancion a cancion).
+            LinearGradient(
+                colors: [(np.dominantColors.first ?? .clear).opacity(0.38), .clear],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .animation(.easeInOut(duration: 0.6), value: np.dominantColors)
+        )
+        .overlay(alignment: .bottom) { MiniProgressLine(color: titleColor) }
         .clipShape(Capsule())
         .onChange(of: np.videoId) { _, _ in
             dragOffset = 0
@@ -169,16 +178,20 @@ struct MiniPlayerBarView: View {
             }
         }
         .frame(width: artworkSize, height: artworkSize)
-        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
     }
 
     private var playPauseButton: some View {
-                Button(action: { player.togglePlayPause() }, label: {
+        Button(action: { player.togglePlayPause() }, label: {
             Image(systemName: np.isPlaying ? "pause.fill" : "play.fill")
                 .contentTransition(.symbolEffect(.replace))
-                .font(.system(size: 22))
-                .foregroundStyle(titleColor)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(isDarkMode ? Color.black : Color.white)
+                .frame(width: 36, height: 36)
+                .background(Circle().fill(titleColor))
         })
+        .buttonStyle(.plain)
         .accessibilityLabel(np.isPlaying ? "Pause" : "Play")
     }
 
@@ -196,27 +209,16 @@ struct MiniPlayerBarView: View {
     }
 
     private var transportControls: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: 14) {
             playPauseButton
             Button(action: { np.playNext() }, label: {
                 Image(systemName: "forward.fill")
-                    .font(.system(size: 18))
+                    .font(.system(size: 20))
                     .foregroundStyle(np.hasNext ? titleColor : titleColor.opacity(0.35))
             })
             .disabled(!np.hasNext)
             .accessibilityLabel("Next")
         }
-    }
-
-    private var progressLine: some View {
-        GeometryReader { geo in
-            let progressWidth = max(0, min(geo.size.width, geo.size.width * CGFloat(np.progress)))
-            Rectangle()
-                .fill(.tint)
-                .frame(width: progressWidth, height: 2)
-        }
-        .frame(height: 2)
-        .allowsHitTesting(false)
     }
 
     // MARK: - Data
@@ -308,6 +310,29 @@ struct MiniPlayerBarView: View {
             withAnimation(nil) { dragOffset = 0 }
             isCommitting = false
         }
+    }
+}
+
+// MARK: - Barra de progreso fina (vista propia: solo ella se redibuja con el tiempo)
+
+private struct MiniProgressLine: View {
+    let color: Color
+    private let np = NowPlaying.shared
+
+    var body: some View {
+        GeometryReader { geo in
+            let track = max(0, geo.size.width - 44)
+            let filled = max(0, min(track, track * CGFloat(np.progress)))
+            ZStack(alignment: .leading) {
+                Capsule().fill(color.opacity(0.15))
+                Capsule().fill(color.opacity(0.85)).frame(width: filled)
+            }
+            .frame(width: track, height: 3)
+            .frame(maxWidth: .infinity)
+        }
+        .frame(height: 3)
+        .padding(.bottom, 4)
+        .allowsHitTesting(false)
     }
 }
 

@@ -363,7 +363,9 @@ final class HomeViewModel {
     }
 
     private func applyFilters(_ section: HomeSection) -> HomeSection {
+        let disliked = LikeStore.shared.disliked
         let filteredItems = section.items.filter { item in
+            if case .song(let s) = item, disliked.contains(s.videoId) { return false }
             if hideExplicit {
                 switch item {
                 case .song(let s) where s.isExplicit: return false
@@ -380,6 +382,7 @@ final class HomeViewModel {
         case .forgottenFavorites: return .forgottenFavorites(items: filteredItems)
         case .homePageSection(let sectionData, let index):
             let filteredSectionItems = sectionData.items.filter { item in
+                if case .song(let s) = item, disliked.contains(s.videoId) { return false }
                 if hideExplicit {
                     switch item {
                     case .song(let s) where s.isExplicit: return false

@@ -15,7 +15,8 @@ struct FullPlayerView: View {
     @Bindable private var np = NowPlaying.shared
     @State private var editingProgress: Float = 0
     @State private var isEditingSlider = false
-    @State private var collapseOffset: CGFloat = 0
+    @GestureState(resetTransaction: Transaction(animation: .spring(response: 0.3, dampingFraction: 0.85)))
+    private var collapseOffset: CGFloat = 0
 
     @ObservedObject private var likeStore = LikeStore.shared
     @State private var showLyrics = false
@@ -101,7 +102,11 @@ struct FullPlayerView: View {
             .onChange(of: showQueue) { _, newValue in
                 if newValue { np.preloadNeighborArtwork() }
             }
-            .task { np.preloadNeighborArtwork() }
+            .task {
+                // Se retrasa para no competir con la animacion de apertura.
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                np.preloadNeighborArtwork()
+            }
             .task(id: np.videoId) { await loadCurrentLyrics() }
             .sheet(isPresented: $showSongMenu) {
                 if let song = currentSong {
@@ -266,7 +271,10 @@ struct FullPlayerView: View {
                 accessibility: "Dislike"
             ) {
                 guard let song = currentSong else { return }
+                let willDislike = !isDisliked
                 Task { await likeStore.toggleDislike(song: song) }
+                // Como en YouTube Music: al marcar "No me gusta" pasa a la siguiente.
+                if willDislike, np.hasNext { np.playNext() }
             }
 
             PlayerPillButton(
@@ -312,22 +320,19 @@ struct FullPlayerView: View {
     }
 
     /// Swipe down anywhere to collapse. Vertical-dominant drags only.
-    /// Mientras se arrastra no hay animacion: solo se anima la vuelta al soltar.
+    /// `collapseOffset` es un @GestureState: vuelve solo a 0 (con animacion) cuando el gesto
+    /// termina o el sistema lo cancela, asi que el reproductor nunca se queda desplazado.
     private var collapseDrag: some Gesture {
         DragGesture(minimumDistance: 12)
-            .onChanged { value in
+            .updating($collapseOffset) { value, state, _ in
                 guard value.translation.height > 0,
                       value.translation.height > abs(value.translation.width) else { return }
-                collapseOffset = value.translation.height
+                state = value.translation.height
             }
             .onEnded { value in
                 let isVertical = value.translation.height > abs(value.translation.width)
                 if isVertical, value.translation.height > 140 {
                     onCollapse()
-                } else {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
-                        collapseOffset = 0
-                    }
                 }
             }
     }
