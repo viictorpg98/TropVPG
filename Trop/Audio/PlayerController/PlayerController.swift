@@ -1124,6 +1124,8 @@ extension PlayerController {
             return (dur, pos)
         }
         guard var props, props.dur > 0 else { return }
+        // AutoMix: mientras suena su tramo preparado, la posicion es la suya (mpv esta en pausa).
+        if let positionOverride { props.pos = positionOverride }
         let np = NowPlaying.shared
 
         if let seek = pendingSeek {

@@ -49,9 +49,9 @@ final class AutoMixEngine {
 
     /// Segundos de la saliente que se reproducen tal cual desde su tramo antes de empezar la mezcla: en ellos
     /// mpv le pasa el testigo (un fundido corto) sin que se note el cambio de reproductor.
-    private let swapLead = 0.5
-    /// Duracion del fundido del relevo de mpv al tramo de la saliente.
-    private let swapFade = 0.15
+    private let swapLead = 0.8
+    /// Duracion del fundido del relevo de mpv al tramo de la saliente (mas largo = menos se nota un pequeno desfase).
+    private let swapFade = 0.3
     /// Segundos extra de la entrante a volumen completo tras la mezcla, para cubrir el relevo de mpv.
     private let voiceTail = 6.0
 
@@ -379,11 +379,11 @@ final class AutoMixEngine {
         let playerVolume = SettingsStore.shared.playerVolume
 
         if let fadeStart = fadeStartedAt {
+            // Las dos suenan la misma cancion en el mismo punto: el fundido es lineal (sumar amplitudes), no de potencia.
             let t = min(Date().timeIntervalSince(fadeStart) / handoffFade, 1)
-            let angle = t * Double.pi / 2
-            controller.volumeScale = mpvScale(forGain: sin(angle))
+            controller.volumeScale = mpvScale(forGain: t)
             controller.applyPlayerVolume()
-            armed.incoming.setVolume(Float(cos(angle) * playerVolume))
+            armed.incoming.setVolume(Float((1 - t) * playerVolume))
             if t >= 1 { finish() }
             return
         }

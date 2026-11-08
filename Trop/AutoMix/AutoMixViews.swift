@@ -12,6 +12,13 @@ private func smooth(_ t: Double) -> Double {
     return x * x * (3 - 2 * x)
 }
 
+/// Sube la viveza de un color (los dominantes de una carátula suelen salir apagados): mas saturacion y nunca oscuro.
+private func vivid(_ color: Color) -> Color {
+    var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+    UIColor(color).getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+    return Color(hue: Double(h), saturation: Double(min(1, s * 1.2 + 0.05)), brightness: Double(max(b, 0.55)))
+}
+
 /// El cruce de carátulas y colores se concentra en la parte central de la mezcla (de 25 % a 75 %), como en Apple
 /// Music: antes y despues se ve una sola.
 private func dissolve(_ progress: Double) -> Double {
@@ -62,19 +69,23 @@ struct MixAwareArtwork<Content: View>: View {
 
     private func mixing(incoming: UIImage) -> some View {
         let e = dissolve(visuals.progress)
+        // Disolvencia con enfoque: la que sale se desenfoca y se desvanece mientras la que entra se enfoca. Asi no se
+        // ven las dos nitidas a la vez (la doble exposicion de dos portadas cargadas queda fea).
+        let blur: CGFloat = reduceMotion ? 0 : 16
         return ZStack {
-            // La entrante, debajo y entera; la saliente, encima, se va desvaneciendo.
             Image(uiImage: incoming)
                 .resizable()
                 .scaledToFill()
                 .frame(width: side, height: side)
+                .blur(radius: blur * (1 - e))
+                .scaleEffect(reduceMotion ? 1 : 0.95 + 0.05 * e)
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .scaleEffect(reduceMotion ? 1 : 0.94 + 0.06 * e)
 
             content
                 .frame(width: side, height: side)
-                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .blur(radius: blur * e)
                 .scaleEffect(reduceMotion ? 1 : 1 + 0.05 * e)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .opacity(1 - e)
         }
         .frame(width: side, height: side)
@@ -100,8 +111,10 @@ struct MixAwareTitle: View {
             ZStack(alignment: .leading) {
                 block(title: title, artist: artist, videoId: videoId)
                     .opacity(out)
+                    .blur(radius: 6 * (1 - out))
                 block(title: visuals.incomingTitle, artist: visuals.incomingArtist, videoId: visuals.incomingVideoId)
                     .opacity(incoming)
+                    .blur(radius: 6 * (1 - incoming))
             }
         } else {
             block(title: title, artist: artist, videoId: videoId)
@@ -163,8 +176,9 @@ struct AutoMixPill: View {
 
 // MARK: - Resplandor de color de toda la pantalla
 
-/// Durante una mezcla, toda la pantalla (tambien con el fondo negro) se llena del color de las dos carátulas,
-/// pasando de una a otra, y late suavemente con el ritmo. Fuera de la mezcla se apaga con un fundido.
+/// Durante una mezcla, toda la pantalla (tambien con el fondo negro) se llena del color de las dos carátulas, pasando
+/// de una a otra, con manchas de color que se mueven despacio y laten con el ritmo. Fuera de la mezcla se apaga con
+/// un fundido.
 struct AutoMixGlow: View {
     private let visuals = AutoMixVisuals.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -173,27 +187,42 @@ struct AutoMixGlow: View {
         let e = dissolve(visuals.progress)
         let out = visuals.outgoingColors
         let incoming = visuals.incomingColors
-        let outFirst = out.first ?? Color(red: 0.15, green: 0.15, blue: 0.2)
-        let outLast = out.last ?? outFirst
-        let inFirst = incoming.first ?? outFirst
-        let inLast = incoming.last ?? outLast
+        let outFirst = vivid(out.first ?? Color(red: 0.2, green: 0.2, blue: 0.3))
+        let outLast = vivid(out.last ?? out.first ?? Color(red: 0.2, green: 0.2, blue: 0.3))
+        let inFirst = incoming.first.map(vivid) ?? outFirst
+        let inLast = incoming.last.map(vivid) ?? outLast
         let top = mix(outFirst, inFirst, e)
         let bottom = mix(outLast, inLast, e)
-        // Entra deprisa al empezar la mezcla; el latido sube un poco la intensidad en cada pulso.
-        let ramp = min(1, visuals.progress * 8)
+        let accent = mix(outLast, inFirst, e)
+        // Entra deprisa al empezar la mezcla; el latido infla un poco las manchas en cada pulso.
+        let ramp = min(1, visuals.progress * 7)
         let beat = (visuals.pulsing && !reduceMotion) ? exp(-visuals.beatPhase * 6) : 0
-        let strength = ramp * (0.78 + 0.14 * beat)
 
-        ZStack {
-            LinearGradient(colors: [top, bottom], startPoint: .top, endPoint: .bottom)
-            RadialGradient(colors: [top.opacity(0.9), .clear], center: .top, startRadius: 0, endRadius: 560)
-            // Un velo oscuro abajo mantiene legibles los controles sobre colores claros.
-            LinearGradient(colors: [.clear, .black.opacity(0.35)], startPoint: .center, endPoint: .bottom)
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !visuals.isMixing || reduceMotion)) { timeline in
+            let t = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
+            let grow = 1 + 0.07 * beat
+            ZStack {
+                LinearGradient(colors: [top, bottom], startPoint: .top, endPoint: .bottom)
+                blob(top, x: 0.22 + 0.18 * sin(t * 0.55), y: 0.18 + 0.08 * cos(t * 0.40), radius: 420 * grow)
+                blob(accent, x: 0.80 + 0.14 * cos(t * 0.47), y: 0.50 + 0.12 * sin(t * 0.52), radius: 380 * grow)
+                blob(bottom, x: 0.35 + 0.20 * cos(t * 0.38), y: 0.88 + 0.06 * sin(t * 0.61), radius: 460 * grow)
+                // Un velo suave abajo mantiene legibles los controles sobre colores claros.
+                LinearGradient(colors: [.clear, .black.opacity(0.22)], startPoint: .center, endPoint: .bottom)
+            }
         }
         .ignoresSafeArea()
-        .opacity(visuals.isMixing ? strength : 0)
-        .animation(.easeInOut(duration: 0.9), value: visuals.isMixing)
+        .opacity(visuals.isMixing ? ramp : 0)
+        .animation(.easeInOut(duration: 1.2), value: visuals.isMixing)
         .allowsHitTesting(false)
+    }
+
+    private func blob(_ color: Color, x: Double, y: Double, radius: Double) -> some View {
+        RadialGradient(
+            colors: [color.opacity(0.85), color.opacity(0)],
+            center: UnitPoint(x: x, y: y),
+            startRadius: 0,
+            endRadius: radius
+        )
     }
 }
 
