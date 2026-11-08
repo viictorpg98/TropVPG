@@ -78,6 +78,10 @@ struct FullPlayerView: View {
                     } else {
                         mainContent(
                             artSide: artworkSide(in: geometry, horizontalPadding: horizontalPadding),
+                            fullSize: CGSize(
+                                width: geometry.size.width,
+                                height: max(220, min(geometry.size.width, geometry.size.height - 400))
+                            ),
                             horizontalPadding: horizontalPadding,
                             isCompact: isCompact
                         )
@@ -129,12 +133,12 @@ struct FullPlayerView: View {
         if np.isVideoMode && np.hasVideo {
             Color.black
                 .ignoresSafeArea()
-        } else if settings.playerBackgroundStyle == .solid {
+        } else if settings.playerBackgroundStyle == .solid, !settings.fullWidthArtwork {
             Color.black
                 .ignoresSafeArea()
         } else {
             // Su propia vista: durante una mezcla de AutoMix cambia de color con ella sin redibujar todo el reproductor.
-            PlayerGradientBackground(base: playerBackgroundColors)
+            PlayerGradientBackground(base: playerBackgroundColors, tinted: settings.fullWidthArtwork)
         }
     }
 
@@ -164,12 +168,20 @@ struct FullPlayerView: View {
     }
 
     @ViewBuilder
-    private func mainContent(artSide: CGFloat, horizontalPadding: CGFloat, isCompact: Bool) -> some View {
-        Spacer(minLength: 0)
+    private func mainContent(artSide: CGFloat, fullSize: CGSize, horizontalPadding: CGFloat, isCompact: Bool) -> some View {
+        if settings.fullWidthArtwork {
+            // Carátula de lado a lado bajo la isla dinamica (el contenido ya empieza debajo de la zona segura) que se funde
+            // con el fondo del color de la propia carátula.
+            MixAwareArtwork(width: fullSize.width, height: fullSize.height, fullBleed: true, content: artwork)
 
-        MixAwareArtwork(side: artSide, content: artwork)
+            Spacer(minLength: isCompact ? 4 : 10)
+        } else {
+            Spacer(minLength: 0)
 
-        Spacer(minLength: isCompact ? 10 : 18)
+            MixAwareArtwork(width: artSide, height: artSide, fullBleed: false, content: artwork)
+
+            Spacer(minLength: isCompact ? 10 : 18)
+        }
 
         titleAndActionsRow
             .padding(.horizontal, horizontalPadding)

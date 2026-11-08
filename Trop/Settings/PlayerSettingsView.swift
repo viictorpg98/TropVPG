@@ -33,6 +33,14 @@ struct PlayerSettingsView: View {
             }
 
             Section {
+                SettingsToggleRow("Full-Width Artwork", icon: "rectangle.portrait.topthird.inset.filled", isOn: $settings.fullWidthArtwork)
+            } header: {
+                Text("Layout")
+            } footer: {
+                Text("Shows the cover edge to edge and tints the player with its colors, like Apple Music.")
+            }
+
+            Section {
                 SettingsToggleRow("AutoMix", icon: "wand.and.stars", isOn: $settings.autoMixEnabled)
             } header: {
                 Text("AutoMix")

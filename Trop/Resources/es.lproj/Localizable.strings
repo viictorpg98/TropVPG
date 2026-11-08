@@ -188,6 +188,7 @@
 "Fresh finds, old favorites" = "Novedades y favoritas de siempre";
 "From the Community" = "De la comunidad";
 "From the community" = "De la comunidad";
+"Full-Width Artwork" = "Carátula a todo ancho";
 "Gapless Playback" = "Reproducción sin pausas";
 "General" = "General";
 "Genres" = "Géneros";
@@ -229,6 +230,7 @@
 "Last.fm" = "Last.fm";
 "Last.fm Login" = "Iniciar sesión en Last.fm";
 "Latin party" = "Fiesta latina";
+"Layout" = "Disposición";
 "Left" = "Izquierda";
 "Leisure" = "Ocio";
 "Lesser-known related tracks" = "Canciones relacionadas menos conocidas";
@@ -439,6 +441,7 @@
 "Show Interval Indicator" = "Mostrar indicador de intervalo";
 "Show Quick Picks" = "Mostrar Selecciones rápidas";
 "Shows a progress ring during long instrumental gaps" = "Muestra un anillo de progreso durante los pasajes instrumentales largos";
+"Shows the cover edge to edge and tints the player with its colors, like Apple Music." = "Muestra la carátula de lado a lado y tiñe el reproductor con sus colores, como Apple Music.";
 "Shows the latest steps when playing something: which client got the stream and what the player said." = "Muestra los últimos pasos al reproducir algo: qué cliente consiguió la dirección y qué dijo el reproductor.";
 "Shuffle" = "Aleatorio";
 "Shuffle artist" = "Aleatorio del artista";

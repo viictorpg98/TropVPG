@@ -558,5 +558,8 @@
   "No connection and that song isn't downloaded.": "Sin conexión y esa canción no está descargada.",
   "AutoMix": "AutoMix",
   "Blends one downloaded song into the next like a DJ: they overlap and the tempo is matched. It only works between downloaded songs; everything else plays as usual. The Playback Report shows what it did.": "Mezcla una canción descargada con la siguiente como un DJ: se solapan y se iguala el tempo. Solo funciona entre canciones descargadas; el resto suena como siempre. El Informe de reproducción cuenta qué hizo.",
-  "SimpMusic (AutoMix)": "SimpMusic (AutoMix)"
+  "SimpMusic (AutoMix)": "SimpMusic (AutoMix)",
+  "Full-Width Artwork": "Carátula a todo ancho",
+  "Layout": "Disposición",
+  "Shows the cover edge to edge and tints the player with its colors, like Apple Music.": "Muestra la carátula de lado a lado y tiñe el reproductor con sus colores, como Apple Music."
 }

@@ -16,7 +16,7 @@ private func smooth(_ t: Double) -> Double {
 private func vivid(_ color: Color) -> Color {
     var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
     UIColor(color).getHue(&h, saturation: &s, brightness: &b, alpha: &a)
-    return Color(hue: Double(h), saturation: Double(min(1, s * 1.2 + 0.05)), brightness: Double(max(b, 0.55)))
+    return Color(hue: Double(h), saturation: Double(min(1, s * 1.2 + 0.05)), brightness: Double(min(max(b, 0.45), 0.82)))
 }
 
 /// Mezcla dos colores (0 = `a`, 1 = `b`).
@@ -78,14 +78,19 @@ private struct LiquidReveal: View {
 /// La carátula del reproductor grande. Fuera de una mezcla es la de siempre; durante una, la nueva sube desde abajo
 /// con un borde liquido y enfocandose mientras la actual se desenfoca, como en Apple Music.
 struct MixAwareArtwork<Content: View>: View {
-    let side: CGFloat
+    let width: CGFloat
+    let height: CGFloat
+    /// De lado a lado y sin esquinas: la parte de abajo se funde con el fondo.
+    let fullBleed: Bool
     let content: Content
 
     private let visuals = AutoMixVisuals.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(side: CGFloat, content: Content) {
-        self.side = side
+    init(width: CGFloat, height: CGFloat, fullBleed: Bool, content: Content) {
+        self.width = width
+        self.height = height
+        self.fullBleed = fullBleed
         self.content = content
     }
 
@@ -93,8 +98,31 @@ struct MixAwareArtwork<Content: View>: View {
         if visuals.isMixing, let incoming = visuals.incomingImage {
             mixing(incoming: incoming)
         } else {
-            content
-                .frame(width: side, height: side)
+            framed(content)
+        }
+    }
+
+    /// Recorte, sombra y (si va de lado a lado) el degradado inferior que la funde con el fondo.
+    @ViewBuilder
+    private func framed<V: View>(_ view: V) -> some View {
+        if fullBleed {
+            view
+                .frame(width: width, height: height)
+                .clipped()
+                .mask(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .black, location: 0),
+                            .init(color: .black, location: 0.72),
+                            .init(color: .clear, location: 1)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+        } else {
+            view
+                .frame(width: width, height: height)
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .shadow(color: .black.opacity(0.4), radius: 18, y: 10)
         }
@@ -103,29 +131,27 @@ struct MixAwareArtwork<Content: View>: View {
     private func mixing(incoming: UIImage) -> some View {
         let amount = reveal(visuals.progress)
         let blur: CGFloat = reduceMotion ? 0 : 14
-        return ZStack {
+        let stack = ZStack {
             content
-                .frame(width: side, height: side)
+                .frame(width: width, height: height)
                 .blur(radius: blur * amount)
                 .scaleEffect(reduceMotion ? 1 : 1 + 0.04 * amount)
 
             Image(uiImage: incoming)
                 .resizable()
                 .scaledToFill()
-                .frame(width: side, height: side)
+                .frame(width: width, height: height)
                 .blur(radius: blur * (1 - amount))
                 .scaleEffect(reduceMotion ? 1 : 0.96 + 0.04 * amount)
                 .mask {
                     if reduceMotion {
                         Rectangle().opacity(amount)
                     } else {
-                        LiquidReveal(amount: amount).frame(width: side, height: side)
+                        LiquidReveal(amount: amount).frame(width: width, height: height)
                     }
                 }
         }
-        .frame(width: side, height: side)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .shadow(color: .black.opacity(0.4), radius: 18, y: 10)
+        return framed(stack)
     }
 }
 
@@ -281,15 +307,25 @@ struct AutoMixGlow: View {
 /// El degradado del reproductor grande. Durante una mezcla pasa del color de una carátula al de la otra.
 struct PlayerGradientBackground: View {
     let base: [Color]
+    /// Colores mas vivos y claros, con el de abajo mas oscuro (para el reproductor con la carátula de lado a lado).
+    var tinted = false
 
     private let visuals = AutoMixVisuals.shared
 
+    /// Color de arriba y de abajo del degradado para un par de colores de una carátula.
+    private func pair(_ colors: [Color]) -> [Color] {
+        let first = colors.first ?? Color(red: 0.15, green: 0.15, blue: 0.2)
+        let last = colors.last ?? Color(red: 0.05, green: 0.05, blue: 0.08)
+        guard tinted else { return [first, last] }
+        return [vivid(first), mix(vivid(last), .black, 0.45)]
+    }
+
     private var colors: [Color] {
-        let current = [base.first ?? Color(red: 0.15, green: 0.15, blue: 0.2), base.last ?? Color(red: 0.05, green: 0.05, blue: 0.08)]
-        guard visuals.isMixing, let nextFirst = visuals.incomingColors.first else { return current }
-        let nextLast = visuals.incomingColors.last ?? nextFirst
+        let current = pair(base)
+        guard visuals.isMixing, !visuals.incomingColors.isEmpty else { return current }
+        let next = pair(visuals.incomingColors)
         let e = reveal(visuals.progress)
-        return [mix(current[0], nextFirst, e), mix(current[1], nextLast, e)]
+        return [mix(current[0], next[0], e), mix(current[1], next[1], e)]
     }
 
     var body: some View {

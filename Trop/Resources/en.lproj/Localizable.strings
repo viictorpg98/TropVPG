@@ -188,6 +188,7 @@
 "Fresh finds, old favorites" = "Fresh finds, old favorites";
 "From the Community" = "From the Community";
 "From the community" = "From the community";
+"Full-Width Artwork" = "Full-Width Artwork";
 "Gapless Playback" = "Gapless Playback";
 "General" = "General";
 "Genres" = "Genres";
@@ -229,6 +230,7 @@
 "Last.fm" = "Last.fm";
 "Last.fm Login" = "Last.fm Login";
 "Latin party" = "Latin party";
+"Layout" = "Layout";
 "Left" = "Left";
 "Leisure" = "Leisure";
 "Lesser-known related tracks" = "Lesser-known related tracks";
@@ -439,6 +441,7 @@
 "Show Interval Indicator" = "Show Interval Indicator";
 "Show Quick Picks" = "Show Quick Picks";
 "Shows a progress ring during long instrumental gaps" = "Shows a progress ring during long instrumental gaps";
+"Shows the cover edge to edge and tints the player with its colors, like Apple Music." = "Shows the cover edge to edge and tints the player with its colors, like Apple Music.";
 "Shows the latest steps when playing something: which client got the stream and what the player said." = "Shows the latest steps when playing something: which client got the stream and what the player said.";
 "Shuffle" = "Shuffle";
 "Shuffle artist" = "Shuffle artist";

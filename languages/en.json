@@ -558,5 +558,8 @@
   "No connection and that song isn't downloaded.": "No connection and that song isn't downloaded.",
   "AutoMix": "AutoMix",
   "Blends one downloaded song into the next like a DJ: they overlap and the tempo is matched. It only works between downloaded songs; everything else plays as usual. The Playback Report shows what it did.": "Blends one downloaded song into the next like a DJ: they overlap and the tempo is matched. It only works between downloaded songs; everything else plays as usual. The Playback Report shows what it did.",
-  "SimpMusic (AutoMix)": "SimpMusic (AutoMix)"
+  "SimpMusic (AutoMix)": "SimpMusic (AutoMix)",
+  "Full-Width Artwork": "Full-Width Artwork",
+  "Layout": "Layout",
+  "Shows the cover edge to edge and tints the player with its colors, like Apple Music.": "Shows the cover edge to edge and tints the player with its colors, like Apple Music."
 }
