@@ -120,6 +120,7 @@ enum AutoMixMath {
     private static let ratioMin = 0.80
     private static let ratioMax = 1.25
     private static let speedStep = 0.005
+    static let tempoMatching = false
     /// A partir de que punto de la mezcla la entrante vuelve a su velocidad normal (la saliente ya casi no se oye).
     static let incomingRampStart = 0.75
 
@@ -146,6 +147,9 @@ enum AutoMixMath {
     /// Cuanto hay que acelerar (o frenar) la saliente para igualar el tempo de la entrante; 1 si la diferencia es
     /// demasiado grande. Es el cambio total: cada cancion toma la raiz.
     static func speedRatio(outgoingBpm: Double, incomingBpm: Double) -> Double {
+        // Fase 1 de la mezcla encadenada en mpv: el archivo de la mezcla se prepara por adelantado y aun no tiene un
+        // estirado de tempo propio, asi que no se iguala el tempo (solo filtros, graves y volumen).
+        guard tempoMatching else { return 1 }
         var ratio = incomingBpm / outgoingBpm
         while ratio > 1.5 { ratio /= 2 }
         while ratio < 0.67 { ratio *= 2 }

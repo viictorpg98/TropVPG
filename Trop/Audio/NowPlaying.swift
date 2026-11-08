@@ -239,6 +239,22 @@ final class NowPlaying {
         playCurrentSong(logContext: "playNext")
     }
 
+    /// AutoMix: mpv ya suena la entrante (encadenada sin pausa tras la mezcla); la cola y los datos de la cancion pasan a ella.
+    /// No carga nada: solo pone al dia lo que la app muestra y recuerda.
+    func adoptGaplessIncoming(videoId: String) -> Bool {
+        guard queueIndex + 1 < queueSongs.count, queueSongs[queueIndex + 1].videoId == videoId else { return false }
+        queueIndex += 1
+        let song = queueSongs[queueIndex]
+        update(with: song)
+        persistQueueState()
+        updateVideoAvailability()
+        Task {
+            await PlaybackStateService.shared.stopTracking()
+            await PlaybackStateService.shared.startTracking(videoId: videoId)
+        }
+        return true
+    }
+
     /// AutoMix: pasa a la siguiente de la cola empezando en `startAt` (la mezcla ya la esta haciendo sonar).
     func advanceForAutoMix(startAt: TimeInterval) -> Bool {
         guard queueIndex + 1 < queueSongs.count, !isResolvingNext else { return false }

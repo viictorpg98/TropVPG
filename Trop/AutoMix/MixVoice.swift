@@ -5,185 +5,147 @@
 
 import AVFoundation
 import Foundation
+import ffmpegkit
 
-/// Un reproductor de AutoMix: toca un tramo de audio ya preparado (`MixRenderer`) con `AVAudioPlayer`.
-/// AutoMix usa dos: uno con el final de la saliente (paso bajo, volumen y tempo) y otro con el principio de la
-/// entrante (paso alto y volumen), que arrancan sincronizados. mpv queda callado entre medias.
-@MainActor
-final class MixVoice {
-    private let player: AVAudioPlayer
-    private let fileURL: URL
-    /// Segundo de la cancion en que empieza el archivo preparado.
-    let startSeconds: TimeInterval
-
-    private init(player: AVAudioPlayer, fileURL: URL, startSeconds: TimeInterval) {
-        self.player = player
-        self.fileURL = fileURL
-        self.startSeconds = startSeconds
+/// Prepara el audio de una mezcla de AutoMix como UN solo archivo.
+///
+/// Se decodifican los dos tramos con FFmpeg (el mismo decodificador y la misma linea de tiempo que usa mpv, asi que
+/// el punto de corte de la saliente y el de entrada de la entrante coinciden al muestreo con lo que suena en mpv), se
+/// les aplican los filtros, el intercambio de graves y los volumenes, y se suman. mpv reproduce ese archivo entre la
+/// saliente y la entrante sin pausa y con un unico reloj, asi que no hay doblados ni ecos.
+enum MixRenderer {
+    /// Duracion exacta de la mezcla (en segundos) y archivo con ella.
+    struct Output {
+        let url: URL
     }
 
-    static func make(fileURL: URL, startSeconds: TimeInterval, enableRate: Bool) -> MixVoice? {
-        guard let player = try? AVAudioPlayer(contentsOf: fileURL) else {
-            try? FileManager.default.removeItem(at: fileURL)
+    /// - Saliente: desde `outgoingStart`, durante `duration` s, un paso bajo que se cierra de 20 kHz a 200 Hz, con el
+    ///   volumen bajando por coseno y los graves intactos hasta el intercambio.
+    /// - Entrante: desde `incomingStart`, durante `duration` s, un paso alto que se abre de 2 kHz a 20 Hz, con el
+    ///   volumen subiendo por seno, los graves entrando en el intercambio y el volumen igualado al de la saliente.
+    nonisolated static func render(
+        outgoingURL: URL, outgoingStart: TimeInterval,
+        incomingURL: URL, incomingStart: TimeInterval,
+        duration: TimeInterval
+    ) -> Output? {
+        // Misma frecuencia de muestreo que la saliente, para que mpv no tenga que cambiar de formato al encadenar.
+        let rate: Double = {
+            guard let file = try? AVAudioFile(forReading: outgoingURL) else { return 44_100 }
+            return file.processingFormat.sampleRate
+        }()
+        let frames = Int((duration * rate).rounded())
+        guard frames > 0,
+              let outgoing = decode(url: outgoingURL, start: outgoingStart, seconds: duration, rate: rate, frames: frames),
+              let incoming = decode(url: incomingURL, start: incomingStart, seconds: duration, rate: rate, frames: frames) else {
             return nil
         }
-        player.enableRate = enableRate
-        player.volume = 0
-        player.prepareToPlay()
-        return MixVoice(player: player, fileURL: fileURL, startSeconds: startSeconds)
-    }
 
-    // MARK: - Reproduccion
-
-    /// Empieza ya, `offset` segundos dentro del archivo.
-    func play(from offset: TimeInterval) {
-        player.currentTime = max(0, min(offset, player.duration - 0.05))
-        player.play()
-    }
-
-    /// Empieza a la hora del dispositivo `deviceTime` (para sincronizar con otro reproductor).
-    func play(from offset: TimeInterval, atDeviceTime deviceTime: TimeInterval) {
-        player.currentTime = max(0, min(offset, player.duration - 0.05))
-        player.play(atTime: deviceTime)
-    }
-
-    /// Vuelve a arrancar el tramo en otro punto (en silencio, con el volumen que tenga) y, si se indica, a una hora
-    /// concreta del dispositivo. Mover `currentTime` con el audio sonando deja el reproductor parado un rato; asi
-    /// se evita: primero se pausa y luego se coloca y se arranca.
-    func restart(from offset: TimeInterval, atDeviceTime deviceTime: TimeInterval?) {
-        player.pause()
-        player.currentTime = max(0, min(offset, player.duration - 0.05))
-        if let deviceTime {
-            player.play(atTime: deviceTime)
-        } else {
-            player.play()
-        }
-    }
-
-    /// Hora del dispositivo de audio, comun a todos los reproductores de la app.
-    var deviceTime: TimeInterval { player.deviceCurrentTime }
-
-    /// Segundos reproducidos del archivo preparado.
-    var bufferTime: TimeInterval { player.currentTime }
-
-    /// Posicion actual en la cancion, en segundos.
-    var position: TimeInterval { startSeconds + player.currentTime }
-
-    var isPlaying: Bool { player.isPlaying }
-
-    /// Mueve la posicion del archivo preparado (se usa en silencio, para alinearlo con mpv).
-    func seek(toBufferTime time: TimeInterval) {
-        player.currentTime = max(0, min(time, player.duration - 0.05))
-    }
-
-    func pause() { player.pause() }
-    func resume() { player.play() }
-
-    func setVolume(_ volume: Float, fade: TimeInterval = 0) {
-        let clamped = max(0, min(volume, 1))
-        if fade > 0 {
-            player.setVolume(clamped, fadeDuration: fade)
-        } else {
-            player.volume = clamped
-        }
-    }
-
-    func setRate(_ rate: Float) { player.rate = rate }
-
-    func stop() {
-        player.stop()
-        try? FileManager.default.removeItem(at: fileURL)
-    }
-}
-
-// MARK: - Preparacion de los tramos (fuera del hilo principal)
-
-enum MixRenderer {
-    struct Output {
-        let outgoing: URL
-        let incoming: URL
-    }
-
-    /// Prepara los dos tramos de una mezcla.
-    /// - Saliente: `lead` segundos tal cual (para el relevo desde mpv) y despues, durante `duration` segundos de
-    ///   mezcla, un filtro paso bajo de 20 kHz a 200 Hz y el volumen bajando con el coseno. El tempo se cambia al
-    ///   reproducirla (`rate`), asi que las curvas se calculan sobre el tiempo de la mezcla, no el de la cancion.
-    /// - Entrante: durante `duration`, un paso alto de 2 kHz a 20 Hz y el volumen subiendo con el seno; despues
-    ///   `tail` segundos tal cual, para cubrir el relevo a mpv. Las dos cambian de velocidad al reproducirse (`rate`),
-    ///   asi que las curvas se calculan sobre el tiempo de la mezcla, no el de la cancion.
-    nonisolated static func render(
-        outgoingURL: URL, outgoingStart: TimeInterval, lead: TimeInterval,
-        incomingURL: URL, incomingStart: TimeInterval,
-        duration: TimeInterval, outgoingRatio: Double, incomingRatio: Double, tail: TimeInterval
-    ) -> Output? {
-        // Tablas: segundos de cancion que recorre cada una al cabo de cada instante de la mezcla.
-        let step = 0.005
-        let count = max(Int(duration / step), 1)
-        var consumedOut = [Double](repeating: 0, count: count + 1)
-        var consumedIn = [Double](repeating: 0, count: count + 1)
-        for k in 1...count {
-            let progress = (Double(k) - 0.5) * step / duration
-            consumedOut[k] = consumedOut[k - 1] + AutoMixMath.outgoingRate(ratio: outgoingRatio, progress: progress) * step
-            consumedIn[k] = consumedIn[k - 1] + AutoMixMath.incomingRate(startRatio: incomingRatio, progress: progress) * step
-        }
-        let advanceOut = consumedOut[count]
-        let advanceIn = consumedIn[count]
-
-        guard let outBuffer = read(url: outgoingURL, start: outgoingStart, seconds: lead + advanceOut + 1.5),
-              let inBuffer = read(url: incomingURL, start: incomingStart, seconds: advanceIn + tail) else { return nil }
-
-        // Igualar el volumen: la entrante empieza al nivel de la saliente y va volviendo al suyo (sin pasarse de +-4 dB).
-        let outRate = outBuffer.format.sampleRate
-        let outLoudness = loudness(outBuffer, from: Int(lead * outRate), seconds: min(advanceOut, 8))
-        let inLoudness = loudness(inBuffer, from: 0, seconds: min(advanceIn, 8))
+        // Volumen: la entrante empieza al nivel de la saliente y vuelve al suyo (sin pasarse de +-4 dB).
+        let window = Int(min(duration, 8) * rate)
+        let outLoudness = loudness(outgoing, count: window)
+        let inLoudness = loudness(incoming, count: window)
         var match = 1.0
         if outLoudness > 0, inLoudness > 0 { match = min(max(outLoudness / inLoudness, 0.63), 1.6) }
 
-        processOutgoing(outBuffer, lead: lead, duration: duration, step: step, consumed: consumedOut)
-        processIncoming(inBuffer, duration: duration, step: step, consumed: consumedIn, match: match)
+        var mixed = [[Float]](repeating: [Float](repeating: 0, count: frames), count: 2)
+        for channel in 0..<2 {
+            var lowpass = Biquad()   // paso bajo que se cierra (agudos de la saliente)
+            var highpass = Biquad()  // paso alto que se abre (la entrante llega sin cuerpo)
+            var outSplit = Biquad()  // separa los graves de la saliente
+            var inSplit = Biquad()   // separa los graves de la entrante
+            outSplit.setLowPass(cutoff: bassCrossover, rate: rate)
+            inSplit.setLowPass(cutoff: bassCrossover, rate: rate)
+            for i in 0..<frames {
+                let progress = Double(i) / Double(frames)
+                if i % 64 == 0 {
+                    let sweep = sweepCurve(progress)
+                    lowpass.setLowPass(cutoff: exponential(20_000, 200, sweep), rate: rate)
+                    highpass.setHighPass(cutoff: exponential(2_000, 20, sweep), rate: rate)
+                }
+                let swap = bassSwap(progress)
 
-        guard let outURL = write(outBuffer), let inURL = write(inBuffer) else { return nil }
-        return Output(outgoing: outURL, incoming: inURL)
-    }
+                // Saliente: los graves se mantienen enteros hasta el intercambio y se van de golpe; el resto baja con
+                // el coseno durante toda la mezcla. Asi los graves nunca faltan ni suenan dos a la vez.
+                let filteredOut = lowpass.process(Double(outgoing[channel][i]))
+                let outBass = outSplit.process(filteredOut)
+                let outRest = filteredOut - outBass
+                let outSample = outBass * cos(swap * Double.pi / 2) + outRest * cos(progress * Double.pi / 2)
 
-    /// Volumen eficaz (RMS) de un tramo del buffer, promediando los canales.
-    nonisolated private static func loudness(_ buffer: AVAudioPCMBuffer, from frame: Int, seconds: TimeInterval) -> Double {
-        guard let channels = buffer.floatChannelData else { return 0 }
-        let rate = buffer.format.sampleRate
-        let total = Int(buffer.frameLength)
-        let start = min(max(frame, 0), total)
-        let end = min(start + Int(seconds * rate), total)
-        guard end > start else { return 0 }
-        var sum = 0.0
-        for channel in 0..<Int(buffer.format.channelCount) {
-            let samples = channels[channel]
-            for i in start..<end { sum += Double(samples[i]) * Double(samples[i]) }
+                // Entrante: los graves entran de golpe en el intercambio; el resto sube con el seno.
+                let x = Double(incoming[channel][i])
+                let inBass = inSplit.process(x)
+                let inRest = highpass.process(x - inBass)
+                let level = pow(match, 1 - progress)
+                let inSample = (inBass * sin(swap * Double.pi / 2) + inRest * sin(progress * Double.pi / 2)) * level
+
+                mixed[channel][i] = Float(max(-1, min(1, outSample + inSample)))
+            }
         }
-        return (sum / Double((end - start) * Int(buffer.format.channelCount))).squareRoot()
+        guard let url = write(mixed, rate: rate) else { return nil }
+        return Output(url: url)
     }
 
-    nonisolated private static func read(url: URL, start: TimeInterval, seconds: TimeInterval) -> AVAudioPCMBuffer? {
-        guard let file = try? AVAudioFile(forReading: url) else { return nil }
-        let format = file.processingFormat
-        let rate = format.sampleRate
-        let startFrame = AVAudioFramePosition(max(0, start) * rate)
-        guard startFrame < file.length else { return nil }
-        let frames = AVAudioFrameCount(min(Double(file.length - startFrame), seconds * rate))
-        guard frames > 0, let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames) else { return nil }
-        file.framePosition = startFrame
-        do { try file.read(into: buffer, frameCount: frames) } catch { return nil }
-        return buffer.frameLength > 0 ? buffer : nil
+    // MARK: - Decodificacion con FFmpeg
+
+    /// `seconds` s de `url` desde `start`, a `rate` Hz y en estereo, como dos canales de `frames` muestras (se rellena con
+    /// silencio si el archivo acaba antes).
+    nonisolated private static func decode(url: URL, start: TimeInterval, seconds: TimeInterval, rate: Double, frames: Int) -> [[Float]]? {
+        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("automix-\(UUID().uuidString).wav")
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let arguments = [
+            "-y", "-v", "error",
+            "-ss", String(format: "%.6f", max(0, start)),
+            "-t", String(format: "%.6f", seconds + 0.05),
+            "-i", url.path,
+            "-vn", "-ac", "2", "-ar", String(Int(rate)),
+            "-acodec", "pcm_f32le", "-f", "wav",
+            temporary.path
+        ]
+        let session = FFmpegKit.execute(withArguments: arguments)
+        guard ReturnCode.isSuccess(session?.getReturnCode()),
+              let file = try? AVAudioFile(forReading: temporary),
+              let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)) else {
+            return nil
+        }
+        do { try file.read(into: buffer) } catch { return nil }
+        guard let data = buffer.floatChannelData else { return nil }
+        let available = Int(buffer.frameLength)
+        let channels = Int(buffer.format.channelCount)
+        var result = [[Float]](repeating: [Float](repeating: 0, count: frames), count: 2)
+        for channel in 0..<2 {
+            let source = data[min(channel, channels - 1)]
+            let count = min(frames, available)
+            for i in 0..<count { result[channel][i] = source[i] }
+        }
+        return result
     }
 
-    nonisolated private static func write(_ buffer: AVAudioPCMBuffer) -> URL? {
+    nonisolated private static func loudness(_ channels: [[Float]], count: Int) -> Double {
+        let total = min(count, channels[0].count)
+        guard total > 0 else { return 0 }
+        var sum = 0.0
+        for channel in channels {
+            for i in 0..<total { sum += Double(channel[i]) * Double(channel[i]) }
+        }
+        return (sum / Double(total * channels.count)).squareRoot()
+    }
+
+    /// Escribe la mezcla como WAV de 32 bits en coma flotante (sin recodificar, para no alterar nada).
+    nonisolated private static func write(_ channels: [[Float]], rate: Double) -> URL? {
+        guard let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: rate, channels: 2, interleaved: false),
+              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(channels[0].count)),
+              let data = buffer.floatChannelData else { return nil }
+        buffer.frameLength = AVAudioFrameCount(channels[0].count)
+        for channel in 0..<2 {
+            for i in 0..<channels[channel].count { data[channel][i] = channels[channel][i] }
+        }
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("automix-\(UUID().uuidString).wav")
-        let format = buffer.format
         let settings: [String: Any] = [
             AVFormatIDKey: kAudioFormatLinearPCM,
-            AVSampleRateKey: format.sampleRate,
-            AVNumberOfChannelsKey: Int(format.channelCount),
-            AVLinearPCMBitDepthKey: 16,
-            AVLinearPCMIsFloatKey: false,
+            AVSampleRateKey: rate,
+            AVNumberOfChannelsKey: 2,
+            AVLinearPCMBitDepthKey: 32,
+            AVLinearPCMIsFloatKey: true,
             AVLinearPCMIsBigEndianKey: false,
             AVLinearPCMIsNonInterleaved: false
         ]
@@ -197,7 +159,7 @@ enum MixRenderer {
         }
     }
 
-    // MARK: Filtros (biquad RBJ)
+    // MARK: - Filtros (biquad RBJ) y curvas
 
     private struct Biquad {
         var b0 = 1.0, b1 = 0.0, b2 = 0.0, a1 = 0.0, a2 = 0.0
@@ -237,6 +199,9 @@ enum MixRenderer {
         }
     }
 
+    /// Frecuencia por debajo de la cual se hace el intercambio de graves.
+    nonisolated private static let bassCrossover = 250.0
+
     /// Intercambio de graves: de 0 a 1 en un tramo corto hacia la mitad de la mezcla (de 42 % a 58 %).
     nonisolated private static func bassSwap(_ progress: Double) -> Double {
         let x = min(max((progress - 0.42) / 0.16, 0), 1)
@@ -250,84 +215,5 @@ enum MixRenderer {
 
     nonisolated private static func exponential(_ start: Double, _ end: Double, _ t: Double) -> Double {
         exp(log(start) + (log(end) - log(start)) * t)
-    }
-
-    /// Frecuencia por debajo de la cual se hace el intercambio de graves.
-    nonisolated private static let bassCrossover = 250.0
-
-    nonisolated private static func processOutgoing(
-        _ buffer: AVAudioPCMBuffer, lead: TimeInterval, duration: TimeInterval, step: Double, consumed: [Double]
-    ) {
-        guard let channels = buffer.floatChannelData else { return }
-        let rate = buffer.format.sampleRate
-        let frames = Int(buffer.frameLength)
-        let last = consumed.count - 1
-        let advance = consumed[last]
-        for channel in 0..<Int(buffer.format.channelCount) {
-            let samples = channels[channel]
-            var sweep = Biquad()          // paso bajo que se cierra (agudos)
-            var split = Biquad()          // separa los graves del resto
-            split.setLowPass(cutoff: bassCrossover, rate: rate)
-            var k = 0
-            for i in 0..<frames {
-                let time = Double(i) / rate
-                if time < lead { continue } // tal cual: relevo desde mpv
-                let inBlend = time - lead
-                if inBlend >= advance {
-                    samples[i] = 0
-                    continue
-                }
-                while k < last - 1, consumed[k + 1] <= inBlend { k += 1 }
-                let span = max(consumed[k + 1] - consumed[k], 1e-9)
-                let progress = min(max((Double(k) + (inBlend - consumed[k]) / span) * step / duration, 0), 1)
-                if i % 64 == 0 {
-                    sweep.setLowPass(cutoff: exponential(20_000, 200, Self.sweepCurve(progress)), rate: rate)
-                }
-                let filtered = sweep.process(Double(samples[i]))
-                let bass = split.process(filtered)
-                let rest = filtered - bass
-                // Los graves de la saliente se mantienen enteros hasta el intercambio y se van de golpe; el resto baja
-                // con el coseno durante toda la mezcla. Asi los graves nunca faltan ni suenan dos a la vez.
-                let swap = bassSwap(progress)
-                let out = bass * cos(swap * Double.pi / 2) + rest * cos(progress * Double.pi / 2)
-                samples[i] = Float(max(-1, min(1, out)))
-            }
-        }
-    }
-
-    nonisolated private static func processIncoming(
-        _ buffer: AVAudioPCMBuffer, duration: TimeInterval, step: Double, consumed: [Double], match: Double
-    ) {
-        guard let channels = buffer.floatChannelData else { return }
-        let rate = buffer.format.sampleRate
-        let frames = Int(buffer.frameLength)
-        let last = consumed.count - 1
-        let advance = consumed[last]
-        for channel in 0..<Int(buffer.format.channelCount) {
-            let samples = channels[channel]
-            var sweep = Biquad()          // paso alto que se abre (la entrante llega sin cuerpo)
-            var split = Biquad()
-            split.setLowPass(cutoff: bassCrossover, rate: rate)
-            var k = 0
-            for i in 0..<frames {
-                let time = Double(i) / rate
-                if time >= advance { break }
-                while k < last - 1, consumed[k + 1] <= time { k += 1 }
-                let span = max(consumed[k + 1] - consumed[k], 1e-9)
-                let progress = min(max((Double(k) + (time - consumed[k]) / span) * step / duration, 0), 1)
-                if i % 64 == 0 {
-                    sweep.setHighPass(cutoff: exponential(2_000, 20, Self.sweepCurve(progress)), rate: rate)
-                }
-                let x = Double(samples[i])
-                let bass = split.process(x)
-                let rest = sweep.process(x - bass)
-                // Los graves de la entrante entran de golpe en el intercambio; el resto sube con el seno. El volumen
-                // parte igualado al de la saliente y vuelve al suyo.
-                let swap = bassSwap(progress)
-                let level = pow(match, 1 - progress)
-                let out = (bass * sin(swap * Double.pi / 2) + rest * sin(progress * Double.pi / 2)) * level
-                samples[i] = Float(max(-1, min(1, out)))
-            }
-        }
     }
 }

@@ -37,6 +37,11 @@ final class PlayerController {
     nonisolated(unsafe) var isRunning = false
     nonisolated(unsafe) var currentVideoId: String?
     nonisolated(unsafe) var pendingVideoId: String?
+    /// AutoMix (mezcla encadenada dentro de mpv): 0 = nada; 1 = la saliente suena y mpv ya tiene detras el archivo de la
+    /// mezcla y la entrante; 2 = suena el archivo de la mezcla; 3 = mpv esta cargando la entrante.
+    nonisolated(unsafe) var gaplessStage = 0
+    nonisolated(unsafe) var gaplessIncomingId: String?
+    nonisolated(unsafe) var gaplessMixLoaded = false
     private var lastDetectedCrop: String?
     private var detectedCropRepeatCount = 0
     var currentLoudnessDb: Double?
@@ -92,6 +97,17 @@ final class PlayerController {
     /// AutoMix: mientras suena el tramo preparado de la saliente (mpv callado y en pausa), la posicion que ve el
     /// resto de la app (barra de progreso, pantalla de bloqueo) es la de ese tramo.
     var positionOverride: TimeInterval?
+    /// AutoMix: mientras suena el archivo de la mezcla, la duracion que se ve es la de la cancion saliente.
+    var durationOverride: TimeInterval?
+
+    /// Posicion que da mpv, sin los cambios de AutoMix (durante la mezcla es la del archivo de la mezcla).
+    func rawTimePos() -> TimeInterval {
+        withMpv { mpv in
+            var val = Double(0)
+            mpv_get_property(mpv, "time-pos", MPV_FORMAT_DOUBLE, &val)
+            return val
+        } ?? 0
+    }
 
     var currentTime: TimeInterval {
         if let positionOverride { return positionOverride }
@@ -103,7 +119,8 @@ final class PlayerController {
     }
 
     var duration: TimeInterval {
-        withMpv { mpv in
+        if let durationOverride { return durationOverride }
+        return withMpv { mpv in
             var val = Double(0)
             mpv_get_property(mpv, "duration", MPV_FORMAT_DOUBLE, &val)
             return val
@@ -228,8 +245,11 @@ extension PlayerController {
             "TRANSITION play videoId=\(videoId ?? "nil") isNewSong=\(isNewSong) muxedActive=\(muxedActive) "
                 + "url=\(url.absoluteString.prefix(80))"
         )
+        // Una carga normal borra cualquier mezcla encadenada que hubiera preparada.
+        resetGaplessMix()
         let cmdResult = withMpv { mpv -> Int32 in
             mpv_set_property_string(mpv, "pause", "no")
+            mpv_set_property_string(mpv, "end", "none")
             return loadArguments.withUnsafeCArg { mpv_command(mpv, $0) }
         } ?? -1
         if cmdResult != 0 {
@@ -249,6 +269,9 @@ extension PlayerController {
     }
 
     func seek(to time: TimeInterval) {
+        // Con una mezcla encadenada preparada o sonando, la posicion que se pide es de la saliente: AutoMix la deshace
+        // primero (y, si ya sonaba el archivo de la mezcla, vuelve a cargar la saliente en ese punto).
+        if gaplessStage == 1 || gaplessStage == 2, AutoMixEngine.shared.userSeek(to: time) { return }
         pendingSeek = (time, Date().addingTimeInterval(1.5))
         NowPlaying.shared.currentTime = time
         withMpv { mpv in
@@ -522,6 +545,17 @@ extension PlayerController {
     }
 
     nonisolated private func handleFileLoaded(_ mpv: OpaquePointer) {
+        // AutoMix: el archivo de la mezcla se carga sin cambiar la cancion que se ve; al cargarse la entrante todo vuelve
+        // a ser normal.
+        if gaplessStage == 2, !gaplessMixLoaded {
+            gaplessMixLoaded = true
+            PlaybackReport.record("automix: archivo de la mezcla cargado")
+            return
+        }
+        if gaplessStage == 3 {
+            gaplessStage = 0
+            mpv_set_property_string(mpv, "prefetch-playlist", "no")
+        }
         var pauseFlag = Int32(1)
         mpv_get_property(mpv, "pause", MPV_FORMAT_FLAG, &pauseFlag)
         if pauseFlag != 0, desiredPlaying {
@@ -559,7 +593,8 @@ extension PlayerController {
 
         if name == "duration", prop.format == MPV_FORMAT_DOUBLE {
             let newDur: Double = prop.data?.load(as: Double.self) ?? 0
-            if newDur > 0 {
+            // Durante el archivo de la mezcla la duracion que se ve es la de la saliente.
+            if newDur > 0, gaplessStage != 2 {
                 Task { @MainActor in
                     NowPlaying.shared.duration = newDur
                     self.setNowPlayingMetadata()
@@ -620,6 +655,22 @@ extension PlayerController {
         let isError = reason == MPV_END_FILE_REASON_ERROR
         if isError {
             PlaybackReport.record("reproductor: FIN CON ERROR (\(String(cString: mpv_error_string(endFile.error))))")
+        }
+        // AutoMix: la saliente llego a su punto de corte (EOF) y mpv sigue sin pausa con el archivo de la mezcla; cuando este
+        // acaba, sigue con la entrante. En ninguno de los dos casos la app debe pensar que acabo la cancion.
+        if isEof, gaplessStage == 1 {
+            gaplessStage = 2
+            _ = withMpv { mpv in mpv_set_property_string(mpv, "end", "none") }
+            PlaybackReport.record("automix: mpv paso de la saliente al archivo de la mezcla")
+            return
+        }
+        if isEof, gaplessStage == 2 {
+            gaplessStage = 3
+            pendingVideoId = gaplessIncomingId
+            gaplessIncomingId = nil
+            gaplessMixLoaded = false
+            Task { @MainActor in AutoMixEngine.shared.gaplessReachedIncoming() }
+            return
         }
         let stoppedVideoId = self.currentVideoId
         Task { @MainActor [weak self] in
@@ -1126,6 +1177,7 @@ extension PlayerController {
         guard var props, props.dur > 0 else { return }
         // AutoMix: mientras suena su tramo preparado, la posicion es la suya (mpv esta en pausa).
         if let positionOverride { props.pos = positionOverride }
+        if let durationOverride { props.dur = durationOverride }
         let np = NowPlaying.shared
 
         if let seek = pendingSeek {
@@ -1321,5 +1373,59 @@ extension Array where Element == String {
         return ptrs.withUnsafeMutableBufferPointer { buf in
             body(buf.baseAddress)
         }
+    }
+}
+
+// MARK: - AutoMix: mezcla encadenada dentro de mpv
+
+extension PlayerController {
+    /// Deja detras de la cancion que suena el archivo de la mezcla y la entrante, y corta la saliente en `endAt`: asi
+    /// mpv encadena los tres sin pausa y sin otro reproductor (con dos reproductores separados las dos copias de la
+    /// cancion no se pueden alinear mejor que unas decenas de milisegundos y se oye un doblado).
+    func armGaplessMix(mixURL: URL, incomingURL: URL, incomingStart: TimeInterval, endAt: TimeInterval, incomingId: String) -> Bool {
+        let endText = String(format: "%.4f", endAt)
+        let startOption = "start=" + String(format: "%.4f", incomingStart)
+        let mix = mixURL.absoluteString
+        let incoming = incomingURL.absoluteString
+        let armed: Bool = withMpv { mpv -> Bool in
+            mpv_set_property_string(mpv, "gapless-audio", "yes")
+            mpv_set_property_string(mpv, "prefetch-playlist", "yes")
+            guard mpv_set_property_string(mpv, "end", endText) >= 0 else { return false }
+            let first = ["loadfile", mix, "append"].withUnsafeCArg { mpv_command(mpv, $0) }
+            let second = ["loadfile", incoming, "append", "-1", startOption].withUnsafeCArg { mpv_command(mpv, $0) }
+            if first < 0 || second < 0 {
+                mpv_set_property_string(mpv, "end", "none")
+                _ = ["playlist-clear"].withUnsafeCArg { mpv_command(mpv, $0) }
+                return false
+            }
+            return true
+        } ?? false
+        if armed {
+            gaplessIncomingId = incomingId
+            gaplessMixLoaded = false
+            gaplessStage = 1
+        }
+        return armed
+    }
+
+    /// Quita lo que AutoMix dejo preparado detras de la cancion que suena (antes de que llegue el corte).
+    func disarmGaplessMix() {
+        let wasArmed = gaplessStage == 1
+        resetGaplessMix()
+        guard wasArmed else { return }
+        withMpv { mpv in
+            mpv_set_property_string(mpv, "end", "none")
+            mpv_set_property_string(mpv, "prefetch-playlist", "no")
+            _ = ["playlist-clear"].withUnsafeCArg { mpv_command(mpv, $0) }
+        }
+    }
+
+    /// Olvida el estado de la mezcla encadenada (no toca mpv: se usa cuando se va a cargar otra cosa).
+    func resetGaplessMix() {
+        gaplessStage = 0
+        gaplessIncomingId = nil
+        gaplessMixLoaded = false
+        positionOverride = nil
+        durationOverride = nil
     }
 }
