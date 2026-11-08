@@ -89,8 +89,13 @@ final class PlayerController {
     private var pendingSeek: (target: TimeInterval, deadline: Date)?
     private var remoteStateCancellable: AnyCancellable?
 
+    /// AutoMix: mientras suena el tramo preparado de la saliente (mpv callado y en pausa), la posicion que ve el
+    /// resto de la app (barra de progreso, pantalla de bloqueo) es la de ese tramo.
+    var positionOverride: TimeInterval?
+
     var currentTime: TimeInterval {
-        withMpv { mpv in
+        if let positionOverride { return positionOverride }
+        return withMpv { mpv in
             var val = Double(0)
             mpv_get_property(mpv, "time-pos", MPV_FORMAT_DOUBLE, &val)
             return val
@@ -279,6 +284,14 @@ extension PlayerController {
         withMpv { mpv in
             var val = Double(vol * 100)
             mpv_set_property(mpv, "volume", MPV_FORMAT_DOUBLE, &val)
+        }
+    }
+
+    /// Pausa o reanuda mpv sin tocar el estado de reproduccion de la app (AutoMix lo calla mientras suenan sus tramos).
+    func setRawPause(_ paused: Bool) {
+        withMpv { mpv in
+            var flag: Int32 = paused ? 1 : 0
+            mpv_set_property(mpv, "pause", MPV_FORMAT_FLAG, &flag)
         }
     }
 

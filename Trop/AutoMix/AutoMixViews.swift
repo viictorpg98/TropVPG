@@ -12,6 +12,12 @@ private func smooth(_ t: Double) -> Double {
     return x * x * (3 - 2 * x)
 }
 
+/// El cruce de carátulas y colores se concentra en la parte central de la mezcla (de 25 % a 75 %), como en Apple
+/// Music: antes y despues se ve una sola.
+private func dissolve(_ progress: Double) -> Double {
+    smooth((progress - 0.25) / 0.5)
+}
+
 /// Mezcla dos colores (0 = `a`, 1 = `b`).
 private func mix(_ a: Color, _ b: Color, _ t: Double) -> Color {
     var ar: CGFloat = 0, ag: CGFloat = 0, ab: CGFloat = 0, aa: CGFloat = 0
@@ -55,7 +61,7 @@ struct MixAwareArtwork<Content: View>: View {
     }
 
     private func mixing(incoming: UIImage) -> some View {
-        let e = smooth(visuals.progress)
+        let e = dissolve(visuals.progress)
         return ZStack {
             // La entrante, debajo y entera; la saliente, encima, se va desvaneciendo.
             Image(uiImage: incoming)
@@ -164,7 +170,7 @@ struct AutoMixGlow: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let e = smooth(visuals.progress)
+        let e = dissolve(visuals.progress)
         let out = visuals.outgoingColors
         let incoming = visuals.incomingColors
         let outFirst = out.first ?? Color(red: 0.15, green: 0.15, blue: 0.2)
@@ -203,7 +209,7 @@ struct PlayerGradientBackground: View {
         let current = [base.first ?? Color(red: 0.15, green: 0.15, blue: 0.2), base.last ?? Color(red: 0.05, green: 0.05, blue: 0.08)]
         guard visuals.isMixing, let nextFirst = visuals.incomingColors.first else { return current }
         let nextLast = visuals.incomingColors.last ?? nextFirst
-        let e = smooth(visuals.progress)
+        let e = dissolve(visuals.progress)
         return [mix(current[0], nextFirst, e), mix(current[1], nextLast, e)]
     }
 

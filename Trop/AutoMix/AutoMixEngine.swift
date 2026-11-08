@@ -2,10 +2,11 @@
 //  AutoMixEngine.swift
 //  Trop
 //
-//  Mezcla una cancion descargada con la siguiente como un DJ: la entrante suena en un segundo
-//  reproductor (`MixVoice`, con el filtro paso alto y el volumen ya preparados) mientras la saliente (mpv) baja de
-//  volumen, cierra un filtro paso bajo e iguala su tempo; al acabar, mpv toma el relevo de la entrante y
-//  el segundo reproductor se apaga.
+//  Mezcla una cancion descargada con la siguiente como un DJ. Unos segundos antes se preparan dos tramos de
+//  audio (`MixRenderer`): el final de la saliente, con un paso bajo que se cierra, el volumen bajando y el
+//  tempo ajustandose al de la entrante, y el principio de la entrante, con un paso alto que se abre y el volumen
+//  subiendo. Los dos suenan sincronizados con `AVAudioPlayer` mientras mpv queda callado; al acabar, mpv toma el
+//  relevo de la entrante donde va y los dos tramos se apagan.
 //  Diseno y formulas adaptados de AutoMix de SimpMusic (maxrave-dev/core, GPL-3.0).
 //
 
@@ -19,41 +20,49 @@ final class AutoMixEngine {
 
     private enum Phase { case idle, arming, blending, handoff }
 
+    /// Los dos tramos ya preparados para una pareja de canciones.
+    private struct Armed {
+        let key: String
+        let outId: String
+        let inId: String
+        let plan: TransitionPlan
+        /// Segundo de la saliente en que empieza su tramo (un poco antes de la mezcla, para el relevo desde mpv).
+        let outgoingStart: Double
+        let outgoing: MixVoice
+        let incoming: MixVoice
+    }
+
     /// Una mezcla en marcha.
     private struct Blend {
         let outId: String
         let inId: String
         let plan: TransitionPlan
-        var elapsed: TimeInterval = 0
-        var lastPosition: TimeInterval
-        var lastSpeed: Double = 1
-        /// Duracion del pulso de la saliente (ms) y cuantos pulsos hay por golpe del latido de la animacion.
+        let outgoingStart: Double
+        let swappedAt: Date
         var beatMs: Double = 500
         var beatsPerPulse: Double = 1
+        var lastRate: Double = 1
+        /// mpv ya esta callado y en pausa (la saliente suena por su tramo).
+        var mpvSilenced = false
+        var playersPaused = false
     }
 
-    // Filtro de DJ de la saliente (valores de SimpMusic): paso bajo de 20 kHz a 200 Hz con curva en S. El paso alto
-    // de la entrante (2 kHz a 20 Hz) ya va aplicado al tramo que prepara `MixVoice`.
-    private let lowPassStart = 20_000.0
-    private let lowPassEnd = 200.0
-    private let sigmoidK = 6.0
-    /// Segundos extra a volumen completo tras la mezcla, para cubrir el relevo de mpv.
+    /// Segundos de la saliente que se reproducen tal cual desde su tramo antes de empezar la mezcla: en ellos
+    /// mpv le pasa el testigo (un fundido corto) sin que se note el cambio de reproductor.
+    private let swapLead = 0.5
+    /// Duracion del fundido del relevo de mpv al tramo de la saliente.
+    private let swapFade = 0.15
+    /// Segundos extra de la entrante a volumen completo tras la mezcla, para cubrir el relevo de mpv.
     private let voiceTail = 6.0
 
     private var phase = Phase.idle
+    private var armed: Armed?
     private var blend: Blend?
-    private var timer: Timer?
-    private var lastStep = Date()
-
-    /// El segundo reproductor, preparado antes de que empiece la mezcla para no perder tiempo en el momento.
-    private var armed: (inId: String, voice: MixVoice)?
     private var planCache: (outId: String, inId: String, plan: TransitionPlan?)?
-    private var preparingId: String?
-    /// El filtro paso bajo de mpv esta en la cadena de audio (se mete unos segundos antes de la mezcla).
-    private var lowPassInstalled = false
-    private var lowPassFailureLogged = false
+    private var preparingKey: String?
+    private var timer: Timer?
 
-    // Relevo
+    // Relevo final a mpv
     private var handoffStartedAt = Date()
     private var handoffTarget: TimeInterval = 0
     private var alignAttempts = 0
@@ -82,13 +91,15 @@ final class AutoMixEngine {
         TrackAnalysisStore.shared.request(inId)
         guard let plan = plan(outId: outId, inId: inId) else { return }
 
-        let lead = Double(plan.outgoingStartMs) / 1000 - position
-        if lead > 10 || lead < -2 { return }
+        let swapAt = Double(plan.outgoingStartMs) / 1000 - swapLead
+        let lead = swapAt - position
+        if lead > 10 || lead < -1 { return }
         AutoMixVisuals.shared.prepare(song: NowPlaying.shared.queueSongs[NowPlaying.shared.queueIndex + 1])
-        prepareVoice(inId: inId, plan: plan)
-        installLowPass()
-        if lead <= 0.7 { beginArming(outId: outId, inId: inId, plan: plan) }
+        prepare(outId: outId, inId: inId, plan: plan)
+        if lead <= 0.7, armed?.key == pairKey(outId, inId) { beginArming() }
     }
+
+    private func pairKey(_ outId: String, _ inId: String) -> String { "\(outId)>\(inId)" }
 
     /// La cancion que suena y la siguiente, si las dos estan descargadas y se puede mezclar.
     private func currentPair() -> (String, String)? {
@@ -122,75 +133,79 @@ final class AutoMixEngine {
         return plan
     }
 
-    // MARK: - Preparacion
+    // MARK: - Preparacion de los tramos
 
-    private func prepareVoice(inId: String, plan: TransitionPlan) {
-        if let armed, armed.inId == inId { return }
-        guard preparingId != inId else { return }
-        armed?.voice.stop()
-        armed = nil
-        preparingId = inId
+    private func prepare(outId: String, inId: String, plan: TransitionPlan) {
+        let key = pairKey(outId, inId)
+        if armed?.key == key { return }
+        guard preparingKey != key else { return }
+        dropArmed()
+        preparingKey = key
+        let lead = swapLead
         let tail = voiceTail
         Task { [weak self] in
-            defer { self?.preparingId = nil }
-            guard let url = await DownloadManager.shared.localURL(for: inId) else { return }
+            defer { self?.preparingKey = nil }
+            let downloads = DownloadManager.shared
+            guard let outURL = await downloads.localURL(for: outId),
+                  let inURL = await downloads.localURL(for: inId) else { return }
             let began = Date()
-            guard let voice = await MixVoice.make(
-                url: url,
-                startSeconds: Double(plan.incomingStartMs) / 1000,
-                durationSeconds: Double(plan.durationMs) / 1000,
-                tailSeconds: tail
-            ) else {
-                PlaybackReport.record("automix: no se pudo preparar \(inId) para mezclar")
+            let outgoingStart = Double(plan.outgoingStartMs) / 1000 - lead
+            let incomingStart = Double(plan.incomingStartMs) / 1000
+            let duration = Double(plan.durationMs) / 1000
+            let ratio = plan.outgoingSpeedRatio
+            let rendered = await Task.detached(priority: .userInitiated) {
+                MixRenderer.render(
+                    outgoingURL: outURL, outgoingStart: outgoingStart, lead: lead,
+                    incomingURL: inURL, incomingStart: incomingStart,
+                    duration: duration, ratio: ratio, tail: tail
+                )
+            }.value
+            guard let rendered,
+                  let outgoing = MixVoice.make(fileURL: rendered.outgoing, startSeconds: outgoingStart, enableRate: true),
+                  let incoming = MixVoice.make(fileURL: rendered.incoming, startSeconds: incomingStart, enableRate: false) else {
+                PlaybackReport.record("automix: no se pudo preparar la mezcla \(outId) -> \(inId)")
                 return
             }
-            guard let self else { voice.stop(); return }
-            if self.armed?.inId != inId, self.phase == .idle || self.phase == .arming {
-                self.armed = (inId, voice)
-                PlaybackReport.record(String(format: "automix: entrante %@ preparada en %.1f s", inId, Date().timeIntervalSince(began)))
+            guard let self else { outgoing.stop(); incoming.stop(); return }
+            if self.armed?.key != key, self.phase == .idle || self.phase == .arming {
+                self.armed = Armed(
+                    key: key, outId: outId, inId: inId, plan: plan, outgoingStart: outgoingStart,
+                    outgoing: outgoing, incoming: incoming
+                )
+                PlaybackReport.record(String(format: "automix: mezcla %@ -> %@ preparada en %.1f s", outId, inId, Date().timeIntervalSince(began)))
             } else {
-                voice.stop()
+                outgoing.stop()
+                incoming.stop()
             }
         }
     }
 
-    /// Mete el filtro paso bajo (abierto del todo) en la cadena de audio de mpv; despues solo se le cambia la
-    /// frecuencia. Se hace unos segundos antes para que la reconfiguracion no coincida con la mezcla.
-    private func installLowPass() {
-        guard !lowPassInstalled else { return }
-        lowPassInstalled = true
-        PlayerController.shared.djFilterActive = true
-        PlayerController.shared.applyPlaybackSettings()
-    }
-
-    private func removeLowPass(reapply: Bool) {
-        guard lowPassInstalled else { return }
-        lowPassInstalled = false
-        PlayerController.shared.djFilterActive = false
-        // Si va a cargarse otra cancion, `play` ya vuelve a montar la cadena sin filtro.
-        if reapply { PlayerController.shared.applyPlaybackSettings() }
+    private func dropArmed() {
+        if let armed {
+            armed.outgoing.stop()
+            armed.incoming.stop()
+            self.armed = nil
+        }
     }
 
     private func dropPreparation() {
-        if let armed {
-            armed.voice.stop()
-            self.armed = nil
-        }
-        removeLowPass(reapply: true)
+        dropArmed()
     }
 
     // MARK: - Mezcla
 
-    /// Falta menos de un segundo: se vigila la posicion de cerca para empezar a tiempo.
-    private func beginArming(outId: String, inId: String, plan: TransitionPlan) {
+    /// Falta menos de un segundo para el relevo: se vigila la posicion de mpv de cerca para entrar a tiempo.
+    private func beginArming() {
+        guard let armed else { return }
         phase = .arming
-        blend = Blend(outId: outId, inId: inId, plan: plan, lastPosition: PlayerController.shared.currentTime)
+        blend = Blend(
+            outId: armed.outId, inId: armed.inId, plan: armed.plan, outgoingStart: armed.outgoingStart, swappedAt: Date()
+        )
         startTimer()
     }
 
     private func startTimer() {
         timer?.invalidate()
-        lastStep = Date()
         let t = Timer(timeInterval: fastInterval, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in self?.step() }
         }
@@ -213,29 +228,34 @@ final class AutoMixEngine {
     }
 
     private func stepArming() {
-        guard let b = blend else { cancel("sin datos"); return }
+        guard let b = blend, let armed, armed.outId == b.outId, armed.inId == b.inId else { cancel("sin datos"); return }
         let np = NowPlaying.shared
         guard np.videoId == b.outId, !np.isVideoMode else { cancel("la cancion cambio antes de empezar"); return }
         guard np.isPlaying else { return }
-        let position = PlayerController.shared.currentTime
-        let startAt = Double(b.plan.outgoingStartMs) / 1000
-        if position < startAt - 1 || position > startAt + 3 { cancel("salto de posicion antes de empezar"); return }
-        guard position >= startAt else { return }
+        let controller = PlayerController.shared
+        let position = controller.currentTime
+        if position < b.outgoingStart - 1 || position > b.outgoingStart + swapLead { cancel("salto de posicion antes de empezar"); return }
+        guard position >= b.outgoingStart else { return }
 
-        guard let armed, armed.inId == b.inId else {
-            // El segundo reproductor no estaba listo: no se arriesga, paso normal.
-            PlaybackReport.record("automix: segundo reproductor no listo, sin mezcla")
-            cancel("no listo", quiet: true)
-            planCache = (b.outId, b.inId, nil)
-            return
-        }
-        // Mezcla tardia: entra mas tarde y dura menos (el final no se mueve).
-        guard let late = b.plan.startingAt(outgoingPositionMs: Int64(position * 1000)) else {
+        // Donde del tramo de la saliente hay que entrar para seguir justo donde va mpv (con un pequeno adelanto
+        // por lo que tarda en arrancar). Si ya se paso casi todo el relevo, no se mezcla.
+        let offset = position - b.outgoingStart + 0.03
+        guard offset < swapLead - 0.2 else {
             cancel("demasiado tarde", quiet: true)
             planCache = (b.outId, b.inId, nil)
             return
         }
-        var started = Blend(outId: b.outId, inId: b.inId, plan: late, lastPosition: position)
+        let volume = Float(SettingsStore.shared.playerVolume)
+        armed.outgoing.setVolume(0)
+        armed.outgoing.play(from: offset)
+        armed.outgoing.setVolume(volume, fade: swapFade)
+        // La entrante arranca exactamente cuando la saliente llega al inicio de la mezcla (misma hora del dispositivo).
+        armed.incoming.setVolume(volume)
+        armed.incoming.play(from: 0, atDeviceTime: armed.outgoing.deviceTime + max(swapLead - offset, 0.01))
+
+        var started = Blend(
+            outId: b.outId, inId: b.inId, plan: b.plan, outgoingStart: b.outgoingStart, swappedAt: Date()
+        )
         if let structure = TrackAnalysisStore.shared.structure(for: b.outId) {
             started.beatMs = structure.beatMs
             // Por encima de 140 BPM el latido seria nervioso: se hace cada dos pulsos.
@@ -243,14 +263,10 @@ final class AutoMixEngine {
         }
         blend = started
         AutoMixVisuals.shared.begin()
-        armed.voice.setVolume(Float(SettingsStore.shared.playerVolume))
-        armed.voice.start(atSongTime: Double(late.incomingStartMs) / 1000)
         phase = .blending
-        lastStep = Date()
         PlaybackReport.record(String(
-            format: "automix: empieza %@ -> %@ (%.1f s, tempo x%.2f, filtro %@)",
-            b.outId, b.inId, Double(late.durationMs) / 1000, late.outgoingSpeedRatio,
-            lowPassInstalled && PlayerController.shared.djFilterActive ? "si" : "no"
+            format: "automix: empieza %@ -> %@ (%.1f s, tempo x%.2f)",
+            b.outId, b.inId, Double(b.plan.durationMs) / 1000, b.plan.outgoingSpeedRatio
         ))
     }
 
@@ -263,80 +279,85 @@ final class AutoMixEngine {
             cancel("la cola cambio")
             return
         }
-        let now = Date()
-        let dt = min(now.timeIntervalSince(lastStep), 0.2)
-        lastStep = now
+        let controller = PlayerController.shared
 
-        // En pausa (o interrumpido) las dos se paran y el reloj de la mezcla tambien.
+        // En pausa (o interrumpido) las dos se paran; como todo se mide con el tiempo de los propios tramos,
+        // al reanudar la mezcla sigue donde estaba.
         guard np.isPlaying else {
-            if armed.voice.isPlaying { armed.voice.pause() }
+            if !b.playersPaused {
+                armed.outgoing.pause()
+                armed.incoming.pause()
+                b.playersPaused = true
+                blend = b
+            }
             return
         }
-        if !armed.voice.isPlaying { armed.voice.resume() }
+        if b.playersPaused {
+            armed.outgoing.resume()
+            armed.incoming.resume()
+            b.playersPaused = false
+        }
 
-        let position = PlayerController.shared.currentTime
-        if abs(position - b.lastPosition) > 1.5 { cancel("salto de posicion"); return }
-        b.lastPosition = position
-        b.elapsed += dt
-
-        let duration = Double(b.plan.durationMs) / 1000
-        let progress = min(b.elapsed / duration, 1)
-        let visuals = AutoMixVisuals.shared
-        visuals.progress = progress
-        let beatsSinceStart = (position * 1000 - Double(b.plan.outgoingStartMs)) / max(b.beatMs, 1) / b.beatsPerPulse
-        visuals.beatPhase = beatsSinceStart - beatsSinceStart.rounded(.down)
-        // Potencia constante: la saliente baja con el coseno (la entrante ya lleva su seno aplicado).
-        let angle = progress * Double.pi / 2
-        PlayerController.shared.volumeScale = mpvScale(forGain: cos(angle))
-        PlayerController.shared.applyPlayerVolume()
-
-        // Filtro de DJ con curva en S: la saliente pierde agudos.
-        let sweep = 1 / (1 + exp(-sigmoidK * (progress - 0.5)))
-        if lowPassInstalled, PlayerController.shared.djFilterActive {
-            let result = PlayerController.shared.setDJLowpass(exponential(lowPassStart, lowPassEnd, sweep))
-            if result < 0, !lowPassFailureLogged {
-                lowPassFailureLogged = true
-                PlaybackReport.record("automix: el filtro de mpv no responde (codigo \(result))")
+        // Relevo de mpv al tramo de la saliente: mpv baja con un fundido corto y luego se calla y se pausa.
+        let sinceSwap = Date().timeIntervalSince(b.swappedAt)
+        if !b.mpvSilenced {
+            if sinceSwap < swapFade + 0.1 {
+                let gain = 1 - min(max((sinceSwap - 0.05) / swapFade, 0), 1)
+                controller.volumeScale = mpvScale(forGain: gain)
+                controller.applyPlayerVolume()
+            } else {
+                controller.volumeScale = 0
+                controller.applyPlayerVolume()
+                controller.setRawPause(true)
+                b.mpvSilenced = true
             }
         }
 
+        // Todo el reproductor (barra de progreso, pantalla de bloqueo) sigue la posicion de la saliente.
+        let outgoingPosition = armed.outgoing.position
+        controller.positionOverride = outgoingPosition
+
+        // Avance de la mezcla: lo que lleva sonando la entrante, de 0 a 1.
+        let duration = Double(b.plan.durationMs) / 1000
+        let progress = min(max(armed.incoming.bufferTime / duration, 0), 1)
+        let visuals = AutoMixVisuals.shared
+        visuals.progress = progress
+        let beats = (outgoingPosition * 1000 - Double(b.plan.outgoingStartMs)) / max(b.beatMs, 1) / b.beatsPerPulse
+        visuals.beatPhase = beats - beats.rounded(.down)
+
         // La saliente iguala el tempo de la entrante, en rampa suave, y lo mantiene.
         if b.plan.outgoingSpeedRatio != 1 {
-            let speed = 1 + (b.plan.outgoingSpeedRatio - 1) * AutoMixMath.rampProgress(progress)
-            let quantized = (speed / 0.005).rounded() * 0.005
-            if abs(quantized - b.lastSpeed) >= 0.004 {
-                PlayerController.shared.setPlaybackSpeed(quantized)
-                b.lastSpeed = quantized
+            let rate = 1 + (b.plan.outgoingSpeedRatio - 1) * AutoMixMath.rampProgress(progress)
+            let quantized = (rate / 0.005).rounded() * 0.005
+            if abs(quantized - b.lastRate) >= 0.004 {
+                armed.outgoing.setRate(Float(quantized))
+                b.lastRate = quantized
             }
         }
         blend = b
         if progress >= 1 { startHandoff() }
     }
 
-    private func exponential(_ start: Double, _ end: Double, _ t: Double) -> Double {
-        exp(log(start) + (log(end) - log(start)) * t)
-    }
-
     /// El volumen de mpv es perceptual (la ganancia real es su cubo): para una ganancia deseada `gain` hay que
-    /// pedirle su raiz cubica. Sin esto la saliente caia mucho antes de lo previsto y quedaba un hueco.
+    /// pedirle su raiz cubica.
     private func mpvScale(forGain gain: Double) -> Double {
         pow(max(gain, 0), 1.0 / 3.0)
     }
 
-    // MARK: - Relevo: mpv toma la entrante donde va la del segundo reproductor
+    // MARK: - Relevo final: mpv toma la entrante donde va su tramo
 
     private func startHandoff() {
         guard let b = blend, let armed else { cancel("sin datos"); return }
         phase = .handoff
-        PlayerController.shared.volumeScale = 0
-        PlayerController.shared.applyPlayerVolume()
-        PlayerController.shared.setPlaybackSpeed(1)
-        // La cadena de mpv se vuelve a montar al cargar la entrante, ya sin el filtro.
-        removeLowPass(reapply: false)
+        let controller = PlayerController.shared
+        controller.positionOverride = nil
+        controller.volumeScale = 0
+        controller.applyPlayerVolume()
+        armed.outgoing.stop()
         AutoMixVisuals.shared.progress = 1
         AutoMixVisuals.shared.pulsing = false
-        // mpv carga la entrante unos instantes por detras de la del segundo reproductor; se corrige al alinear.
-        handoffTarget = armed.voice.position + 0.25
+        // mpv carga la entrante unos instantes por detras de su tramo; se corrige al alinear.
+        handoffTarget = armed.incoming.position + 0.25
         handoffStartedAt = Date()
         alignAttempts = 0
         fadeStartedAt = nil
@@ -345,7 +366,9 @@ final class AutoMixEngine {
             cancel("no se pudo avanzar la cola")
             return
         }
-        blend = Blend(outId: b.outId, inId: b.inId, plan: b.plan, lastPosition: handoffTarget)
+        blend = Blend(
+            outId: b.outId, inId: b.inId, plan: b.plan, outgoingStart: b.outgoingStart, swappedAt: b.swappedAt
+        )
     }
 
     private func stepHandoff() {
@@ -360,7 +383,7 @@ final class AutoMixEngine {
             let angle = t * Double.pi / 2
             controller.volumeScale = mpvScale(forGain: sin(angle))
             controller.applyPlayerVolume()
-            armed.voice.setVolume(Float(cos(angle) * playerVolume))
+            armed.incoming.setVolume(Float(cos(angle) * playerVolume))
             if t >= 1 { finish() }
             return
         }
@@ -380,14 +403,14 @@ final class AutoMixEngine {
             return
         }
 
-        // Alinear: mpv se pone justo donde va el segundo reproductor (mpv sigue en silencio). Cada intento aprende
+        // Alinear: mpv se pone justo donde va el tramo de la entrante (mpv sigue en silencio). Cada intento aprende
         // cuanto tarda en saltar y lo compensa en el siguiente.
-        let offset = armed.voice.position - controller.currentTime
+        let offset = armed.incoming.position - controller.currentTime
         if abs(offset) > 0.04, alignAttempts < 3, Date().timeIntervalSince(lastAlignAt) > 0.3 {
             if alignAttempts > 0 { seekLead += offset }
             alignAttempts += 1
             lastAlignAt = Date()
-            controller.seek(to: armed.voice.position + seekLead)
+            controller.seek(to: armed.incoming.position + seekLead)
             return
         }
         if Date().timeIntervalSince(lastAlignAt) < 0.3 { return }
@@ -396,12 +419,12 @@ final class AutoMixEngine {
     }
 
     private func finish() {
+        let controller = PlayerController.shared
+        controller.positionOverride = nil
+        controller.volumeScale = 1
+        controller.applyPlayerVolume()
         AutoMixVisuals.shared.end()
-        PlayerController.shared.volumeScale = 1
-        PlayerController.shared.applyPlayerVolume()
-        PlayerController.shared.setPlaybackSpeed(1)
-        armed?.voice.stop()
-        armed = nil
+        dropArmed()
         blend = nil
         planCache = nil
         phase = .idle
@@ -412,17 +435,25 @@ final class AutoMixEngine {
 
     func cancel(_ reason: String, quiet: Bool = false) {
         if !quiet { PlaybackReport.record("automix: cancelada (\(reason))") }
+        let controller = PlayerController.shared
+        let np = NowPlaying.shared
+        let wasBlending = phase == .blending
+        let b = blend
+        let outgoingPosition = armed?.outgoing.position
         let wasHandoff = phase == .handoff
-        AutoMixVisuals.shared.end()
         stopTimer()
-        armed?.voice.stop()
-        armed = nil
+        AutoMixVisuals.shared.end()
+        dropArmed()
         blend = nil
         phase = .idle
-        PlayerController.shared.volumeScale = 1
-        PlayerController.shared.applyPlayerVolume()
-        PlayerController.shared.setPlaybackSpeed(1)
-        removeLowPass(reapply: true)
+        controller.positionOverride = nil
+        controller.volumeScale = 1
+        // Si mpv se habia callado y pausado y la cancion sigue siendo la misma, se le devuelve donde iba el tramo.
+        if wasBlending, let b, b.mpvSilenced, np.videoId == b.outId {
+            if let outgoingPosition { controller.seek(to: outgoingPosition) }
+            if np.isPlaying { controller.setRawPause(false) }
+        }
+        controller.applyPlayerVolume()
         if wasHandoff { planCache = nil }
     }
 
@@ -432,11 +463,6 @@ final class AutoMixEngine {
         guard phase != .handoff else { return }
         if phase != .idle { cancel("cambio de cancion") }
         planCache = nil
-        // La cadena de mpv se vuelve a montar al cargar la nueva cancion, ya sin el filtro.
-        removeLowPass(reapply: false)
-        if let armed {
-            armed.voice.stop()
-            self.armed = nil
-        }
+        dropArmed()
     }
 }

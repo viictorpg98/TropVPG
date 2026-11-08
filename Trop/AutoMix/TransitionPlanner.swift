@@ -108,19 +108,20 @@ extension TransitionPlanner {
 enum AutoMixMath {
     // Duracion: los extremos de SimpMusic (20-45 s) se acortan: aqui 12-32 s, mas cerca de lo que se oye en
     // Apple Music. Sin tonalidad (no tenemos metadatos de Tidal) no hay factor de tonalidad.
-    private static let minDurationMs = 12_000.0
-    private static let maxDurationMs = 32_000.0
-    private static let beatCountOptions: [Double] = [8, 16, 24, 32, 40, 48, 64]
+    private static let minDurationMs = 8_000.0
+    private static let maxDurationMs = 16_000.0
+    private static let beatCountOptions: [Double] = [8, 12, 16, 24, 32]
     private static let bpmGapScale = 2.0
     /// Solo se cambia la velocidad si hace falta poco (SimpMusic permite 0,75-1,25; aqui menos para que suene natural).
     private static let ratioMin = 0.80
     private static let ratioMax = 1.25
     private static let speedStep = 0.01
 
-    /// Lentas -> mezcla larga; rapidas -> corta (BPM 70 = 30 s, BPM 170 = 7 s).
+    /// Lentas -> mezcla algo mas larga; rapidas -> mas corta (BPM 70 = 14 s, BPM 170 = 9 s). Apple Music mezcla en unos
+    /// 8-12 s; las de 30 s de SimpMusic se hacian eternas.
     private static func baseTargetMs(bpm: Double) -> Double {
         let clamped = min(max(bpm, 70), 170)
-        return 30_000 - (clamped - 70) * 230
+        return 14_000 - (clamped - 70) * 50
     }
 
     static func durationMs(outgoing: TrackStructure, incoming: TrackStructure) -> Int64 {
@@ -129,7 +130,7 @@ enum AutoMixMath {
         var ratio = incoming.bpm / outgoing.bpm
         while ratio > 1.5 { ratio /= 2 }
         while ratio < 0.67 { ratio *= 2 }
-        let gapFactor = 1 + abs(1 - ratio) * bpmGapScale
+        let gapFactor = min(1 + abs(1 - ratio) * bpmGapScale, 1.3)
         let target = baseTargetMs(bpm: outgoing.bpm) * gapFactor
         let beats = beatCountOptions.min(by: { abs($0 * beatMs - target) < abs($1 * beatMs - target) }) ?? 32
         let duration = min(max(beats * beatMs, minDurationMs), maxDurationMs)
