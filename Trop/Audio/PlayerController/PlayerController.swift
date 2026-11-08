@@ -82,6 +82,9 @@ final class PlayerController {
     var pendingResumeAt: TimeInterval = 0
     /// Multiplicador del volumen de mpv (1 = normal): AutoMix lo baja y sube durante las mezclas.
     var volumeScale: Double = 1
+    /// AutoMix: mete en la cadena de audio un filtro paso bajo con etiqueta `dj` (abierto) que luego se cierra
+    /// con `setDJLowpass`.
+    var djFilterActive = false
     var nowPlayingInfo = [String: Any]()
     private var pendingSeek: (target: TimeInterval, deadline: Date)?
     private var remoteStateCancellable: AnyCancellable?
@@ -287,6 +290,15 @@ extension PlayerController {
         }
     }
 
+    /// Cambia la frecuencia de corte (Hz) del filtro `dj` de la cadena de audio. Devuelve el codigo de mpv (<0 = fallo).
+    @discardableResult
+    func setDJLowpass(_ hz: Double) -> Int32 {
+        let command = ["af-command", "dj", "frequency", String(format: "%.1f", hz)]
+        return withMpv { mpv in
+            command.withUnsafeCArg { mpv_command(mpv, $0) }
+        } ?? -1
+    }
+
     func applyPlaybackSettings() {
         let settings = SettingsStore.shared
         let loudness = currentLoudnessDb
@@ -309,13 +321,19 @@ extension PlayerController {
                 let gain = max(-12, min(12, -14 - loudness))
                 filters.append("volume=\(Self.fmt(gain))dB")
             }
+            if djFilterActive {
+                filters.append("@dj:lowpass=f=20000")
+            }
             return filters.joined(separator: ",")
         }()
 
         withMpv { mpv in
             mpv_set_property_string(mpv, "gapless-audio", gapless ? "yes" : "no")
             let result = mpv_set_property_string(mpv, "af", chain.isEmpty ? "" : chain)
-            if result < 0 { Log.player.error("Failed to set af chain '\(chain)': mpv error \(result)") }
+            if result < 0 {
+                Log.player.error("Failed to set af chain '\(chain)': mpv error \(result)")
+                if chain.contains("@dj:") { PlaybackReport.record("automix: mpv rechazo el filtro de DJ (error \(result))") }
+            }
         }
         applyPlayerVolume()
     }

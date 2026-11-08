@@ -72,6 +72,8 @@ enum TransitionPlanner {
            abs(bar - incomingStart) < Int64(incoming.beatMs * 4) {
             incomingStart = bar
         }
+        incomingStart = max(incomingStart + beatPhaseShift(outgoing: outgoing, incoming: incoming,
+                                                           durationMs: durationMs, ratio: ratio), 0)
         return TransitionPlan(
             outgoingStartMs: start,
             outgoingEndMs: end,
@@ -79,6 +81,27 @@ enum TransitionPlanner {
             incomingStartMs: incomingStart,
             outgoingSpeedRatio: ratio
         )
+    }
+}
+
+extension TransitionPlanner {
+    /// Cuanto hay que mover el punto de entrada de la entrante para que sus pulsos caigan sobre los de la saliente
+    /// cuando esta termina de igualar su tempo. La saliente avanza mas (o menos) que la mezcla durante la rampa de
+    /// velocidad, y esa diferencia descuadra los pulsos aunque los dos tempos acaben iguales.
+    /// 0 si los tempos no quedan iguales (entonces no hay pulsos que casar).
+    static func beatPhaseShift(outgoing: TrackStructure, incoming: TrackStructure, durationMs: Int64, ratio: Double) -> Int64 {
+        // Periodo del pulso de la saliente ya acelerada/frenada. Debe ser el de la entrante, o el doble/la mitad.
+        let matched = outgoing.beatMs / ratio
+        let octaves = log2(matched / incoming.beatMs)
+        guard abs(octaves - octaves.rounded()) < 0.05, abs(octaves) <= 1.05 else { return 0 }
+        let modulus = max(matched, incoming.beatMs)
+        // Tiempo (de la mezcla) en que la saliente llega a su velocidad final, y lo que ha avanzado de su cancion.
+        let rampMs = Double(durationMs) * rampPortion
+        let outgoingAdvanced = rampMs * (1 + (ratio - 1) / 2)
+        // La entrante, que avanza al ritmo normal, debe estar en la misma fase del pulso en ese momento.
+        var shift = outgoingAdvanced / ratio - rampMs
+        shift -= modulus * (shift / modulus).rounded()
+        return Int64(shift)
     }
 }
 
@@ -90,8 +113,8 @@ enum AutoMixMath {
     private static let beatCountOptions: [Double] = [8, 16, 24, 32, 40, 48, 64]
     private static let bpmGapScale = 2.0
     /// Solo se cambia la velocidad si hace falta poco (SimpMusic permite 0,75-1,25; aqui menos para que suene natural).
-    private static let ratioMin = 0.88
-    private static let ratioMax = 1.12
+    private static let ratioMin = 0.80
+    private static let ratioMax = 1.25
     private static let speedStep = 0.01
 
     /// Lentas -> mezcla larga; rapidas -> corta (BPM 70 = 30 s, BPM 170 = 7 s).
