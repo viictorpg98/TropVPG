@@ -55,7 +55,9 @@ struct FullPlayerView: View {
                 AutoMixGlow()
 
                 VStack(spacing: 0) {
+                    // Por encima de la carátula, que sube hasta el borde de la pantalla.
                     grabHandle
+                        .zIndex(2)
 
                     if showLyrics {
                         LyricsView(
@@ -82,6 +84,7 @@ struct FullPlayerView: View {
                                 width: geometry.size.width,
                                 height: max(220, min(geometry.size.width, geometry.size.height - 400))
                             ),
+                            topInset: geometry.safeAreaInsets.top,
                             horizontalPadding: horizontalPadding,
                             isCompact: isCompact
                         )
@@ -138,13 +141,13 @@ struct FullPlayerView: View {
                 .ignoresSafeArea()
         } else {
             // Su propia vista: durante una mezcla de AutoMix cambia de color con ella sin redibujar todo el reproductor.
-            PlayerGradientBackground(base: playerBackgroundColors, tinted: settings.fullWidthArtwork)
+            PlayerGradientBackground(base: playerBackgroundColors, edge: np.artworkEdgeColor, tinted: settings.fullWidthArtwork)
         }
     }
 
     private var grabHandle: some View {
         Capsule()
-            .fill(.white.opacity(0.3))
+            .fill(.white.opacity(settings.fullWidthArtwork ? 0.6 : 0.3))
             .frame(width: 36, height: 5)
             .padding(.top, 12)
             .padding(.bottom, 12)
@@ -168,11 +171,16 @@ struct FullPlayerView: View {
     }
 
     @ViewBuilder
-    private func mainContent(artSide: CGFloat, fullSize: CGSize, horizontalPadding: CGFloat, isCompact: Bool) -> some View {
+    private func mainContent(artSide: CGFloat, fullSize: CGSize, topInset: CGFloat, horizontalPadding: CGFloat, isCompact: Bool) -> some View {
         if settings.fullWidthArtwork {
-            // Carátula de lado a lado bajo la isla dinamica (el contenido ya empieza debajo de la zona segura) que se funde
-            // con el fondo del color de la propia carátula.
-            MixAwareArtwork(width: fullSize.width, height: fullSize.height, fullBleed: true, content: artwork)
+            // Carátula de lado a lado que llega hasta el borde superior, por detras de la isla dinamica y la barra de
+            // estado (como Apple Music), y que por abajo se funde con el fondo del color de la propia carátula. Ocupa
+            // el mismo sitio que antes: lo que sube por arriba se compensa con un margen negativo.
+            let handle: CGFloat = 29
+            MixAwareArtwork(
+                width: fullSize.width, height: fullSize.height + topInset + handle, fullBleed: true, content: artwork
+            )
+            .padding(.top, -(topInset + handle))
 
             Spacer(minLength: isCompact ? 4 : 10)
         } else {

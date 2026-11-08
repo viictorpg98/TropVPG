@@ -27,6 +27,8 @@ final class AutoMixVisuals {
 
     var outgoingImage: UIImage?
     var outgoingColors: [Color] = []
+    var outgoingEdgeColor: Color?
+    var incomingEdgeColor: Color?
     var incomingImage: UIImage?
     var incomingColors: [Color] = []
     var incomingTitle = ""
@@ -41,6 +43,7 @@ final class AutoMixVisuals {
         incomingVideoId = song.videoId
         incomingImage = nil
         incomingColors = []
+        incomingEdgeColor = nil
         incomingTitle = song.title
         incomingArtist = artistDisplayString(from: song.artists)
         let videoId = song.videoId
@@ -57,12 +60,14 @@ final class AutoMixVisuals {
             let square = image.centerCroppedSquare()
             self.incomingImage = square
             self.incomingColors = square.extractDominantColors()
+            self.incomingEdgeColor = square.bottomEdgeColor()
         }
     }
 
     func begin() {
         outgoingImage = NowPlaying.shared.thumbnailUIImage
         outgoingColors = NowPlaying.shared.dominantColors
+        outgoingEdgeColor = NowPlaying.shared.artworkEdgeColor
         progress = 0
         beatPhase = 0
         pulsing = true

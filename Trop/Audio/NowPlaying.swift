@@ -31,6 +31,8 @@ final class NowPlaying {
     var thumbnailUIImage: UIImage?
     var thumbnailVersion = 0
     var dominantColors: [Color] = [Color(red: 0.15, green: 0.15, blue: 0.2), Color(red: 0.05, green: 0.05, blue: 0.08)]
+    /// Color de la franja inferior de la carátula: el reproductor lo usa de fondo para fundirla con el resto.
+    var artworkEdgeColor: Color?
 
     var accentColor: Color? {
         guard videoId != nil, let primary = dominantColors.first else { return nil }
@@ -742,9 +744,11 @@ final class NowPlaying {
     private func updateDominantColors(from uiImage: UIImage?) {
         guard let uiImage = uiImage else {
             self.dominantColors = [Color(red: 0.15, green: 0.15, blue: 0.2), Color(red: 0.05, green: 0.05, blue: 0.08)]
+            self.artworkEdgeColor = nil
             return
         }
         self.dominantColors = uiImage.extractDominantColors()
+        self.artworkEdgeColor = uiImage.bottomEdgeColor()
     }
 }
 

@@ -111,11 +111,34 @@ enum MixRenderer {
         guard let outBuffer = read(url: outgoingURL, start: outgoingStart, seconds: lead + advance + 1.5),
               let inBuffer = read(url: incomingURL, start: incomingStart, seconds: duration + tail) else { return nil }
 
+        // Igualar el volumen: la entrante empieza al nivel de la saliente y va volviendo al suyo (sin pasarse de +-4 dB).
+        let outRate = outBuffer.format.sampleRate
+        let outLoudness = loudness(outBuffer, from: Int(lead * outRate), seconds: min(advance, 8))
+        let inLoudness = loudness(inBuffer, from: 0, seconds: min(duration, 8))
+        var match = 1.0
+        if outLoudness > 0, inLoudness > 0 { match = min(max(outLoudness / inLoudness, 0.63), 1.6) }
+
         processOutgoing(outBuffer, lead: lead, duration: duration, step: step, consumed: consumed)
-        processIncoming(inBuffer, duration: duration)
+        processIncoming(inBuffer, duration: duration, match: match)
 
         guard let outURL = write(outBuffer), let inURL = write(inBuffer) else { return nil }
         return Output(outgoing: outURL, incoming: inURL)
+    }
+
+    /// Volumen eficaz (RMS) de un tramo del buffer, promediando los canales.
+    nonisolated private static func loudness(_ buffer: AVAudioPCMBuffer, from frame: Int, seconds: TimeInterval) -> Double {
+        guard let channels = buffer.floatChannelData else { return 0 }
+        let rate = buffer.format.sampleRate
+        let total = Int(buffer.frameLength)
+        let start = min(max(frame, 0), total)
+        let end = min(start + Int(seconds * rate), total)
+        guard end > start else { return 0 }
+        var sum = 0.0
+        for channel in 0..<Int(buffer.format.channelCount) {
+            let samples = channels[channel]
+            for i in start..<end { sum += Double(samples[i]) * Double(samples[i]) }
+        }
+        return (sum / Double((end - start) * Int(buffer.format.channelCount))).squareRoot()
     }
 
     nonisolated private static func read(url: URL, start: TimeInterval, seconds: TimeInterval) -> AVAudioPCMBuffer? {
@@ -193,14 +216,23 @@ enum MixRenderer {
         }
     }
 
+    /// Intercambio de graves: de 0 a 1 en un tramo corto hacia la mitad de la mezcla (de 42 % a 58 %).
+    nonisolated private static func bassSwap(_ progress: Double) -> Double {
+        let x = min(max((progress - 0.42) / 0.16, 0), 1)
+        return x * x * (3 - 2 * x)
+    }
+
     /// Curva en S (valores de SimpMusic): lenta al principio y al final, rapida en el medio.
-    nonisolated private static func sweep(_ progress: Double) -> Double {
+    nonisolated private static func sweepCurve(_ progress: Double) -> Double {
         1 / (1 + exp(-6 * (progress - 0.5)))
     }
 
     nonisolated private static func exponential(_ start: Double, _ end: Double, _ t: Double) -> Double {
         exp(log(start) + (log(end) - log(start)) * t)
     }
+
+    /// Frecuencia por debajo de la cual se hace el intercambio de graves.
+    nonisolated private static let bassCrossover = 250.0
 
     nonisolated private static func processOutgoing(
         _ buffer: AVAudioPCMBuffer, lead: TimeInterval, duration: TimeInterval, step: Double, consumed: [Double]
@@ -212,7 +244,9 @@ enum MixRenderer {
         let advance = consumed[last]
         for channel in 0..<Int(buffer.format.channelCount) {
             let samples = channels[channel]
-            var filter = Biquad()
+            var sweep = Biquad()          // paso bajo que se cierra (agudos)
+            var split = Biquad()          // separa los graves del resto
+            split.setLowPass(cutoff: bassCrossover, rate: rate)
             var k = 0
             for i in 0..<frames {
                 let time = Double(i) / rate
@@ -226,30 +260,45 @@ enum MixRenderer {
                 let span = max(consumed[k + 1] - consumed[k], 1e-9)
                 let progress = min(max((Double(k) + (inBlend - consumed[k]) / span) * step / duration, 0), 1)
                 if i % 64 == 0 {
-                    filter.setLowPass(cutoff: exponential(20_000, 200, sweep(progress)), rate: rate)
+                    sweep.setLowPass(cutoff: exponential(20_000, 200, Self.sweepCurve(progress)), rate: rate)
                 }
-                let filtered = filter.process(Double(samples[i]))
-                samples[i] = Float(max(-1, min(1, filtered * cos(progress * Double.pi / 2))))
+                let filtered = sweep.process(Double(samples[i]))
+                let bass = split.process(filtered)
+                let rest = filtered - bass
+                // Los graves de la saliente se mantienen enteros hasta el intercambio y se van de golpe; el resto baja
+                // con el coseno durante toda la mezcla. Asi los graves nunca faltan ni suenan dos a la vez.
+                let swap = bassSwap(progress)
+                let out = bass * cos(swap * Double.pi / 2) + rest * cos(progress * Double.pi / 2)
+                samples[i] = Float(max(-1, min(1, out)))
             }
         }
     }
 
-    nonisolated private static func processIncoming(_ buffer: AVAudioPCMBuffer, duration: TimeInterval) {
+    nonisolated private static func processIncoming(_ buffer: AVAudioPCMBuffer, duration: TimeInterval, match: Double) {
         guard let channels = buffer.floatChannelData else { return }
         let rate = buffer.format.sampleRate
         let frames = Int(buffer.frameLength)
         let mixFrames = max(duration * rate, 1)
         for channel in 0..<Int(buffer.format.channelCount) {
             let samples = channels[channel]
-            var filter = Biquad()
+            var sweep = Biquad()          // paso alto que se abre (la entrante llega sin cuerpo)
+            var split = Biquad()
+            split.setLowPass(cutoff: bassCrossover, rate: rate)
             for i in 0..<frames {
                 let progress = Double(i) / mixFrames
                 if progress >= 1 { break }
                 if i % 64 == 0 {
-                    filter.setHighPass(cutoff: exponential(2_000, 20, sweep(progress)), rate: rate)
+                    sweep.setHighPass(cutoff: exponential(2_000, 20, Self.sweepCurve(progress)), rate: rate)
                 }
-                let filtered = filter.process(Double(samples[i]))
-                samples[i] = Float(max(-1, min(1, filtered * sin(progress * Double.pi / 2))))
+                let x = Double(samples[i])
+                let bass = split.process(x)
+                let rest = sweep.process(x - bass)
+                // Los graves de la entrante entran de golpe en el intercambio; el resto sube con el seno. El volumen
+                // parte igualado al de la saliente y vuelve al suyo.
+                let swap = bassSwap(progress)
+                let level = pow(match, 1 - progress)
+                let out = (bass * sin(swap * Double.pi / 2) + rest * sin(progress * Double.pi / 2)) * level
+                samples[i] = Float(max(-1, min(1, out)))
             }
         }
     }

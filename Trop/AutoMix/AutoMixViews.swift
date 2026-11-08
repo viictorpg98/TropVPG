@@ -19,6 +19,22 @@ private func vivid(_ color: Color) -> Color {
     return Color(hue: Double(h), saturation: Double(min(1, s * 1.2 + 0.05)), brightness: Double(min(max(b, 0.45), 0.82)))
 }
 
+/// Colores del reproductor (arriba, abajo) a partir del color de la franja inferior de la carátula: el de arriba, el
+/// mismo tono ajustado para que el texto blanco se lea, y el de abajo, mas oscuro. Asi la carátula se funde con el
+/// fondo sin corte. Sin ese color, se usan los dominantes.
+private func palette(edge: Color?, fallback: [Color]) -> [Color] {
+    guard let edge else {
+        let first = fallback.first ?? Color(red: 0.15, green: 0.15, blue: 0.2)
+        let last = fallback.last ?? Color(red: 0.05, green: 0.05, blue: 0.08)
+        return [vivid(first), mix(vivid(last), .black, 0.45)]
+    }
+    var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+    UIColor(edge).getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+    let top = Color(hue: Double(h), saturation: Double(min(1, s * 1.1)), brightness: Double(min(max(b, 0.30), 0.80)))
+    let bottom = Color(hue: Double(h), saturation: Double(min(1, s * 1.1 + 0.05)), brightness: Double(min(max(b, 0.30), 0.80) * 0.5))
+    return [top, bottom]
+}
+
 /// Mezcla dos colores (0 = `a`, 1 = `b`).
 private func mix(_ a: Color, _ b: Color, _ t: Double) -> Color {
     var ar: CGFloat = 0, ag: CGFloat = 0, ab: CGFloat = 0, aa: CGFloat = 0
@@ -109,6 +125,12 @@ struct MixAwareArtwork<Content: View>: View {
             view
                 .frame(width: width, height: height)
                 .clipped()
+                .overlay(alignment: .top) {
+                    // Un velo suave arriba para que la hora, la isla y los iconos de estado se lean sobre la carátula.
+                    LinearGradient(colors: [.black.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom)
+                        .frame(height: 130)
+                        .allowsHitTesting(false)
+                }
                 .mask(
                     LinearGradient(
                         stops: [
@@ -249,12 +271,14 @@ struct AutoMixGlow: View {
 
     var body: some View {
         let amount = reveal(visuals.progress)
-        let out = visuals.outgoingColors
-        let incoming = visuals.incomingColors
-        let outFirst = vivid(out.first ?? Color(red: 0.2, green: 0.2, blue: 0.3))
-        let outLast = vivid(out.last ?? out.first ?? Color(red: 0.2, green: 0.2, blue: 0.3))
-        let inFirst = incoming.first.map(vivid) ?? outFirst
-        let inLast = incoming.last.map(vivid) ?? outLast
+        let outPalette = palette(edge: visuals.outgoingEdgeColor, fallback: visuals.outgoingColors)
+        let inPalette = visuals.incomingColors.isEmpty && visuals.incomingEdgeColor == nil
+            ? outPalette
+            : palette(edge: visuals.incomingEdgeColor, fallback: visuals.incomingColors)
+        let outFirst = outPalette[0]
+        let outLast = outPalette[1]
+        let inFirst = inPalette[0]
+        let inLast = inPalette[1]
         // Entra deprisa al empezar la mezcla; el latido infla un poco las manchas en cada pulso.
         let ramp = min(1, visuals.progress * 7)
         let beat = (visuals.pulsing && !reduceMotion) ? exp(-visuals.beatPhase * 6) : 0
@@ -307,23 +331,25 @@ struct AutoMixGlow: View {
 /// El degradado del reproductor grande. Durante una mezcla pasa del color de una carátula al de la otra.
 struct PlayerGradientBackground: View {
     let base: [Color]
-    /// Colores mas vivos y claros, con el de abajo mas oscuro (para el reproductor con la carátula de lado a lado).
+    /// Color de la franja inferior de la carátula (para fundirla con el fondo).
+    var edge: Color?
+    /// Colores adaptados al borde de la carátula, con el de abajo mas oscuro (reproductor con la carátula de lado a lado).
     var tinted = false
 
     private let visuals = AutoMixVisuals.shared
 
-    /// Color de arriba y de abajo del degradado para un par de colores de una carátula.
-    private func pair(_ colors: [Color]) -> [Color] {
-        let first = colors.first ?? Color(red: 0.15, green: 0.15, blue: 0.2)
-        let last = colors.last ?? Color(red: 0.05, green: 0.05, blue: 0.08)
-        guard tinted else { return [first, last] }
-        return [vivid(first), mix(vivid(last), .black, 0.45)]
+    /// Color de arriba y de abajo del degradado.
+    private func pair(colors: [Color], edge: Color?) -> [Color] {
+        guard tinted else {
+            return [colors.first ?? Color(red: 0.15, green: 0.15, blue: 0.2), colors.last ?? Color(red: 0.05, green: 0.05, blue: 0.08)]
+        }
+        return palette(edge: edge, fallback: colors)
     }
 
     private var colors: [Color] {
-        let current = pair(base)
+        let current = pair(colors: base, edge: edge)
         guard visuals.isMixing, !visuals.incomingColors.isEmpty else { return current }
-        let next = pair(visuals.incomingColors)
+        let next = pair(colors: visuals.incomingColors, edge: visuals.incomingEdgeColor)
         let e = reveal(visuals.progress)
         return [mix(current[0], next[0], e), mix(current[1], next[1], e)]
     }
