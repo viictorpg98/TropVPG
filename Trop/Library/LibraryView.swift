@@ -25,7 +25,6 @@ struct LibraryView: View {
 
     @ObservedObject private var router = AppRouter.shared
     @Environment(MiniPlayerScrollState.self) private var miniScroll
-    @State private var containerBottom: CGFloat = 0
     @State private var downloadCount = DownloadManager.shared.persistedDownloadCount
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -45,10 +44,14 @@ struct LibraryView: View {
         ]
     }
 
-    /// Cuanto se mete el contenedor bajo el mini reproductor (para colocar el boton + por encima de la barra).
-    private var barClearance: CGFloat {
-        guard NowPlaying.shared.isBarPresented, let top = miniScroll.barTop else { return 0 }
-        return max(0, containerBottom - top)
+    /// Lo que hay fijo encima de la barra de pestanas (mini reproductor y avisos): el boton + debe quedar por encima.
+    private var barClearance: CGFloat { miniScroll.insetHeight }
+
+    /// Pide desde fuera (la flecha de "Tus programas" en Inicio) que se abra el filtro de podcasts.
+    private func applyFilterRequest(_ request: String?) {
+        guard request == "podcasts" else { return }
+        selectedFilter = .podcasts
+        router.libraryFilterRequest = nil
     }
 
     private var downloadsSubtitle: String {
@@ -84,14 +87,6 @@ struct LibraryView: View {
                 }
             }
             .frame(maxHeight: .infinity, alignment: .top)
-            .background {
-                GeometryReader { proxy in
-                    let bottom = proxy.frame(in: .global).maxY
-                    Color.clear
-                        .onAppear { containerBottom = bottom }
-                        .onChange(of: bottom) { _, newValue in containerBottom = newValue }
-                }
-            }
             .toolbar(.hidden, for: .navigationBar)
             .detailRouteDestinations()
             .overlay(alignment: .bottomTrailing) {
@@ -134,6 +129,10 @@ struct LibraryView: View {
                     downloadCount = count
                 }
             }
+            .onChange(of: router.libraryFilterRequest) { _, request in
+                applyFilterRequest(request)
+            }
+            .onAppear { applyFilterRequest(router.libraryFilterRequest) }
             .task(id: isLoading) {
                 guard !isLoading else { return }
                 let urls = (playlists.map(\.thumbnailUrl) + albums.map(\.thumbnailUrl) + artists.map(\.thumbnailUrl) + podcasts.map(\.thumbnailUrl))
@@ -313,7 +312,7 @@ struct LibraryView: View {
                 .pressableItem(
                     .podcast(PodcastItem(
                         browseId: podcast.id,
-                        title: podcast.name,
+                        title: ServerText.localize(podcast.name),
                         author: nil,
                         thumbnailUrl: podcast.thumbnailUrl
                     )),

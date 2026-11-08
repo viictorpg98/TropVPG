@@ -16,6 +16,8 @@ struct HorizontalSection<Content: View>: View {
     var contentVerticalPadding: CGFloat = 4
     /// Si es true, al deslizar se ajusta a cada columna (la rejilla debe usar `.scrollTargetLayout()`).
     var snapsToColumns: Bool = false
+    /// Si se indica, el titulo lleva una flecha y al pulsarlo se abre la lista completa.
+    var onTitleTap: (() -> Void)?
     @ViewBuilder let content: () -> Content
 
     /// Ancho real de la seccion: las columnas lo usan para dejar asomar un trozo de la siguiente.
@@ -23,7 +25,7 @@ struct HorizontalSection<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: vSpacing) {
-            NavigationTitleView(title: title)
+            NavigationTitleView(title: title, onClick: onTitleTap)
             if snapsToColumns {
                 scroller.scrollTargetBehavior(.viewAligned)
             } else {

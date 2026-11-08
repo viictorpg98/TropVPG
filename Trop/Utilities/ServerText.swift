@@ -39,8 +39,15 @@ enum ServerText {
     }
 
     /// Nombres que YouTube Music da en ingles a sus listas propias (no son titulos de canciones).
-    private static let systemNames: Set<String> = [
-        "Liked Music", "New Episodes", "Episodes for later", "My Supermix", "Discover Mix", "New Release Mix"
+    /// En minusculas, porque YouTube escribe "Episodes for later" o "Episodes for Later" segun el sitio.
+    private static let systemNames: [String: String] = [
+        "liked music": "Liked Music",
+        "new episodes": "New Episodes",
+        "episodes for later": "Episodes for later",
+        "saved episodes": "Saved Episodes",
+        "my supermix": "My Supermix",
+        "discover mix": "Discover Mix",
+        "new release mix": "New Release Mix"
     ]
 
     /// "Rels B, La Pantera, Mabreezee and Milo j" -> "Rels B, La Pantera, Mabreezee y Milo j" (en espanol).
@@ -51,8 +58,8 @@ enum ServerText {
     }
 
     static func localize(_ text: String) -> String {
-        if systemNames.contains(text) {
-            return NSLocalizedString(text, comment: "Nombre de una lista del sistema de YouTube Music")
+        if let key = systemNames[text.lowercased()] {
+            return NSLocalizedString(key, comment: "Nombre de una lista del sistema de YouTube Music")
         }
         if text.hasPrefix("My Mix "), let number = text.split(separator: " ").last, Int(number) != nil {
             return String(format: NSLocalizedString("My Mix %@", comment: ""), String(number))

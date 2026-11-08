@@ -79,7 +79,7 @@ extension HomePageParser {
         let items = parseItems(from: shelf["contents"] as? [[String: Any]] ?? [])
         guard items.contains(where: { if case .episode = $0 { return true } else { return false } }) else { return nil }
         let title = InnerTubeJSON.runsText(shelf["title"] as? [String: Any]) ?? "Episodes"
-        return HomePage.Section(title: title, items: items)
+        return HomePage.Section(title: title, items: items, moreBrowseId: extractShelfMoreBrowseId(shelf))
     }
 
     private static let unreadLock = NSLock()
@@ -109,8 +109,27 @@ extension HomePageParser {
 
         return HomePage.Section(
             title: title,
-            items: items
+            items: items,
+            moreBrowseId: extractMoreBrowseId(in: basicHeader)
         )
+    }
+
+    /// Destino del boton "mas" (la flecha del titulo) de una seccion en forma de carrusel.
+    static func extractMoreBrowseId(in header: [String: Any]) -> String? {
+        let button = (header["moreContentButton"] as? [String: Any])?["buttonRenderer"] as? [String: Any]
+        let endpoint = button?["navigationEndpoint"] as? [String: Any]
+        return (endpoint?["browseEndpoint"] as? [String: Any])?["browseId"] as? String
+    }
+
+    /// Lo mismo para una lista vertical: el enlace del titulo o el de abajo ("ver todo").
+    static func extractShelfMoreBrowseId(_ shelf: [String: Any]) -> String? {
+        if let bottom = (shelf["bottomEndpoint"] as? [String: Any])?["browseEndpoint"] as? [String: Any],
+           let id = bottom["browseId"] as? String {
+            return id
+        }
+        let runs = (shelf["title"] as? [String: Any])?["runs"] as? [[String: Any]]
+        let endpoint = runs?.first?["navigationEndpoint"] as? [String: Any]
+        return (endpoint?["browseEndpoint"] as? [String: Any])?["browseId"] as? String
     }
 
     static func parseItems(from contents: [[String: Any]]) -> [YTItem] {

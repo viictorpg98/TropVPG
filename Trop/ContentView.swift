@@ -85,6 +85,15 @@ struct ContentView: View {
                     MiniPlayerBarView(onExpand: expandPlayer)
                 }
             }
+            // Altura de lo que hay fijo encima de la barra de pestanas: las listas la usan como margen final.
+            .background {
+                GeometryReader { proxy in
+                    let height = proxy.size.height
+                    Color.clear
+                        .onAppear { scrollState.insetHeight = height }
+                        .onChange(of: height) { _, newValue in scrollState.insetHeight = newValue }
+                }
+            }
         }
     }
 

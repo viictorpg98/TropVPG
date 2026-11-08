@@ -20,6 +20,8 @@ struct HomePage {
     struct Section {
         var title: String
         var items: [YTItem]
+        /// Destino del boton "mas" de la seccion (la flecha junto al titulo), si YouTube Music lo da.
+        var moreBrowseId: String?
 
         var isSongsOnly: Bool {
             !items.isEmpty && items.allSatisfy {

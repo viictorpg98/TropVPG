@@ -14,30 +14,23 @@ import SwiftUI
 @Observable
 final class MiniPlayerScrollState {
     var isInline = false
-    /// Borde superior (en pantalla) del mini reproductor, para que las listas sepan cuanto se les mete debajo.
-    var barTop: CGFloat?
+    /// Altura de todo lo que hay fijo encima de la barra de pestanas (mini reproductor y avisos). 0 si no hay nada.
+    var insetHeight: CGFloat = 0
 }
 
 /// Flips `MiniPlayerScrollState.isInline` based on a scroll container's vertical
 /// offset, matching the system's tab bar minimize behavior: collapsing when the
 /// user scrolls down and restoring the moment they scroll back up.
 ///
-/// Ademas reserva al final de la lista el hueco justo para que la ultima fila quede por encima del mini
-/// reproductor: mide cuanto se mete el contenedor bajo la barra y cuanto margen ya reserva el sistema, y anade
-/// solo lo que falte (mas un poco de aire). Asi no depende de en que pantalla este ni de si el sistema ya
-/// reservo el hueco.
+/// Ademas deja al final de la lista un margen del tamano de lo que haya fijo debajo (el mini reproductor y los
+/// avisos): el sistema reserva el hueco de la barra de pestanas pero NO el de esa barra, y las ultimas filas
+/// quedaban tapadas al bajar del todo.
 struct MiniPlayerInlineOnScrollModifier: ViewModifier {
     @Environment(MiniPlayerScrollState.self) private var scrollState
 
     private let compactThreshold: CGFloat = 1
-    /// Aire que debe quedar entre la ultima fila y el mini reproductor.
-    private let air: CGFloat = 20
-    private let np = NowPlaying.shared
-
-    /// Parte baja del contenedor en pantalla, margen inferior que ya reserva (incluye `extra`) y margen anadido.
-    @State private var viewBottom: CGFloat = 0
-    @State private var bottomInset: CGFloat = 0
-    @State private var extra: CGFloat = 0
+    /// Aire entre la ultima fila y lo que hay debajo.
+    private let air: CGFloat = 12
 
     func body(content: Content) -> some View {
         content
@@ -54,39 +47,6 @@ struct MiniPlayerInlineOnScrollModifier: ViewModifier {
                     }
                 }
             )
-            .onScrollGeometryChange(for: CGFloat.self, of: { $0.contentInsets.bottom }) { _, newValue in
-                bottomInset = newValue
-                updateExtra()
-            }
-            // La posicion en pantalla se lee con un GeometryReader (da el valor inicial en cuanto aparece;
-            // los "cambios de geometria" solo avisan cuando algo cambia despues).
-            .background {
-                GeometryReader { proxy in
-                    let bottom = proxy.frame(in: .global).maxY
-                    Color.clear
-                        .onAppear {
-                            viewBottom = bottom
-                            updateExtra()
-                        }
-                        .onChange(of: bottom) { _, newValue in
-                            viewBottom = newValue
-                            updateExtra()
-                        }
-                }
-            }
-            .onChange(of: scrollState.barTop) { _, _ in updateExtra() }
-            .onChange(of: np.isBarPresented) { _, _ in updateExtra() }
-            .safeAreaPadding(.bottom, extra)
-    }
-
-    private func updateExtra() {
-        guard np.isBarPresented, let barTop = scrollState.barTop else {
-            if extra != 0 { extra = 0 }
-            return
-        }
-        let overlap = max(0, viewBottom - barTop)
-        let alreadyReserved = max(0, bottomInset - extra)
-        let needed = min(240, max(0, overlap + air - alreadyReserved))
-        if abs(needed - extra) > 1 { extra = needed }
+            .safeAreaPadding(.bottom, scrollState.insetHeight > 0 ? scrollState.insetHeight + air : 0)
     }
 }

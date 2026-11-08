@@ -78,16 +78,6 @@ struct MiniPlayerBarView: View {
         }
         .frame(maxWidth: .infinity)
         .background(Color(.secondarySystemBackground))
-        // Posicion de la barra en pantalla (las listas la usan para dejar sitio al final). Con un GeometryReader
-        // se obtiene el valor inicial en cuanto aparece.
-        .background {
-            GeometryReader { proxy in
-                let top = proxy.frame(in: .global).minY
-                Color.clear
-                    .onAppear { scrollState.barTop = top }
-                    .onChange(of: top) { _, newValue in scrollState.barTop = newValue }
-            }
-        }
         .onChange(of: np.videoId) { _, _ in
             dragOffset = 0
             preloadLyrics()

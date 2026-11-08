@@ -455,11 +455,15 @@ struct PlaylistItem {
         guard let browseId = extractTwoRowBrowseId(renderer) else { return nil }
         let title = InnerTubeJSON.runsText(renderer["title"] as? [String: Any]) ?? "Unknown"
         let thumbnailUrl = extractTwoRowThumbnail(renderer)
-        let subtitleRuns = InnerTubeJSON.runsTexts(renderer["subtitle"] as? [String: Any])
+        let subtitle = renderer["subtitle"] as? [String: Any]
+        let subtitleRuns = InnerTubeJSON.runsTexts(subtitle)
+        // Mixes ("Mi supermix"...): el subtitulo es la lista de artistas, entera ("Rels B, La Pantera, Mabreezee y Milo j").
+        // En el resto de listas solo se usa el primer fragmento (el tipo o el autor).
+        let isMix = browseId.hasPrefix("RD") || browseId.hasPrefix("VLRD")
         return PlaylistItem(
             id: browseId,
             title: title,
-            author: subtitleRuns.first,
+            author: isMix ? (InnerTubeJSON.runsText(subtitle) ?? subtitleRuns.first) : subtitleRuns.first,
             thumbnailUrl: thumbnailUrl
         )
     }

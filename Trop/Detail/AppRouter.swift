@@ -23,6 +23,8 @@ final class AppRouter: ObservableObject {
 
     /// Pestana a la que debe cambiar ContentView (la consume y vuelve a nil).
     @Published var tabRequest: Int?
+    /// Filtro de la Biblioteca que debe abrirse al entrar ("podcasts"); la Biblioteca lo consume y vuelve a nil.
+    @Published var libraryFilterRequest: String?
     var previousTabIndex = 0
 
     /// Salir de Buscar hacia la pestana anterior (el teclado tapa la barra inferior).

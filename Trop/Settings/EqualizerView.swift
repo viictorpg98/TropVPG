@@ -27,6 +27,7 @@ struct EqualizerView: View {
         }
         .navigationTitle("Equalizer")
         .navigationBarTitleDisplayMode(.inline)
+        .miniPlayerTracksScroll()
     }
 
     // MARK: - Graph

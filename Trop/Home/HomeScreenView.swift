@@ -287,7 +287,7 @@ struct HomeScreenView: View {
 
     private func songsSection(_ section: HomeSection) -> some View {
         let queue = section.items.compactMap { if case .song(let s) = $0 { return s } else { return nil } }
-        return HorizontalSection(title: section.displayTitle, vSpacing: 8, contentVerticalPadding: 0, snapsToColumns: true) {
+        return HorizontalSection(title: section.displayTitle, vSpacing: 8, contentVerticalPadding: 0, snapsToColumns: true, onTitleTap: titleAction(for: section)) {
             SongColumnsGrid {
                 ForEach(section.items.indices, id: \.self) { i in
                     let item = section.items[i]
@@ -305,7 +305,7 @@ struct HomeScreenView: View {
 
     private func mixedSection(_ section: HomeSection) -> some View {
         let queue = section.items.compactMap { if case .song(let s) = $0 { return s } else { return nil } }
-        return HorizontalSection(title: section.displayTitle, vSpacing: 8, contentVerticalPadding: 0) {
+        return HorizontalSection(title: section.displayTitle, vSpacing: 8, contentVerticalPadding: 0, onTitleTap: titleAction(for: section)) {
             HStack(spacing: 12) {
                 ForEach(section.items.indices, id: \.self) { i in
                     let item = section.items[i]
@@ -323,6 +323,48 @@ struct HomeScreenView: View {
 
     private func reloadSpeedDial() async {
         speedDialEntries = (try? await DatabaseService.shared.fetchSpeedDial()) ?? []
+    }
+
+    // MARK: - Flecha de las secciones
+
+    private enum SectionDestination {
+        case detail(DetailRoute)
+        case libraryPodcasts
+    }
+
+    /// La flecha junto al titulo ("Tus nuevos episodios >", "Tus programas >"): solo si se sabe a donde llevar.
+    private func titleAction(for section: HomeSection) -> (() -> Void)? {
+        guard case .homePageSection(let data, _) = section, let destination = sectionDestination(for: data) else { return nil }
+        return {
+            switch destination {
+            case .detail(let route):
+                router.homePath.append(route)
+            case .libraryPodcasts:
+                router.libraryFilterRequest = "podcasts"
+                router.tabRequest = 1
+            }
+        }
+    }
+
+    private func sectionDestination(for data: HomePage.Section) -> SectionDestination? {
+        // Por nombre, porque el boton "mas" de estas secciones puede apuntar a una pagina que la app no tiene.
+        let title = data.title.lowercased()
+        if title.contains("nuevos episodios") || title.contains("new episodes") {
+            return .detail(.playlist(playlistId: "VLRDPN"))
+        }
+        if title.contains("más tarde") || title.contains("for later") {
+            return .detail(.playlist(playlistId: "VLSE"))
+        }
+        if title.contains("tus programas") || title.contains("your shows") {
+            return .libraryPodcasts
+        }
+        guard let id = data.moreBrowseId else { return nil }
+        if id == "FEmusic_library_non_music_audio_list" { return .libraryPodcasts }
+        if id.hasPrefix("VL") { return .detail(.playlist(playlistId: id)) }
+        if id.hasPrefix("MPSP") { return .detail(.podcast(browseId: id)) }
+        if id.hasPrefix("MPRE") { return .detail(.album(browseId: id)) }
+        if id.hasPrefix("UC") { return .detail(.artist(browseId: id)) }
+        return nil
     }
 
     private func handleSongTap(_ song: SongItem, in queue: [SongItem]) {
