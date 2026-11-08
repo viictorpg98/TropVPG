@@ -362,22 +362,34 @@ struct LyricsView<ProgressSlider: View>: View {
 
     private var songInfoRow: some View {
         HStack(spacing: 12) {
-            if let uiImage = np.thumbnailUIImage {
-                Image(uiImage: uiImage.centerCroppedSquare())
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 64, height: 64)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-            } else {
-                Image(systemName: "music.note")
-                    .font(.title2)
-                    .foregroundStyle(.white.opacity(0.4))
-                    .frame(width: 64, height: 64)
+            // Tocar la foto o el titulo vuelve a la carátula (como en la cola).
+            HStack(spacing: 12) {
+                if let uiImage = np.thumbnailUIImage {
+                    Image(uiImage: uiImage.centerCroppedSquare())
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 64, height: 64)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                } else {
+                    Image(systemName: "music.note")
+                        .font(.title2)
+                        .foregroundStyle(.white.opacity(0.4))
+                        .frame(width: 64, height: 64)
+                }
+
+                PlayerTitleBlock(title: np.title, artist: np.displayArtist, videoId: np.videoId)
+
+                Spacer(minLength: 0)
             }
-
-            PlayerTitleBlock(title: np.title, artist: np.displayArtist, videoId: np.videoId)
-
-            Spacer()
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showLyrics = false
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel("Close lyrics")
 
             PlayerLikeButton(
                 isLiked: isLiked,
