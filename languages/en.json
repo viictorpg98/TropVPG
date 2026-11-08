@@ -561,5 +561,7 @@
   "SimpMusic (AutoMix)": "SimpMusic (AutoMix)",
   "Full-Width Artwork": "Full-Width Artwork",
   "Layout": "Layout",
-  "Shows the cover edge to edge and tints the player with its colors, like Apple Music.": "Shows the cover edge to edge and tints the player with its colors, like Apple Music."
+  "Shows the cover edge to edge and tints the player with its colors, like Apple Music.": "Shows the cover edge to edge and tints the player with its colors, like Apple Music.",
+  "Mix Streamed Songs on Mobile Data": "Mix Streamed Songs on Mobile Data",
+  "Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Downloaded songs always mix; streamed songs mix over Wi-Fi, or also on mobile data if you turn that on (it downloads each song's audio an extra time). The Playback Report shows what it did.": "Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Downloaded songs always mix; streamed songs mix over Wi-Fi, or also on mobile data if you turn that on (it downloads each song's audio an extra time). The Playback Report shows what it did."
 }

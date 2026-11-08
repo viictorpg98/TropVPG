@@ -14,18 +14,22 @@ enum AutoMixSource {
         let isLocal: Bool
     }
 
-    /// Se puede mezclar con esta cancion: descargada, o con Wi-Fi para decodificarla en streaming (no se gastan datos
-    /// moviles en esto).
+    /// Se puede decodificar una cancion en streaming: hay red y, si no es Wi-Fi, el usuario ha permitido los datos moviles.
+    private static var streamingAllowed: Bool {
+        NetworkMonitor.shared.hasConnection
+            && (DownloadManager.shared.isOnWiFiNow || SettingsStore.shared.autoMixUsesMobileData)
+    }
+
+    /// Se puede mezclar con esta cancion: descargada, o en streaming si la red lo permite.
     static func isAvailable(videoId: String) -> Bool {
-        DownloadManager.shared.isDownloaded(videoId: videoId)
-            || (NetworkMonitor.shared.hasConnection && DownloadManager.shared.isOnWiFiNow)
+        DownloadManager.shared.isDownloaded(videoId: videoId) || streamingAllowed
     }
 
     static func source(for videoId: String) async -> Source? {
         if let local = await DownloadManager.shared.localURL(for: videoId) {
             return Source(url: local, isLocal: true)
         }
-        guard NetworkMonitor.shared.hasConnection, DownloadManager.shared.isOnWiFiNow else { return nil }
+        guard streamingAllowed else { return nil }
         guard let result = try? await PlaybackManager.shared.resolve(videoId: videoId),
               let url = URL(string: result.streamUrl) else { return nil }
         return Source(url: url, isLocal: false)

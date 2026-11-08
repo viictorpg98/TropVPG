@@ -42,10 +42,11 @@ struct PlayerSettingsView: View {
 
             Section {
                 SettingsToggleRow("AutoMix", icon: "wand.and.stars", isOn: $settings.autoMixEnabled)
+                SettingsToggleRow("Mix Streamed Songs on Mobile Data", icon: "antenna.radiowaves.left.and.right", isOn: $settings.autoMixUsesMobileData)
             } header: {
                 Text("AutoMix")
             } footer: {
-                Text("Blends one downloaded song into the next like a DJ: they overlap and the tempo is matched. It only works between downloaded songs; everything else plays as usual. The Playback Report shows what it did.")
+                Text("Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Downloaded songs always mix; streamed songs mix over Wi-Fi, or also on mobile data if you turn that on (it downloads each song's audio an extra time). The Playback Report shows what it did.")
             }
 
             Section {

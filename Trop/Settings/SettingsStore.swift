@@ -223,6 +223,11 @@ final class SettingsStore {
         didSet { Self.defaults.set(autoMixEnabled, forKey: Keys.autoMixEnabled) }
     }
 
+    /// Mezclar tambien canciones en streaming con datos moviles (por defecto solo con Wi-Fi: hay que bajar su audio extra).
+    var autoMixUsesMobileData: Bool {
+        didSet { Self.defaults.set(autoMixUsesMobileData, forKey: Keys.autoMixUsesMobileData) }
+    }
+
     /// Reproductor grande con la carátula de lado a lado y el fondo del color de la carátula (como Apple Music).
     var fullWidthArtwork: Bool {
         didSet { Self.defaults.set(fullWidthArtwork, forKey: Keys.fullWidthArtwork) }
@@ -376,6 +381,7 @@ final class SettingsStore {
         static let audioNormalization = "settings.audioNormalization"
         static let gaplessPlayback = "settings.gaplessPlayback"
         static let autoMixEnabled = "settings.autoMixEnabled"
+        static let autoMixUsesMobileData = "settings.autoMixUsesMobileData"
         static let fullWidthArtwork = "settings.fullWidthArtwork"
         static let autoplaySimilar = "settings.autoplaySimilar"
         static let persistQueue = "settings.persistQueue"
@@ -448,6 +454,7 @@ final class SettingsStore {
         audioNormalization = Self.load(Keys.audioNormalization, default: false)
         gaplessPlayback = Self.load(Keys.gaplessPlayback, default: true)
         autoMixEnabled = Self.load(Keys.autoMixEnabled, default: false)
+        autoMixUsesMobileData = Self.load(Keys.autoMixUsesMobileData, default: false)
         fullWidthArtwork = Self.load(Keys.fullWidthArtwork, default: true)
         autoplaySimilar = Self.load(Keys.autoplaySimilar, default: true)
         persistQueue = Self.load(Keys.persistQueue, default: false)

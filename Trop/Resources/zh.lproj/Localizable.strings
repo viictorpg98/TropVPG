@@ -61,6 +61,7 @@
 "Beast mode" = "Beast mode";
 "Bitrate" = "比特率";
 "Blends one downloaded song into the next like a DJ: they overlap and the tempo is matched. It only works between downloaded songs; everything else plays as usual. The Playback Report shows what it did." = "Blends one downloaded song into the next like a DJ: they overlap and the tempo is matched. It only works between downloaded songs; everything else plays as usual. The Playback Report shows what it did.";
+"Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Downloaded songs always mix; streamed songs mix over Wi-Fi, or also on mobile data if you turn that on (it downloads each song's audio an extra time). The Playback Report shows what it did." = "Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Downloaded songs always mix; streamed songs mix over Wi-Fi, or also on mobile data if you turn that on (it downloads each song's audio an extra time). The Playback Report shows what it did.";
 "Breakups & heartbreak" = "Breakups & heartbreak";
 "Business" = "Business";
 "Button 1" = "按钮 1";
@@ -279,6 +280,7 @@
 "Mindfulness & meditation" = "Mindfulness & meditation";
 "Minimum Duration" = "最短时长";
 "Minimum Track Duration" = "最短歌曲时长";
+"Mix Streamed Songs on Mobile Data" = "Mix Streamed Songs on Mobile Data";
 "Mixed for you" = "为你混配";
 "Mood & Genres" = "心情与流派";
 "Moods & genres" = "心情与流派";
