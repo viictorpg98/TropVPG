@@ -290,10 +290,24 @@ extension PlayerController {
         }
     }
 
-    /// Cambia la frecuencia de corte (Hz) del filtro `dj` de la cadena de audio. Devuelve el codigo de mpv (<0 = fallo).
+    /// Filtro paso bajo de AutoMix. El FFmpeg de MPVKit solo incluye una lista cerrada de filtros (hay `firequalizer`
+    /// y `volume`, pero no `lowpass`), asi que se hace con un ecualizador FIR cuya curva se cambia en caliente.
+    private static let djFilterSpec = "@dj:firequalizer=gain_entry=\"entry(0,0);entry(22000,0)\":delay=0.03:accuracy=10"
+
+    /// Cambia la frecuencia de corte (Hz) del filtro `dj`: sin cambios por encima de ~0,8 de la frecuencia y una
+    /// bajada de hasta 42 dB mas arriba. Devuelve el codigo de mpv (<0 = fallo).
     @discardableResult
     func setDJLowpass(_ hz: Double) -> Int32 {
-        let command = ["af-command", "dj", "frequency", String(format: "%.1f", hz)]
+        let cutoff = min(max(hz, 100), 20_000)
+        // Casi abierto del todo: sin atenuacion. Cerrandose: hasta 42 dB.
+        let depth = 42 * min(1, max(0, (20_000 - cutoff) / 12_000))
+        let upper = min(cutoff * 2.5, 21_000)
+        let flat = min(cutoff * 0.8, upper * 0.6)
+        let curve = String(
+            format: "entry(0,0);entry(%.0f,0);entry(%.0f,-%.1f);entry(22000,-%.1f)",
+            flat, upper, depth, depth
+        )
+        let command = ["af-command", "dj", "gain_entry", curve]
         return withMpv { mpv in
             command.withUnsafeCArg { mpv_command(mpv, $0) }
         } ?? -1
@@ -307,7 +321,8 @@ extension PlayerController {
         let gapless = settings.gaplessPlayback
         let norm = settings.audioNormalization
 
-        let chain: String = {
+        let djActive = djFilterActive
+        let baseFilters: [String] = {
             var filters: [String] = []
             if eqEnabled {
                 let entries = zip(equalizerFrequencies, eqGains)
@@ -321,19 +336,26 @@ extension PlayerController {
                 let gain = max(-12, min(12, -14 - loudness))
                 filters.append("volume=\(Self.fmt(gain))dB")
             }
-            if djFilterActive {
-                filters.append("@dj:lowpass=f=20000")
-            }
-            return filters.joined(separator: ",")
+            return filters
         }()
+        let baseChain = baseFilters.joined(separator: ",")
+        let chain = (baseFilters + (djActive ? [Self.djFilterSpec] : [])).joined(separator: ",")
 
-        withMpv { mpv in
+        let fellBack: Bool? = withMpv { mpv in
             mpv_set_property_string(mpv, "gapless-audio", gapless ? "yes" : "no")
-            let result = mpv_set_property_string(mpv, "af", chain.isEmpty ? "" : chain)
-            if result < 0 {
-                Log.player.error("Failed to set af chain '\(chain)': mpv error \(result)")
-                if chain.contains("@dj:") { PlaybackReport.record("automix: mpv rechazo el filtro de DJ (error \(result))") }
+            var result = mpv_set_property_string(mpv, "af", chain.isEmpty ? "" : chain)
+            var droppedDJ = false
+            if result < 0, djActive {
+                // Sin el filtro de DJ, para no perder el ecualizador ni la normalizacion.
+                droppedDJ = true
+                result = mpv_set_property_string(mpv, "af", baseChain.isEmpty ? "" : baseChain)
             }
+            if result < 0 { Log.player.error("Failed to set af chain '\(chain)': mpv error \(result)") }
+            return droppedDJ
+        }
+        if fellBack == true {
+            djFilterActive = false
+            PlaybackReport.record("automix: mpv rechazo el filtro de DJ, la mezcla sigue sin el")
         }
         applyPlayerVolume()
     }

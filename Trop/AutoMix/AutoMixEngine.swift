@@ -246,7 +246,7 @@ final class AutoMixEngine {
         PlaybackReport.record(String(
             format: "automix: empieza %@ -> %@ (%.1f s, tempo x%.2f, filtro %@)",
             b.outId, b.inId, Double(late.durationMs) / 1000, late.outgoingSpeedRatio,
-            lowPassInstalled ? "si" : "no"
+            lowPassInstalled && PlayerController.shared.djFilterActive ? "si" : "no"
         ))
     }
 
@@ -291,7 +291,7 @@ final class AutoMixEngine {
         // Filtros de DJ con curva en S: la saliente pierde agudos, la entrante gana graves.
         let sweep = 1 / (1 + exp(-sigmoidK * (progress - 0.5)))
         armed.voice.setHighPass(exponential(highPassStart, highPassEnd, sweep))
-        if lowPassInstalled {
+        if lowPassInstalled, PlayerController.shared.djFilterActive {
             let result = PlayerController.shared.setDJLowpass(exponential(lowPassStart, lowPassEnd, sweep))
             if result < 0, !lowPassFailureLogged {
                 lowPassFailureLogged = true
