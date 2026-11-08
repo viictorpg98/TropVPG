@@ -129,6 +129,7 @@
 "Disabled providers are skipped when fetching lyrics." = "Disabled providers are skipped when fetching lyrics.";
 "Discord" = "Discord";
 "Discord Rich Presence uses Discord's Social SDK. Token stays encrypted in Keychain." = "Discord Rich Presence uses Discord's Social SDK. Token stays encrypted in Keychain.";
+"Discover Mix" = "Discover Mix";
 "Dislike" = "Dislike";
 "Dismiss" = "Dismiss";
 "Done" = "Done";
@@ -154,6 +155,7 @@
 "Energize" = "Energize";
 "Energy" = "Energy";
 "Episodes" = "Episodes";
+"Episodes for later" = "Episodes for later";
 "Equalizer" = "Equalizer";
 "Equalizer Off" = "Equalizer Off";
 "Equalizer On" = "Equalizer On";
@@ -230,6 +232,7 @@
 "Library Sync" = "Library Sync";
 "Light" = "Light";
 "Like" = "Like";
+"Liked Music" = "Liked Music";
 "Liked Songs" = "Liked Songs";
 "Links" = "Links";
 "Listen Again" = "Listen Again";
@@ -283,9 +286,13 @@
 "Music videos" = "Music videos";
 "Music videos for you" = "Music videos for you";
 "Musical sleep" = "Musical sleep";
+"My Mix %@" = "My Mix %@";
+"My Supermix" = "My Supermix";
 "My Top 100" = "My Top 100";
+"New Episodes" = "New Episodes";
 "New Music Videos" = "New Music Videos";
 "New Playlist" = "New Playlist";
+"New Release Mix" = "New Release Mix";
 "New albums & singles" = "New albums & singles";
 "New music videos" = "New music videos";
 "New playlist" = "New playlist";

@@ -38,7 +38,25 @@ enum ServerText {
         lowercased.contains("ago") || lowercased.hasPrefix("hace ") || lowercased.hasPrefix("hace\u{a0}")
     }
 
+    /// Nombres que YouTube Music da en ingles a sus listas propias (no son titulos de canciones).
+    private static let systemNames: Set<String> = [
+        "Liked Music", "New Episodes", "Episodes for later", "My Supermix", "Discover Mix", "New Release Mix"
+    ]
+
+    /// "Rels B, La Pantera, Mabreezee and Milo j" -> "Rels B, La Pantera, Mabreezee y Milo j" (en espanol).
+    static func localizeArtistList(_ text: String) -> String {
+        guard Locale.current.language.languageCode?.identifier == "es",
+              let range = text.range(of: " and ", options: .backwards) else { return text }
+        return text.replacingCharacters(in: range, with: " y ")
+    }
+
     static func localize(_ text: String) -> String {
+        if systemNames.contains(text) {
+            return NSLocalizedString(text, comment: "Nombre de una lista del sistema de YouTube Music")
+        }
+        if text.hasPrefix("My Mix "), let number = text.split(separator: " ").last, Int(number) != nil {
+            return String(format: NSLocalizedString("My Mix %@", comment: ""), String(number))
+        }
         for pattern in patterns where text.hasPrefix(pattern.prefix) {
             let country = String(text.dropFirst(pattern.prefix.count))
             guard let code = regionCodesByEnglishName[country],

@@ -129,6 +129,7 @@
 "Disabled providers are skipped when fetching lyrics." = "获取歌词时会跳过已停用的提供方。";
 "Discord" = "Discord";
 "Discord Rich Presence uses Discord's Social SDK. Token stays encrypted in Keychain." = "Discord Rich Presence 使用 Discord Social SDK。令牌会加密保存在钥匙串中。";
+"Discover Mix" = "Discover Mix";
 "Dislike" = "Dislike";
 "Dismiss" = "忽略";
 "Done" = "完成";
@@ -154,6 +155,7 @@
 "Energize" = "活力";
 "Energy" = "活力";
 "Episodes" = "剧集";
+"Episodes for later" = "Episodes for later";
 "Equalizer" = "均衡器";
 "Equalizer Off" = "均衡器已关闭";
 "Equalizer On" = "均衡器已开启";
@@ -230,6 +232,7 @@
 "Library Sync" = "资料库同步";
 "Light" = "浅色";
 "Like" = "喜欢";
+"Liked Music" = "Liked Music";
 "Liked Songs" = "喜欢的歌曲";
 "Links" = "链接";
 "Listen Again" = "Listen Again";
@@ -283,9 +286,13 @@
 "Music videos" = "音乐视频";
 "Music videos for you" = "Music videos for you";
 "Musical sleep" = "Musical sleep";
+"My Mix %@" = "My Mix %@";
+"My Supermix" = "My Supermix";
 "My Top 100" = "我的热门 100 首";
+"New Episodes" = "New Episodes";
 "New Music Videos" = "最新音乐视频";
 "New Playlist" = "新建播放列表";
+"New Release Mix" = "New Release Mix";
 "New albums & singles" = "新专辑与单曲";
 "New music videos" = "New music videos";
 "New playlist" = "新建播放列表";

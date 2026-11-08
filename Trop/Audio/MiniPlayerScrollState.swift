@@ -21,6 +21,11 @@ final class MiniPlayerScrollState {
 /// Flips `MiniPlayerScrollState.isInline` based on a scroll container's vertical
 /// offset, matching the system's tab bar minimize behavior: collapsing when the
 /// user scrolls down and restoring the moment they scroll back up.
+///
+/// Ademas reserva al final de la lista el hueco justo para que la ultima fila quede por encima del mini
+/// reproductor: mide cuanto se mete el contenedor bajo la barra y cuanto margen ya reserva el sistema, y anade
+/// solo lo que falte (mas un poco de aire). Asi no depende de en que pantalla este ni de si el sistema ya
+/// reservo el hueco.
 struct MiniPlayerInlineOnScrollModifier: ViewModifier {
     @Environment(MiniPlayerScrollState.self) private var scrollState
 
@@ -31,7 +36,7 @@ struct MiniPlayerInlineOnScrollModifier: ViewModifier {
 
     /// Parte baja del contenedor en pantalla, margen inferior que ya reserva (incluye `extra`) y margen anadido.
     @State private var viewBottom: CGFloat = 0
-    @State private var bottomInset: CGFloat?
+    @State private var bottomInset: CGFloat = 0
     @State private var extra: CGFloat = 0
 
     func body(content: Content) -> some View {
@@ -53,26 +58,34 @@ struct MiniPlayerInlineOnScrollModifier: ViewModifier {
                 bottomInset = newValue
                 updateExtra()
             }
-            .onGeometryChange(for: CGFloat.self, of: { $0.frame(in: .global).maxY }) { newValue in
-                viewBottom = newValue
-                updateExtra()
+            // La posicion en pantalla se lee con un GeometryReader (da el valor inicial en cuanto aparece;
+            // los "cambios de geometria" solo avisan cuando algo cambia despues).
+            .background {
+                GeometryReader { proxy in
+                    let bottom = proxy.frame(in: .global).maxY
+                    Color.clear
+                        .onAppear {
+                            viewBottom = bottom
+                            updateExtra()
+                        }
+                        .onChange(of: bottom) { _, newValue in
+                            viewBottom = newValue
+                            updateExtra()
+                        }
+                }
             }
             .onChange(of: scrollState.barTop) { _, _ in updateExtra() }
             .onChange(of: np.isBarPresented) { _, _ in updateExtra() }
-            // Margen que falte para que la ultima fila quede por encima del mini reproductor.
             .safeAreaPadding(.bottom, extra)
     }
 
-    /// Mide cuanto se mete el contenedor bajo el mini reproductor y cuanto margen ya reserva el sistema, y anade
-    /// solo lo que falte (mas un poco de aire). Asi no depende de en que pantalla este ni de si el sistema
-    /// ya reservo el hueco: antes un margen fijo dejaba tapadas las ultimas filas en algunas pantallas.
     private func updateExtra() {
-        guard np.isBarPresented, let barTop = scrollState.barTop, let inset = bottomInset else {
+        guard np.isBarPresented, let barTop = scrollState.barTop else {
             if extra != 0 { extra = 0 }
             return
         }
         let overlap = max(0, viewBottom - barTop)
-        let alreadyReserved = max(0, inset - extra)
+        let alreadyReserved = max(0, bottomInset - extra)
         let needed = min(240, max(0, overlap + air - alreadyReserved))
         if abs(needed - extra) > 1 { extra = needed }
     }

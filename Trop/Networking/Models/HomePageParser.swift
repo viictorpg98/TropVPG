@@ -56,12 +56,44 @@ extension HomePageParser {
 extension HomePageParser {
     static func parseSections(from sectionList: [String: Any]) -> [HomePage.Section] {
         guard let contents = sectionList["contents"] as? [[String: Any]] else { return [] }
-        return contents.compactMap { parseSection(from: $0) }
+        return contents.compactMap { dict -> HomePage.Section? in
+            if let section = parseSection(from: dict) { return section }
+            noteUnreadSection(dict)
+            return nil
+        }
     }
 
     static func parseSection(from contentDict: [String: Any]) -> HomePage.Section? {
-        guard let carousel = contentDict["musicCarouselShelfRenderer"] as? [String: Any] else { return nil }
-        return parseCarouselSection(from: carousel)
+        if let carousel = contentDict["musicCarouselShelfRenderer"] as? [String: Any] {
+            return parseCarouselSection(from: carousel)
+        }
+        if let shelf = contentDict["musicShelfRenderer"] as? [String: Any] {
+            return parseShelfSection(from: shelf)
+        }
+        return nil
+    }
+
+    /// Lista vertical (musicShelfRenderer): solo se acepta si trae episodios, como "Tus nuevos episodios" en el
+    /// chip Podcasts. Las demas listas de este tipo no se enseñaban y se siguen sin enseñar.
+    static func parseShelfSection(from shelf: [String: Any]) -> HomePage.Section? {
+        let items = parseItems(from: shelf["contents"] as? [[String: Any]] ?? [])
+        guard items.contains(where: { if case .episode = $0 { return true } else { return false } }) else { return nil }
+        let title = InnerTubeJSON.runsText(shelf["title"] as? [String: Any]) ?? "Episodes"
+        return HomePage.Section(title: title, items: items)
+    }
+
+    private static let unreadLock = NSLock()
+    nonisolated(unsafe) private static var unreadKinds = Set<String>()
+
+    /// Apunta (una vez por tipo y por arranque) las secciones que no se saben leer, para poder ver que llega
+    /// en el Informe de reproduccion si falta algo en la portada.
+    private static func noteUnreadSection(_ dict: [String: Any]) {
+        let kinds = dict.keys.filter { $0 != "continuationItemRenderer" }.sorted().joined(separator: ",")
+        guard !kinds.isEmpty else { return }
+        unreadLock.lock()
+        let isNew = unreadKinds.insert(kinds).inserted
+        unreadLock.unlock()
+        if isNew { PlaybackReport.record("portada: seccion sin leer (\(kinds))") }
     }
 
     static func parseCarouselSection(from carousel: [String: Any]) -> HomePage.Section? {
@@ -89,8 +121,55 @@ extension HomePageParser {
             if let responsiveList = itemDict["musicResponsiveListItemRenderer"] as? [String: Any] {
                 return SongItem.from(responsiveList).map { YTItem.song($0) }
             }
+            if let multiRow = itemDict["musicMultiRowListItemRenderer"] as? [String: Any] {
+                return parseMultiRowEpisode(multiRow).map { YTItem.episode($0) }
+            }
             return nil
         }
+    }
+
+    /// Episodio de una lista (musicMultiRowListItemRenderer), como los de "Tus nuevos episodios".
+    static func parseMultiRowEpisode(_ renderer: [String: Any]) -> EpisodeItem? {
+        guard let onTap = renderer["onTap"] as? [String: Any],
+              let watch = onTap["watchEndpoint"] as? [String: Any],
+              let videoId = watch["videoId"] as? String else { return nil }
+        let title = InnerTubeJSON.runsText(renderer["title"] as? [String: Any]) ?? "Unknown"
+
+        var thumbnailUrl: String?
+        if let thumb = (renderer["thumbnail"] as? [String: Any])?["musicThumbnailRenderer"] as? [String: Any],
+           let inner = thumb["thumbnail"] as? [String: Any],
+           let list = inner["thumbnails"] as? [[String: Any]] {
+            thumbnailUrl = list.last?["url"] as? String
+        }
+
+        var duration = 0
+        if let progress = (renderer["playbackProgress"] as? [String: Any])?["musicPlaybackProgressRenderer"] as? [String: Any],
+           let text = InnerTubeJSON.runsText(progress["durationText"] as? [String: Any]), !text.isEmpty {
+            duration = DurationFormat.parseClock(text) ?? DurationFormat.parseSpoken(text) ?? 0
+        }
+
+        // Subtitulo tipo "17k visualizaciones • hace 4 h • 1 h 23 min": se conserva la fecha.
+        var publishDate: String?
+        let runs = ((renderer["subtitle"] as? [String: Any])?["runs"] as? [[String: Any]]) ?? []
+        for run in runs {
+            let text = ((run["text"] as? String) ?? "").trimmingCharacters(in: .whitespaces)
+            if text.isEmpty || text == "•" || text.contains(":") { continue }
+            let lower = text.lowercased()
+            if ServerText.isViewsText(lower) { continue }
+            if !ServerText.isRelativeDate(lower), DurationFormat.parseSpoken(text) != nil { continue }
+            if publishDate == nil { publishDate = text }
+        }
+
+        return EpisodeItem(
+            videoId: videoId,
+            title: title,
+            artists: [],
+            duration: duration,
+            thumbnailUrl: thumbnailUrl,
+            publishDate: publishDate,
+            descriptionText: InnerTubeJSON.runsText(renderer["description"] as? [String: Any]),
+            viewsText: nil
+        )
     }
 
     static func parseTwoRowItem(_ renderer: [String: Any]) -> YTItem? {

@@ -23,8 +23,17 @@ struct YouTubeGridItemView: View {
         }
     }
 
+    /// Los mixes ("Mi supermix"...) llevan debajo los artistas que incluyen, en hasta dos lineas, como en YouTube Music.
+    private var subtitleLines: Int {
+        if case .playlist = item { return 2 }
+        return 1
+    }
+
     private var subtitleText: String {
         switch item {
+        case .playlist(let p):
+            guard PlaylistDetailViewModel.isAutoMix(p.id), let artists = p.author, !artists.isEmpty else { return "" }
+            return ServerText.localizeArtistList(artists)
         case .song(let s):
             return s.subtitleLine(duration: durations.effectiveDuration(known: s.duration))
         case .episode(let e):
@@ -64,7 +73,7 @@ struct YouTubeGridItemView: View {
                 Text(subtitleText)
                     .font(.caption2)
                     .foregroundColor(.secondary)
-                    .lineLimit(1)
+                    .lineLimit(subtitleLines)
             }
         }
         .frame(width: artworkSize, height: 220, alignment: .top)

@@ -78,8 +78,15 @@ struct MiniPlayerBarView: View {
         }
         .frame(maxWidth: .infinity)
         .background(Color(.secondarySystemBackground))
-        .onGeometryChange(for: CGFloat.self, of: { $0.frame(in: .global).minY }) { top in
-            scrollState.barTop = top
+        // Posicion de la barra en pantalla (las listas la usan para dejar sitio al final). Con un GeometryReader
+        // se obtiene el valor inicial en cuanto aparece.
+        .background {
+            GeometryReader { proxy in
+                let top = proxy.frame(in: .global).minY
+                Color.clear
+                    .onAppear { scrollState.barTop = top }
+                    .onChange(of: top) { _, newValue in scrollState.barTop = newValue }
+            }
         }
         .onChange(of: np.videoId) { _, _ in
             dragOffset = 0
@@ -157,8 +164,11 @@ struct MiniPlayerBarView: View {
                     .truncationMode(.tail)
             }
         }
-        .frame(width: width, alignment: .leading)
+        // El margen va DENTRO del ancho de la pagina: antes la pagina medía 14 puntos de mas y, al estar las vecinas
+        // pegadas, el final del titulo de la cancion anterior asomaba por el borde izquierdo.
         .padding(.leading, 14)
+        .frame(width: width, alignment: .leading)
+        .clipped()
         .contentShape(Rectangle())
     }
 

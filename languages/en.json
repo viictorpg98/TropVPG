@@ -533,5 +533,12 @@
   "Shows the latest steps when playing something: which client got the stream and what the player said.": "Shows the latest steps when playing something: which client got the stream and what the player said.",
   "Your New Episodes": "Your New Episodes",
   "Saved Episodes": "Saved Episodes",
-  "No connection: there are no more downloaded songs in the queue.": "No connection: there are no more downloaded songs in the queue."
+  "No connection: there are no more downloaded songs in the queue.": "No connection: there are no more downloaded songs in the queue.",
+  "Liked Music": "Liked Music",
+  "New Episodes": "New Episodes",
+  "Episodes for later": "Episodes for later",
+  "My Supermix": "My Supermix",
+  "Discover Mix": "Discover Mix",
+  "New Release Mix": "New Release Mix",
+  "My Mix %@": "My Mix %@"
 }

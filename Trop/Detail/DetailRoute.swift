@@ -45,7 +45,12 @@ struct DetailRouteDestinationView: View {
         case .artist(let browseId):
             ArtistDetailView(browseId: browseId)
         case .playlist(let playlistId):
-            PlaylistDetailView(playlistId: playlistId)
+            // "Nuevos episodios" y "Episodios para mas tarde" son listas de episodios, no de canciones.
+            if PodcastDetailViewModel.isEpisodeListId(playlistId) {
+                PodcastDetailView(browseId: playlistId.hasPrefix("VL") ? playlistId : "VL\(playlistId)")
+            } else {
+                PlaylistDetailView(playlistId: playlistId)
+            }
         case .podcast(let browseId):
             PodcastDetailView(browseId: browseId)
         case .autoPlaylist(let autoRoute):

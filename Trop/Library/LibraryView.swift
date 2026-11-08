@@ -24,6 +24,8 @@ struct LibraryView: View {
     @State private var autoMenu: AutoPlaylistInfo?
 
     @ObservedObject private var router = AppRouter.shared
+    @Environment(MiniPlayerScrollState.self) private var miniScroll
+    @State private var containerBottom: CGFloat = 0
     @State private var downloadCount = DownloadManager.shared.persistedDownloadCount
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -41,6 +43,12 @@ struct LibraryView: View {
                              subtitle: downloadsSubtitle, route: nil, detailRoute: .downloads),
             AutoPlaylistInfo(id: "top100", title: "My Top 100", icon: "trophy.fill", subtitle: "Top 100", route: .topSongs(limit: 100))
         ]
+    }
+
+    /// Cuanto se mete el contenedor bajo el mini reproductor (para colocar el boton + por encima de la barra).
+    private var barClearance: CGFloat {
+        guard NowPlaying.shared.isBarPresented, let top = miniScroll.barTop else { return 0 }
+        return max(0, containerBottom - top)
     }
 
     private var downloadsSubtitle: String {
@@ -76,6 +84,14 @@ struct LibraryView: View {
                 }
             }
             .frame(maxHeight: .infinity, alignment: .top)
+            .background {
+                GeometryReader { proxy in
+                    let bottom = proxy.frame(in: .global).maxY
+                    Color.clear
+                        .onAppear { containerBottom = bottom }
+                        .onChange(of: bottom) { _, newValue in containerBottom = newValue }
+                }
+            }
             .toolbar(.hidden, for: .navigationBar)
             .detailRouteDestinations()
             .overlay(alignment: .bottomTrailing) {
@@ -89,7 +105,7 @@ struct LibraryView: View {
                 })
                 .accessibilityLabel("Create playlist")
                 .padding(.trailing, 20)
-                .padding(.bottom, 20)
+                .padding(.bottom, 20 + barClearance)
             }
             .overlay {
                 if showCreateDialog {
@@ -203,7 +219,7 @@ struct LibraryView: View {
             ForEach(playlists, id: \.id) { playlist in
                 itemCell(
                     url: playlist.thumbnailUrl,
-                    title: playlist.name,
+                    title: ServerText.localize(playlist.name),
                     subtitle: playlistSongCounts[playlist.id].map { CountText.songs($0) }
                 )
                 .pressableItem(

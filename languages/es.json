@@ -533,5 +533,12 @@
   "Shows the latest steps when playing something: which client got the stream and what the player said.": "Muestra los últimos pasos al reproducir algo: qué cliente consiguió la dirección y qué dijo el reproductor.",
   "Your New Episodes": "Tus nuevos episodios",
   "Saved Episodes": "Episodios guardados",
-  "No connection: there are no more downloaded songs in the queue.": "Sin conexión: no quedan canciones descargadas en la cola."
+  "No connection: there are no more downloaded songs in the queue.": "Sin conexión: no quedan canciones descargadas en la cola.",
+  "Liked Music": "Música que me gusta",
+  "New Episodes": "Nuevos episodios",
+  "Episodes for later": "Episodios para más tarde",
+  "My Supermix": "Mi supermix",
+  "Discover Mix": "Mix de descubrimiento",
+  "New Release Mix": "Mix de novedades",
+  "My Mix %@": "Mi mix %@"
 }

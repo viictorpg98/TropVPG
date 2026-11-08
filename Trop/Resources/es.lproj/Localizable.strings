@@ -129,6 +129,7 @@
 "Disabled providers are skipped when fetching lyrics." = "Los proveedores desactivados se omiten al buscar letras.";
 "Discord" = "Discord";
 "Discord Rich Presence uses Discord's Social SDK. Token stays encrypted in Keychain." = "Discord Rich Presence usa el SDK social de Discord. El token permanece cifrado en el llavero.";
+"Discover Mix" = "Mix de descubrimiento";
 "Dislike" = "No me gusta";
 "Dismiss" = "Descartar";
 "Done" = "Listo";
@@ -154,6 +155,7 @@
 "Energize" = "Energizar";
 "Energy" = "Energía";
 "Episodes" = "Episodios";
+"Episodes for later" = "Episodios para más tarde";
 "Equalizer" = "Ecualizador";
 "Equalizer Off" = "Ecualizador desactivado";
 "Equalizer On" = "Ecualizador activado";
@@ -230,6 +232,7 @@
 "Library Sync" = "Sincronización de la biblioteca";
 "Light" = "Claro";
 "Like" = "Me gusta";
+"Liked Music" = "Música que me gusta";
 "Liked Songs" = "Canciones que me gustan";
 "Links" = "Enlaces";
 "Listen Again" = "Vuelve a escucharlo";
@@ -283,9 +286,13 @@
 "Music videos" = "Videoclips";
 "Music videos for you" = "Videoclips para ti";
 "Musical sleep" = "Dormir con música";
+"My Mix %@" = "Mi mix %@";
+"My Supermix" = "Mi supermix";
 "My Top 100" = "Mi Top 100";
+"New Episodes" = "Nuevos episodios";
 "New Music Videos" = "Nuevos videoclips";
 "New Playlist" = "Nueva lista de reproducción";
+"New Release Mix" = "Mix de novedades";
 "New albums & singles" = "Nuevos álbumes y sencillos";
 "New music videos" = "Nuevos videoclips";
 "New playlist" = "Nueva lista de reproducción";

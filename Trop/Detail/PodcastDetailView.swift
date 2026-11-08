@@ -102,12 +102,23 @@ private struct ParsedEpisodeMeta {
 }
 
 extension PodcastDetailViewModel {
+    /// Listas de episodios sueltos de YouTube Music: "Nuevos episodios" (RDPN) y "Episodios para mas tarde" (SE).
+    static func isEpisodeListId(_ id: String) -> Bool {
+        let raw = id.hasPrefix("VL") ? String(id.dropFirst(2)) : id
+        return raw == "RDPN" || raw == "SE"
+    }
+
     static func parsePodcastDetail(from json: [String: Any], browseId: String) -> PodcastDetailInfo {
         var header = parsePodcastHeader(from: json)
-        // "Tus nuevos episodios" y "Episodios guardados" no son un podcast: llevan episodios de varios.
-        let isEpisodeList = browseId == "VLRDPN" || browseId == "VLSE"
-        if isEpisodeList, header.title == "Unknown Podcast" {
-            header.title = NSLocalizedString(browseId == "VLRDPN" ? "Your New Episodes" : "Saved Episodes", comment: "")
+        // "Nuevos episodios" y "Episodios para mas tarde" no son un podcast: llevan episodios de varios.
+        let isEpisodeList = isEpisodeListId(browseId)
+        if isEpisodeList {
+            let rawId = browseId.hasPrefix("VL") ? String(browseId.dropFirst(2)) : browseId
+            if header.title == "Unknown Podcast" || header.title.isEmpty {
+                header.title = NSLocalizedString(rawId == "RDPN" ? "Your New Episodes" : "Saved Episodes", comment: "")
+            } else {
+                header.title = ServerText.localize(header.title)
+            }
         }
         var episodes = collectPodcastEpisodes(from: json)
 
@@ -304,7 +315,32 @@ extension PodcastDetailViewModel {
                 }
             }
         }
+
+        // Ultimo recurso: la estructura de algunas listas de episodios no es la de la pagina de un podcast;
+        // se buscan los episodios en cualquier parte de la respuesta.
+        if episodes.isEmpty {
+            episodes = collectEpisodesAnywhere(in: json)
+        }
         return episodes
+    }
+
+    private static func collectEpisodesAnywhere(in root: Any) -> [EpisodeItem] {
+        var result: [EpisodeItem] = []
+        var seen = Set<String>()
+        func visit(_ value: Any) {
+            if let dict = value as? [String: Any] {
+                if let multiRow = dict["musicMultiRowListItemRenderer"] as? [String: Any],
+                   let episode = parseMultiRowEpisode(multiRow), seen.insert(episode.videoId).inserted {
+                    result.append(episode)
+                    return
+                }
+                for child in dict.values { visit(child) }
+            } else if let array = value as? [Any] {
+                for child in array { visit(child) }
+            }
+        }
+        visit(root)
+        return result
     }
 
     private static func parseShelfContents(_ shelfDict: [String: Any]) -> [EpisodeItem] {
