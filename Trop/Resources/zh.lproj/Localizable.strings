@@ -306,7 +306,11 @@
 "No Results" = "没有结果";
 "No album data" = "无专辑数据";
 "No artist data" = "无艺人数据";
+"No connection and no downloaded songs." = "No connection and no downloaded songs.";
+"No connection: continuing with your downloaded music." = "No connection: continuing with your downloaded music.";
 "No connection: there are no more downloaded songs in the queue." = "No connection: there are no more downloaded songs in the queue.";
+"No connection: this needs internet." = "No connection: this needs internet.";
+"No connection: this song isn't downloaded." = "No connection: this song isn't downloaded.";
 "No content found" = "未找到内容";
 "No episodes found" = "未找到剧集";
 "No playback has been recorded yet." = "No playback has been recorded yet.";
@@ -326,6 +330,7 @@
 "Offline" = "Offline";
 "Offline Mix" = "Offline Mix";
 "Offline Mix Size" = "Offline Mix Size";
+"Offline: showing what was last saved (%@)" = "Offline: showing what was last saved (%@)";
 "Online" = "在线";
 "Only your downloaded music is available." = "Only your downloaded music is available.";
 "Options" = "选项";

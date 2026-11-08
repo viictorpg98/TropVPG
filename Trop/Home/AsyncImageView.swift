@@ -84,7 +84,7 @@ struct AsyncImageView: View {
     }
 }
 
-private func normalizeThumbnailURL(_ urlString: String, pixels: Int) -> String {
+func normalizeThumbnailURL(_ urlString: String, pixels: Int) -> String {
     var url = urlString
 
     url = url.replacingOccurrences(of: "(?<=[sh]\\d+)-c", with: "", options: .regularExpression)

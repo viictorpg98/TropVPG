@@ -223,7 +223,12 @@ struct LibraryView: View {
                 )
                 .pressableItem(
                     .playlist(PlaylistItem(entity: playlist)),
-                    onTap: { router.libraryPath.append(DetailRoute.playlist(playlistId: playlist.id)) },
+                    onTap: {
+                        // Las listas propias (sin sincronizar) se abren sin red; las de YouTube Music necesitan conexion.
+                        if playlist.browseId == nil || NetworkMonitor.shared.requireConnection() {
+                            router.libraryPath.append(DetailRoute.playlist(playlistId: playlist.id))
+                        }
+                    },
                     onNavigate: { router.libraryPath.append($0) },
                     onDelete: playlist.isEditable ? { playlistToDelete = playlist } : nil
                 )
@@ -267,7 +272,11 @@ struct LibraryView: View {
                 )
                 .pressableItem(
                     .artist(ArtistItem(entity: artist)),
-                    onTap: { router.libraryPath.append(DetailRoute.artist(browseId: artist.id)) },
+                    onTap: {
+                        if NetworkMonitor.shared.requireConnection() {
+                            router.libraryPath.append(DetailRoute.artist(browseId: artist.id))
+                        }
+                    },
                     onNavigate: { router.libraryPath.append($0) }
                 )
             }
@@ -286,7 +295,11 @@ struct LibraryView: View {
                 )
                 .pressableItem(
                     .album(AlbumItem(entity: album)),
-                    onTap: { router.libraryPath.append(DetailRoute.album(browseId: album.id)) },
+                    onTap: {
+                        if NetworkMonitor.shared.requireConnection() {
+                            router.libraryPath.append(DetailRoute.album(browseId: album.id))
+                        }
+                    },
                     onNavigate: { router.libraryPath.append($0) }
                 )
             }
@@ -316,7 +329,11 @@ struct LibraryView: View {
                         author: nil,
                         thumbnailUrl: podcast.thumbnailUrl
                     )),
-                    onTap: { router.libraryPath.append(DetailRoute.podcast(browseId: podcast.id)) },
+                    onTap: {
+                        if NetworkMonitor.shared.requireConnection() {
+                            router.libraryPath.append(DetailRoute.podcast(browseId: podcast.id))
+                        }
+                    },
                     onNavigate: { router.libraryPath.append($0) }
                 )
             }

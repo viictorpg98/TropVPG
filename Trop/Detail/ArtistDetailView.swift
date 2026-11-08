@@ -315,6 +315,7 @@ struct ArtistDetailView: View {
                 guard viewModel.isLoading else { return }
                 await viewModel.load()
             }
+            .reloadWhenBackOnline(hasError: viewModel.error != nil) { await viewModel.load() }
 
             customTopBar
         }

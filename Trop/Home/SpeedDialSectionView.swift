@@ -16,6 +16,7 @@ struct SpeedDialSectionView: View {
     var onNavigate: ((DetailRoute) -> Void)?
 
     @State private var page: Int? = 0
+    @State private var network = NetworkMonitor.shared
     private let np = NowPlaying.shared
 
     private let perPage = 9
@@ -110,7 +111,27 @@ struct SpeedDialSectionView: View {
     private func cell(_ item: YTItem) -> some View {
         tile(item)
             .accessibilityAddTraits(.isButton)
-            .pressableItem(item, onTap: { onTap(item) }, onNavigate: onNavigate)
+            .opacity(isUnavailableOffline(item) ? 0.4 : 1)
+            .pressableItem(item, onTap: { handleTap(item) }, onNavigate: onNavigate)
+    }
+
+    /// Sin conexion, lo no descargado (y lo que no es una cancion) se ve apagado y avisa al pulsarlo.
+    private func isUnavailableOffline(_ item: YTItem) -> Bool {
+        guard !network.isOnline else { return false }
+        guard let videoId = songVideoId(item) else { return true }
+        return !DownloadManager.shared.isDownloaded(videoId: videoId)
+    }
+
+    private func handleTap(_ item: YTItem) {
+        if let videoId = songVideoId(item) {
+            if DownloadManager.shared.isDownloaded(videoId: videoId) {
+                onTap(item)
+            } else if network.requireConnection(NSLocalizedString("No connection: this song isn't downloaded.", comment: "")) {
+                onTap(item)
+            }
+        } else if network.requireConnection() {
+            onTap(item)
+        }
     }
 
     @ViewBuilder

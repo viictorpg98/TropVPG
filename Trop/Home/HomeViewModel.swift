@@ -19,6 +19,10 @@ final class HomeViewModel {
     /// Mientras llega la portada del chip elegido (la lista se vacia y se muestra una carga).
     var isChipLoading = false
     var error: Error?
+    /// `true` si lo que se ve es la ultima portada guardada (sin conexion o con la peticion fallida).
+    var isShowingCachedHome = false
+    var cachedHomeDate: Date?
+    @ObservationIgnored private var homeFetchFailure: Error?
 
     var isLoggedIn = false
 
@@ -142,6 +146,7 @@ final class HomeViewModel {
         let generation = loadGeneration
         isLoading = true
         error = nil
+        homeFetchFailure = nil
 
         async let localTask: Void = storeLocalSections()
         _ = await localTask
@@ -163,6 +168,11 @@ final class HomeViewModel {
         await phase2Work
 
         guard generation == loadGeneration else { return }
+        // El error solo se enseña si no hay nada que ensenar: ni portada guardada ni secciones propias.
+        if homePage == nil, let failure = homeFetchFailure, cachedLocalSections.isEmpty, cachedPhase2Sections.isEmpty {
+            error = failure
+        }
+        homeFetchFailure = nil
         mergeSections()
         isLoading = false
     }
@@ -202,19 +212,37 @@ final class HomeViewModel {
     }
 
     private func fetchHomePage(generation: Int) async {
+        // Sin conexion no se espera a que la peticion falle (y reintente): directo a lo guardado.
+        guard NetworkMonitor.shared.hasConnection else {
+            await useCachedHome(orFail: URLError(.notConnectedToInternet), generation: generation)
+            return
+        }
         do {
             let json = try await InnerTubeClient.tropShared.browse(browseId: "FEmusic_home")
             guard let page = await Self.parseHome(json) else {
-                if generation == loadGeneration {
-                    error = InnerTubeError.decodingFailed
-                }
+                await useCachedHome(orFail: InnerTubeError.decodingFailed, generation: generation)
                 return
             }
+            HomeCache.save(json)
+            isShowingCachedHome = false
+            cachedHomeDate = nil
             homePage = page
         } catch {
-            if generation == loadGeneration {
-                self.error = error
-            }
+            await useCachedHome(orFail: error, generation: generation)
+        }
+    }
+
+    /// Enseña la ultima portada guardada; si no hay ninguna, apunta el fallo para enseñarlo solo si no hay nada mas.
+    private func useCachedHome(orFail failure: Error, generation: Int) async {
+        guard generation == loadGeneration else { return }
+        if let cached = HomeCache.load(), var page = await Self.parseHome(cached.json) {
+            page.chips = []          // los chips piden datos nuevos a YouTube
+            page.continuation = nil
+            homePage = page
+            isShowingCachedHome = true
+            cachedHomeDate = cached.date
+        } else {
+            homeFetchFailure = failure
         }
     }
 
@@ -236,7 +264,7 @@ final class HomeViewModel {
     }
 
     private func loadPhase2Sections() async {
-        guard isLoggedIn else { return }
+        guard isLoggedIn, NetworkMonitor.shared.hasConnection else { return }
 
         async let ap: HomeSection = personalization.buildAccountPlaylists()
         async let dd: HomeSection = personalization.buildDailyDiscover()

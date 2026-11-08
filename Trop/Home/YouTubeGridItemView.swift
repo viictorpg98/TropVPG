@@ -13,6 +13,7 @@ struct YouTubeGridItemView: View {
     var onNavigate: ((DetailRoute) -> Void)?
 
     @State private var durations = DurationResolver()
+    @State private var network = NetworkMonitor.shared
     private let artworkSize: CGFloat = 160
 
     private var videoId: String? {
@@ -55,6 +56,25 @@ struct YouTubeGridItemView: View {
         }
     }
 
+    /// Sin conexion, lo que no esta descargado (y todo lo que no es una cancion) se ve apagado.
+    private var unavailableOffline: Bool {
+        guard !network.isOnline else { return false }
+        guard let videoId else { return true }
+        return !DownloadManager.shared.isDownloaded(videoId: videoId)
+    }
+
+    private func handleTap() {
+        if let videoId {
+            if DownloadManager.shared.isDownloaded(videoId: videoId) {
+                onTap()
+            } else if network.requireConnection(NSLocalizedString("No connection: this song isn't downloaded.", comment: "")) {
+                onTap()
+            }
+        } else if network.requireConnection() {
+            onTap()
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             AsyncImageView(url: item.thumbnailUrl)
@@ -78,7 +98,8 @@ struct YouTubeGridItemView: View {
         }
         .frame(width: artworkSize, height: 220, alignment: .top)
         .accessibilityAddTraits(.isButton)
-        .pressableItem(item, onTap: onTap, onNavigate: onNavigate)
+        .opacity(unavailableOffline ? 0.4 : 1)
+        .pressableItem(item, onTap: handleTap, onNavigate: onNavigate)
         .task {
             guard let vid = videoId else { return }
             let known: Int

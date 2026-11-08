@@ -458,6 +458,7 @@ struct PlaylistDetailView: View {
             await fetchEntity()
             await viewModel.load()
         }
+        .reloadWhenBackOnline(hasError: viewModel.error != nil) { await viewModel.load() }
         .detailRouteSheet(item: $pendingRoute)
     }
 

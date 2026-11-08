@@ -486,6 +486,7 @@ struct PodcastDetailView: View {
             guard viewModel.isLoading else { return }
             await viewModel.load()
         }
+        .reloadWhenBackOnline(hasError: viewModel.error != nil) { await viewModel.load() }
         .sheet(isPresented: $showMoreSheet) {
             if let podcast = viewModel.podcast {
                 PodcastMoreSheet(

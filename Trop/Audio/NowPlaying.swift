@@ -208,18 +208,18 @@ final class NowPlaying {
         guard hasNext else { return }
         guard !isResolvingNext else { return }
         var target = queueIndex + 1
-        if !NetworkMonitor.shared.isOnline {
-            // Sin conexion solo se pueden reproducir las descargadas: se salta a la siguiente que lo este.
+        if !NetworkMonitor.shared.hasConnection {
+            // Sin conexion solo se pueden reproducir las descargadas: se salta a la siguiente que lo este y, si
+            // no queda ninguna en la cola, se sigue con la musica descargada.
             let downloads = DownloadManager.shared
-            guard let found = (target..<queueSongs.count).first(where: {
+            if let found = (target..<queueSongs.count).first(where: {
                 downloads.isDownloaded(videoId: queueSongs[$0].videoId)
-            }) else {
-                PlaybackNotice.shared.show(
-                    NSLocalizedString("No connection: there are no more downloaded songs in the queue.", comment: "")
-                )
+            }) {
+                target = found
+            } else {
+                continueWithDownloadedMusic()
                 return
             }
-            target = found
         }
         if !automatic { lastManualSkipTime = Date() }
         queueIndex = target
@@ -349,6 +349,11 @@ final class NowPlaying {
             repeatCurrent()
             return
         }
+        if !hasNext, !NetworkMonitor.shared.hasConnection {
+            // Se acabo la cola y no hay red: no se puede pedir "parecidas"; se sigue con lo descargado.
+            continueWithDownloadedMusic()
+            return
+        }
         if hasNext {
             playNext(automatic: true)
         } else if SettingsStore.shared.autoplaySimilar, let endedVideoId = videoId {
@@ -387,6 +392,27 @@ final class NowPlaying {
         }
     }
 
+    /// Sin conexion y sin mas descargadas en la cola: sigue con tus canciones descargadas (mezcladas), conservando
+    /// lo ya escuchado. Si no hay ninguna descargada, avisa.
+    private func continueWithDownloadedMusic() {
+        let currentId = queueSongs.indices.contains(queueIndex) ? queueSongs[queueIndex].videoId : nil
+        let candidates = DownloadManager.shared.tracks
+            .filter { $0.id != currentId }
+            .map { SongItem(entity: $0) }
+            .shuffled()
+            .prefix(60)
+        guard !candidates.isEmpty else {
+            isPlaying = false
+            PlaybackNotice.shared.show(NSLocalizedString("No connection and no downloaded songs.", comment: ""))
+            return
+        }
+        PlaybackNotice.shared.show(NSLocalizedString("No connection: continuing with your downloaded music.", comment: ""))
+        let played = queueSongs.indices.contains(queueIndex) ? Array(queueSongs[0...queueIndex]) : []
+        queueSongs = played + Array(candidates)
+        queueIndex = played.count
+        playCurrentSong(logContext: "offlineFallback")
+    }
+
     /// A stream that died mid-play (not EOF, not a manual skip): drop the
     /// possibly-expired cached URL and re-resolve once. Repeated failures for
     /// the same video are only retried after a cooldown to avoid a loop.
@@ -396,6 +422,12 @@ final class NowPlaying {
             return
         }
         PlayerController.shared.handleVideoStreamFailure()
+        // Sin conexion no hay nada que volver a resolver: se pasa a lo siguiente que se pueda oir.
+        if !NetworkMonitor.shared.hasConnection, !DownloadManager.shared.isDownloaded(videoId: videoId) {
+            isPlaying = false
+            if hasNext { playNext(automatic: true) } else { continueWithDownloadedMusic() }
+            return
+        }
         if let last = lastFailureAt[videoId], Date().timeIntervalSince(last) < 30 {
             isPlaying = false
             return

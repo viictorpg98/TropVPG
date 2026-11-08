@@ -59,7 +59,7 @@ struct HomeScreenView: View {
             }
             // Si la portada fallo por falta de conexion, se recarga sola al volver.
             .onChange(of: network.isOnline) { _, online in
-                if online, viewModel.error != nil {
+                if online, viewModel.error != nil || viewModel.isShowingCachedHome {
                     Task { await viewModel.refresh() }
                 }
             }
@@ -87,6 +87,21 @@ struct HomeScreenView: View {
     private var homescreenContent: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
+                if viewModel.isShowingCachedHome, let date = viewModel.cachedHomeDate {
+                    HStack(spacing: 8) {
+                        Image(systemName: "wifi.slash")
+                        Text(String(
+                            format: NSLocalizedString("Offline: showing what was last saved (%@)", comment: ""),
+                            date.formatted(date: .abbreviated, time: .shortened)
+                        ))
+                    }
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
                 if let chips = viewModel.homePage?.chips, !chips.isEmpty {
                     ChipsRowView(
                         chips: chips,

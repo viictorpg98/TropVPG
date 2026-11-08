@@ -73,24 +73,31 @@ enum AutoPlaylistRoute: Hashable {
 /// Dispatches a tapped `YTItem` to playback or a pushed detail route.
 /// Collapses the per-tab `handleItemTap`/`openItem` switches (Home/Search/Explore).
 enum YTItemRouter {
+    @MainActor
     static func route(
         _ item: YTItem,
         playSong: (SongItem) -> Void,
         appendRoute: (DetailRoute) -> Void
     ) {
+        let network = NetworkMonitor.shared
+        // Sin conexion lo descargado suena y lo demas avisa, en vez de fallar en silencio.
+        func canPlay(_ videoId: String) -> Bool {
+            DownloadManager.shared.isDownloaded(videoId: videoId)
+                || network.requireConnection(NSLocalizedString("No connection: this song isn't downloaded.", comment: ""))
+        }
         switch item {
         case .song(let s):
-            playSong(s)
+            if canPlay(s.videoId) { playSong(s) }
         case .episode(let e):
-            playSong(e.toSongItem())
+            if canPlay(e.videoId) { playSong(e.toSongItem()) }
         case .album(let a):
-            appendRoute(.album(browseId: a.browseId))
+            if network.requireConnection() { appendRoute(.album(browseId: a.browseId)) }
         case .artist(let a):
-            appendRoute(.artist(browseId: a.browseId))
+            if network.requireConnection() { appendRoute(.artist(browseId: a.browseId)) }
         case .playlist(let p):
-            appendRoute(.playlist(playlistId: p.id))
+            if network.requireConnection() { appendRoute(.playlist(playlistId: p.id)) }
         case .podcast(let p):
-            appendRoute(.podcast(browseId: p.browseId))
+            if network.requireConnection() { appendRoute(.podcast(browseId: p.browseId)) }
         }
     }
 }

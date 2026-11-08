@@ -17,6 +17,8 @@ final class NetworkMonitor {
     private(set) var isOnline = true
     /// La persona ha cerrado el aviso; vuelve a salir la proxima vez que se pierda la conexion.
     var bannerDismissed = false
+    /// Estado inmediato (sin el margen de 2 s de `isOnline`): para decidir al momento si hay red.
+    private(set) var hasConnection = true
 
     @ObservationIgnored private let monitor = NWPathMonitor()
     @ObservationIgnored private var offlineTask: Task<Void, Never>?
@@ -31,7 +33,17 @@ final class NetworkMonitor {
         monitor.start(queue: DispatchQueue(label: "com.sonar.networkMonitor"))
     }
 
+    /// Si no hay conexion enseña el aviso y devuelve `false`; con conexion no hace nada y devuelve `true`.
+    func requireConnection(
+        _ message: String = NSLocalizedString("No connection: this needs internet.", comment: "")
+    ) -> Bool {
+        if hasConnection { return true }
+        PlaybackNotice.shared.show(message)
+        return false
+    }
+
     private func handle(satisfied: Bool) {
+        hasConnection = satisfied
         offlineTask?.cancel()
         if satisfied {
             isOnline = true

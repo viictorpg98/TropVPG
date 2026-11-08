@@ -540,5 +540,10 @@
   "My Supermix": "Mi supermix",
   "Discover Mix": "Mix de descubrimiento",
   "New Release Mix": "Mix de novedades",
-  "My Mix %@": "Mi mix %@"
+  "My Mix %@": "Mi mix %@",
+  "No connection: this needs internet.": "Sin conexión: esto necesita internet.",
+  "No connection: this song isn't downloaded.": "Sin conexión: esta canción no está descargada.",
+  "No connection and no downloaded songs.": "Sin conexión y sin canciones descargadas.",
+  "No connection: continuing with your downloaded music.": "Sin conexión: sigo con tu música descargada.",
+  "Offline: showing what was last saved (%@)": "Sin conexión: se muestra lo último guardado (%@)"
 }

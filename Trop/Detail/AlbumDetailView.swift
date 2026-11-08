@@ -281,6 +281,7 @@ struct AlbumDetailView: View {
             guard viewModel.isLoading else { return }
             await viewModel.load()
         }
+        .reloadWhenBackOnline(hasError: viewModel.error != nil) { await viewModel.load() }
         .detailRouteSheet(item: $pendingRoute)
     }
 

@@ -309,6 +309,7 @@ struct QueueSongRow: View {
     let song: SongItem
     var isCurrent = false
     var isPlayed = false
+    @State private var network = NetworkMonitor.shared
 
     var body: some View {
         HStack(spacing: 12) {
@@ -345,6 +346,8 @@ struct QueueSongRow: View {
         .padding(.vertical, 6)
         .contentShape(Rectangle())
         .animation(.easeInOut(duration: 0.25), value: isCurrent)
+        // Sin conexion, lo que no esta descargado se ve apagado (la actual no).
+        .opacity(!network.isOnline && !isCurrent && !DownloadManager.shared.isDownloaded(videoId: song.videoId) ? 0.4 : 1)
     }
 
     private var titleColor: Color {

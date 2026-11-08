@@ -234,6 +234,11 @@ final class DownloadManager: ObservableObject {
         resumePendingDownloads()
         // Mezcla sin conexion y descargas inteligentes (se limita sola a una pasada cada pocas horas).
         Task { await OfflineMix.shared.refreshIfNeeded() }
+        // Caratulas de lo ya descargado, para verlas sin conexion (solo con Wi-Fi y de poco en poco).
+        if isOnWiFi {
+            let current = tracks
+            Task(priority: .background) { await ArtworkLoader.backfillDownloads(current) }
+        }
     }
 
     func reconcileDownloadedFiles() async {
@@ -395,6 +400,8 @@ extension DownloadManager {
             Log.downloadManager.debug("DOWNLOAD \(String(format: "%.1f", dlElapsed))s \(dlSize / 1024)KB")
 
             let artwork = await artworkData
+            // Caratulas tal y como las piden las listas, para que se vean sin conexion.
+            await ArtworkLoader.prefetchListVariants(thumbnailUrl: song.thumbnailUrl)
 
             ensureDirectories()
             setProgress(0.88, for: videoId)

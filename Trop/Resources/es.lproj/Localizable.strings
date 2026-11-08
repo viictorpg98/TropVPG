@@ -306,7 +306,11 @@
 "No Results" = "Sin resultados";
 "No album data" = "Sin datos del álbum";
 "No artist data" = "Sin datos del artista";
+"No connection and no downloaded songs." = "Sin conexión y sin canciones descargadas.";
+"No connection: continuing with your downloaded music." = "Sin conexión: sigo con tu música descargada.";
 "No connection: there are no more downloaded songs in the queue." = "Sin conexión: no quedan canciones descargadas en la cola.";
+"No connection: this needs internet." = "Sin conexión: esto necesita internet.";
+"No connection: this song isn't downloaded." = "Sin conexión: esta canción no está descargada.";
 "No content found" = "No se encontró contenido";
 "No episodes found" = "No se encontraron episodios";
 "No playback has been recorded yet." = "Todavía no se ha registrado ninguna reproducción.";
@@ -326,6 +330,7 @@
 "Offline" = "Sin conexión";
 "Offline Mix" = "Mezcla sin conexión";
 "Offline Mix Size" = "Tamaño de la mezcla";
+"Offline: showing what was last saved (%@)" = "Sin conexión: se muestra lo último guardado (%@)";
 "Online" = "En línea";
 "Only your downloaded music is available." = "Solo está disponible la música descargada.";
 "Options" = "Opciones";

@@ -43,6 +43,21 @@ struct SongRowView: View {
     @State private var fetchedViews: Int64?
     /// Estado de descarga de ESTA cancion; solo cambia cuando cambia el de esta cancion.
     @State private var downloadState: DownloadManager.DownloadState
+    @State private var network = NetworkMonitor.shared
+
+    /// Sin conexion, lo que no esta descargado se ve apagado y avisa al pulsarlo.
+    private var isUnavailableOffline: Bool {
+        if case .completed = downloadState { return false }
+        return !network.isOnline
+    }
+
+    private func handleTap() {
+        if case .completed = downloadState {
+            onTap()
+        } else if network.requireConnection(NSLocalizedString("No connection: this song isn't downloaded.", comment: "")) {
+            onTap()
+        }
+    }
 
     init(
         song: SongItem,
@@ -116,7 +131,8 @@ struct SongRowView: View {
         .background(DownloadCellProgressView(state: downloadState))
         .padding(.horizontal, detailed ? 0 : DesignTokens.screenHPadding)
         .padding(.vertical, DesignTokens.rowVPadding)
-        .pressable(onTap: onTap, onLongPress: { showSongMenu = true })
+        .opacity(isUnavailableOffline ? 0.4 : 1)
+        .pressable(onTap: handleTap, onLongPress: { showSongMenu = true })
         .task { await durations.resolve(videoId: song.videoId, knownDuration: song.duration) }
         .task(id: song.videoId) {
             guard detailed, song.viewCount == nil else { return }

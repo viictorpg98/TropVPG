@@ -16,6 +16,39 @@ import UIKit
 /// Note: `image(for:)` already consults the memory + disk caches before
 /// hitting the network, so callers must not pre-check the cache themselves.
 enum ArtworkLoader {
+    /// Guarda en la cache de imagenes las caratulas tal y como las piden las filas y las tarjetas (mismas direcciones y
+    /// mismos tamanos), para que se vean sin conexion: la cache solo sirve si la peticion coincide exactamente.
+    @MainActor
+    static func prefetchListVariants(thumbnailUrl: String?) async {
+        guard let thumbnailUrl else { return }
+        let scale = UIScreen.main.scale
+        for points in [120.0, 160.0] as [CGFloat] {
+            let pixels = points * scale
+            let rung = rung(for: pixels)
+            guard let url = URL(string: normalizeThumbnailURL(thumbnailUrl, pixels: rung)) else { continue }
+            let request = ImageRequest(
+                url: url,
+                processors: [.resize(size: CGSize(width: pixels, height: pixels), unit: .pixels, contentMode: .aspectFill)]
+            )
+            _ = try? await ImagePipeline.shared.image(for: request)
+        }
+    }
+
+    /// Caratulas de lo que ya estaba descargado antes de existir esto: se guardan de poco en poco, una vez cada una.
+    @MainActor
+    static func backfillDownloads(_ tracks: [DownloadedTrackEntity]) async {
+        let key = "artwork.prefetchedIds"
+        var done = Set(UserDefaults.standard.stringArray(forKey: key) ?? [])
+        var count = 0
+        for track in tracks where !done.contains(track.id) {
+            guard count < 150 else { break }
+            await prefetchListVariants(thumbnailUrl: track.thumbnailUrl)
+            done.insert(track.id)
+            count += 1
+        }
+        if count > 0 { UserDefaults.standard.set(Array(done), forKey: key) }
+    }
+
     /// Cached image without hitting the network (nil on cache miss).
     static func cachedImage(for url: URL) -> UIImage? {
         ImagePipeline.shared.cache.cachedImage(for: ImageRequest(url: url), caches: .all)?.image
