@@ -512,7 +512,7 @@ struct EpisodeItem {
                 let trimmed = text.trimmingCharacters(in: .whitespaces)
                 if trimmed.isEmpty || trimmed == "•" || trimmed.contains(":") { continue }
                 let lower = trimmed.lowercased()
-                if lower.contains("view") || lower.contains("listening") || lower.contains("download") {
+                if ServerText.isViewsText(lower) {
                     viewsText = viewsText ?? trimmed
                 } else if publishDate == nil {
                     publishDate = trimmed

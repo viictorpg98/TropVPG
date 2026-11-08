@@ -393,14 +393,14 @@ extension PodcastDetailViewModel {
             let trimmed = text.trimmingCharacters(in: .whitespaces)
             if trimmed.isEmpty { continue }
             let lower = trimmed.lowercased()
-            if lower.contains("ago") {
+            if ServerText.isRelativeDate(lower) {
                 // Relative date ("4 hr ago") — never a duration.
                 if meta.publishDate == nil { meta.publishDate = trimmed }
             } else if trimmed.contains(":") {
                 if fallbackDuration, meta.duration == 0 { meta.duration = DurationFormat.parseClock(trimmed) ?? 0 }
             } else if fallbackDuration, meta.duration == 0, let spoken = DurationFormat.parseSpoken(trimmed) {
                 meta.duration = spoken
-            } else if lower.contains("view") || lower.contains("listening") || lower.contains("download") {
+            } else if ServerText.isViewsText(lower) {
                 meta.viewsText = trimmed
             } else if meta.publishDate == nil {
                 meta.publishDate = trimmed
