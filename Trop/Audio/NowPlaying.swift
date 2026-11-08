@@ -127,6 +127,7 @@ final class NowPlaying {
     }
 
     func setQueue(_ songs: [SongItem], startIndex: Int) {
+        resetOfflineState()
         queueSongs = songs
         queueIndex = min(max(startIndex, 0), max(songs.count - 1, 0))
         originalQueue = nil
@@ -215,7 +216,15 @@ final class NowPlaying {
             if let found = (target..<queueSongs.count).first(where: {
                 downloads.isDownloaded(videoId: queueSongs[$0].videoId)
             }) {
-                target = found
+                // Las que se saltan se guardan para devolverlas a la cola al recuperar la conexion.
+                if found > target, !offlineFallbackActive {
+                    // La descargada encontrada pasa a ocupar el sitio de `target`.
+                    offlineHeldBack += queueSongs[target..<found]
+                    queueSongs.removeSubrange(target..<found)
+                    offlineQueueActive = true
+                } else {
+                    target = found
+                }
             } else {
                 continueWithDownloadedMusic()
                 return
@@ -395,6 +404,10 @@ final class NowPlaying {
     /// Sin conexion y sin mas descargadas en la cola: sigue con tus canciones descargadas (mezcladas), conservando
     /// lo ya escuchado. Si no hay ninguna descargada, avisa.
     private func continueWithDownloadedMusic() {
+        // Lo que quedaba de la cola normal se guarda para volver a ella al recuperar la conexion.
+        if !offlineFallbackActive, queueSongs.indices.contains(queueIndex) {
+            offlineHeldBack += queueSongs[(queueIndex + 1)...]
+        }
         let currentId = queueSongs.indices.contains(queueIndex) ? queueSongs[queueIndex].videoId : nil
         let candidates = DownloadManager.shared.tracks
             .filter { $0.id != currentId }
@@ -410,7 +423,73 @@ final class NowPlaying {
         let played = queueSongs.indices.contains(queueIndex) ? Array(queueSongs[0...queueIndex]) : []
         queueSongs = played + Array(candidates)
         queueIndex = played.count
+        offlineQueueActive = true
+        offlineFallbackActive = true
         playCurrentSong(logContext: "offlineFallback")
+    }
+
+    // MARK: - Volver a la cola normal al recuperar la conexion
+
+    /// La cola se ha modificado por falta de conexion (se saltaron canciones o se rellenó con descargadas).
+    private var offlineQueueActive = false
+    /// La cola de después de la actual es música descargada de relleno (no la cola normal).
+    private var offlineFallbackActive = false
+    /// Canciones de la cola normal apartadas mientras no había conexion.
+    private var offlineHeldBack: [SongItem] = []
+    /// La cola se creó sin conexion a partir de una sola canción (no hay cola normal: se pide su radio al volver).
+    private var offlineSeededQueue = false
+
+    private func resetOfflineState() {
+        offlineQueueActive = false
+        offlineFallbackActive = false
+        offlineHeldBack = []
+        offlineSeededQueue = false
+    }
+
+    /// Para una cola creada sin conexion con una cancion y descargadas de relleno (ver `PlaybackQueue`).
+    func markQueueSeededOffline() {
+        offlineSeededQueue = true
+    }
+
+    /// Vuelve la conexion: se recupera la cola normal (o la radio de la cancion actual) sin cortar lo que suena.
+    func connectionRestored() {
+        guard offlineQueueActive || offlineSeededQueue else { return }
+        Task { @MainActor in
+            // Se espera un poco por si es un corte breve.
+            try? await Task.sleep(for: .seconds(2))
+            guard NetworkMonitor.shared.hasConnection else { return }
+            self.restoreOnlineQueue()
+        }
+    }
+
+    private func restoreOnlineQueue() {
+        if offlineSeededQueue {
+            offlineSeededQueue = false
+            guard let seedId = videoId else { return }
+            Task { @MainActor in
+                guard let radio = try? await PersonalizationService.shared.fetchRadio(videoId: seedId),
+                      radio.songs.count > 1, self.videoId == seedId else { return }
+                self.queueSongs = radio.songs
+                self.queueIndex = radio.currentIndex
+                self.originalQueue = nil
+                self.isShuffleOn = false
+                self.persistQueueState()
+                PlaybackNotice.shared.show(NSLocalizedString("Connection restored: back to your normal queue.", comment: ""))
+            }
+            return
+        }
+        guard offlineQueueActive, queueSongs.indices.contains(queueIndex) else {
+            resetOfflineState()
+            return
+        }
+        let played = Array(queueSongs[0...queueIndex])
+        let rest = offlineFallbackActive ? [] : Array(queueSongs[(queueIndex + 1)...])
+        let restored = played + offlineHeldBack + rest
+        resetOfflineState()
+        guard restored.count > played.count else { return }
+        queueSongs = restored
+        persistQueueState()
+        PlaybackNotice.shared.show(NSLocalizedString("Connection restored: back to your normal queue.", comment: ""))
     }
 
     /// A stream that died mid-play (not EOF, not a manual skip): drop the

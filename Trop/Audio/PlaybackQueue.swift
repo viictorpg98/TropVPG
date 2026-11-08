@@ -46,6 +46,7 @@ enum PlaybackQueue {
         if !NetworkMonitor.shared.hasConnection {
             if !isCurrentSong {
                 NowPlaying.shared.setQueue(offlineQueue(startingWith: song), startIndex: 0)
+                NowPlaying.shared.markQueueSeededOffline()
                 Task { try? await PlaybackManager.shared.resolveAndPlay(videoId: song.videoId) }
             }
             return
@@ -69,6 +70,7 @@ enum PlaybackQueue {
         // Sin conexion no hay radio: la cola se rellena con tu musica descargada.
         if !NetworkMonitor.shared.hasConnection {
             NowPlaying.shared.setQueue(offlineQueue(startingWith: song), startIndex: 0)
+            NowPlaying.shared.markQueueSeededOffline()
             loggedTask(log, "Offline playback failed") {
                 try await PlaybackManager.shared.resolveAndPlay(videoId: song.videoId)
             }

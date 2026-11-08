@@ -545,5 +545,6 @@
   "No connection: this song isn't downloaded.": "Sin conexión: esta canción no está descargada.",
   "No connection and no downloaded songs.": "Sin conexión y sin canciones descargadas.",
   "No connection: continuing with your downloaded music.": "Sin conexión: sigo con tu música descargada.",
-  "Offline: showing what was last saved (%@)": "Sin conexión: se muestra lo último guardado (%@)"
+  "Offline: showing what was last saved (%@)": "Sin conexión: se muestra lo último guardado (%@)",
+  "Connection restored: back to your normal queue.": "Conexión recuperada: vuelvo a tu cola normal."
 }

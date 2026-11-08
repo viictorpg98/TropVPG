@@ -43,9 +43,11 @@ final class NetworkMonitor {
     }
 
     private func handle(satisfied: Bool) {
+        let wasOffline = !hasConnection
         hasConnection = satisfied
         offlineTask?.cancel()
         if satisfied {
+            if wasOffline { NowPlaying.shared.connectionRestored() }
             isOnline = true
             bannerDismissed = false
         } else {
