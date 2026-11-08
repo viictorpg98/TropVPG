@@ -22,6 +22,12 @@ struct AboutSettingsView: View {
             }
 
             Section {
+                NavigationLink("Playback Report") {
+                    PlaybackReportView()
+                }
+            }
+
+            Section {
                 Link(destination: URL(string: "https://github.com/SwiftyMedia/Trop")!) {
                     Text("GitHub")
                 }

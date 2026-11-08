@@ -469,6 +469,7 @@ extension PlayerController {
         Task { @MainActor [weak self] in
             guard let self else { return }
             Log.player.debug("TRANSITION FILE_LOADED videoId=\(pendingVideoId ?? "nil") playing=\(actuallyPlaying)")
+            PlaybackReport.record("reproductor: archivo cargado \(pendingVideoId ?? "?") (suena: \(actuallyPlaying))")
             self.playState.send(actuallyPlaying ? .playing : .paused)
             NowPlaying.shared.isPlaying = actuallyPlaying
             self.currentVideoId = pendingVideoId
@@ -552,6 +553,9 @@ extension PlayerController {
         let reason = endFile.reason
         let isEof = reason == MPV_END_FILE_REASON_EOF
         let isError = reason == MPV_END_FILE_REASON_ERROR
+        if isError {
+            PlaybackReport.record("reproductor: FIN CON ERROR (\(String(cString: mpv_error_string(endFile.error))))")
+        }
         let stoppedVideoId = self.currentVideoId
         Task { @MainActor [weak self] in
             guard let self else { return }

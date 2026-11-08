@@ -301,6 +301,7 @@
 "No artist data" = "无艺人数据";
 "No content found" = "未找到内容";
 "No episodes found" = "未找到剧集";
+"No playback has been recorded yet." = "No playback has been recorded yet.";
 "No playlist data" = "无播放列表数据";
 "No podcast data" = "无播客数据";
 "No similar tracks" = "没有相似歌曲";
@@ -336,6 +337,7 @@
 "Play all" = "全部播放";
 "Play episodes from the top" = "从顶部播放剧集";
 "Playback & Offline" = "播放与离线";
+"Playback Report" = "Playback Report";
 "Player" = "播放器";
 "Player Background" = "播放器背景";
 "Playing" = "播放中";
@@ -413,6 +415,7 @@
 "Show Interval Indicator" = "显示间隔指示器";
 "Show Quick Picks" = "显示快捷精选";
 "Shows a progress ring during long instrumental gaps" = "在较长的纯音乐间隔期间显示进度环";
+"Shows the latest steps when playing something: which client got the stream and what the player said." = "Shows the latest steps when playing something: which client got the stream and what the player said.";
 "Shuffle" = "随机播放";
 "Shuffle artist" = "随机播放艺人歌曲";
 "Sign in to see your YouTube Music history." = "登录以查看 YouTube Music 历史记录。";

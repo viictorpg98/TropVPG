@@ -527,5 +527,8 @@
   "Deep focus": "Concentración profunda",
   "Cardio": "Cardio",
   "In the gym": "En el gimnasio",
-  "Running hits": "Éxitos para correr"
+  "Running hits": "Éxitos para correr",
+  "Playback Report": "Informe de reproducción",
+  "No playback has been recorded yet.": "Todavía no se ha registrado ninguna reproducción.",
+  "Shows the latest steps when playing something: which client got the stream and what the player said.": "Muestra los últimos pasos al reproducir algo: qué cliente consiguió la dirección y qué dijo el reproductor."
 }

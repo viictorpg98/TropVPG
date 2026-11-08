@@ -527,5 +527,8 @@
   "Deep focus": "Deep focus",
   "Cardio": "Cardio",
   "In the gym": "In the gym",
-  "Running hits": "Running hits"
+  "Running hits": "Running hits",
+  "Playback Report": "Playback Report",
+  "No playback has been recorded yet.": "No playback has been recorded yet.",
+  "Shows the latest steps when playing something: which client got the stream and what the player said.": "Shows the latest steps when playing something: which client got the stream and what the player said."
 }

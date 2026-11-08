@@ -301,6 +301,7 @@
 "No artist data" = "Sin datos del artista";
 "No content found" = "No se encontró contenido";
 "No episodes found" = "No se encontraron episodios";
+"No playback has been recorded yet." = "Todavía no se ha registrado ninguna reproducción.";
 "No playlist data" = "Sin datos de la lista de reproducción";
 "No podcast data" = "Sin datos del pódcast";
 "No similar tracks" = "No hay canciones similares";
@@ -336,6 +337,7 @@
 "Play all" = "Reproducir todo";
 "Play episodes from the top" = "Reproducir episodios desde el principio";
 "Playback & Offline" = "Reproducción y sin conexión";
+"Playback Report" = "Informe de reproducción";
 "Player" = "Reproductor";
 "Player Background" = "Fondo del reproductor";
 "Playing" = "Reproduciendo";
@@ -413,6 +415,7 @@
 "Show Interval Indicator" = "Mostrar indicador de intervalo";
 "Show Quick Picks" = "Mostrar Selecciones rápidas";
 "Shows a progress ring during long instrumental gaps" = "Muestra un anillo de progreso durante los pasajes instrumentales largos";
+"Shows the latest steps when playing something: which client got the stream and what the player said." = "Muestra los últimos pasos al reproducir algo: qué cliente consiguió la dirección y qué dijo el reproductor.";
 "Shuffle" = "Aleatorio";
 "Shuffle artist" = "Aleatorio del artista";
 "Sign in to see your YouTube Music history." = "Inicia sesión para ver tu historial de YouTube Music.";

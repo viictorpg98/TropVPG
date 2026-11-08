@@ -61,6 +61,7 @@ actor PlaybackManager {
             )
         }
 
+        await purgeStaleLongCache(videoId)
         if let cached = await StreamCache.shared.get(videoId: videoId) {
             let queueSong = await queueSong(for: videoId)
             await PlayerController.shared.play(
@@ -98,6 +99,7 @@ actor PlaybackManager {
     /// parecia que no pasaba nada.
     private func reportPlaybackFailure(_ error: Error) async {
         if error is CancellationError { return }
+        PlaybackReport.record("FALLO al resolver: \(error.localizedDescription)")
         let message: String
         if let streamError = error as? StreamError, case .unplayable(let reason) = streamError,
            reason.lowercased().contains("premiere") || reason.lowercased().contains("live") {
@@ -117,7 +119,9 @@ actor PlaybackManager {
     private func resolveAndPlayFromNetwork(videoId: String) async throws -> PlaybackResult {
         var request = StreamResolveRequest.playback(videoId: videoId)
         request.options.audioQuality = SettingsStore.shared.audioQuality
+        let started = Date()
         let isLong = await prioritizeSessionClientsIfLong(&request, videoId: videoId)
+        PlaybackReport.record("pedir \(videoId) largo=\(isLong) orden=\(request.chain.map { $0.client.clientName }.joined(separator: ","))")
         if !isLong, let last = UserDefaults.standard.string(forKey: Self.lastClientKey),
            let index = request.chain.firstIndex(where: { $0.client.clientName == last }), index > 0 {
             // Prueba primero el cliente que funciono la ultima vez: si los de delante fallan, cada fallo
@@ -129,6 +133,7 @@ actor PlaybackManager {
             using: InnerTubeClient.tropShared,
             providers: .tropLive
         )
+        PlaybackReport.record("direccion de \(videoId): cliente \(result.clientName) en \(Int(Date().timeIntervalSince(started) * 1000)) ms, \(result.mimeType)")
         // Lo que funciona para un podcast no dice nada de la musica: no se recuerda.
         if !isLong { UserDefaults.standard.set(result.clientName, forKey: Self.lastClientKey) }
         await playNetworkResult(result, videoId: videoId)
@@ -137,18 +142,35 @@ actor PlaybackManager {
 
     /// Podcasts y contenidos largos: los clientes que no usan tu sesion contestan "confirma que no eres
     /// un robot" (comprobado con episodios reales) y fallan uno tras otro antes de llegar a uno que
-    /// funcione, asi que se empieza directamente por los que usan tu sesion. Devuelve si lo era.
+    /// funcione, asi que se dejan para el final. El resto conserva su orden de siempre. Devuelve si lo era.
+    /// (Probar WEB_REMIX el primero rompio la reproduccion de podcasts: su direccion no se comprueba
+    /// antes de usarla y, para podcasts, no funcionaba.)
     @discardableResult
     private func prioritizeSessionClientsIfLong(_ request: inout StreamResolveRequest, videoId: String) async -> Bool {
         let song = await queueSong(for: videoId)
-        let isLong = (song?.duration ?? 0) >= Self.longContentSeconds
-            || song?.musicVideoType == "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
-        guard isLong else { return false }
-        let withSession = ["WEB_REMIX", "TVHTML5"].flatMap { name in
-            request.chain.filter { $0.client.clientName == name }
-        }
-        request.chain = withSession + request.chain.filter { !withSession.contains($0) }
+        guard Self.isLong(song) else { return false }
+        let anonymous: Set<String> = ["VISIONOS", "ANDROID_VR"]
+        let others = request.chain.filter { !anonymous.contains($0.client.clientName) }
+        let deferred = request.chain.filter { anonymous.contains($0.client.clientName) }
+        request.chain = others + deferred
         return true
+    }
+
+    private static func isLong(_ song: SongItem?) -> Bool {
+        (song?.duration ?? 0) >= longContentSeconds
+            || song?.musicVideoType == "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+    }
+
+    /// Una direccion guardada por una version anterior para un podcast puede no funcionar: se descarta
+    /// una vez por arranque para que se vuelva a resolver.
+    private var purgedLongIds = Set<String>()
+
+    private func purgeStaleLongCache(_ videoId: String) async {
+        guard !purgedLongIds.contains(videoId) else { return }
+        let song = await queueSong(for: videoId)
+        guard Self.isLong(song) else { return }
+        purgedLongIds.insert(videoId)
+        await StreamCache.shared.remove(videoId: videoId)
     }
 
     private func playNetworkResult(_ result: PlaybackResult, videoId: String) async {
@@ -245,6 +267,7 @@ actor PlaybackManager {
     static let sessionId: String = UUID().uuidString
     /// Resolve a video without playing. Useful for previews / testing.
     func resolve(videoId: String, preferredFormat: Format? = nil, forDownload: Bool = false) async throws -> PlaybackResult {
+        await purgeStaleLongCache(videoId)
         if !forDownload, let cached = await StreamCache.shared.get(videoId: videoId) {
             return cached
         }

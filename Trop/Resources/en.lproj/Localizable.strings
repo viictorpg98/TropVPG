@@ -301,6 +301,7 @@
 "No artist data" = "No artist data";
 "No content found" = "No content found";
 "No episodes found" = "No episodes found";
+"No playback has been recorded yet." = "No playback has been recorded yet.";
 "No playlist data" = "No playlist data";
 "No podcast data" = "No podcast data";
 "No similar tracks" = "No similar tracks";
@@ -336,6 +337,7 @@
 "Play all" = "Play all";
 "Play episodes from the top" = "Play episodes from the top";
 "Playback & Offline" = "Playback & Offline";
+"Playback Report" = "Playback Report";
 "Player" = "Player";
 "Player Background" = "Player Background";
 "Playing" = "Playing";
@@ -413,6 +415,7 @@
 "Show Interval Indicator" = "Show Interval Indicator";
 "Show Quick Picks" = "Show Quick Picks";
 "Shows a progress ring during long instrumental gaps" = "Shows a progress ring during long instrumental gaps";
+"Shows the latest steps when playing something: which client got the stream and what the player said." = "Shows the latest steps when playing something: which client got the stream and what the player said.";
 "Shuffle" = "Shuffle";
 "Shuffle artist" = "Shuffle artist";
 "Sign in to see your YouTube Music history." = "Sign in to see your YouTube Music history.";
