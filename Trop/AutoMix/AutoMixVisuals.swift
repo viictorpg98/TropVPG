@@ -49,19 +49,55 @@ final class AutoMixVisuals {
         let videoId = song.videoId
         let thumbnail = song.thumbnailUrl
         Task { [weak self] in
-            var image: UIImage?
+            // 1) La incrustada en el archivo descargado, para tener algo enseguida.
+            var best: UIImage?
             if let url = await DownloadManager.shared.localURL(for: videoId) {
-                image = await Self.embeddedArtwork(url)
+                best = await Self.embeddedArtwork(url)
+                if let best, let self, self.incomingVideoId == videoId { self.apply(best) }
             }
-            if image == nil, let thumbnail, let url = URL(string: ArtworkURLs.highRes(thumbnail) ?? thumbnail) {
-                image = try? await ImagePipeline.shared.image(for: url)
+            // 2) Si es pequena (o no hay), la mejor de internet, como hace el reproductor: la de la propia cancion a
+            //    maxima resolucion, luego variantes menores y, por ultimo, la miniatura de YouTube.
+            if best == nil || Self.pixelSide(best) < 900 {
+                for url in Self.candidates(videoId: videoId, thumbnail: thumbnail) {
+                    guard let self, self.incomingVideoId == videoId else { return }
+                    let found: UIImage?
+                    if let cached = ArtworkLoader.cachedImage(for: url) {
+                        found = cached
+                    } else {
+                        found = try? await ArtworkLoader.image(for: url)
+                    }
+                    if let found {
+                        if Self.pixelSide(found) > Self.pixelSide(best) { self.apply(found) }
+                        break
+                    }
+                }
             }
-            guard let self, self.incomingVideoId == videoId, let image else { return }
-            let square = image.centerCroppedSquare()
-            self.incomingImage = square
-            self.incomingColors = square.extractDominantColors()
-            self.incomingEdgeColor = square.bottomEdgeColor()
         }
+    }
+
+    private func apply(_ image: UIImage) {
+        let square = image.centerCroppedSquare()
+        incomingImage = square
+        incomingColors = square.extractDominantColors()
+        incomingEdgeColor = square.bottomEdgeColor()
+    }
+
+    nonisolated private static func pixelSide(_ image: UIImage?) -> CGFloat {
+        guard let image else { return 0 }
+        return min(image.size.width, image.size.height) * image.scale
+    }
+
+    /// Las mismas direcciones que usa el reproductor para la carátula, de mejor a peor.
+    private static func candidates(videoId: String, thumbnail: String?) -> [URL] {
+        var urls: [String] = []
+        if let upgraded = ArtworkURLs.highRes(thumbnail) {
+            if let maxRes = ArtworkURLs.maxResVariant(upgraded) { urls.append(maxRes) }
+            if let standard = ArtworkURLs.sdVariant(upgraded) { urls.append(standard) }
+            urls.append(upgraded)
+        }
+        let fallback = NowPlaying.artworkURL(for: videoId)
+        if !urls.contains(fallback) { urls.append(fallback) }
+        return urls.compactMap(URL.init(string:))
     }
 
     func begin() {

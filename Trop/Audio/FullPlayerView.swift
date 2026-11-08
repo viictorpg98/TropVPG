@@ -178,7 +178,7 @@ struct FullPlayerView: View {
             // el mismo sitio que antes: lo que sube por arriba se compensa con un margen negativo.
             let handle: CGFloat = 29
             MixAwareArtwork(
-                width: fullSize.width, height: fullSize.height + topInset + handle, fullBleed: true, content: artwork
+                width: fullSize.width, height: fullSize.height, topExtension: topInset + handle, fullBleed: true, content: artwork
             )
             .padding(.top, -(topInset + handle))
 

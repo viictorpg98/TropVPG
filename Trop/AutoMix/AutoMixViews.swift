@@ -95,17 +95,23 @@ private struct LiquidReveal: View {
 /// con un borde liquido y enfocandose mientras la actual se desenfoca, como en Apple Music.
 struct MixAwareArtwork<Content: View>: View {
     let width: CGFloat
+    /// Alto de la carátula (la parte que se ve entera, por debajo de la isla dinamica).
     let height: CGFloat
+    /// Lo que sube por encima de la carátula hasta el borde de la pantalla (isla dinamica y barra de estado): se rellena
+    /// con la propia carátula desenfocada, asi ninguna parte de ella queda cortada ni tapada.
+    let topExtension: CGFloat
     /// De lado a lado y sin esquinas: la parte de abajo se funde con el fondo.
     let fullBleed: Bool
     let content: Content
 
     private let visuals = AutoMixVisuals.shared
+    private let np = NowPlaying.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(width: CGFloat, height: CGFloat, fullBleed: Bool, content: Content) {
+    init(width: CGFloat, height: CGFloat, topExtension: CGFloat = 0, fullBleed: Bool, content: Content) {
         self.width = width
         self.height = height
+        self.topExtension = topExtension
         self.fullBleed = fullBleed
         self.content = content
     }
@@ -114,40 +120,79 @@ struct MixAwareArtwork<Content: View>: View {
         if visuals.isMixing, let incoming = visuals.incomingImage {
             mixing(incoming: incoming)
         } else {
-            framed(content)
+            framed(content, outgoing: np.thumbnailUIImage, incoming: nil, amount: 0)
         }
     }
 
-    /// Recorte, sombra y (si va de lado a lado) el degradado inferior que la funde con el fondo.
+    /// Cuanto se solapan la carátula y el relleno de arriba para que no se note la union.
+    private var overlap: CGFloat { topExtension > 0 ? 56 : 0 }
+
+    /// Recorte, sombra y (si va de lado a lado) los degradados que la funden con el fondo por abajo y con el relleno por arriba.
     @ViewBuilder
-    private func framed<V: View>(_ view: V) -> some View {
+    private func framed<V: View>(_ view: V, outgoing: UIImage?, incoming: UIImage?, amount: Double) -> some View {
         if fullBleed {
-            view
-                .frame(width: width, height: height)
-                .clipped()
-                .overlay(alignment: .top) {
-                    // Un velo suave arriba para que la hora, la isla y los iconos de estado se lean sobre la carátula.
-                    LinearGradient(colors: [.black.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom)
-                        .frame(height: 130)
-                        .allowsHitTesting(false)
+            ZStack(alignment: .top) {
+                if topExtension > 0 {
+                    backdrop(outgoing: outgoing, incoming: incoming, amount: amount)
+                        .frame(width: width, height: topExtension + overlap)
+                        .clipped()
+                        .mask(
+                            LinearGradient(
+                                stops: [
+                                    .init(color: .black, location: 0),
+                                    .init(color: .black, location: topExtension / (topExtension + overlap)),
+                                    .init(color: .clear, location: 1)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
                 }
-                .mask(
-                    LinearGradient(
-                        stops: [
-                            .init(color: .black, location: 0),
-                            .init(color: .black, location: 0.72),
-                            .init(color: .clear, location: 1)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
+                view
+                    .frame(width: width, height: height)
+                    .clipped()
+                    .mask(
+                        LinearGradient(
+                            stops: [
+                                .init(color: topExtension > 0 ? .clear : .black, location: 0),
+                                .init(color: .black, location: topExtension > 0 ? min(overlap / height, 0.3) : 0),
+                                .init(color: .black, location: 0.72),
+                                .init(color: .clear, location: 1)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
                     )
-                )
+                    .offset(y: topExtension)
+            }
+            .frame(width: width, height: height + topExtension, alignment: .top)
+            .overlay(alignment: .top) {
+                // Un velo suave arriba para que la hora, la isla y los iconos de estado se lean sobre la carátula.
+                LinearGradient(colors: [.black.opacity(0.35), .clear], startPoint: .top, endPoint: .bottom)
+                    .frame(height: 130)
+                    .allowsHitTesting(false)
+            }
         } else {
             view
                 .frame(width: width, height: height)
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .shadow(color: .black.opacity(0.4), radius: 18, y: 10)
         }
+    }
+
+    /// La carátula (o las dos, durante una mezcla) muy desenfocada, para rellenar la franja de arriba.
+    private func backdrop(outgoing: UIImage?, incoming: UIImage?, amount: Double) -> some View {
+        ZStack {
+            if let outgoing {
+                Image(uiImage: outgoing).resizable().scaledToFill().opacity(incoming == nil ? 1 : 1 - amount)
+            }
+            if let incoming {
+                Image(uiImage: incoming).resizable().scaledToFill().opacity(amount)
+            }
+            Color.black.opacity(0.18)
+        }
+        .scaleEffect(1.2)
+        .blur(radius: 30)
     }
 
     private func mixing(incoming: UIImage) -> some View {
@@ -173,7 +218,7 @@ struct MixAwareArtwork<Content: View>: View {
                     }
                 }
         }
-        return framed(stack)
+        return framed(stack, outgoing: visuals.outgoingImage ?? np.thumbnailUIImage, incoming: incoming, amount: amount)
     }
 }
 
