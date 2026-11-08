@@ -30,12 +30,22 @@ final class SponsorBlockIntegration {
     }
 
     private var videoId: String?
+    /// Cancion que llego por una mezcla de AutoMix: no se le saltan segmentos (un salto al empezar sonaria a corte).
+    private var ignoredId: String?
     private var segments: [Segment] = []
     private var skipped: Set<Int> = []
     private var prefetchedSegments: [String: [Segment]] = [:]
     private var fetchTasks: [String: Task<[Segment], Never>] = [:]
 
     private init() {}
+
+    /// AutoMix: la cancion ya esta sonando por una mezcla; SponsorBlock no debe moverla.
+    func ignore(videoId: String) {
+        ignoredId = videoId
+        self.videoId = videoId
+        segments = []
+        skipped = []
+    }
 
     func warm(for videoId: String?) {
         guard SponsorBlock.isEnabled, let videoId else { return }
@@ -63,6 +73,9 @@ final class SponsorBlockIntegration {
     func tick() {
         let nowPlaying = NowPlaying.shared
         guard SponsorBlock.isEnabled, let id = nowPlaying.videoId else { return }
+        // Durante una mezcla de AutoMix (o con una preparada) y en la cancion que llega por ella, no se salta nada:
+        // un cambio de posicion cancelaria la mezcla o se oiria como un corte.
+        if PlayerController.shared.gaplessStage != 0 || ignoredId == id { return }
         if id != videoId {
             videoId = id
             segments = []

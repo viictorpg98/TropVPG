@@ -249,6 +249,7 @@ final class NowPlaying {
         // `update` pone la posicion y la duracion a cero y deja la carátula de la saliente hasta que carga la nueva: aqui
         // la cancion ya esta sonando, asi que se ponen los valores reales y la carátula que ya se veia en la mezcla, y
         // la pantalla no da un salto ("refresco") al acabar.
+        SponsorBlockIntegration.shared.ignore(videoId: videoId)
         currentTime = position
         if song.duration > 0 { duration = TimeInterval(song.duration) }
         if let artwork { publishArtwork(artwork) }

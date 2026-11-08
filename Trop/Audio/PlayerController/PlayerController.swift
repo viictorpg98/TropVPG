@@ -250,6 +250,8 @@ extension PlayerController {
         let cmdResult = withMpv { mpv -> Int32 in
             mpv_set_property_string(mpv, "pause", "no")
             mpv_set_property_string(mpv, "end", "none")
+            mpv_set_property_string(mpv, "msg-level", "all=error")
+            mpv_request_log_messages(mpv, "warn")
             return loadArguments.withUnsafeCArg { mpv_command(mpv, $0) }
         } ?? -1
         if cmdResult != 0 {
@@ -557,6 +559,13 @@ extension PlayerController {
             cameFromMix = true
             gaplessStage = 0
             mpv_set_property_string(mpv, "prefetch-playlist", "no")
+            // Fin del empalme: el registro vuelve a ser solo de avisos (con un retraso, para que quede escrito lo del cambio).
+            DispatchQueue.global().asyncAfter(deadline: .now() + 2.5) { [weak self] in
+                _ = self?.withMpv { mpv in
+                    mpv_set_property_string(mpv, "msg-level", "all=error")
+                    mpv_request_log_messages(mpv, "warn")
+                }
+            }
         }
         var pauseFlag = Int32(1)
         mpv_get_property(mpv, "pause", MPV_FORMAT_FLAG, &pauseFlag)
@@ -1395,6 +1404,9 @@ extension PlayerController {
             mpv_set_property_string(mpv, "gapless-audio", "yes")
             mpv_set_property_string(mpv, "prefetch-playlist", "yes")
             guard mpv_set_property_string(mpv, "end", endText) >= 0 else { return false }
+            // Registro detallado de mpv hasta que acabe el empalme, para ver en el informe si reinicia el audio.
+            mpv_set_property_string(mpv, "msg-level", "all=error,cplayer=info,ao=info,af=info,ad=info")
+            mpv_request_log_messages(mpv, "info")
             let first = ["loadfile", mix, "append"].withUnsafeCArg { mpv_command(mpv, $0) }
             let second = ["loadfile", incoming, "append", "-1", startOption].withUnsafeCArg { mpv_command(mpv, $0) }
             if first < 0 || second < 0 {
@@ -1420,6 +1432,8 @@ extension PlayerController {
         withMpv { mpv in
             mpv_set_property_string(mpv, "end", "none")
             mpv_set_property_string(mpv, "prefetch-playlist", "no")
+            mpv_set_property_string(mpv, "msg-level", "all=error")
+            mpv_request_log_messages(mpv, "warn")
             _ = ["playlist-clear"].withUnsafeCArg { mpv_command(mpv, $0) }
         }
     }
