@@ -24,8 +24,8 @@ enum ArtworkLoader {
         let scale = UIScreen.main.scale
         for points in [120.0, 160.0] as [CGFloat] {
             let pixels = points * scale
-            let rung = rung(for: pixels)
-            guard let url = URL(string: normalizeThumbnailURL(thumbnailUrl, pixels: rung)) else { continue }
+            let ladder = ArtworkLoader.rung(for: pixels)
+            guard let url = URL(string: normalizeThumbnailURL(thumbnailUrl, pixels: ladder)) else { continue }
             let request = ImageRequest(
                 url: url,
                 processors: [.resize(size: CGSize(width: pixels, height: pixels), unit: .pixels, contentMode: .aspectFill)]
