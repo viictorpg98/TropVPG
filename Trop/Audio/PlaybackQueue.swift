@@ -43,6 +43,13 @@ enum PlaybackQueue {
     /// player "Start Radio" menu actions.
     static func startRadio(for song: SongItem, options: RadioOptions = .default) {
         let isCurrentSong = NowPlaying.shared.videoId == song.videoId
+        if !NetworkMonitor.shared.hasConnection {
+            if !isCurrentSong {
+                NowPlaying.shared.setQueue(offlineQueue(startingWith: song), startIndex: 0)
+                Task { try? await PlaybackManager.shared.resolveAndPlay(videoId: song.videoId) }
+            }
+            return
+        }
         if !isCurrentSong {
             NowPlaying.shared.setQueue([song], startIndex: 0)
             Task { try? await PlaybackManager.shared.resolveAndPlay(videoId: song.videoId) }
@@ -59,6 +66,14 @@ enum PlaybackQueue {
     /// Plays a single song, then continues with its radio queue when available.
     /// Used by Home/Search/Explore tap-to-play.
     static func playSingleWithRadio(_ song: SongItem, log: AppLogger) {
+        // Sin conexion no hay radio: la cola se rellena con tu musica descargada.
+        if !NetworkMonitor.shared.hasConnection {
+            NowPlaying.shared.setQueue(offlineQueue(startingWith: song), startIndex: 0)
+            loggedTask(log, "Offline playback failed") {
+                try await PlaybackManager.shared.resolveAndPlay(videoId: song.videoId)
+            }
+            return
+        }
         NowPlaying.shared.setQueue([song], startIndex: 0)
         Task { @MainActor in
             do {
@@ -73,6 +88,16 @@ enum PlaybackQueue {
             NowPlaying.shared.queueSongs = preservingArtists(radio.songs, over: NowPlaying.shared.queueSongs)
             NowPlaying.shared.queueIndex = radio.currentIndex
         }
+    }
+
+    /// La cancion elegida seguida de tu musica descargada mezclada (hasta 60), para poder seguir sin conexion.
+    private static func offlineQueue(startingWith song: SongItem) -> [SongItem] {
+        let others = DownloadManager.shared.tracks
+            .filter { $0.id != song.videoId }
+            .map { SongItem(entity: $0) }
+            .shuffled()
+            .prefix(60)
+        return [song] + Array(others)
     }
 
     private static func preservingArtists(_ songs: [SongItem], over current: [SongItem]) -> [SongItem] {
