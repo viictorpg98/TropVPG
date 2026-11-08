@@ -51,6 +51,8 @@ struct FullPlayerView: View {
 
             ZStack {
                 background
+                // Durante una mezcla de AutoMix, toda la pantalla se llena del color de las carátulas.
+                AutoMixGlow()
 
                 VStack(spacing: 0) {
                     grabHandle
@@ -179,7 +181,7 @@ struct FullPlayerView: View {
 
         Group {
             if AutoMixVisuals.shared.isMixing {
-                AutoMixCrossfader()
+                AutoMixPill()
             } else {
                 ActiveLyricLine(lines: currentLyrics) {
                     withAnimation(.easeInOut(duration: 0.3)) {

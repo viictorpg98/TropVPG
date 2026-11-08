@@ -26,6 +26,7 @@ final class AutoMixVisuals {
     var pulsing = false
 
     var outgoingImage: UIImage?
+    var outgoingColors: [Color] = []
     var incomingImage: UIImage?
     var incomingColors: [Color] = []
     var incomingTitle = ""
@@ -61,6 +62,7 @@ final class AutoMixVisuals {
 
     func begin() {
         outgoingImage = NowPlaying.shared.thumbnailUIImage
+        outgoingColors = NowPlaying.shared.dominantColors
         progress = 0
         beatPhase = 0
         pulsing = true
@@ -68,9 +70,9 @@ final class AutoMixVisuals {
     }
 
     func end() {
+        // El progreso se queda como esta: el resplandor se apaga con un fundido y conserva los colores de la entrante.
         isMixing = false
         pulsing = false
-        progress = 0
     }
 
     /// La caratula incrustada en el archivo descargado.

@@ -27,10 +27,10 @@ private func mix(_ a: Color, _ b: Color, _ t: Double) -> Color {
     )
 }
 
-// MARK: - 1 y 5: carátulas que se cruzan y latido al ritmo
+// MARK: - Carátula: se disuelve en su sitio
 
-/// La carátula del reproductor grande. Fuera de una mezcla es la de siempre; durante una, la actual se desliza
-/// y se encoge hacia un lado mientras la siguiente sube desde atrás, y todo late al compas.
+/// La carátula del reproductor grande. Fuera de una mezcla es la de siempre; durante una, la actual se disuelve
+/// en su sitio hacia la siguiente, con un leve cambio de escala (como en Apple Music: sin deslizar nada).
 struct MixAwareArtwork<Content: View>: View {
     let side: CGFloat
     let content: Content
@@ -47,48 +47,36 @@ struct MixAwareArtwork<Content: View>: View {
         if visuals.isMixing, let incoming = visuals.incomingImage {
             mixing(incoming: incoming)
         } else {
-            plain
+            content
+                .frame(width: side, height: side)
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .shadow(color: .black.opacity(0.4), radius: 18, y: 10)
         }
-    }
-
-    private var plain: some View {
-        content
-            .frame(width: side, height: side)
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .shadow(color: .black.opacity(0.4), radius: 18, y: 10)
     }
 
     private func mixing(incoming: UIImage) -> some View {
         let e = smooth(visuals.progress)
-        // Latido: un golpe en cada pulso que se desvanece hasta el siguiente.
-        let beat = (visuals.pulsing && !reduceMotion) ? exp(-visuals.beatPhase * 7) : 0
-        let slide = reduceMotion ? 0 : side * 0.22
         return ZStack {
+            // La entrante, debajo y entera; la saliente, encima, se va desvaneciendo.
             Image(uiImage: incoming)
                 .resizable()
                 .scaledToFill()
                 .frame(width: side, height: side)
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .shadow(color: .black.opacity(0.4), radius: 18, y: 10)
-                .scaleEffect(reduceMotion ? 1 : 0.74 + 0.26 * e)
-                .offset(x: (1 - e) * slide, y: reduceMotion ? 0 : (1 - e) * side * 0.03)
-                .opacity(reduceMotion ? e : 0.35 + 0.65 * e)
-                .zIndex(e > 0.5 ? 1 : 0)
+                .scaleEffect(reduceMotion ? 1 : 0.94 + 0.06 * e)
 
             content
                 .frame(width: side, height: side)
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .shadow(color: .black.opacity(0.4), radius: 18, y: 10)
-                .scaleEffect(reduceMotion ? 1 : 1 - 0.26 * e)
-                .offset(x: -e * slide)
-                .opacity(1 - e * e)
+                .scaleEffect(reduceMotion ? 1 : 1 + 0.05 * e)
+                .opacity(1 - e)
         }
         .frame(width: side, height: side)
-        .scaleEffect(1 + 0.035 * beat)
+        .shadow(color: .black.opacity(0.4), radius: 18, y: 10)
     }
 }
 
-// MARK: - Título que cambia a mitad de la mezcla
+// MARK: - Título: uno se va y luego entra el otro
 
 struct MixAwareTitle: View {
     let title: String
@@ -99,13 +87,15 @@ struct MixAwareTitle: View {
 
     var body: some View {
         if visuals.isMixing, !visuals.incomingTitle.isEmpty {
-            // Se cruzan hacia la mitad de la mezcla, cuando las dos suenan igual de fuerte.
-            let k = smooth((visuals.progress - 0.35) / 0.3)
+            // Primero se apaga el de la saliente y despues se enciende el de la entrante: nunca se pisan.
+            let p = visuals.progress
+            let out = 1 - smooth((p - 0.35) / 0.15)
+            let incoming = smooth((p - 0.5) / 0.15)
             ZStack(alignment: .leading) {
                 block(title: title, artist: artist, videoId: videoId)
-                    .opacity(1 - k)
+                    .opacity(out)
                 block(title: visuals.incomingTitle, artist: visuals.incomingArtist, videoId: visuals.incomingVideoId)
-                    .opacity(k)
+                    .opacity(incoming)
             }
         } else {
             block(title: title, artist: artist, videoId: videoId)
@@ -124,66 +114,84 @@ struct MixAwareTitle: View {
     }
 }
 
-// MARK: - 2: crossfader de DJ
+// MARK: - Etiqueta "AutoMix" con ondas
 
-/// Sustituye a la linea de la letra durante una mezcla: un mando que va de la canción que sale a la que entra.
-struct AutoMixCrossfader: View {
+/// Ocupa el sitio de la linea de la letra durante una mezcla: una pastilla discreta con unas ondas que laten.
+struct AutoMixPill: View {
     private let visuals = AutoMixVisuals.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let progress = min(max(visuals.progress, 0), 1)
-        let from = visuals.outgoingImage
-        let colors = [
-            NowPlaying.shared.dominantColors.first ?? .white,
-            visuals.incomingColors.first ?? .white
-        ]
-        HStack(spacing: 10) {
-            thumbnail(from)
-                .opacity(1 - 0.5 * progress)
-            GeometryReader { geo in
-                let knob: CGFloat = 22
-                let travel = max(geo.size.width - knob, 1)
-                ZStack(alignment: .leading) {
-                    Capsule().fill(.white.opacity(0.16)).frame(height: 6)
-                    Capsule()
-                        .fill(LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing))
-                        .frame(width: knob / 2 + travel * progress, height: 6)
-                    Circle()
-                        .fill(.white)
-                        .frame(width: knob, height: knob)
-                        .overlay {
-                            Image(systemName: "wand.and.stars")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(.black.opacity(0.75))
-                        }
-                        .shadow(color: .black.opacity(0.35), radius: 4, y: 1)
-                        .offset(x: travel * progress)
-                }
-                .frame(height: geo.size.height)
-            }
-            .frame(height: 26)
-            thumbnail(visuals.incomingImage)
-                .opacity(0.5 + 0.5 * progress)
+        HStack(spacing: 8) {
+            Image(systemName: "wand.and.stars")
+                .font(.system(size: 12, weight: .semibold))
+            waves
+            Text("AutoMix")
+                .font(.caption.weight(.semibold))
         }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
+        .background(.white.opacity(0.18), in: Capsule())
+        .frame(maxWidth: .infinity, alignment: .center)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("AutoMix")
     }
 
-    @ViewBuilder
-    private func thumbnail(_ image: UIImage?) -> some View {
-        Group {
-            if let image {
-                Image(uiImage: image).resizable().scaledToFill()
-            } else {
-                Color.white.opacity(0.15)
+    private var waves: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 24.0, paused: reduceMotion)) { timeline in
+            let t = timeline.date.timeIntervalSinceReferenceDate
+            let beat = visuals.pulsing ? exp(-visuals.beatPhase * 6) : 0
+            HStack(spacing: 2.5) {
+                ForEach(0..<5, id: \.self) { i in
+                    let wave = reduceMotion ? 0.6 : 0.25 + 0.75 * abs(sin(t * 2.6 + Double(i) * 0.9))
+                    Capsule()
+                        .fill(.white)
+                        .frame(width: 3, height: 4 + 12 * wave * (0.7 + 0.3 * beat))
+                }
             }
+            .frame(height: 16)
         }
-        .frame(width: 26, height: 26)
-        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 }
 
-// MARK: - 3: fondo que se funde
+// MARK: - Resplandor de color de toda la pantalla
+
+/// Durante una mezcla, toda la pantalla (tambien con el fondo negro) se llena del color de las dos carátulas,
+/// pasando de una a otra, y late suavemente con el ritmo. Fuera de la mezcla se apaga con un fundido.
+struct AutoMixGlow: View {
+    private let visuals = AutoMixVisuals.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        let e = smooth(visuals.progress)
+        let out = visuals.outgoingColors
+        let incoming = visuals.incomingColors
+        let outFirst = out.first ?? Color(red: 0.15, green: 0.15, blue: 0.2)
+        let outLast = out.last ?? outFirst
+        let inFirst = incoming.first ?? outFirst
+        let inLast = incoming.last ?? outLast
+        let top = mix(outFirst, inFirst, e)
+        let bottom = mix(outLast, inLast, e)
+        // Entra deprisa al empezar la mezcla; el latido sube un poco la intensidad en cada pulso.
+        let ramp = min(1, visuals.progress * 8)
+        let beat = (visuals.pulsing && !reduceMotion) ? exp(-visuals.beatPhase * 6) : 0
+        let strength = ramp * (0.78 + 0.14 * beat)
+
+        ZStack {
+            LinearGradient(colors: [top, bottom], startPoint: .top, endPoint: .bottom)
+            RadialGradient(colors: [top.opacity(0.9), .clear], center: .top, startRadius: 0, endRadius: 560)
+            // Un velo oscuro abajo mantiene legibles los controles sobre colores claros.
+            LinearGradient(colors: [.clear, .black.opacity(0.35)], startPoint: .center, endPoint: .bottom)
+        }
+        .ignoresSafeArea()
+        .opacity(visuals.isMixing ? strength : 0)
+        .animation(.easeInOut(duration: 0.9), value: visuals.isMixing)
+        .allowsHitTesting(false)
+    }
+}
+
+// MARK: - Fondo que se funde (estilo degradado)
 
 /// El degradado del reproductor grande. Durante una mezcla pasa del color de una carátula al de la otra.
 struct PlayerGradientBackground: View {
