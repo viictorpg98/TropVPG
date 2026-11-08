@@ -14,6 +14,8 @@ import SwiftUI
 @Observable
 final class MiniPlayerScrollState {
     var isInline = false
+    /// Borde superior (en pantalla) del mini reproductor, para que las listas sepan cuanto se les mete debajo.
+    var barTop: CGFloat?
 }
 
 /// Flips `MiniPlayerScrollState.isInline` based on a scroll container's vertical
@@ -23,7 +25,14 @@ struct MiniPlayerInlineOnScrollModifier: ViewModifier {
     @Environment(MiniPlayerScrollState.self) private var scrollState
 
     private let compactThreshold: CGFloat = 1
+    /// Aire que debe quedar entre la ultima fila y el mini reproductor.
+    private let air: CGFloat = 20
     private let np = NowPlaying.shared
+
+    /// Parte baja del contenedor en pantalla, margen inferior que ya reserva (incluye `extra`) y margen anadido.
+    @State private var viewBottom: CGFloat = 0
+    @State private var bottomInset: CGFloat?
+    @State private var extra: CGFloat = 0
 
     func body(content: Content) -> some View {
         content
@@ -40,7 +49,31 @@ struct MiniPlayerInlineOnScrollModifier: ViewModifier {
                     }
                 }
             )
-            // Un poco de aire al final de las listas para que la ultima fila no quede pegada al mini.
-            .safeAreaPadding(.bottom, np.isBarPresented ? 28 : 0)
+            .onScrollGeometryChange(for: CGFloat.self, of: { $0.contentInsets.bottom }) { _, newValue in
+                bottomInset = newValue
+                updateExtra()
+            }
+            .onGeometryChange(for: CGFloat.self, of: { $0.frame(in: .global).maxY }) { newValue in
+                viewBottom = newValue
+                updateExtra()
+            }
+            .onChange(of: scrollState.barTop) { _, _ in updateExtra() }
+            .onChange(of: np.isBarPresented) { _, _ in updateExtra() }
+            // Margen que falte para que la ultima fila quede por encima del mini reproductor.
+            .safeAreaPadding(.bottom, extra)
+    }
+
+    /// Mide cuanto se mete el contenedor bajo el mini reproductor y cuanto margen ya reserva el sistema, y anade
+    /// solo lo que falte (mas un poco de aire). Asi no depende de en que pantalla este ni de si el sistema
+    /// ya reservo el hueco: antes un margen fijo dejaba tapadas las ultimas filas en algunas pantallas.
+    private func updateExtra() {
+        guard np.isBarPresented, let barTop = scrollState.barTop, let inset = bottomInset else {
+            if extra != 0 { extra = 0 }
+            return
+        }
+        let overlap = max(0, viewBottom - barTop)
+        let alreadyReserved = max(0, inset - extra)
+        let needed = min(240, max(0, overlap + air - alreadyReserved))
+        if abs(needed - extra) > 1 { extra = needed }
     }
 }

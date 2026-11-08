@@ -10,6 +10,8 @@ import SwiftUI
 struct HomeScreenView: View {
     @Environment(SettingsStore.self) private var settings
     @ObservedObject private var router = AppRouter.shared
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var network = NetworkMonitor.shared
     @State private var viewModel = HomeViewModel()
     private let accountState = AccountSheetState.shared
 
@@ -48,6 +50,18 @@ struct HomeScreenView: View {
             }
             .onChange(of: accountState.isLoggedIn) { _, loggedIn in
                 viewModel.handleSessionChange(loggedIn: loggedIn)
+            }
+            // Al salir de la app los chips (Podcasts, Dormir...) se desmarcan: al volver se ve la portada normal.
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .background, viewModel.selectedChip != nil {
+                    viewModel.toggleChip(nil)
+                }
+            }
+            // Si la portada fallo por falta de conexion, se recarga sola al volver.
+            .onChange(of: network.isOnline) { _, online in
+                if online, viewModel.error != nil {
+                    Task { await viewModel.refresh() }
+                }
             }
             .task {
                 await viewModel.restoreSession()
@@ -337,11 +351,28 @@ struct HomeScreenView: View {
     }
 
     private func errorView(_ error: Error) -> some View {
-        ContentUnavailableView(
-            "Couldn't load your homescreen",
-            systemImage: "wifi.slash",
-            description: Text(error.localizedDescription)
-        )
+        ContentUnavailableView {
+            Label(
+                LocalizedStringKey(network.isOnline ? "Couldn't load your homescreen" : "Offline"),
+                systemImage: "wifi.slash"
+            )
+        } description: {
+            if network.isOnline {
+                Text(verbatim: error.localizedDescription)
+            } else {
+                Text("Only your downloaded music is available.")
+            }
+        } actions: {
+            Button("Retry") {
+                Task { await viewModel.refresh() }
+            }
+            .buttonStyle(.bordered)
+            Button("Go to Downloads") {
+                AppRouter.shared.openDownloads()
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(settings.accentColor)
+        }
     }
 }
 

@@ -299,6 +299,7 @@
 "No Results" = "Sin resultados";
 "No album data" = "Sin datos del álbum";
 "No artist data" = "Sin datos del artista";
+"No connection: there are no more downloaded songs in the queue." = "Sin conexión: no quedan canciones descargadas en la cola.";
 "No content found" = "No se encontró contenido";
 "No episodes found" = "No se encontraron episodios";
 "No playback has been recorded yet." = "Todavía no se ha registrado ninguna reproducción.";
@@ -393,6 +394,7 @@
 "Save songs for offline listening from the player menu, or enable auto-download when you like a track." = "Guarda canciones para escucharlas sin conexión desde el menú del reproductor, o activa la descarga automática al dar Me gusta.";
 "Save to Library" = "Guardar en la biblioteca";
 "Saved" = "Guardado";
+"Saved Episodes" = "Episodios guardados";
 "Science" = "Ciencia";
 "Scrobble Configuration" = "Configuración del scrobbling";
 "Scrobble Delay" = "Retraso del scrobbling";
@@ -526,6 +528,7 @@
 "Wider mix around this song" = "Mezcla más amplia en torno a esta canción";
 "Workout" = "Entrenamiento";
 "Yesterday" = "Ayer";
+"Your New Episodes" = "Tus nuevos episodios";
 "Your Playlists" = "Tus listas de reproducción";
 "Your daily discover" = "Tu descubrimiento diario";
 "Your recent searches will appear here." = "Tus búsquedas recientes aparecerán aquí.";

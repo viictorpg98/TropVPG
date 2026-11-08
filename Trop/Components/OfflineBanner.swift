@@ -65,9 +65,6 @@ struct OfflineBanner: View {
 
     private func openDownloads() {
         network.bannerDismissed = true
-        let router = AppRouter.shared
-        router.tabRequest = 1
-        router.selectedTabIndex = 1
-        router.open(.downloads)
+        AppRouter.shared.openDownloads()
     }
 }

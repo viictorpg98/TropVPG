@@ -103,12 +103,17 @@ private struct ParsedEpisodeMeta {
 
 extension PodcastDetailViewModel {
     static func parsePodcastDetail(from json: [String: Any], browseId: String) -> PodcastDetailInfo {
-        let header = parsePodcastHeader(from: json)
+        var header = parsePodcastHeader(from: json)
+        // "Tus nuevos episodios" y "Episodios guardados" no son un podcast: llevan episodios de varios.
+        let isEpisodeList = browseId == "VLRDPN" || browseId == "VLSE"
+        if isEpisodeList, header.title == "Unknown Podcast" {
+            header.title = NSLocalizedString(browseId == "VLRDPN" ? "Your New Episodes" : "Saved Episodes", comment: "")
+        }
         var episodes = collectPodcastEpisodes(from: json)
 
         // Episodes carry no artist runs; stamp the show name so queue rows,
         // the mini player and menus show it (matching the big player author).
-        if !episodes.isEmpty {
+        if !episodes.isEmpty, !isEpisodeList {
             let showName = header.author ?? header.title
             episodes = episodes.map { episode in
                 var stamped = episode

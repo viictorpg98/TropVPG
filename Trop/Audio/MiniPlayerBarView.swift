@@ -78,6 +78,9 @@ struct MiniPlayerBarView: View {
         }
         .frame(maxWidth: .infinity)
         .background(Color(.secondarySystemBackground))
+        .onGeometryChange(for: CGFloat.self, of: { $0.frame(in: .global).minY }) { top in
+            scrollState.barTop = top
+        }
         .onChange(of: np.videoId) { _, _ in
             dragOffset = 0
             preloadLyrics()

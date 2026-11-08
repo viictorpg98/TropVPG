@@ -275,7 +275,7 @@ enum SonarMix {
             return nil
         }
         guard let first = playlists.first,
-              let (_, rows) = try? await SyncBridge.playlistDetail.fetchPlaylistRows(playlistId: first.id) else {
+              let (_, rows) = try? await SyncBridge.playlistDetail.fetchPlaylistRows(playlistId: first.id, maxPages: 2) else {
             return nil
         }
         let songs = rows.compactMap { item -> SongItem? in

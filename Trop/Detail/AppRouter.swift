@@ -58,6 +58,13 @@ final class AppRouter: ObservableObject {
         playerExpandToken += 1
     }
 
+    /// Lleva a la pantalla de Descargas (desde el aviso de sin conexion y desde la portada).
+    func openDownloads() {
+        tabRequest = 1
+        selectedTabIndex = 1
+        open(.downloads)
+    }
+
     func open(_ route: DetailRoute) {
         switch selectedTabIndex {
         case 1: libraryPath.append(route)

@@ -299,6 +299,7 @@
 "No Results" = "没有结果";
 "No album data" = "无专辑数据";
 "No artist data" = "无艺人数据";
+"No connection: there are no more downloaded songs in the queue." = "No connection: there are no more downloaded songs in the queue.";
 "No content found" = "未找到内容";
 "No episodes found" = "未找到剧集";
 "No playback has been recorded yet." = "No playback has been recorded yet.";
@@ -393,6 +394,7 @@
 "Save songs for offline listening from the player menu, or enable auto-download when you like a track." = "在播放器菜单中保存歌曲以供离线聆听，或在喜欢歌曲时启用自动下载。";
 "Save to Library" = "保存到资料库";
 "Saved" = "已保存";
+"Saved Episodes" = "Saved Episodes";
 "Science" = "Science";
 "Scrobble Configuration" = "音乐记录配置";
 "Scrobble Delay" = "音乐记录延迟";
@@ -526,6 +528,7 @@
 "Wider mix around this song" = "围绕此歌曲的更广泛混合";
 "Workout" = "健身";
 "Yesterday" = "昨天";
+"Your New Episodes" = "Your New Episodes";
 "Your Playlists" = "你的播放列表";
 "Your daily discover" = "你的每日发现";
 "Your recent searches will appear here." = "你最近的搜索会显示在这里。";

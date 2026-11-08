@@ -20,6 +20,10 @@ final class PlaylistDetailViewModel {
 
     let autoRoute: AutoPlaylistRoute?
     var autoSongSort: LibrarySongSort = .recentlyAdded
+
+    /// Paginas ya recibidas mientras se carga (para ir enseniandolas sin esperar a la ultima).
+    @ObservationIgnored private var partialFirstPage: [String: Any]?
+    @ObservationIgnored private var partialRows: [[String: Any]] = []
     var autoTopPeriod: TopPeriod = .allTime
 
     init(playlistId: String) {
@@ -52,7 +56,17 @@ final class PlaylistDetailViewModel {
 
         do {
             let browseId = playlistId.hasPrefix("VL") ? playlistId : "VL\(playlistId)"
-            let (firstPage, rows) = try await SyncBridge.playlistDetail.fetchPlaylistRows(playlistId: playlistId)
+            // La primera pagina se enseña en cuanto llega, sin esperar a las siguientes. Y los mixes que YouTube
+            // Music genera (ids "RD...", como "Mi Supermix") no tienen fin: con dos paginas sobra.
+            partialFirstPage = nil
+            partialRows = []
+            let (firstPage, rows) = try await SyncBridge.playlistDetail.fetchPlaylistRows(
+                playlistId: playlistId,
+                maxPages: Self.isAutoMix(playlistId) ? 2 : 100,
+                onPage: { [weak self] page, items in
+                    await self?.showPartial(page: page, rows: items)
+                }
+            )
             let parsed = Self.parsePlaylistDetail(firstPage: firstPage, rows: rows, playlistId: playlistId)
 
             // Persist songs to the song table so they become searchable in the library
@@ -99,9 +113,23 @@ final class PlaylistDetailViewModel {
             playlist = parsed
             isLoading = false
         } catch {
-            self.error = error
+            // Si ya se estaba enseñando lo recibido, se conserva en vez de sustituirlo por un error.
+            if playlist == nil { self.error = error }
             isLoading = false
         }
+    }
+
+    private func showPartial(page: [String: Any], rows: [[String: Any]]) {
+        if partialFirstPage == nil { partialFirstPage = page }
+        partialRows += rows
+        guard let first = partialFirstPage else { return }
+        playlist = Self.parsePlaylistDetail(firstPage: first, rows: partialRows, playlistId: playlistId)
+        isLoading = false
+    }
+
+    /// Mixes y radios que YouTube Music genera sin fin (ids que empiezan por "RD").
+    static func isAutoMix(_ id: String) -> Bool {
+        (id.hasPrefix("VL") ? String(id.dropFirst(2)) : id).hasPrefix("RD")
     }
 
     private func loadLocalPlaylist(entity: PlaylistEntity) async {

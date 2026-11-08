@@ -175,7 +175,7 @@ struct LibraryView: View {
                 case .artists:
                     if !artists.isEmpty { artistsSection }
                 case .podcasts:
-                    if !podcasts.isEmpty { podcastsSection }
+                    podcastsSection
                 case nil:
                     playlistsSection
                     if !albums.isEmpty { albumsSection }
@@ -217,6 +217,20 @@ struct LibraryView: View {
         .sheet(item: $autoMenu) { info in
             AutoPlaylistMenuSheet(info: info)
         }
+    }
+
+    /// "Tus nuevos episodios" y "Episodios guardados": listas de YouTube Music con episodios de varios podcasts.
+    private var episodeLists: [AutoPlaylistInfo] {
+        [
+            AutoPlaylistInfo(
+                id: "newEpisodes", title: "Your New Episodes", icon: "sparkles.rectangle.stack.fill",
+                subtitle: nil, route: nil, detailRoute: .podcast(browseId: "VLRDPN")
+            ),
+            AutoPlaylistInfo(
+                id: "savedEpisodes", title: "Saved Episodes", icon: "bookmark.fill",
+                subtitle: nil, route: nil, detailRoute: .podcast(browseId: "VLSE")
+            )
+        ]
     }
 
     private func openAutoPlaylist(_ info: AutoPlaylistInfo) {
@@ -268,6 +282,12 @@ struct LibraryView: View {
 
     private var podcastsSection: some View {
         librarySection(title: "Podcasts", count: podcasts.count) {
+            // Como en YouTube Music: arriba, las dos listas de episodios sueltos.
+            ForEach(episodeLists) { info in
+                autoPlaylistCell(info: info)
+                    .pressable(onTap: { openAutoPlaylist(info) })
+            }
+
             ForEach(podcasts, id: \.id) { podcast in
                 itemCell(
                     url: podcast.thumbnailUrl,

@@ -207,8 +207,22 @@ final class NowPlaying {
     func playNext(automatic: Bool = false) {
         guard hasNext else { return }
         guard !isResolvingNext else { return }
+        var target = queueIndex + 1
+        if !NetworkMonitor.shared.isOnline {
+            // Sin conexion solo se pueden reproducir las descargadas: se salta a la siguiente que lo este.
+            let downloads = DownloadManager.shared
+            guard let found = (target..<queueSongs.count).first(where: {
+                downloads.isDownloaded(videoId: queueSongs[$0].videoId)
+            }) else {
+                PlaybackNotice.shared.show(
+                    NSLocalizedString("No connection: there are no more downloaded songs in the queue.", comment: "")
+                )
+                return
+            }
+            target = found
+        }
         if !automatic { lastManualSkipTime = Date() }
-        queueIndex += 1
+        queueIndex = target
         playCurrentSong(logContext: "playNext")
     }
 

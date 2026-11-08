@@ -299,6 +299,7 @@
 "No Results" = "No Results";
 "No album data" = "No album data";
 "No artist data" = "No artist data";
+"No connection: there are no more downloaded songs in the queue." = "No connection: there are no more downloaded songs in the queue.";
 "No content found" = "No content found";
 "No episodes found" = "No episodes found";
 "No playback has been recorded yet." = "No playback has been recorded yet.";
@@ -393,6 +394,7 @@
 "Save songs for offline listening from the player menu, or enable auto-download when you like a track." = "Save songs for offline listening from the player menu, or enable auto-download when you like a track.";
 "Save to Library" = "Save to Library";
 "Saved" = "Saved";
+"Saved Episodes" = "Saved Episodes";
 "Science" = "Science";
 "Scrobble Configuration" = "Scrobble Configuration";
 "Scrobble Delay" = "Scrobble Delay";
@@ -526,6 +528,7 @@
 "Wider mix around this song" = "Wider mix around this song";
 "Workout" = "Workout";
 "Yesterday" = "Yesterday";
+"Your New Episodes" = "Your New Episodes";
 "Your Playlists" = "Your Playlists";
 "Your daily discover" = "Your daily discover";
 "Your recent searches will appear here." = "Your recent searches will appear here.";

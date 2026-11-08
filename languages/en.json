@@ -530,5 +530,8 @@
   "Running hits": "Running hits",
   "Playback Report": "Playback Report",
   "No playback has been recorded yet.": "No playback has been recorded yet.",
-  "Shows the latest steps when playing something: which client got the stream and what the player said.": "Shows the latest steps when playing something: which client got the stream and what the player said."
+  "Shows the latest steps when playing something: which client got the stream and what the player said.": "Shows the latest steps when playing something: which client got the stream and what the player said.",
+  "Your New Episodes": "Your New Episodes",
+  "Saved Episodes": "Saved Episodes",
+  "No connection: there are no more downloaded songs in the queue.": "No connection: there are no more downloaded songs in the queue."
 }
