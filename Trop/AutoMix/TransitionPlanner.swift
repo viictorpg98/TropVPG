@@ -120,7 +120,7 @@ enum AutoMixMath {
     private static let ratioMin = 0.80
     private static let ratioMax = 1.25
     private static let speedStep = 0.005
-    static let tempoMatching = false
+    static let tempoMatching = true
     /// A partir de que punto de la mezcla la entrante vuelve a su velocidad normal (la saliente ya casi no se oye).
     static let incomingRampStart = 0.75
 
@@ -178,6 +178,30 @@ enum AutoMixMath {
         guard progress > incomingRampStart else { return startRatio }
         let t = min((progress - incomingRampStart) / (1 - incomingRampStart), 1)
         return startRatio + (1 - startRatio) * t * t * (3 - 2 * t)
+    }
+
+    /// Segundos de la saliente (en su propia cancion) que se recorren en `seconds` de mezcla de `duration` s, con la rampa de
+    /// velocidad.
+    static func outgoingAdvance(ratio: Double, duration: Double, seconds: Double? = nil) -> Double {
+        let limit = min(max(seconds ?? duration, 0), duration)
+        let steps = 400
+        var total = 0.0
+        for k in 0..<steps {
+            let t = (Double(k) + 0.5) / Double(steps) * limit
+            total += outgoingRate(ratio: ratio, progress: t / duration) * limit / Double(steps)
+        }
+        return total
+    }
+
+    /// Lo mismo para la entrante.
+    static func incomingAdvance(startRatio: Double, duration: Double) -> Double {
+        let steps = 400
+        var total = 0.0
+        for k in 0..<steps {
+            let progress = (Double(k) + 0.5) / Double(steps)
+            total += incomingRate(startRatio: startRatio, progress: progress) * duration / Double(steps)
+        }
+        return total
     }
 
     /// Segundos de la entrante (en su propia cancion) que se recorren durante la mezcla, con sus cambios de velocidad.

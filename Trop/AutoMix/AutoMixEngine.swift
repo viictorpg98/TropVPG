@@ -91,8 +91,8 @@ final class AutoMixEngine {
               let outId = np.videoId,
               np.queueSongs[np.queueIndex].videoId == outId else { return nil }
         let inId = np.queueSongs[np.queueIndex + 1].videoId
-        let downloads = DownloadManager.shared
-        guard outId != inId, downloads.isDownloaded(videoId: outId), downloads.isDownloaded(videoId: inId) else {
+        // Descargadas, o con Wi-Fi tambien las de streaming (FFmpeg las lee directamente).
+        guard outId != inId, AutoMixSource.isAvailable(videoId: outId), AutoMixSource.isAvailable(videoId: inId) else {
             return nil
         }
         return (outId, inId)
@@ -124,18 +124,21 @@ final class AutoMixEngine {
         preparingKey = key
         Task { [weak self] in
             defer { self?.preparingKey = nil }
-            let downloads = DownloadManager.shared
-            guard let outURL = await downloads.localURL(for: outId),
-                  let inURL = await downloads.localURL(for: inId) else { return }
+            guard let outSource = await AutoMixSource.source(for: outId),
+                  let inSource = await AutoMixSource.source(for: inId) else { return }
+            let outURL = outSource.url
+            let inURL = inSource.url
             let began = Date()
             let cutAt = Double(plan.outgoingStartMs) / 1000
             let inStart = Double(plan.incomingStartMs) / 1000
             let duration = Double(plan.durationMs) / 1000
+            let outgoingRatio = plan.outgoingSpeedRatio
+            let incomingRatio = plan.incomingSpeedRatio
             let rendered = await Task.detached(priority: .userInitiated) {
                 MixRenderer.render(
                     outgoingURL: outURL, outgoingStart: cutAt,
                     incomingURL: inURL, incomingStart: inStart,
-                    duration: duration
+                    duration: duration, outgoingRatio: outgoingRatio, incomingRatio: incomingRatio
                 )
             }.value
             guard let rendered else {
@@ -148,7 +151,7 @@ final class AutoMixEngine {
                 self.prepared = Prepared(
                     key: key, outId: outId, inId: inId, plan: plan, mixURL: rendered.url,
                     outgoingURL: outURL, incomingURL: inURL, cutAt: cutAt,
-                    resumeAt: inStart + duration + rendered.extra, mixEndsAt: inStart + duration
+                    resumeAt: rendered.mixEndsAt + rendered.extra, mixEndsAt: rendered.mixEndsAt
                 )
                 PlaybackReport.record(String(
                     format: "automix: mezcla %@ -> %@ preparada en %.1f s", outId, inId, Date().timeIntervalSince(began)
@@ -248,7 +251,9 @@ final class AutoMixEngine {
         let duration = Double(p.plan.durationMs) / 1000
         let visuals = AutoMixVisuals.shared
         if mixPosition < duration {
-            controller.positionOverride = min(p.cutAt + mixPosition, max(outgoingDuration, p.cutAt))
+            // La saliente avanza mas (o menos) que la mezcla porque cambia de velocidad.
+            let advanced = AutoMixMath.outgoingAdvance(ratio: p.plan.outgoingSpeedRatio, duration: duration, seconds: mixPosition)
+            controller.positionOverride = min(p.cutAt + advanced, max(outgoingDuration, p.cutAt))
             visuals.progress = min(max(mixPosition / duration, 0), 1)
             let beats = (mixPosition * 1000) / max(beatMs, 1) / beatsPerPulse
             visuals.beatPhase = beats - beats.rounded(.down)

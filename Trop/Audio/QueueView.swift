@@ -46,6 +46,22 @@ struct QueueView<ProgressSlider: View>: View {
             }
     }
 
+    /// Una fila de la cola con identidad estable.
+    private struct QueueEntry: Identifiable {
+        let id: String
+        let index: Int
+        let song: SongItem
+    }
+
+    private var queueEntries: [QueueEntry] {
+        var seen: [String: Int] = [:]
+        return np.queueSongs.enumerated().map { index, song in
+            let occurrence = seen[song.videoId, default: 0]
+            seen[song.videoId] = occurrence + 1
+            return QueueEntry(id: "\(song.videoId)#\(occurrence)", index: index, song: song)
+        }
+    }
+
     // MARK: - Queue Content
 
     private var queueContent: some View {
@@ -59,6 +75,7 @@ struct QueueView<ProgressSlider: View>: View {
             queueListHeaderRow
 
             ScrollViewReader { proxy in
+                let entries = queueEntries
                 List {
                     if np.queueSongs.isEmpty {
                         emptyQueueRow
@@ -66,10 +83,12 @@ struct QueueView<ProgressSlider: View>: View {
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
                     } else {
-                        // Id = posicion: la misma cancion puede estar dos veces en la cola y con ids repetidos
-                        // SwiftUI puede mezclar filas (y, al deslizar para quitar, quitar la que no era).
-                        ForEach(Array(np.queueSongs.enumerated()), id: \.offset) { index, song in
-                            queueRow(song: song, index: index)
+                        // Cada fila tiene una identidad propia que acompaña a su cancion (la cancion y cuantas veces ya
+                        // salio antes en la cola, por si esta repetida). Antes era la posicion: al soltar una cancion en
+                        // otro sitio las filas no se movian, cambiaban de contenido, y se veia un "refresco" en vez del
+                        // movimiento.
+                        ForEach(entries) { entry in
+                            queueRow(song: entry.song, index: entry.index)
                         }
                         .onMove(perform: np.moveQueueSongs)
                     }
@@ -80,8 +99,8 @@ struct QueueView<ProgressSlider: View>: View {
                 .scrollIndicators(.hidden)
                 .layoutPriority(1)
                 .onAppear {
-                    if np.queueSongs.indices.contains(np.queueIndex) {
-                        proxy.scrollTo(np.queueIndex, anchor: .center)
+                    if entries.indices.contains(np.queueIndex) {
+                        proxy.scrollTo(entries[np.queueIndex].id, anchor: .center)
                     }
                 }
             }
