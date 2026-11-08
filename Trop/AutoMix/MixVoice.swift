@@ -14,10 +14,16 @@ import ffmpegkit
 /// les aplican los filtros, el intercambio de graves y los volumenes, y se suman. mpv reproduce ese archivo entre la
 /// saliente y la entrante sin pausa y con un unico reloj, asi que no hay doblados ni ecos.
 enum MixRenderer {
-    /// Duracion exacta de la mezcla (en segundos) y archivo con ella.
+    /// Archivo de la mezcla y los segundos de la entrante que se dejan detras de la mezcla (hasta el punto de empalme).
     struct Output {
         let url: URL
+        let extra: TimeInterval
     }
+
+    /// Segundos de la entrante que se dejan en el archivo despues de la mezcla, para elegir dentro de ellos el momento
+    /// mas flojo donde mpv cambia de archivo (el cambio puede dejar un hueco de unas decenas de milisegundos, que asi
+    /// cae sobre algo casi silencioso).
+    nonisolated static let tailSeconds = 4.0
 
     /// - Saliente: desde `outgoingStart`, durante `duration` s, un paso bajo que se cierra de 20 kHz a 200 Hz, con el
     ///   volumen bajando por coseno y los graves intactos hasta el intercambio.
@@ -34,9 +40,12 @@ enum MixRenderer {
             return file.processingFormat.sampleRate
         }()
         let frames = Int((duration * rate).rounded())
+        let tailFrames = Int((tailSeconds * rate).rounded())
         guard frames > 0,
               let outgoing = decode(url: outgoingURL, start: outgoingStart, seconds: duration, rate: rate, frames: frames),
-              let incoming = decode(url: incomingURL, start: incomingStart, seconds: duration, rate: rate, frames: frames) else {
+              let incoming = decode(
+                url: incomingURL, start: incomingStart, seconds: duration + tailSeconds, rate: rate, frames: frames + tailFrames
+              ) else {
             return nil
         }
 
@@ -81,8 +90,64 @@ enum MixRenderer {
                 mixed[channel][i] = Float(max(-1, min(1, outSample + inSample)))
             }
         }
+
+        // Detras de la mezcla va la entrante tal cual, hasta el momento mas flojo (entre golpes), con un paso por cero.
+        let cut = quietestFrame(incoming, from: frames + Int(0.4 * rate), to: frames + tailFrames - Int(0.2 * rate), rate: rate)
+        for channel in 0..<2 {
+            mixed[channel].append(contentsOf: incoming[channel][frames..<cut])
+        }
+        // Un fundido cortisimo al final evita un chasquido en el borde del archivo.
+        let fade = min(Int(0.002 * rate), mixed[0].count)
+        for channel in 0..<2 {
+            let total = mixed[channel].count
+            for i in 0..<fade { mixed[channel][total - 1 - i] *= Float(i) / Float(fade) }
+        }
         guard let url = write(mixed, rate: rate) else { return nil }
-        return Output(url: url)
+        return Output(url: url, extra: Double(cut - frames) / rate)
+    }
+
+    /// Fotograma, dentro de `from..<to`, donde la entrante suena mas floja (ventana de 30 ms), ajustado al paso por cero
+    /// mas cercano.
+    nonisolated private static func quietestFrame(_ channels: [[Float]], from: Int, to: Int, rate: Double) -> Int {
+        let total = channels[0].count
+        let start = min(max(from, 0), total - 1)
+        let end = min(max(to, start + 1), total)
+        let hop = max(Int(0.005 * rate), 1)
+        let window = 6
+        // Energia por tramos de 5 ms (mono).
+        var energy: [Double] = []
+        var i = start
+        while i + hop <= end {
+            var sum = 0.0
+            for frame in i..<(i + hop) {
+                let v = Double(channels[0][frame] + channels[1][frame]) * 0.5
+                sum += v * v
+            }
+            energy.append(sum)
+            i += hop
+        }
+        guard energy.count > window else { return min(start + Int(0.5 * rate), end) }
+        var best = 0
+        var bestValue = Double.infinity
+        for k in 0...(energy.count - window) {
+            let value = energy[k..<(k + window)].reduce(0, +)
+            if value < bestValue {
+                bestValue = value
+                best = k
+            }
+        }
+        var center = start + (best + window / 2) * hop
+        // Paso por cero: dentro de +-3 ms, el fotograma con menos amplitud.
+        let span = Int(0.003 * rate)
+        var lowest = Float.infinity
+        for frame in max(center - span, start)...min(center + span, end - 1) {
+            let level = abs(channels[0][frame]) + abs(channels[1][frame])
+            if level < lowest {
+                lowest = level
+                center = frame
+            }
+        }
+        return min(max(center, start), end)
     }
 
     // MARK: - Decodificacion con FFmpeg

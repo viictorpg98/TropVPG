@@ -33,8 +33,10 @@ final class AutoMixEngine {
         let incomingURL: URL
         /// Segundo de la saliente donde mpv la corta y empieza el archivo de la mezcla.
         let cutAt: Double
-        /// Segundo de la entrante por donde sigue mpv cuando acaba el archivo de la mezcla.
+        /// Segundo de la entrante por donde sigue mpv cuando acaba el archivo de la mezcla (despues de la cola).
         let resumeAt: Double
+        /// Segundo de la entrante donde acaba la mezcla propiamente dicha (a partir de ahi suena tal cual).
+        let mixEndsAt: Double
     }
 
     private var phase = Phase.idle
@@ -47,6 +49,8 @@ final class AutoMixEngine {
     private var outgoingDuration: TimeInterval = 0
     private var beatMs: Double = 500
     private var beatsPerPulse: Double = 1
+    /// La app ya ve la entrante como cancion actual (la mezcla acabo, aunque el archivo siga unos segundos).
+    private var adopted = false
 
     private let fastInterval: TimeInterval = 0.03
 
@@ -143,7 +147,8 @@ final class AutoMixEngine {
             if self.prepared?.key != key, self.phase == .idle {
                 self.prepared = Prepared(
                     key: key, outId: outId, inId: inId, plan: plan, mixURL: rendered.url,
-                    outgoingURL: outURL, incomingURL: inURL, cutAt: cutAt, resumeAt: inStart + duration
+                    outgoingURL: outURL, incomingURL: inURL, cutAt: cutAt,
+                    resumeAt: inStart + duration + rendered.extra, mixEndsAt: inStart + duration
                 )
                 PlaybackReport.record(String(
                     format: "automix: mezcla %@ -> %@ preparada en %.1f s", outId, inId, Date().timeIntervalSince(began)
@@ -176,6 +181,7 @@ final class AutoMixEngine {
             return
         }
         outgoingDuration = controller.duration
+        adopted = false
         if let structure = TrackAnalysisStore.shared.structure(for: p.outId) {
             beatMs = structure.beatMs
             // Por encima de 140 BPM el latido seria nervioso: se hace cada dos pulsos.
@@ -239,39 +245,49 @@ final class AutoMixEngine {
         let controller = PlayerController.shared
         guard controller.gaplessStage == 2 else { return }
         let mixPosition = controller.rawTimePos()
-        controller.positionOverride = min(p.cutAt + mixPosition, max(outgoingDuration, p.cutAt))
         let duration = Double(p.plan.durationMs) / 1000
         let visuals = AutoMixVisuals.shared
-        visuals.progress = min(max(mixPosition / duration, 0), 1)
-        let beats = (mixPosition * 1000) / max(beatMs, 1) / beatsPerPulse
-        visuals.beatPhase = beats - beats.rounded(.down)
+        if mixPosition < duration {
+            controller.positionOverride = min(p.cutAt + mixPosition, max(outgoingDuration, p.cutAt))
+            visuals.progress = min(max(mixPosition / duration, 0), 1)
+            let beats = (mixPosition * 1000) / max(beatMs, 1) / beatsPerPulse
+            visuals.beatPhase = beats - beats.rounded(.down)
+        } else {
+            // La mezcla acabo: la entrante ya suena sola (queda un trozo de archivo hasta el empalme con su propio archivo).
+            if !adopted { adoptIncoming(p) }
+            controller.positionOverride = p.mixEndsAt + (mixPosition - duration)
+        }
     }
 
     // MARK: - Fin de la mezcla: mpv ya suena la entrante
 
-    /// mpv acabo el archivo de la mezcla y pasa a la entrante: la app pasa a verla como cancion actual.
+    /// La mezcla acabo (la parte mezclada del archivo): la app pasa a ver la entrante como cancion actual. mpv sigue
+    /// unos segundos en el archivo de la mezcla (la entrante tal cual) hasta el punto flojo donde cambia a su archivo.
+    private func adoptIncoming(_ p: Prepared) {
+        adopted = true
+        let controller = PlayerController.shared
+        controller.durationOverride = nil
+        let ok = NowPlaying.shared.adoptGaplessIncoming(
+            videoId: p.inId, position: p.mixEndsAt, artwork: AutoMixVisuals.shared.incomingImage
+        )
+        // La duracion que se ve es la de la entrante (mpv sigue con la del archivo de la mezcla).
+        if let song = NowPlaying.shared.queueSongs.first(where: { $0.videoId == p.inId }), song.duration > 0 {
+            controller.durationOverride = TimeInterval(song.duration)
+        }
+        PlaybackReport.record(ok ? "automix: mezcla terminada, la entrante \(p.inId) suena sola" : "automix: no se pudo pasar a \(p.inId)")
+        AutoMixVisuals.shared.progress = 1
+        AutoMixVisuals.shared.end()
+    }
+
+    /// mpv acabo el archivo de la mezcla y pasa al archivo de la entrante, en el punto flojo elegido.
     func gaplessReachedIncoming() {
         guard phase != .idle, let p = prepared else { return }
+        if !adopted { adoptIncoming(p) }
         let controller = PlayerController.shared
         controller.positionOverride = nil
         controller.durationOverride = nil
-        let ok = NowPlaying.shared.adoptGaplessIncoming(
-            videoId: p.inId, position: p.resumeAt, artwork: AutoMixVisuals.shared.incomingImage
-        )
-        PlaybackReport.record(ok ? "automix: mezcla terminada, suena \(p.inId)" : "automix: no se pudo pasar a \(p.inId)")
-        AutoMixVisuals.shared.progress = 1
-        AutoMixVisuals.shared.end()
-        let resumeAt = p.resumeAt
-        let arrivedAt = Date()
+        PlaybackReport.record(String(format: "automix: empalme con la entrante en el segundo %.2f de su archivo", p.resumeAt))
         finish()
-        // Comprobacion del empalme: medio segundo despues, la posicion de mpv debe ser la prevista (donde acabo la mezcla
-        // mas lo que ha pasado). Si no lo es, la entrante empezo en otro punto o hubo un corte.
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 600_000_000)
-            let expected = resumeAt + Date().timeIntervalSince(arrivedAt)
-            let actual = PlayerController.shared.rawTimePos()
-            PlaybackReport.record(String(format: "automix: empalme con la entrante, desvio %.0f ms", (actual - expected) * 1000))
-        }
     }
 
     private func finish() {
