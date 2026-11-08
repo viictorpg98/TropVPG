@@ -6,7 +6,7 @@
 import SwiftUI
 import UIKit
 
-/// Suaviza el avance de la mezcla (empieza y acaba despacio).
+/// Suaviza un avance de 0 a 1 (empieza y acaba despacio).
 private func smooth(_ t: Double) -> Double {
     let x = min(max(t, 0), 1)
     return x * x * (3 - 2 * x)
@@ -17,12 +17,6 @@ private func vivid(_ color: Color) -> Color {
     var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
     UIColor(color).getHue(&h, saturation: &s, brightness: &b, alpha: &a)
     return Color(hue: Double(h), saturation: Double(min(1, s * 1.2 + 0.05)), brightness: Double(max(b, 0.55)))
-}
-
-/// El cruce de carátulas y colores se concentra en la parte central de la mezcla (de 25 % a 75 %), como en Apple
-/// Music: antes y despues se ve una sola.
-private func dissolve(_ progress: Double) -> Double {
-    smooth((progress - 0.25) / 0.5)
 }
 
 /// Mezcla dos colores (0 = `a`, 1 = `b`).
@@ -40,10 +34,49 @@ private func mix(_ a: Color, _ b: Color, _ t: Double) -> Color {
     )
 }
 
-// MARK: - Carátula: se disuelve en su sitio
+/// Lo que se ha "revelado" de la cancion nueva, de 0 a 1. Como en Apple Music, el cambio visual es corto (un par de
+/// segundos) y ocurre en el centro de la mezcla; antes y despues no se mueve nada.
+private func reveal(_ progress: Double) -> Double {
+    smooth((progress - 0.38) / 0.24)
+}
 
-/// La carátula del reproductor grande. Fuera de una mezcla es la de siempre; durante una, la actual se disuelve
-/// en su sitio hacia la siguiente, con un leve cambio de escala (como en Apple Music: sin deslizar nada).
+// MARK: - El borde líquido
+
+/// Mascara con un borde que sube desde abajo, difuso y ondulado como un liquido (es lo que hace Apple Music al
+/// cambiar de cancion). Lo opaco es lo que se ve de la cancion nueva.
+private struct LiquidReveal: View {
+    /// 0 = no se ve nada; 1 = se ve todo.
+    let amount: Double
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            // El frente sube de mas abajo del borde inferior a mas arriba del superior.
+            let front = h * (1.45 - 1.85 * amount)
+            ZStack {
+                ForEach(0..<7, id: \.self) { i in
+                    let x = w * Double(i) / 6
+                    let wobble = sin(amount * 7 + Double(i) * 1.7) * h * 0.07
+                    let lift = (i % 2 == 0 ? 1.0 : -1.0) * h * 0.05
+                    Circle()
+                        .frame(width: w * 0.62, height: w * 0.62)
+                        .position(x: x, y: front + wobble + lift)
+                }
+                // Todo lo que queda por debajo del frente ya es de la nueva.
+                Rectangle()
+                    .frame(width: w * 1.4, height: h * 3)
+                    .position(x: w / 2, y: front + h * 1.55)
+            }
+            .blur(radius: min(w, h) * 0.08)
+        }
+    }
+}
+
+// MARK: - Carátula
+
+/// La carátula del reproductor grande. Fuera de una mezcla es la de siempre; durante una, la nueva sube desde abajo
+/// con un borde liquido y enfocandose mientras la actual se desenfoca, como en Apple Music.
 struct MixAwareArtwork<Content: View>: View {
     let side: CGFloat
     let content: Content
@@ -68,33 +101,37 @@ struct MixAwareArtwork<Content: View>: View {
     }
 
     private func mixing(incoming: UIImage) -> some View {
-        let e = dissolve(visuals.progress)
-        // Disolvencia con enfoque: la que sale se desenfoca y se desvanece mientras la que entra se enfoca. Asi no se
-        // ven las dos nitidas a la vez (la doble exposicion de dos portadas cargadas queda fea).
-        let blur: CGFloat = reduceMotion ? 0 : 16
+        let amount = reveal(visuals.progress)
+        let blur: CGFloat = reduceMotion ? 0 : 14
         return ZStack {
+            content
+                .frame(width: side, height: side)
+                .blur(radius: blur * amount)
+                .scaleEffect(reduceMotion ? 1 : 1 + 0.04 * amount)
+
             Image(uiImage: incoming)
                 .resizable()
                 .scaledToFill()
                 .frame(width: side, height: side)
-                .blur(radius: blur * (1 - e))
-                .scaleEffect(reduceMotion ? 1 : 0.95 + 0.05 * e)
-                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-
-            content
-                .frame(width: side, height: side)
-                .blur(radius: blur * e)
-                .scaleEffect(reduceMotion ? 1 : 1 + 0.05 * e)
-                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .opacity(1 - e)
+                .blur(radius: blur * (1 - amount))
+                .scaleEffect(reduceMotion ? 1 : 0.96 + 0.04 * amount)
+                .mask {
+                    if reduceMotion {
+                        Rectangle().opacity(amount)
+                    } else {
+                        LiquidReveal(amount: amount).frame(width: side, height: side)
+                    }
+                }
         }
         .frame(width: side, height: side)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .shadow(color: .black.opacity(0.4), radius: 18, y: 10)
     }
 }
 
-// MARK: - Título: uno se va y luego entra el otro
+// MARK: - Título
 
+/// El titulo y el artista se cambian a la vez que la carátula: el actual sube y se desenfoca, el nuevo llega desde abajo.
 struct MixAwareTitle: View {
     let title: String
     let artist: String
@@ -104,17 +141,18 @@ struct MixAwareTitle: View {
 
     var body: some View {
         if visuals.isMixing, !visuals.incomingTitle.isEmpty {
-            // Primero se apaga el de la saliente y despues se enciende el de la entrante: nunca se pisan.
-            let p = visuals.progress
-            let out = 1 - smooth((p - 0.35) / 0.15)
-            let incoming = smooth((p - 0.5) / 0.15)
+            let r = reveal(visuals.progress)
+            let out = 1 - smooth((r - 0.45) / 0.3)
+            let incoming = smooth((r - 0.6) / 0.3)
             ZStack(alignment: .leading) {
                 block(title: title, artist: artist, videoId: videoId)
                     .opacity(out)
-                    .blur(radius: 6 * (1 - out))
+                    .blur(radius: 5 * (1 - out))
+                    .offset(y: -7 * (1 - out))
                 block(title: visuals.incomingTitle, artist: visuals.incomingArtist, videoId: visuals.incomingVideoId)
                     .opacity(incoming)
-                    .blur(radius: 6 * (1 - incoming))
+                    .blur(radius: 5 * (1 - incoming))
+                    .offset(y: 7 * (1 - incoming))
             }
         } else {
             block(title: title, artist: artist, videoId: videoId)
@@ -174,26 +212,23 @@ struct AutoMixPill: View {
     }
 }
 
-// MARK: - Resplandor de color de toda la pantalla
+// MARK: - Color de toda la pantalla
 
-/// Durante una mezcla, toda la pantalla (tambien con el fondo negro) se llena del color de las dos carátulas, pasando
-/// de una a otra, con manchas de color que se mueven despacio y laten con el ritmo. Fuera de la mezcla se apaga con
-/// un fundido.
+/// Durante una mezcla, toda la pantalla (tambien con el fondo negro) se llena del color de la carátula actual, con
+/// manchas que se mueven despacio y laten con el ritmo; en el centro de la mezcla, el color de la nueva sube desde
+/// abajo con el mismo borde liquido que la carátula. Fuera de la mezcla se apaga con un fundido.
 struct AutoMixGlow: View {
     private let visuals = AutoMixVisuals.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let e = dissolve(visuals.progress)
+        let amount = reveal(visuals.progress)
         let out = visuals.outgoingColors
         let incoming = visuals.incomingColors
         let outFirst = vivid(out.first ?? Color(red: 0.2, green: 0.2, blue: 0.3))
         let outLast = vivid(out.last ?? out.first ?? Color(red: 0.2, green: 0.2, blue: 0.3))
         let inFirst = incoming.first.map(vivid) ?? outFirst
         let inLast = incoming.last.map(vivid) ?? outLast
-        let top = mix(outFirst, inFirst, e)
-        let bottom = mix(outLast, inLast, e)
-        let accent = mix(outLast, inFirst, e)
         // Entra deprisa al empezar la mezcla; el latido infla un poco las manchas en cada pulso.
         let ramp = min(1, visuals.progress * 7)
         let beat = (visuals.pulsing && !reduceMotion) ? exp(-visuals.beatPhase * 6) : 0
@@ -202,18 +237,33 @@ struct AutoMixGlow: View {
             let t = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
             let grow = 1 + 0.07 * beat
             ZStack {
-                LinearGradient(colors: [top, bottom], startPoint: .top, endPoint: .bottom)
-                blob(top, x: 0.22 + 0.18 * sin(t * 0.55), y: 0.18 + 0.08 * cos(t * 0.40), radius: 420 * grow)
-                blob(accent, x: 0.80 + 0.14 * cos(t * 0.47), y: 0.50 + 0.12 * sin(t * 0.52), radius: 380 * grow)
-                blob(bottom, x: 0.35 + 0.20 * cos(t * 0.38), y: 0.88 + 0.06 * sin(t * 0.61), radius: 460 * grow)
+                wash(top: outFirst, bottom: outLast, accent: mix(outFirst, outLast, 0.5), time: t, grow: grow)
+                wash(top: inFirst, bottom: inLast, accent: mix(inFirst, inLast, 0.5), time: t + 3, grow: grow)
+                    .mask {
+                        if reduceMotion {
+                            Rectangle().opacity(amount)
+                        } else {
+                            LiquidReveal(amount: amount)
+                        }
+                    }
                 // Un velo suave abajo mantiene legibles los controles sobre colores claros.
                 LinearGradient(colors: [.clear, .black.opacity(0.22)], startPoint: .center, endPoint: .bottom)
             }
         }
         .ignoresSafeArea()
         .opacity(visuals.isMixing ? ramp : 0)
-        .animation(.easeInOut(duration: 1.2), value: visuals.isMixing)
+        .animation(.easeInOut(duration: 1.6), value: visuals.isMixing)
         .allowsHitTesting(false)
+    }
+
+    /// El color de una cancion: degradado vertical con tres manchas que se mueven despacio.
+    private func wash(top: Color, bottom: Color, accent: Color, time t: Double, grow: Double) -> some View {
+        ZStack {
+            LinearGradient(colors: [top, bottom], startPoint: .top, endPoint: .bottom)
+            blob(top, x: 0.22 + 0.18 * sin(t * 0.55), y: 0.18 + 0.08 * cos(t * 0.40), radius: 420 * grow)
+            blob(accent, x: 0.80 + 0.14 * cos(t * 0.47), y: 0.50 + 0.12 * sin(t * 0.52), radius: 380 * grow)
+            blob(bottom, x: 0.35 + 0.20 * cos(t * 0.38), y: 0.88 + 0.06 * sin(t * 0.61), radius: 460 * grow)
+        }
     }
 
     private func blob(_ color: Color, x: Double, y: Double, radius: Double) -> some View {
@@ -226,7 +276,7 @@ struct AutoMixGlow: View {
     }
 }
 
-// MARK: - Fondo que se funde (estilo degradado)
+// MARK: - Fondo (estilo degradado)
 
 /// El degradado del reproductor grande. Durante una mezcla pasa del color de una carátula al de la otra.
 struct PlayerGradientBackground: View {
@@ -238,7 +288,7 @@ struct PlayerGradientBackground: View {
         let current = [base.first ?? Color(red: 0.15, green: 0.15, blue: 0.2), base.last ?? Color(red: 0.05, green: 0.05, blue: 0.08)]
         guard visuals.isMixing, let nextFirst = visuals.incomingColors.first else { return current }
         let nextLast = visuals.incomingColors.last ?? nextFirst
-        let e = dissolve(visuals.progress)
+        let e = reveal(visuals.progress)
         return [mix(current[0], nextFirst, e), mix(current[1], nextLast, e)]
     }
 
