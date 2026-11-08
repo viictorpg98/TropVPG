@@ -449,6 +449,7 @@ extension PlayerController {
             if !trimmed.isEmpty {
                 if trimmed.range(of: "primitive restart", options: .caseInsensitive) != nil { return }
                 Log.mpv.debug("[\(prefix)] [\(level)] \(trimmed)")
+                PlaybackReport.record("mpv [\(prefix)] \(trimmed.prefix(160))")
                 if let crop = detectedCrop(from: trimmed) {
                     Task { @MainActor in self.applyDetectedCrop(crop) }
                 }

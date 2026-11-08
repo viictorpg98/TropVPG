@@ -120,19 +120,24 @@ actor PlaybackManager {
         var request = StreamResolveRequest.playback(videoId: videoId)
         request.options.audioQuality = SettingsStore.shared.audioQuality
         let started = Date()
-        let isLong = await prioritizeSessionClientsIfLong(&request, videoId: videoId)
-        PlaybackReport.record("pedir \(videoId) largo=\(isLong) orden=\(request.chain.map { $0.client.clientName }.joined(separator: ","))")
+        let isLong = Self.isLong(await queueSong(for: videoId))
+        PlaybackReport.record("pedir \(videoId) largo=\(isLong)")
         if !isLong, let last = UserDefaults.standard.string(forKey: Self.lastClientKey),
            let index = request.chain.firstIndex(where: { $0.client.clientName == last }), index > 0 {
             // Prueba primero el cliente que funciono la ultima vez: si los de delante fallan, cada fallo
             // es una peticion de red perdida antes de que suene nada.
             request.chain.insert(request.chain.remove(at: index), at: 0)
         }
-        let result = try await StreamFallback.resolveFirstValid(
-            request,
-            using: InnerTubeClient.tropShared,
-            providers: .tropLive
-        )
+        let result: PlaybackResult
+        if isLong {
+            result = try await resolveLongContent(videoId: videoId, request: request)
+        } else {
+            result = try await StreamFallback.resolveFirstValid(
+                request,
+                using: InnerTubeClient.tropShared,
+                providers: .tropLive
+            )
+        }
         PlaybackReport.record("direccion de \(videoId): cliente \(result.clientName) en \(Int(Date().timeIntervalSince(started) * 1000)) ms, \(result.mimeType)")
         // Lo que funciona para un podcast no dice nada de la musica: no se recuerda.
         if !isLong { UserDefaults.standard.set(result.clientName, forKey: Self.lastClientKey) }
@@ -140,20 +145,59 @@ actor PlaybackManager {
         return result
     }
 
-    /// Podcasts y contenidos largos: los clientes que no usan tu sesion contestan "confirma que no eres
-    /// un robot" (comprobado con episodios reales) y fallan uno tras otro antes de llegar a uno que
-    /// funcione, asi que se dejan para el final. El resto conserva su orden de siempre. Devuelve si lo era.
-    /// (Probar WEB_REMIX el primero rompio la reproduccion de podcasts: su direccion no se comprueba
-    /// antes de usarla y, para podcasts, no funcionaba.)
-    @discardableResult
-    private func prioritizeSessionClientsIfLong(_ request: inout StreamResolveRequest, videoId: String) async -> Bool {
-        let song = await queueSong(for: videoId)
-        guard Self.isLong(song) else { return false }
-        let anonymous: Set<String> = ["VISIONOS", "ANDROID_VR"]
-        let others = request.chain.filter { !anonymous.contains($0.client.clientName) }
-        let deferred = request.chain.filter { anonymous.contains($0.client.clientName) }
-        request.chain = others + deferred
-        return true
+    /// Podcasts y contenidos largos: se prueban los clientes en su orden de siempre, pero comprobando
+    /// TODAS las direcciones antes de usarlas y apuntando en el informe que pasa con cada uno.
+    /// Con la cadena normal, WEB_REMIX y iOS se dan por buenos sin comprobar, y para podcasts WEB_REMIX
+    /// devuelve una direccion que el reproductor no puede cargar ("loading failed"): se tomaba por buena
+    /// y no se probaban los demas clientes.
+    private func resolveLongContent(videoId: String, request: StreamResolveRequest) async throws -> PlaybackResult {
+        if request.policy.useCache, let cached = await StreamCache.shared.get(videoId: videoId) {
+            return cached
+        }
+        let providers = StreamResolveProviders.tropLive
+        var tokenTask: Task<PoTokenResult?, Never>?
+        if request.chain.contains(where: { $0.client.useWebPoTokens }) {
+            tokenTask = Task { await providers.poTokenProvider?(videoId) }
+        }
+        defer { tokenTask?.cancel() }
+
+        var lastError: Error?
+        for entry in request.chain {
+            let started = Date()
+            func elapsed() -> Int { Int(Date().timeIntervalSince(started) * 1000) }
+            var options = request.options
+            if entry.client.useWebPoTokens, let tokenTask {
+                let minted = await tokenTask.value
+                options.poToken = minted?.playerRequestPoToken ?? options.poToken
+                options.streamingDataPoToken = minted?.streamingDataPoToken ?? options.streamingDataPoToken
+            }
+            do {
+                let result = try await StreamResolver.resolve(
+                    videoId: videoId,
+                    client: entry.client,
+                    using: InnerTubeClient.tropShared,
+                    options: options,
+                    providers: providers
+                )
+                let valid = await StreamResolver.validateStream(
+                    url: result.streamUrl,
+                    onStreamRejection: providers.onStreamRejection
+                )
+                PlaybackReport.record("\(entry.client.clientName): direccion \(valid ? "VALIDA" : "rechazada") (\(elapsed()) ms)")
+                guard valid else {
+                    lastError = StreamError.validationFailed(entry.client.clientName)
+                    continue
+                }
+                if request.policy.storeInCache {
+                    await StreamCache.shared.set(videoId: videoId, result: result)
+                }
+                return result
+            } catch {
+                PlaybackReport.record("\(entry.client.clientName): error \(error.localizedDescription) (\(elapsed()) ms)")
+                lastError = error
+            }
+        }
+        throw lastError ?? StreamError.allClientsFailed
     }
 
     private static func isLong(_ song: SongItem?) -> Bool {
@@ -290,7 +334,9 @@ actor PlaybackManager {
         request.options.preferredFormat = preferredFormat
         request.options.audioQuality = SettingsStore.shared.audioQuality
         request.options.downloadQuality = SettingsStore.shared.downloadQuality
-        await prioritizeSessionClientsIfLong(&request, videoId: videoId)
+        if Self.isLong(await queueSong(for: videoId)) {
+            return try await resolveLongContent(videoId: videoId, request: request)
+        }
         return try await StreamFallback.resolveFirstValid(
             request,
             using: InnerTubeClient.tropShared,
