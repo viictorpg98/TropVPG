@@ -27,6 +27,9 @@ final class AutoMixEngine {
         var elapsed: TimeInterval = 0
         var lastPosition: TimeInterval
         var lastSpeed: Double = 1
+        /// Duracion del pulso de la saliente (ms) y cuantos pulsos hay por golpe del latido de la animacion.
+        var beatMs: Double = 500
+        var beatsPerPulse: Double = 1
     }
 
     // Filtros de DJ (valores de SimpMusic): la saliente cierra un paso bajo de 20 kHz a 200 Hz y la entrante
@@ -81,6 +84,7 @@ final class AutoMixEngine {
 
         let lead = Double(plan.outgoingStartMs) / 1000 - position
         if lead > 10 || lead < -2 { return }
+        AutoMixVisuals.shared.prepare(song: NowPlaying.shared.queueSongs[NowPlaying.shared.queueIndex + 1])
         prepareVoice(inId: inId)
         installLowPass()
         if lead <= 0.7 { beginArming(outId: outId, inId: inId, plan: plan) }
@@ -227,7 +231,14 @@ final class AutoMixEngine {
             planCache = (b.outId, b.inId, nil)
             return
         }
-        blend = Blend(outId: b.outId, inId: b.inId, plan: late, lastPosition: position)
+        var started = Blend(outId: b.outId, inId: b.inId, plan: late, lastPosition: position)
+        if let structure = TrackAnalysisStore.shared.structure(for: b.outId) {
+            started.beatMs = structure.beatMs
+            // Por encima de 140 BPM el latido seria nervioso: se hace cada dos pulsos.
+            started.beatsPerPulse = structure.bpm > 140 ? 2 : 1
+        }
+        blend = started
+        AutoMixVisuals.shared.begin()
         armed.voice.setHighPass(highPassStart)
         armed.voice.start(at: Double(late.incomingStartMs) / 1000)
         phase = .blending
@@ -266,6 +277,10 @@ final class AutoMixEngine {
 
         let duration = Double(b.plan.durationMs) / 1000
         let progress = min(b.elapsed / duration, 1)
+        let visuals = AutoMixVisuals.shared
+        visuals.progress = progress
+        let beatsSinceStart = (position * 1000 - Double(b.plan.outgoingStartMs)) / max(b.beatMs, 1) / b.beatsPerPulse
+        visuals.beatPhase = beatsSinceStart - beatsSinceStart.rounded(.down)
         // Potencia constante: la saliente baja con el coseno y la entrante sube con el seno.
         let angle = progress * Double.pi / 2
         let playerVolume = SettingsStore.shared.playerVolume
@@ -312,6 +327,8 @@ final class AutoMixEngine {
         // La cadena de mpv se vuelve a montar al cargar la entrante, ya sin el filtro.
         removeLowPass(reapply: false)
         armed.voice.setHighPass(highPassEnd)
+        AutoMixVisuals.shared.progress = 1
+        AutoMixVisuals.shared.pulsing = false
         // mpv carga la entrante unos instantes por detras de la del segundo reproductor; se corrige al alinear.
         handoffTarget = armed.voice.position + 0.25
         handoffStartedAt = Date()
@@ -373,6 +390,7 @@ final class AutoMixEngine {
     }
 
     private func finish() {
+        AutoMixVisuals.shared.end()
         PlayerController.shared.volumeScale = 1
         PlayerController.shared.applyPlayerVolume()
         PlayerController.shared.setPlaybackSpeed(1)
@@ -389,6 +407,7 @@ final class AutoMixEngine {
     func cancel(_ reason: String, quiet: Bool = false) {
         if !quiet { PlaybackReport.record("automix: cancelada (\(reason))") }
         let wasHandoff = phase == .handoff
+        AutoMixVisuals.shared.end()
         stopTimer()
         armed?.voice.stop()
         armed = nil

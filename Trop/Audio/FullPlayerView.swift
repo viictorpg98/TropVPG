@@ -131,27 +131,8 @@ struct FullPlayerView: View {
             Color.black
                 .ignoresSafeArea()
         } else {
-            LinearGradient(
-                colors: [
-                    playerBackgroundColors.first ?? Color(red: 0.15, green: 0.15, blue: 0.2),
-                    playerBackgroundColors.last ?? Color(red: 0.05, green: 0.05, blue: 0.08)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-            .animation(.easeInOut(duration: 0.8), value: playerBackgroundColors)
-            .overlay(alignment: .top) {
-                // Resplandor barato (sin desenfoque): no pesa al animar ni al arrastrar.
-                RadialGradient(
-                    colors: [(playerBackgroundColors.first ?? .blue).opacity(0.5), .clear],
-                    center: .top,
-                    startRadius: 0,
-                    endRadius: 420
-                )
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
-            }
+            // Su propia vista: durante una mezcla de AutoMix cambia de color con ella sin redibujar todo el reproductor.
+            PlayerGradientBackground(base: playerBackgroundColors)
         }
     }
 
@@ -184,10 +165,7 @@ struct FullPlayerView: View {
     private func mainContent(artSide: CGFloat, horizontalPadding: CGFloat, isCompact: Bool) -> some View {
         Spacer(minLength: 0)
 
-        artwork
-            .frame(width: artSide, height: artSide)
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .shadow(color: .black.opacity(0.4), radius: 18, y: 10)
+        MixAwareArtwork(side: artSide, content: artwork)
 
         Spacer(minLength: isCompact ? 10 : 18)
 
@@ -199,9 +177,15 @@ struct FullPlayerView: View {
             .padding(.horizontal, horizontalPadding)
             .padding(.bottom, 6)
 
-        ActiveLyricLine(lines: currentLyrics) {
-            withAnimation(.easeInOut(duration: 0.3)) {
-                showLyrics = true
+        Group {
+            if AutoMixVisuals.shared.isMixing {
+                AutoMixCrossfader()
+            } else {
+                ActiveLyricLine(lines: currentLyrics) {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showLyrics = true
+                    }
+                }
             }
         }
         .padding(.horizontal, horizontalPadding)
@@ -235,14 +219,7 @@ struct FullPlayerView: View {
 
     private var titleAndActionsRow: some View {
         HStack(alignment: .center, spacing: 12) {
-            PlayerTitleBlock(
-                title: np.title,
-                artist: np.displayArtist,
-                spacing: 4,
-                titleFont: .title3.weight(.bold),
-                titleHeight: 28,
-                videoId: np.videoId
-            )
+            MixAwareTitle(title: np.title, artist: np.displayArtist, videoId: np.videoId)
             .frame(maxWidth: .infinity, alignment: .leading)
             .layoutPriority(1)
 
