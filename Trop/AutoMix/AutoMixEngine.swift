@@ -42,6 +42,11 @@ final class AutoMixEngine {
         var beatMs: Double = 500
         var beatsPerPulse: Double = 1
         var lastRate: Double = 1
+        var lastIncomingRate: Double = 1
+        /// Segundos en que ha sonado (sin contar pausas) desde el relevo de mpv, y cuanto tarda en empezar la mezcla.
+        var playTime: Double = 0
+        var startDelay: Double = 0
+        var lastStep = Date()
         /// mpv ya esta callado y en pausa (la saliente suena por su tramo).
         var mpvSilenced = false
         var playersPaused = false
@@ -125,9 +130,9 @@ final class AutoMixEngine {
         planCache = (outId, inId, plan)
         PlaybackReport.record(plan.map {
             String(
-                format: "automix: plan %@ -> %@: empieza en %.1f s, dura %.0f s, entra desde %.1f s, tempo x%.2f (%.0f -> %.0f BPM)",
+                format: "automix: plan %@ -> %@: empieza en %.1f s, dura %.0f s, entra desde %.1f s, tempo saliente x%.3f / entrante x%.3f (%.0f -> %.0f BPM)",
                 outId, inId, Double($0.outgoingStartMs) / 1000, Double($0.durationMs) / 1000,
-                Double($0.incomingStartMs) / 1000, $0.outgoingSpeedRatio, out.bpm, inc.bpm
+                Double($0.incomingStartMs) / 1000, $0.outgoingSpeedRatio, $0.incomingSpeedRatio, out.bpm, inc.bpm
             )
         } ?? "automix: \(outId) -> \(inId) sin mezcla posible (se usa el paso normal)")
         return plan
@@ -152,17 +157,18 @@ final class AutoMixEngine {
             let outgoingStart = Double(plan.outgoingStartMs) / 1000 - lead
             let incomingStart = Double(plan.incomingStartMs) / 1000
             let duration = Double(plan.durationMs) / 1000
-            let ratio = plan.outgoingSpeedRatio
+            let outgoingRatio = plan.outgoingSpeedRatio
+            let incomingRatio = plan.incomingSpeedRatio
             let rendered = await Task.detached(priority: .userInitiated) {
                 MixRenderer.render(
                     outgoingURL: outURL, outgoingStart: outgoingStart, lead: lead,
                     incomingURL: inURL, incomingStart: incomingStart,
-                    duration: duration, ratio: ratio, tail: tail
+                    duration: duration, outgoingRatio: outgoingRatio, incomingRatio: incomingRatio, tail: tail
                 )
             }.value
             guard let rendered,
                   let outgoing = MixVoice.make(fileURL: rendered.outgoing, startSeconds: outgoingStart, enableRate: true),
-                  let incoming = MixVoice.make(fileURL: rendered.incoming, startSeconds: incomingStart, enableRate: false) else {
+                  let incoming = MixVoice.make(fileURL: rendered.incoming, startSeconds: incomingStart, enableRate: true) else {
                 PlaybackReport.record("automix: no se pudo preparar la mezcla \(outId) -> \(inId)")
                 return
             }
@@ -249,9 +255,12 @@ final class AutoMixEngine {
         armed.outgoing.setVolume(0)
         armed.outgoing.play(from: offset)
         armed.outgoing.setVolume(volume, fade: swapFade)
-        // La entrante arranca exactamente cuando la saliente llega al inicio de la mezcla (misma hora del dispositivo).
+        // La entrante arranca exactamente cuando la saliente llega al inicio de la mezcla (misma hora del dispositivo),
+        // ya a la velocidad con la que empieza.
+        let startDelay = max(swapLead - offset, 0.01)
         armed.incoming.setVolume(volume)
-        armed.incoming.play(from: 0, atDeviceTime: armed.outgoing.deviceTime + max(swapLead - offset, 0.01))
+        armed.incoming.setRate(Float(b.plan.incomingSpeedRatio))
+        armed.incoming.play(from: 0, atDeviceTime: armed.outgoing.deviceTime + startDelay)
 
         var started = Blend(
             outId: b.outId, inId: b.inId, plan: b.plan, outgoingStart: b.outgoingStart, swappedAt: Date()
@@ -261,12 +270,15 @@ final class AutoMixEngine {
             // Por encima de 140 BPM el latido seria nervioso: se hace cada dos pulsos.
             started.beatsPerPulse = structure.bpm > 140 ? 2 : 1
         }
+        started.startDelay = startDelay
+        started.lastIncomingRate = b.plan.incomingSpeedRatio
+        started.lastStep = Date()
         blend = started
         AutoMixVisuals.shared.begin()
         phase = .blending
         PlaybackReport.record(String(
-            format: "automix: empieza %@ -> %@ (%.1f s, tempo x%.2f)",
-            b.outId, b.inId, Double(b.plan.durationMs) / 1000, b.plan.outgoingSpeedRatio
+            format: "automix: empieza %@ -> %@ (%.1f s, tempo saliente x%.3f / entrante x%.3f)",
+            b.outId, b.inId, Double(b.plan.durationMs) / 1000, b.plan.outgoingSpeedRatio, b.plan.incomingSpeedRatio
         ))
     }
 
@@ -281,15 +293,17 @@ final class AutoMixEngine {
         }
         let controller = PlayerController.shared
 
-        // En pausa (o interrumpido) las dos se paran; como todo se mide con el tiempo de los propios tramos,
-        // al reanudar la mezcla sigue donde estaba.
+        // En pausa (o interrumpido) las dos se paran y el reloj de la mezcla tambien: al reanudar sigue donde estaba.
+        let now = Date()
+        let dt = min(now.timeIntervalSince(b.lastStep), 0.2)
+        b.lastStep = now
         guard np.isPlaying else {
             if !b.playersPaused {
                 armed.outgoing.pause()
                 armed.incoming.pause()
                 b.playersPaused = true
-                blend = b
             }
+            blend = b
             return
         }
         if b.playersPaused {
@@ -297,6 +311,7 @@ final class AutoMixEngine {
             armed.incoming.resume()
             b.playersPaused = false
         }
+        b.playTime += dt
 
         // Relevo de mpv al tramo de la saliente: mpv baja con un fundido corto y luego se calla y se pausa.
         let sinceSwap = Date().timeIntervalSince(b.swappedAt)
@@ -317,21 +332,28 @@ final class AutoMixEngine {
         let outgoingPosition = armed.outgoing.position
         controller.positionOverride = outgoingPosition
 
-        // Avance de la mezcla: lo que lleva sonando la entrante, de 0 a 1.
+        // Avance de la mezcla: el tiempo real que lleva la entrante sonando, de 0 a 1.
         let duration = Double(b.plan.durationMs) / 1000
-        let progress = min(max(armed.incoming.bufferTime / duration, 0), 1)
+        let progress = min(max((b.playTime - b.startDelay) / duration, 0), 1)
         let visuals = AutoMixVisuals.shared
         visuals.progress = progress
         let beats = (outgoingPosition * 1000 - Double(b.plan.outgoingStartMs)) / max(b.beatMs, 1) / b.beatsPerPulse
         visuals.beatPhase = beats - beats.rounded(.down)
 
-        // La saliente iguala el tempo de la entrante, en rampa suave, y lo mantiene.
+        // Las dos van al tempo comun: la saliente lo alcanza en rampa suave y lo mantiene; la entrante empieza en el suyo y,
+        // cuando la saliente ya casi no se oye, vuelve a su velocidad normal.
         if b.plan.outgoingSpeedRatio != 1 {
-            let rate = 1 + (b.plan.outgoingSpeedRatio - 1) * AutoMixMath.rampProgress(progress)
-            let quantized = (rate / 0.005).rounded() * 0.005
-            if abs(quantized - b.lastRate) >= 0.004 {
-                armed.outgoing.setRate(Float(quantized))
-                b.lastRate = quantized
+            let rate = AutoMixMath.quantized(AutoMixMath.outgoingRate(ratio: b.plan.outgoingSpeedRatio, progress: progress))
+            if abs(rate - b.lastRate) >= 0.004 {
+                armed.outgoing.setRate(Float(rate))
+                b.lastRate = rate
+            }
+        }
+        if b.plan.incomingSpeedRatio != 1 {
+            let rate = AutoMixMath.quantized(AutoMixMath.incomingRate(startRatio: b.plan.incomingSpeedRatio, progress: progress))
+            if abs(rate - b.lastIncomingRate) >= 0.004 {
+                armed.incoming.setRate(Float(rate))
+                b.lastIncomingRate = rate
             }
         }
         blend = b

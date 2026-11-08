@@ -91,35 +91,38 @@ enum MixRenderer {
     ///   mezcla, un filtro paso bajo de 20 kHz a 200 Hz y el volumen bajando con el coseno. El tempo se cambia al
     ///   reproducirla (`rate`), asi que las curvas se calculan sobre el tiempo de la mezcla, no el de la cancion.
     /// - Entrante: durante `duration`, un paso alto de 2 kHz a 20 Hz y el volumen subiendo con el seno; despues
-    ///   `tail` segundos tal cual, para cubrir el relevo a mpv.
+    ///   `tail` segundos tal cual, para cubrir el relevo a mpv. Las dos cambian de velocidad al reproducirse (`rate`),
+    ///   asi que las curvas se calculan sobre el tiempo de la mezcla, no el de la cancion.
     nonisolated static func render(
         outgoingURL: URL, outgoingStart: TimeInterval, lead: TimeInterval,
         incomingURL: URL, incomingStart: TimeInterval,
-        duration: TimeInterval, ratio: Double, tail: TimeInterval
+        duration: TimeInterval, outgoingRatio: Double, incomingRatio: Double, tail: TimeInterval
     ) -> Output? {
-        // Tabla: segundos de cancion que recorre la saliente al cabo de cada instante de la mezcla.
+        // Tablas: segundos de cancion que recorre cada una al cabo de cada instante de la mezcla.
         let step = 0.005
         let count = max(Int(duration / step), 1)
-        var consumed = [Double](repeating: 0, count: count + 1)
+        var consumedOut = [Double](repeating: 0, count: count + 1)
+        var consumedIn = [Double](repeating: 0, count: count + 1)
         for k in 1...count {
-            let u = (Double(k) - 0.5) * step
-            let rate = 1 + (ratio - 1) * AutoMixMath.rampProgress(u / duration)
-            consumed[k] = consumed[k - 1] + rate * step
+            let progress = (Double(k) - 0.5) * step / duration
+            consumedOut[k] = consumedOut[k - 1] + AutoMixMath.outgoingRate(ratio: outgoingRatio, progress: progress) * step
+            consumedIn[k] = consumedIn[k - 1] + AutoMixMath.incomingRate(startRatio: incomingRatio, progress: progress) * step
         }
-        let advance = consumed[count]
+        let advanceOut = consumedOut[count]
+        let advanceIn = consumedIn[count]
 
-        guard let outBuffer = read(url: outgoingURL, start: outgoingStart, seconds: lead + advance + 1.5),
-              let inBuffer = read(url: incomingURL, start: incomingStart, seconds: duration + tail) else { return nil }
+        guard let outBuffer = read(url: outgoingURL, start: outgoingStart, seconds: lead + advanceOut + 1.5),
+              let inBuffer = read(url: incomingURL, start: incomingStart, seconds: advanceIn + tail) else { return nil }
 
         // Igualar el volumen: la entrante empieza al nivel de la saliente y va volviendo al suyo (sin pasarse de +-4 dB).
         let outRate = outBuffer.format.sampleRate
-        let outLoudness = loudness(outBuffer, from: Int(lead * outRate), seconds: min(advance, 8))
-        let inLoudness = loudness(inBuffer, from: 0, seconds: min(duration, 8))
+        let outLoudness = loudness(outBuffer, from: Int(lead * outRate), seconds: min(advanceOut, 8))
+        let inLoudness = loudness(inBuffer, from: 0, seconds: min(advanceIn, 8))
         var match = 1.0
         if outLoudness > 0, inLoudness > 0 { match = min(max(outLoudness / inLoudness, 0.63), 1.6) }
 
-        processOutgoing(outBuffer, lead: lead, duration: duration, step: step, consumed: consumed)
-        processIncoming(inBuffer, duration: duration, match: match)
+        processOutgoing(outBuffer, lead: lead, duration: duration, step: step, consumed: consumedOut)
+        processIncoming(inBuffer, duration: duration, step: step, consumed: consumedIn, match: match)
 
         guard let outURL = write(outBuffer), let inURL = write(inBuffer) else { return nil }
         return Output(outgoing: outURL, incoming: inURL)
@@ -274,19 +277,26 @@ enum MixRenderer {
         }
     }
 
-    nonisolated private static func processIncoming(_ buffer: AVAudioPCMBuffer, duration: TimeInterval, match: Double) {
+    nonisolated private static func processIncoming(
+        _ buffer: AVAudioPCMBuffer, duration: TimeInterval, step: Double, consumed: [Double], match: Double
+    ) {
         guard let channels = buffer.floatChannelData else { return }
         let rate = buffer.format.sampleRate
         let frames = Int(buffer.frameLength)
-        let mixFrames = max(duration * rate, 1)
+        let last = consumed.count - 1
+        let advance = consumed[last]
         for channel in 0..<Int(buffer.format.channelCount) {
             let samples = channels[channel]
             var sweep = Biquad()          // paso alto que se abre (la entrante llega sin cuerpo)
             var split = Biquad()
             split.setLowPass(cutoff: bassCrossover, rate: rate)
+            var k = 0
             for i in 0..<frames {
-                let progress = Double(i) / mixFrames
-                if progress >= 1 { break }
+                let time = Double(i) / rate
+                if time >= advance { break }
+                while k < last - 1, consumed[k + 1] <= time { k += 1 }
+                let span = max(consumed[k + 1] - consumed[k], 1e-9)
+                let progress = min(max((Double(k) + (time - consumed[k]) / span) * step / duration, 0), 1)
                 if i % 64 == 0 {
                     sweep.setHighPass(cutoff: exponential(2_000, 20, Self.sweepCurve(progress)), rate: rate)
                 }
