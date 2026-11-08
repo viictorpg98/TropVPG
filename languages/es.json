@@ -546,5 +546,17 @@
   "No connection and no downloaded songs.": "Sin conexión y sin canciones descargadas.",
   "No connection: continuing with your downloaded music.": "Sin conexión: sigo con tu música descargada.",
   "Offline: showing what was last saved (%@)": "Sin conexión: se muestra lo último guardado (%@)",
-  "Connection restored: back to your normal queue.": "Conexión recuperada: vuelvo a tu cola normal."
+  "Connection restored: back to your normal queue.": "Conexión recuperada: vuelvo a tu cola normal.",
+  "Play a Song": "Poner una canción",
+  "Plays a song you ask for by name.": "Reproduce una canción que pidas por su nombre.",
+  "Song": "Canción",
+  "Which song?": "¿Qué canción?",
+  "Play ${song}": "Poner ${song}",
+  "Playing %@": "Pongo %@",
+  "Playing %@ by %@": "Pongo %1$@ de %2$@",
+  "I couldn't find that song.": "No he encontrado esa canción.",
+  "No connection and that song isn't downloaded.": "Sin conexión y esa canción no está descargada.",
+  "AutoMix": "AutoMix",
+  "Blends one downloaded song into the next like a DJ: they overlap and the tempo is matched. It only works between downloaded songs; everything else plays as usual. The Playback Report shows what it did.": "Mezcla una canción descargada con la siguiente como un DJ: se solapan y se iguala el tempo. Solo funciona entre canciones descargadas; el resto suena como siempre. El Informe de reproducción cuenta qué hizo.",
+  "SimpMusic (AutoMix)": "SimpMusic (AutoMix)"
 }

@@ -80,6 +80,8 @@ final class PlayerController {
 
     let playState = CurrentValueSubject<State, Never>(.stopped)
     var pendingResumeAt: TimeInterval = 0
+    /// Multiplicador del volumen de mpv (1 = normal): AutoMix lo baja y sube durante las mezclas.
+    var volumeScale: Double = 1
     var nowPlayingInfo = [String: Any]()
     private var pendingSeek: (target: TimeInterval, deadline: Date)?
     private var remoteStateCancellable: AnyCancellable?
@@ -163,7 +165,8 @@ extension PlayerController {
         duration: TimeInterval? = nil,
         artists: [YTArtist] = [],
         loudnessDb: Double? = nil,
-        thumbnailUrl: String? = nil
+        thumbnailUrl: String? = nil,
+        startAt: TimeInterval = 0
     ) async {
         currentLoudnessDb = loudnessDb
         guard let url = URL(string: url) else {
@@ -209,9 +212,9 @@ extension PlayerController {
         setVideoCrop(.none)
 
         pendingVideoId = videoId
-        let loadStart = skipStart > 0 ? Int(skipStart.rounded(.up)) : 0
+        let loadStart: Double = startAt > 0 ? startAt : (skipStart > 0 ? Double(Int(skipStart.rounded(.up))) : 0)
         let loadArguments = loadStart > 0
-            ? ["loadfile", url.absoluteString, "replace", "-1", "start=\(loadStart)"]
+            ? ["loadfile", url.absoluteString, "replace", "-1", "start=\(String(format: "%.3f", loadStart))"]
             : ["loadfile", url.absoluteString, "replace"]
         Log.player.info(
             "TRANSITION play videoId=\(videoId ?? "nil") isNewSong=\(isNewSong) muxedActive=\(muxedActive) "
@@ -232,7 +235,7 @@ extension PlayerController {
         if let videoId { await PlaybackStateService.shared.startTracking(videoId: videoId) }
         playState.send(.playing)
         NowPlaying.shared.isPlaying = true
-        NowPlaying.shared.currentTime = 0
+        NowPlaying.shared.currentTime = max(0, startAt)
         NowPlaying.shared.duration = max(0, duration ?? 0)
         setNowPlayingMetadata()
     }
@@ -269,10 +272,18 @@ extension PlayerController {
     }
 
     func applyPlayerVolume() {
-        let vol = SettingsStore.shared.playerVolume
+        let vol = SettingsStore.shared.playerVolume * volumeScale
         withMpv { mpv in
             var val = Double(vol * 100)
             mpv_set_property(mpv, "volume", MPV_FORMAT_DOUBLE, &val)
+        }
+    }
+
+    /// Velocidad de reproduccion de mpv (sin cambiar el tono): AutoMix la usa para igualar tempos.
+    func setPlaybackSpeed(_ speed: Double) {
+        withMpv { mpv in
+            var val = speed
+            mpv_set_property(mpv, "speed", MPV_FORMAT_DOUBLE, &val)
         }
     }
 

@@ -52,6 +52,7 @@
 "Auto-Download New Episodes" = "Descargar episodios nuevos automáticamente";
 "Auto-Download on Like" = "Descargar automáticamente al dar Me gusta";
 "Auto-download saves liked songs for offline playback. Wi-Fi Only blocks downloads on cellular data." = "La descarga automática guarda las canciones que te gustan para escucharlas sin conexión. «Solo Wi-Fi» bloquea las descargas con datos móviles.";
+"AutoMix" = "AutoMix";
 "Autoplay Similar" = "Reproducción automática de similares";
 "Back" = "Atrás";
 "Based on Trop by SwiftyMedia (GPL-3.0)." = "Basada en Trop, de SwiftyMedia (GPL-3.0).";
@@ -59,6 +60,7 @@
 "Bass Reducer" = "Reducción de graves";
 "Beast mode" = "Modo bestia";
 "Bitrate" = "Tasa de bits";
+"Blends one downloaded song into the next like a DJ: they overlap and the tempo is matched. It only works between downloaded songs; everything else plays as usual. The Playback Report shows what it did." = "Mezcla una canción descargada con la siguiente como un DJ: se solapan y se iguala el tempo. Solo funciona entre canciones descargadas; el resto suena como siempre. El Informe de reproducción cuenta qué hizo.";
 "Breakups & heartbreak" = "Rupturas y desamor";
 "Business" = "Negocios";
 "Button 1" = "Botón 1";
@@ -205,6 +207,7 @@
 "Home" = "Inicio";
 "Home Feed" = "Pantalla de inicio";
 "Hopeless romantic" = "Romántico empedernido";
+"I couldn't find that song." = "No he encontrado esa canción.";
 "ITAG" = "ITAG";
 "Idle" = "Inactivo";
 "In the gym" = "En el gimnasio";
@@ -308,6 +311,7 @@
 "No album data" = "Sin datos del álbum";
 "No artist data" = "Sin datos del artista";
 "No connection and no downloaded songs." = "Sin conexión y sin canciones descargadas.";
+"No connection and that song isn't downloaded." = "Sin conexión y esa canción no está descargada.";
 "No connection: continuing with your downloaded music." = "Sin conexión: sigo con tu música descargada.";
 "No connection: there are no more downloaded songs in the queue." = "Sin conexión: no quedan canciones descargadas en la cola.";
 "No connection: this needs internet." = "Sin conexión: esto necesita internet.";
@@ -344,10 +348,12 @@
 "Persist Queue restores your queue, shuffle, and repeat state when the app relaunches." = "«Conservar la cola» restaura tu cola, el modo aleatorio y la repetición al reabrir la app.";
 "Pin to Quick Picks" = "Fijar en Selecciones rápidas";
 "Play" = "Reproducir";
+"Play ${song}" = "Poner ${song}";
 "Play All" = "Reproducir todo";
 "Play Music" = "Pon música";
 "Play My Music" = "Pon mi música";
 "Play Next" = "Reproducir a continuación";
+"Play a Song" = "Poner una canción";
 "Play all" = "Reproducir todo";
 "Play episodes from the top" = "Reproducir episodios desde el principio";
 "Playback & Offline" = "Reproducción y sin conexión";
@@ -355,9 +361,12 @@
 "Player" = "Reproductor";
 "Player Background" = "Fondo del reproductor";
 "Playing" = "Reproduciendo";
+"Playing %@" = "Pongo %@";
+"Playing %@ by %@" = "Pongo %1$@ de %2$@";
 "Playlist" = "Lista de reproducción";
 "Playlist name" = "Nombre de la lista";
 "Playlists" = "Listas de reproducción";
+"Plays a song you ask for by name." = "Reproduce una canción que pidas por su nombre.";
 "Plays the looping video behind the player artwork when Spotify has one for the track." = "Reproduce el vídeo en bucle detrás de la portada cuando Spotify tiene uno para la canción.";
 "Podcast" = "Pódcast";
 "Podcasts" = "Pódcast";
@@ -437,6 +446,7 @@
 "Similar" = "Similar";
 "Similar to %@" = "Similar a %@";
 "Similar to this song" = "Similar a esta canción";
+"SimpMusic (AutoMix)" = "SimpMusic (AutoMix)";
 "Single & EPs" = "Sencillos y EP";
 "Single and EPs" = "Sencillos y EP";
 "Singles & EPs" = "Sencillos y EP";
@@ -446,6 +456,7 @@
 "Sleep" = "Dormir";
 "Society & Culture" = "Sociedad y cultura";
 "Solid" = "Sólido";
+"Song" = "Canción";
 "Song options" = "Opciones de la canción";
 "Song title — e.g. Adele - Hello" = "Título de la canción — p. ej. Adele - Hello";
 "Songs" = "Canciones";
@@ -537,6 +548,7 @@
 "Watching" = "Viendo";
 "When off, searches and playback are not recorded locally." = "Si está desactivado, las búsquedas y reproducciones no se guardan en el dispositivo.";
 "When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on." = "Cuando queda poco espacio (menos de 3 GB), borra las descargas que llevas 3 meses sin escuchar. Las canciones que te gustan nunca se borran. Necesita tener activado el historial de reproducciones.";
+"Which song?" = "¿Qué canción?";
 "Wi-Fi Only" = "Solo Wi-Fi";
 "Wider mix around this song" = "Mezcla más amplia en torno a esta canción";
 "Workout" = "Entrenamiento";

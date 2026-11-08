@@ -33,6 +33,14 @@ struct PlayerSettingsView: View {
             }
 
             Section {
+                SettingsToggleRow("AutoMix", icon: "wand.and.stars", isOn: $settings.autoMixEnabled)
+            } header: {
+                Text("AutoMix")
+            } footer: {
+                Text("Blends one downloaded song into the next like a DJ: they overlap and the tempo is matched. It only works between downloaded songs; everything else plays as usual. The Playback Report shows what it did.")
+            }
+
+            Section {
                 SettingsToggleRow("Autoplay Similar", icon: "infinity", isOn: $settings.autoplaySimilar)
                 SettingsToggleRow("Persist Queue", icon: "clock.arrow.circlepath", isOn: $settings.persistQueue)
             } header: {

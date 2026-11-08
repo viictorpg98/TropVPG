@@ -25,7 +25,7 @@ actor PlaybackManager {
 
     /// Resolve a video and start playback. Returns the result used, or throws.
     @discardableResult
-    func resolveAndPlay(videoId: String) async throws -> PlaybackResult {
+    func resolveAndPlay(videoId: String, startAt: TimeInterval = 0) async throws -> PlaybackResult {
         await MainActor.run { SponsorBlockIntegration.shared.warm(for: videoId) }
         if let localPath = await DownloadManager.shared.localURL(for: videoId) {
             let song = await MainActor.run { NowPlaying.shared.queueSongs.first { $0.videoId == videoId } }
@@ -37,7 +37,8 @@ actor PlaybackManager {
                 videoId: videoId,
                 duration: song.map { TimeInterval($0.duration) },
                 artists: artists,
-                thumbnailUrl: song?.thumbnailUrl
+                thumbnailUrl: song?.thumbnailUrl,
+                startAt: startAt
             )
             await MainActor.run {
                 NowPlaying.shared.updateVideoAvailability()

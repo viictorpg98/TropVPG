@@ -31,6 +31,9 @@ struct AboutSettingsView: View {
                 Link(destination: URL(string: "https://github.com/SwiftyMedia/Trop")!) {
                     Text("GitHub")
                 }
+                Link(destination: URL(string: "https://github.com/maxrave-dev/SimpMusic")!) {
+                    Text("SimpMusic (AutoMix)")
+                }
             } header: {
                 Text("Links")
             } footer: {

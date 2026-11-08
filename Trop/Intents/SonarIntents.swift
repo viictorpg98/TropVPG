@@ -37,6 +37,35 @@ struct ResumeMusicIntent: AudioPlaybackIntent {
     }
 }
 
+/// Pide una cancion por su nombre. Siri pregunta "¿Qué canción?" y se contesta con el titulo (y el artista si
+/// ayuda). Busca primero entre las descargadas y luego en YouTube Music.
+struct PlaySongIntent: AudioPlaybackIntent {
+    static let title: LocalizedStringResource = "Play a Song"
+    static let description = IntentDescription("Plays a song you ask for by name.")
+
+    @Parameter(title: "Song", requestValueDialog: "Which song?")
+    var song: String
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Play \(\.$song)")
+    }
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        if let found = await SonarMix.playSong(named: song) {
+            let artist = found.artists.map(\.name).joined(separator: ", ")
+            let text = artist.isEmpty
+                ? String(format: NSLocalizedString("Playing %@", comment: ""), found.title)
+                : String(format: NSLocalizedString("Playing %@ by %@", comment: ""), found.title, artist)
+            return .result(dialog: "\(text)")
+        }
+        let text = NetworkMonitor.shared.hasConnection
+            ? NSLocalizedString("I couldn't find that song.", comment: "")
+            : NSLocalizedString("No connection and that song isn't downloaded.", comment: "")
+        return .result(dialog: "\(text)")
+    }
+}
+
 /// Cuenta como fue el ultimo "Pon mi musica": cuanto tardo cada paso y que cliente de YouTube sono.
 struct SonarReportIntent: AppIntent {
     static let title: LocalizedStringResource = "Sonar Report"
@@ -71,6 +100,15 @@ struct SonarShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Resume Music",
             systemImageName: "play.fill"
+        )
+        AppShortcut(
+            intent: PlaySongIntent(),
+            phrases: [
+                "Song on \(.applicationName)",
+                "Find a song on \(.applicationName)"
+            ],
+            shortTitle: "Play a Song",
+            systemImageName: "music.note"
         )
         AppShortcut(
             intent: SonarReportIntent(),

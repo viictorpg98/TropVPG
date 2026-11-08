@@ -218,6 +218,65 @@ enum SonarMix {
         return false
     }
 
+    // MARK: - Pedir una cancion concreta
+
+    private static let ignoredWords: Set<String> = [
+        "de", "la", "el", "los", "las", "del", "por", "y", "un", "una", "en", "the", "by", "of", "a", "and", "cancion", "song"
+    ]
+
+    /// Palabras de lo que se pidio, sin acentos ni mayusculas ni palabras de relleno.
+    private static func searchWords(_ text: String) -> [String] {
+        text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil)
+            .lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty && !ignoredWords.contains($0) }
+    }
+
+    /// La mejor coincidencia entre las descargadas: tienen que aparecer todas las palabras pedidas en titulo o
+    /// artista; gana la que mas palabras tiene en el titulo y, a igualdad, el titulo mas corto.
+    private static func bestDownloadedMatch(_ words: [String], in songs: [SongItem]) -> SongItem? {
+        var best: (song: SongItem, inTitle: Int, length: Int)?
+        for song in songs {
+            let title = searchWords(song.title).joined(separator: " ")
+            let artist = searchWords(song.artists.map(\.name).joined(separator: " ")).joined(separator: " ")
+            guard words.allSatisfy({ title.contains($0) || artist.contains($0) }) else { continue }
+            let inTitle = words.filter { title.contains($0) }.count
+            if let current = best,
+               current.inTitle > inTitle || (current.inTitle == inTitle && current.length <= title.count) { continue }
+            best = (song, inTitle, title.count)
+        }
+        return best?.song
+    }
+
+    /// "Pon una canción": primero entre las descargadas (vale sin red) y luego en YouTube Music (primer
+    /// resultado de canciones). La reproduce con su cola. `nil` si no la encuentra.
+    static func playSong(named query: String) async -> SongItem? {
+        let words = searchWords(query)
+        guard !words.isEmpty else { return nil }
+        await prepareSession()
+        trace("cancion pedida: \(query)")
+
+        var chosen = bestDownloadedMatch(words, in: await downloadedSongs())
+        if chosen != nil { trace("encontrada entre las descargadas") }
+        if chosen == nil, await NetworkMonitor.shared.hasConnection {
+            if let raw = try? await SearchService.shared.search(query: query) {
+                let sections = SearchParser.parseSearchResults(from: raw)
+                let preferred = sections.first { $0.title.lowercased().contains("song") || $0.title.lowercased().contains("canci") }
+                for section in ([preferred].compactMap { $0 } + sections) {
+                    for item in section.items {
+                        if case .song(let song) = item { chosen = song; break }
+                    }
+                    if chosen != nil { break }
+                }
+                trace("busqueda en YouTube Music: \(chosen?.title ?? "sin resultado")")
+            }
+        }
+        guard let song = chosen else { return nil }
+        await MainActor.run { PlaybackQueue.playSingleWithRadio(song, log: Log.nowPlaying) }
+        _ = await waitForAudio(seconds: 8)
+        return song
+    }
+
     /// Espera a que mpv empiece a avanzar; `false` si no lo hace en `seconds`.
     private static func waitForAudio(seconds: Double) async -> Bool {
         let deadline = Date().addingTimeInterval(seconds)

@@ -52,6 +52,7 @@
 "Auto-Download New Episodes" = "Auto-Download New Episodes";
 "Auto-Download on Like" = "Auto-Download on Like";
 "Auto-download saves liked songs for offline playback. Wi-Fi Only blocks downloads on cellular data." = "Auto-download saves liked songs for offline playback. Wi-Fi Only blocks downloads on cellular data.";
+"AutoMix" = "AutoMix";
 "Autoplay Similar" = "Autoplay Similar";
 "Back" = "Back";
 "Based on Trop by SwiftyMedia (GPL-3.0)." = "Based on Trop by SwiftyMedia (GPL-3.0).";
@@ -59,6 +60,7 @@
 "Bass Reducer" = "Bass Reducer";
 "Beast mode" = "Beast mode";
 "Bitrate" = "Bitrate";
+"Blends one downloaded song into the next like a DJ: they overlap and the tempo is matched. It only works between downloaded songs; everything else plays as usual. The Playback Report shows what it did." = "Blends one downloaded song into the next like a DJ: they overlap and the tempo is matched. It only works between downloaded songs; everything else plays as usual. The Playback Report shows what it did.";
 "Breakups & heartbreak" = "Breakups & heartbreak";
 "Business" = "Business";
 "Button 1" = "Button 1";
@@ -205,6 +207,7 @@
 "Home" = "Home";
 "Home Feed" = "Home Feed";
 "Hopeless romantic" = "Hopeless romantic";
+"I couldn't find that song." = "I couldn't find that song.";
 "ITAG" = "ITAG";
 "Idle" = "Idle";
 "In the gym" = "In the gym";
@@ -308,6 +311,7 @@
 "No album data" = "No album data";
 "No artist data" = "No artist data";
 "No connection and no downloaded songs." = "No connection and no downloaded songs.";
+"No connection and that song isn't downloaded." = "No connection and that song isn't downloaded.";
 "No connection: continuing with your downloaded music." = "No connection: continuing with your downloaded music.";
 "No connection: there are no more downloaded songs in the queue." = "No connection: there are no more downloaded songs in the queue.";
 "No connection: this needs internet." = "No connection: this needs internet.";
@@ -344,10 +348,12 @@
 "Persist Queue restores your queue, shuffle, and repeat state when the app relaunches." = "Persist Queue restores your queue, shuffle, and repeat state when the app relaunches.";
 "Pin to Quick Picks" = "Pin to Quick Picks";
 "Play" = "Play";
+"Play ${song}" = "Play ${song}";
 "Play All" = "Play All";
 "Play Music" = "Play Music";
 "Play My Music" = "Play My Music";
 "Play Next" = "Play Next";
+"Play a Song" = "Play a Song";
 "Play all" = "Play all";
 "Play episodes from the top" = "Play episodes from the top";
 "Playback & Offline" = "Playback & Offline";
@@ -355,9 +361,12 @@
 "Player" = "Player";
 "Player Background" = "Player Background";
 "Playing" = "Playing";
+"Playing %@" = "Playing %@";
+"Playing %@ by %@" = "Playing %@ by %@";
 "Playlist" = "Playlist";
 "Playlist name" = "Playlist name";
 "Playlists" = "Playlists";
+"Plays a song you ask for by name." = "Plays a song you ask for by name.";
 "Plays the looping video behind the player artwork when Spotify has one for the track." = "Plays the looping video behind the player artwork when Spotify has one for the track.";
 "Podcast" = "Podcast";
 "Podcasts" = "Podcasts";
@@ -437,6 +446,7 @@
 "Similar" = "Similar";
 "Similar to %@" = "Similar to %@";
 "Similar to this song" = "Similar to this song";
+"SimpMusic (AutoMix)" = "SimpMusic (AutoMix)";
 "Single & EPs" = "Single & EPs";
 "Single and EPs" = "Single and EPs";
 "Singles & EPs" = "Singles & EPs";
@@ -446,6 +456,7 @@
 "Sleep" = "Sleep";
 "Society & Culture" = "Society & Culture";
 "Solid" = "Solid";
+"Song" = "Song";
 "Song options" = "Song options";
 "Song title — e.g. Adele - Hello" = "Song title — e.g. Adele - Hello";
 "Songs" = "Songs";
@@ -537,6 +548,7 @@
 "Watching" = "Watching";
 "When off, searches and playback are not recorded locally." = "When off, searches and playback are not recorded locally.";
 "When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on." = "When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on.";
+"Which song?" = "Which song?";
 "Wi-Fi Only" = "Wi-Fi Only";
 "Wider mix around this song" = "Wider mix around this song";
 "Workout" = "Workout";

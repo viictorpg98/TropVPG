@@ -52,6 +52,7 @@
 "Auto-Download New Episodes" = "自动下载新剧集";
 "Auto-Download on Like" = "喜欢时自动下载";
 "Auto-download saves liked songs for offline playback. Wi-Fi Only blocks downloads on cellular data." = "自动下载会保存已喜欢的歌曲以供离线播放。仅 Wi‑Fi 模式会阻止使用蜂窝数据下载。";
+"AutoMix" = "AutoMix";
 "Autoplay Similar" = "自动播放相似歌曲";
 "Back" = "Back";
 "Based on Trop by SwiftyMedia (GPL-3.0)." = "Based on Trop by SwiftyMedia (GPL-3.0).";
@@ -59,6 +60,7 @@
 "Bass Reducer" = "降低低音";
 "Beast mode" = "Beast mode";
 "Bitrate" = "比特率";
+"Blends one downloaded song into the next like a DJ: they overlap and the tempo is matched. It only works between downloaded songs; everything else plays as usual. The Playback Report shows what it did." = "Blends one downloaded song into the next like a DJ: they overlap and the tempo is matched. It only works between downloaded songs; everything else plays as usual. The Playback Report shows what it did.";
 "Breakups & heartbreak" = "Breakups & heartbreak";
 "Business" = "Business";
 "Button 1" = "按钮 1";
@@ -205,6 +207,7 @@
 "Home" = "主页";
 "Home Feed" = "主页动态";
 "Hopeless romantic" = "Hopeless romantic";
+"I couldn't find that song." = "I couldn't find that song.";
 "ITAG" = "ITAG";
 "Idle" = "空闲";
 "In the gym" = "In the gym";
@@ -308,6 +311,7 @@
 "No album data" = "无专辑数据";
 "No artist data" = "无艺人数据";
 "No connection and no downloaded songs." = "No connection and no downloaded songs.";
+"No connection and that song isn't downloaded." = "No connection and that song isn't downloaded.";
 "No connection: continuing with your downloaded music." = "No connection: continuing with your downloaded music.";
 "No connection: there are no more downloaded songs in the queue." = "No connection: there are no more downloaded songs in the queue.";
 "No connection: this needs internet." = "No connection: this needs internet.";
@@ -344,10 +348,12 @@
 "Persist Queue restores your queue, shuffle, and repeat state when the app relaunches." = "重新打开应用时恢复队列、随机播放和循环状态。";
 "Pin to Quick Picks" = "置顶到快捷精选";
 "Play" = "Play";
+"Play ${song}" = "Play ${song}";
 "Play All" = "全部播放";
 "Play Music" = "Play Music";
 "Play My Music" = "Play My Music";
 "Play Next" = "下一首播放";
+"Play a Song" = "Play a Song";
 "Play all" = "全部播放";
 "Play episodes from the top" = "从顶部播放剧集";
 "Playback & Offline" = "播放与离线";
@@ -355,9 +361,12 @@
 "Player" = "播放器";
 "Player Background" = "播放器背景";
 "Playing" = "播放中";
+"Playing %@" = "Playing %@";
+"Playing %@ by %@" = "Playing %@ by %@";
 "Playlist" = "播放列表";
 "Playlist name" = "播放列表名称";
 "Playlists" = "播放列表";
+"Plays a song you ask for by name." = "Plays a song you ask for by name.";
 "Plays the looping video behind the player artwork when Spotify has one for the track." = "如果 Spotify 为歌曲提供视频，则在播放器封面后播放循环视频。";
 "Podcast" = "Podcast";
 "Podcasts" = "播客";
@@ -437,6 +446,7 @@
 "Similar" = "相似";
 "Similar to %@" = "与 %@ 相似";
 "Similar to this song" = "与此歌曲相似";
+"SimpMusic (AutoMix)" = "SimpMusic (AutoMix)";
 "Single & EPs" = "单曲与 EP";
 "Single and EPs" = "单曲与 EP";
 "Singles & EPs" = "单曲与 EP";
@@ -446,6 +456,7 @@
 "Sleep" = "睡眠";
 "Society & Culture" = "Society & Culture";
 "Solid" = "纯色";
+"Song" = "Song";
 "Song options" = "歌曲选项";
 "Song title — e.g. Adele - Hello" = "歌曲名称 — 例如 Adele - Hello";
 "Songs" = "歌曲";
@@ -537,6 +548,7 @@
 "Watching" = "观看中";
 "When off, searches and playback are not recorded locally." = "关闭后，搜索和播放记录不会保存在本地。";
 "When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on." = "When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on.";
+"Which song?" = "Which song?";
 "Wi-Fi Only" = "仅 Wi‑Fi";
 "Wider mix around this song" = "围绕此歌曲的更广泛混合";
 "Workout" = "健身";

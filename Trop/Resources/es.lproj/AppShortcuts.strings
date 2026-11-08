@@ -4,3 +4,5 @@
 "${applicationName} mix" = "Mezcla de ${applicationName}";
 "Continue with ${applicationName}" = "Sigue con ${applicationName}";
 "Report of ${applicationName}" = "Informe de ${applicationName}";
+"Song on ${applicationName}" = "Canción en ${applicationName}";
+"Find a song on ${applicationName}" = "Busca una canción en ${applicationName}";

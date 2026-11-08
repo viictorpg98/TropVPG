@@ -546,5 +546,17 @@
   "No connection and no downloaded songs.": "No connection and no downloaded songs.",
   "No connection: continuing with your downloaded music.": "No connection: continuing with your downloaded music.",
   "Offline: showing what was last saved (%@)": "Offline: showing what was last saved (%@)",
-  "Connection restored: back to your normal queue.": "Connection restored: back to your normal queue."
+  "Connection restored: back to your normal queue.": "Connection restored: back to your normal queue.",
+  "Play a Song": "Play a Song",
+  "Plays a song you ask for by name.": "Plays a song you ask for by name.",
+  "Song": "Song",
+  "Which song?": "Which song?",
+  "Play ${song}": "Play ${song}",
+  "Playing %@": "Playing %@",
+  "Playing %@ by %@": "Playing %@ by %@",
+  "I couldn't find that song.": "I couldn't find that song.",
+  "No connection and that song isn't downloaded.": "No connection and that song isn't downloaded.",
+  "AutoMix": "AutoMix",
+  "Blends one downloaded song into the next like a DJ: they overlap and the tempo is matched. It only works between downloaded songs; everything else plays as usual. The Playback Report shows what it did.": "Blends one downloaded song into the next like a DJ: they overlap and the tempo is matched. It only works between downloaded songs; everything else plays as usual. The Playback Report shows what it did.",
+  "SimpMusic (AutoMix)": "SimpMusic (AutoMix)"
 }

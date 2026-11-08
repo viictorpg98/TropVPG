@@ -218,6 +218,11 @@ final class SettingsStore {
         didSet { Self.defaults.set(gaplessPlayback, forKey: Keys.gaplessPlayback) }
     }
 
+    /// Mezcla las canciones descargadas una con otra como un DJ (solapadas y con el tempo igualado).
+    var autoMixEnabled: Bool {
+        didSet { Self.defaults.set(autoMixEnabled, forKey: Keys.autoMixEnabled) }
+    }
+
     var autoplaySimilar: Bool {
         didSet { Self.defaults.set(autoplaySimilar, forKey: Keys.autoplaySimilar) }
     }
@@ -365,6 +370,7 @@ final class SettingsStore {
         static let audioQuality = "settings.audioQuality"
         static let audioNormalization = "settings.audioNormalization"
         static let gaplessPlayback = "settings.gaplessPlayback"
+        static let autoMixEnabled = "settings.autoMixEnabled"
         static let autoplaySimilar = "settings.autoplaySimilar"
         static let persistQueue = "settings.persistQueue"
         static let lastRadioStyle = "settings.lastRadioStyle"
@@ -435,6 +441,7 @@ final class SettingsStore {
         audioQuality = Self.loadEnum(Keys.audioQuality, default: .auto)
         audioNormalization = Self.load(Keys.audioNormalization, default: false)
         gaplessPlayback = Self.load(Keys.gaplessPlayback, default: true)
+        autoMixEnabled = Self.load(Keys.autoMixEnabled, default: false)
         autoplaySimilar = Self.load(Keys.autoplaySimilar, default: true)
         persistQueue = Self.load(Keys.persistQueue, default: false)
         lastRadioStyle = Self.loadEnum(Keys.lastRadioStyle, default: .similar)

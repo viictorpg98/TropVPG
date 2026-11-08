@@ -66,6 +66,8 @@ final class NowPlaying {
     private var tickCount = 0
     var lastManualSkipTime: Date?
     private var isResolvingNext = false
+    /// Hay una cancion cargandose (AutoMix no empieza mezclas mientras tanto).
+    var isBusyResolving: Bool { isResolvingNext }
     /// Timestamps of the last mid-play failure per videoId, to bound retries.
     private var lastFailureAt: [String: Date] = [:]
 
@@ -235,6 +237,14 @@ final class NowPlaying {
         playCurrentSong(logContext: "playNext")
     }
 
+    /// AutoMix: pasa a la siguiente de la cola empezando en `startAt` (la mezcla ya la esta haciendo sonar).
+    func advanceForAutoMix(startAt: TimeInterval) -> Bool {
+        guard queueIndex + 1 < queueSongs.count, !isResolvingNext else { return false }
+        queueIndex += 1
+        playCurrentSong(logContext: "autoMix", startAt: startAt)
+        return true
+    }
+
     func playPrevious() {
         guard hasPrevious else { return }
         guard !isResolvingNext else { return }
@@ -249,9 +259,11 @@ final class NowPlaying {
     func playCurrentSong(
         logContext: String,
         manageResolvingFlag: Bool = true,
+        startAt: TimeInterval = 0,
         afterResolve: (() -> Void)? = nil
     ) {
         guard queueSongs.indices.contains(queueIndex) else { return }
+        AutoMixEngine.shared.songChanged()
         if manageResolvingFlag {
             isResolvingNext = true
         }
@@ -260,7 +272,7 @@ final class NowPlaying {
         persistQueueState()
         Task {
             do {
-                try await PlaybackManager.shared.resolveAndPlay(videoId: song.videoId)
+                try await PlaybackManager.shared.resolveAndPlay(videoId: song.videoId, startAt: startAt)
             } catch {
                 Log.nowPlaying.error("\(logContext) failed: \(error)")
                 if self.videoId == song.videoId {
@@ -702,6 +714,7 @@ final class NowPlaying {
     private func timerTick() {
         // Solo se asigna si cambia: cada asignacion avisa a las vistas que leen estos valores.
         let position = PlayerController.shared.currentTime
+        AutoMixEngine.shared.tick(position: position)
         if position != currentTime { currentTime = position }
         let length = PlayerController.shared.duration
         if length != duration { duration = length }
