@@ -251,7 +251,7 @@ struct HistoryScreenView: View {
             // Se recorre una copia: si la lista cambia de tamano mientras se pintan las filas no se sale de rango.
             ForEach(Array(viewModel.remoteSections.enumerated()), id: \.offset) { _, section in
                 Section {
-                    ForEach(section.songs, id: \.videoId) { song in
+                    ForEach(Array(section.songs.enumerated()), id: \.offset) { _, song in
                         SongRowView(song: song, onTap: {
                             PlaybackQueue.play(song, in: section.songs, log: Log.historyView, context: "History play")
                         })

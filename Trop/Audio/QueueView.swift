@@ -66,7 +66,9 @@ struct QueueView<ProgressSlider: View>: View {
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
                     } else {
-                        ForEach(Array(np.queueSongs.enumerated()), id: \.element.videoId) { index, song in
+                        // Id = posicion: la misma cancion puede estar dos veces en la cola y con ids repetidos
+                        // SwiftUI puede mezclar filas (y, al deslizar para quitar, quitar la que no era).
+                        ForEach(Array(np.queueSongs.enumerated()), id: \.offset) { index, song in
                             queueRow(song: song, index: index)
                         }
                         .onMove(perform: np.moveQueueSongs)
@@ -79,7 +81,7 @@ struct QueueView<ProgressSlider: View>: View {
                 .layoutPriority(1)
                 .onAppear {
                     if np.queueSongs.indices.contains(np.queueIndex) {
-                        proxy.scrollTo(np.queueSongs[np.queueIndex].videoId, anchor: .center)
+                        proxy.scrollTo(np.queueIndex, anchor: .center)
                     }
                 }
             }
