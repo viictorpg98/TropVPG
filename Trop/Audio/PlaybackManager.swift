@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import UIKit
 
 /// Resolves streams and hands off to PlayerController, trying the client fallback chain.
 actor PlaybackManager {
@@ -13,6 +14,8 @@ actor PlaybackManager {
 
     private var inflightResolutions: [String: Task<PlaybackResult, Error>] = [:]
     private static let lastClientKey = "playback.lastWorkingClient"
+    /// Desde esta duracion un contenido se trata como "largo" (podcasts, directos grabados...).
+    private static let longContentSeconds = 20 * 60
 
     private func resolutionKey(videoId: String, forDownload: Bool) -> String {
         forDownload ? "\(videoId):download" : videoId
@@ -83,7 +86,30 @@ actor PlaybackManager {
         }
         inflightResolutions[videoId] = task
         defer { clearInflight(key: videoId) }
-        return try await task.value
+        do {
+            return try await task.value
+        } catch {
+            await reportPlaybackFailure(error)
+            throw error
+        }
+    }
+
+    /// Avisa de que no se ha podido reproducir: antes el fallo solo quedaba en el registro y al pulsar
+    /// parecia que no pasaba nada.
+    private func reportPlaybackFailure(_ error: Error) async {
+        if error is CancellationError { return }
+        let message: String
+        if let streamError = error as? StreamError, case .unplayable(let reason) = streamError,
+           reason.lowercased().contains("premiere") || reason.lowercased().contains("live") {
+            message = String(format: NSLocalizedString("Can't play this yet: %@", comment: ""), reason)
+        } else {
+            message = NSLocalizedString("Couldn't play this. Try again.", comment: "")
+        }
+        await MainActor.run {
+            // Si la reproduccion la lanzo un atajo o Siri (app en segundo plano) no se enseña nada.
+            guard UIApplication.shared.applicationState == .active else { return }
+            PlaybackNotice.shared.show(message)
+        }
     }
 
     /// Runs the client fallback chain for playback. Only called once per
@@ -91,10 +117,21 @@ actor PlaybackManager {
     private func resolveAndPlayFromNetwork(videoId: String) async throws -> PlaybackResult {
         var request = StreamResolveRequest.playback(videoId: videoId)
         request.options.audioQuality = SettingsStore.shared.audioQuality
-        // Prueba primero el cliente que funciono la ultima vez: si los de delante fallan, cada fallo
-        // es una peticion de red perdida antes de que suene nada.
-        if let last = UserDefaults.standard.string(forKey: Self.lastClientKey),
-           let index = request.chain.firstIndex(where: { $0.client.clientName == last }), index > 0 {
+        let song = await queueSong(for: videoId)
+        let isLong = (song?.duration ?? 0) >= Self.longContentSeconds
+            || song?.musicVideoType == "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+        if isLong {
+            // Podcasts y contenidos largos: los clientes que no usan tu sesion contestan "confirma que
+            // no eres un robot" (comprobado con episodios reales) y fallan uno tras otro antes de llegar
+            // a uno que funcione. Se empieza directamente por los que usan tu sesion.
+            let withSession = ["WEB_REMIX", "TVHTML5"].flatMap { name in
+                request.chain.filter { $0.client.clientName == name }
+            }
+            request.chain = withSession + request.chain.filter { !withSession.contains($0) }
+        } else if let last = UserDefaults.standard.string(forKey: Self.lastClientKey),
+                  let index = request.chain.firstIndex(where: { $0.client.clientName == last }), index > 0 {
+            // Prueba primero el cliente que funciono la ultima vez: si los de delante fallan, cada fallo
+            // es una peticion de red perdida antes de que suene nada.
             request.chain.insert(request.chain.remove(at: index), at: 0)
         }
         let result = try await StreamFallback.resolveFirstValid(
@@ -102,7 +139,8 @@ actor PlaybackManager {
             using: InnerTubeClient.tropShared,
             providers: .tropLive
         )
-        UserDefaults.standard.set(result.clientName, forKey: Self.lastClientKey)
+        // Lo que funciona para un podcast no dice nada de la musica: no se recuerda.
+        if !isLong { UserDefaults.standard.set(result.clientName, forKey: Self.lastClientKey) }
         await playNetworkResult(result, videoId: videoId)
         return result
     }

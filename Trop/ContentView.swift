@@ -79,6 +79,7 @@ struct ContentView: View {
     private func withMiniPlayer<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         content().safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
+                PlaybackNoticeBar()
                 OfflineBanner()
                 if nowPlaying.isBarPresented {
                     MiniPlayerBarView(onExpand: expandPlayer)
