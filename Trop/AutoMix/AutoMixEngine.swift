@@ -255,11 +255,23 @@ final class AutoMixEngine {
         let controller = PlayerController.shared
         controller.positionOverride = nil
         controller.durationOverride = nil
-        let ok = NowPlaying.shared.adoptGaplessIncoming(videoId: p.inId)
+        let ok = NowPlaying.shared.adoptGaplessIncoming(
+            videoId: p.inId, position: p.resumeAt, artwork: AutoMixVisuals.shared.incomingImage
+        )
         PlaybackReport.record(ok ? "automix: mezcla terminada, suena \(p.inId)" : "automix: no se pudo pasar a \(p.inId)")
         AutoMixVisuals.shared.progress = 1
         AutoMixVisuals.shared.end()
+        let resumeAt = p.resumeAt
+        let arrivedAt = Date()
         finish()
+        // Comprobacion del empalme: medio segundo despues, la posicion de mpv debe ser la prevista (donde acabo la mezcla
+        // mas lo que ha pasado). Si no lo es, la entrante empezo en otro punto o hubo un corte.
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 600_000_000)
+            let expected = resumeAt + Date().timeIntervalSince(arrivedAt)
+            let actual = PlayerController.shared.rawTimePos()
+            PlaybackReport.record(String(format: "automix: empalme con la entrante, desvio %.0f ms", (actual - expected) * 1000))
+        }
     }
 
     private func finish() {

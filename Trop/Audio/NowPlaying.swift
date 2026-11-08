@@ -241,11 +241,17 @@ final class NowPlaying {
 
     /// AutoMix: mpv ya suena la entrante (encadenada sin pausa tras la mezcla); la cola y los datos de la cancion pasan a ella.
     /// No carga nada: solo pone al dia lo que la app muestra y recuerda.
-    func adoptGaplessIncoming(videoId: String) -> Bool {
+    func adoptGaplessIncoming(videoId: String, position: TimeInterval, artwork: UIImage?) -> Bool {
         guard queueIndex + 1 < queueSongs.count, queueSongs[queueIndex + 1].videoId == videoId else { return false }
         queueIndex += 1
         let song = queueSongs[queueIndex]
         update(with: song)
+        // `update` pone la posicion y la duracion a cero y deja la carátula de la saliente hasta que carga la nueva: aqui
+        // la cancion ya esta sonando, asi que se ponen los valores reales y la carátula que ya se veia en la mezcla, y
+        // la pantalla no da un salto ("refresco") al acabar.
+        currentTime = position
+        if song.duration > 0 { duration = TimeInterval(song.duration) }
+        if let artwork { publishArtwork(artwork) }
         persistQueueState()
         updateVideoAvailability()
         Task {

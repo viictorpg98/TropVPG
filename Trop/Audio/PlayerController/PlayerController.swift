@@ -552,7 +552,9 @@ extension PlayerController {
             PlaybackReport.record("automix: archivo de la mezcla cargado")
             return
         }
+        var cameFromMix = false
         if gaplessStage == 3 {
+            cameFromMix = true
             gaplessStage = 0
             mpv_set_property_string(mpv, "prefetch-playlist", "no")
         }
@@ -565,6 +567,8 @@ extension PlayerController {
         }
         let actuallyPlaying = pauseFlag == 0
         let pendingVideoId = self.pendingVideoId
+        // Tras una mezcla de AutoMix la entrante llega con el audio ya sonando: no se vuelve a tocar la sesion de audio.
+        let arrivedByMix = cameFromMix
         Task { @MainActor [weak self] in
             guard let self else { return }
             Log.player.debug("TRANSITION FILE_LOADED videoId=\(pendingVideoId ?? "nil") playing=\(actuallyPlaying)")
@@ -573,7 +577,7 @@ extension PlayerController {
             NowPlaying.shared.isPlaying = actuallyPlaying
             self.currentVideoId = pendingVideoId
             self.pendingVideoId = nil
-            self.assertAudioSession()
+            if !arrivedByMix { self.assertAudioSession() }
             self.setNowPlayingMetadata()
             self.applyPendingResumeIfNeeded()
             let checkId = pendingVideoId

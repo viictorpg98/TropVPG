@@ -23,7 +23,7 @@ enum PlaybackReport {
         defer { lock.unlock() }
         var lines = UserDefaults.standard.stringArray(forKey: key) ?? []
         lines.append("\(formatter.string(from: Date())) \(text)")
-        UserDefaults.standard.set(Array(lines.suffix(40)), forKey: key)
+        UserDefaults.standard.set(Array(lines.suffix(200)), forKey: key)
     }
 
     static var text: String {
