@@ -58,6 +58,11 @@ final class MixVoice {
 
     var isPlaying: Bool { player.isPlaying }
 
+    /// Mueve la posicion del archivo preparado (se usa en silencio, para alinearlo con mpv).
+    func seek(toBufferTime time: TimeInterval) {
+        player.currentTime = max(0, min(time, player.duration - 0.05))
+    }
+
     func pause() { player.pause() }
     func resume() { player.play() }
 

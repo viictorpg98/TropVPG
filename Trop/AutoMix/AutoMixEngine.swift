@@ -43,6 +43,11 @@ final class AutoMixEngine {
         var beatsPerPulse: Double = 1
         var lastRate: Double = 1
         var lastIncomingRate: Double = 1
+        /// Alineacion del relevo: 0 = acaba de empezar, 1 = ya medido una vez, 2 = fundido en marcha.
+        var alignStage = 0
+        var firstDelta = 0.0
+        /// Momento (en `playTime`) en que empezo el fundido de mpv al tramo de la saliente.
+        var fadeStart: Double?
         /// Segundos en que ha sonado (sin contar pausas) desde el relevo de mpv, y cuanto tarda en empezar la mezcla.
         var playTime: Double = 0
         var startDelay: Double = 0
@@ -54,7 +59,7 @@ final class AutoMixEngine {
 
     /// Segundos de la saliente que se reproducen tal cual desde su tramo antes de empezar la mezcla: en ellos
     /// mpv le pasa el testigo (un fundido corto) sin que se note el cambio de reproductor.
-    private let swapLead = 0.8
+    private let swapLead = 1.0
     /// Duracion del fundido del relevo de mpv al tramo de la saliente (mas largo = menos se nota un pequeno desfase).
     private let swapFade = 0.3
     /// Segundos extra de la entrante a volumen completo tras la mezcla, para cubrir el relevo de mpv.
@@ -243,24 +248,18 @@ final class AutoMixEngine {
         if position < b.outgoingStart - 1 || position > b.outgoingStart + swapLead { cancel("salto de posicion antes de empezar"); return }
         guard position >= b.outgoingStart else { return }
 
-        // Donde del tramo de la saliente hay que entrar para seguir justo donde va mpv (con un pequeno adelanto
-        // por lo que tarda en arrancar). Si ya se paso casi todo el relevo, no se mezcla.
+        // El tramo de la saliente arranca EN SILENCIO donde va mpv (con un pequeno adelanto por lo que tarda en
+        // arrancar). Luego se mide cuanto se descuadra y se corrige antes de empezar el fundido: asi nunca suenan
+        // dos copias de la misma cancion desfasadas (se oiria como un eco o un doblado). Si ya se paso casi todo el
+        // relevo, no se mezcla.
         let offset = position - b.outgoingStart + 0.03
-        guard offset < swapLead - 0.2 else {
+        guard offset < swapLead - 0.6 else {
             cancel("demasiado tarde", quiet: true)
             planCache = (b.outId, b.inId, nil)
             return
         }
-        let volume = Float(SettingsStore.shared.playerVolume)
         armed.outgoing.setVolume(0)
         armed.outgoing.play(from: offset)
-        armed.outgoing.setVolume(volume, fade: swapFade)
-        // La entrante arranca exactamente cuando la saliente llega al inicio de la mezcla (misma hora del dispositivo),
-        // ya a la velocidad con la que empieza.
-        let startDelay = max(swapLead - offset, 0.01)
-        armed.incoming.setVolume(volume)
-        armed.incoming.setRate(Float(b.plan.incomingSpeedRatio))
-        armed.incoming.play(from: 0, atDeviceTime: armed.outgoing.deviceTime + startDelay)
 
         var started = Blend(
             outId: b.outId, inId: b.inId, plan: b.plan, outgoingStart: b.outgoingStart, swappedAt: Date()
@@ -270,16 +269,10 @@ final class AutoMixEngine {
             // Por encima de 140 BPM el latido seria nervioso: se hace cada dos pulsos.
             started.beatsPerPulse = structure.bpm > 140 ? 2 : 1
         }
-        started.startDelay = startDelay
         started.lastIncomingRate = b.plan.incomingSpeedRatio
         started.lastStep = Date()
         blend = started
-        AutoMixVisuals.shared.begin()
         phase = .blending
-        PlaybackReport.record(String(
-            format: "automix: empieza %@ -> %@ (%.1f s, tempo saliente x%.3f / entrante x%.3f)",
-            b.outId, b.inId, Double(b.plan.durationMs) / 1000, b.plan.outgoingSpeedRatio, b.plan.incomingSpeedRatio
-        ))
     }
 
     private func stepBlending() {
@@ -308,16 +301,49 @@ final class AutoMixEngine {
         }
         if b.playersPaused {
             armed.outgoing.resume()
-            armed.incoming.resume()
+            if b.fadeStart != nil { armed.incoming.resume() }
             b.playersPaused = false
         }
         b.playTime += dt
 
-        // Relevo de mpv al tramo de la saliente: mpv baja con un fundido corto y luego se calla y se pausa.
-        let sinceSwap = Date().timeIntervalSince(b.swappedAt)
+        // 1) Alinear el tramo de la saliente con mpv, todavia en silencio (dos medidas con una correccion cada una).
+        if b.alignStage == 0, b.playTime >= 0.12 {
+            let delta = armed.outgoing.position - controller.currentTime
+            if abs(delta) > 0.008 { armed.outgoing.seek(toBufferTime: armed.outgoing.bufferTime - delta) }
+            b.firstDelta = delta
+            b.alignStage = 1
+        } else if b.alignStage == 1, b.playTime >= 0.26 {
+            let delta = armed.outgoing.position - controller.currentTime
+            if abs(delta) > 0.012 { armed.outgoing.seek(toBufferTime: armed.outgoing.bufferTime - delta) }
+            PlaybackReport.record(String(format: "automix: alineacion del relevo %.0f ms -> %.0f ms", b.firstDelta * 1000, delta * 1000))
+
+            // 2) Empieza el fundido de mpv al tramo (la copia ya va alineada) y se programa la entrante para cuando la
+            //    saliente llegue al inicio de la mezcla (misma hora del dispositivo), ya a su velocidad inicial.
+            let volume = Float(SettingsStore.shared.playerVolume)
+            armed.outgoing.setVolume(volume, fade: swapFade)
+            let remaining = max(swapLead - armed.outgoing.bufferTime, 0.05)
+            armed.incoming.setVolume(volume)
+            armed.incoming.setRate(Float(b.plan.incomingSpeedRatio))
+            armed.incoming.play(from: 0, atDeviceTime: armed.outgoing.deviceTime + remaining)
+            b.fadeStart = b.playTime
+            b.startDelay = b.playTime + remaining
+            b.alignStage = 2
+            AutoMixVisuals.shared.begin()
+            PlaybackReport.record(String(
+                format: "automix: empieza %@ -> %@ (%.1f s, tempo saliente x%.3f / entrante x%.3f)",
+                b.outId, b.inId, Double(b.plan.durationMs) / 1000, b.plan.outgoingSpeedRatio, b.plan.incomingSpeedRatio
+            ))
+        }
+        guard let fadeStart = b.fadeStart else {
+            blend = b
+            return
+        }
+
+        // 3) mpv baja con un fundido lineal (es el mismo material: se suman las amplitudes) y luego se calla y se pausa.
         if !b.mpvSilenced {
-            if sinceSwap < swapFade + 0.1 {
-                let gain = 1 - min(max((sinceSwap - 0.05) / swapFade, 0), 1)
+            let elapsed = b.playTime - fadeStart
+            if elapsed < swapFade + 0.05 {
+                let gain = 1 - min(max(elapsed / swapFade, 0), 1)
                 controller.volumeScale = mpvScale(forGain: gain)
                 controller.applyPlayerVolume()
             } else {
@@ -330,7 +356,7 @@ final class AutoMixEngine {
 
         // Todo el reproductor (barra de progreso, pantalla de bloqueo) sigue la posicion de la saliente.
         let outgoingPosition = armed.outgoing.position
-        controller.positionOverride = outgoingPosition
+        if b.mpvSilenced { controller.positionOverride = outgoingPosition }
 
         // Avance de la mezcla: el tiempo real que lleva la entrante sonando, de 0 a 1.
         let duration = Double(b.plan.durationMs) / 1000
