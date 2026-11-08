@@ -445,7 +445,7 @@ final class SettingsStore {
         hideExplicit = Self.load(Keys.hideExplicit, default: false)
         showQuickPicks = Self.load(Keys.showQuickPicks, default: true)
         topListsLength = Self.load(Keys.topListsLength, default: 8)
-        contentCountry = Self.loadString(Keys.contentCountry, default: "US")
+        contentCountry = Self.loadString(Keys.contentCountry, default: Locale.current.region?.identifier ?? "US")
         disabledLyricsProviders = Set(d.stringArray(forKey: Keys.disabledLyricsProviders) ?? [])
         trackSearchHistory = Self.load(Keys.trackSearchHistory, default: true)
         trackPlayHistory = Self.load(Keys.trackPlayHistory, default: true)

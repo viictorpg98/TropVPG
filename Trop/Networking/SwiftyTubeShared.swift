@@ -22,6 +22,17 @@ extension InnerTubeClient {
     }
 }
 
+extension YouTubeLocale {
+    /// Misma region que el resto de la app pero con el idioma del dispositivo. Se usa solo en lo que
+    /// ensena titulos de podcasts: pidiendolos en ingles, YouTube los devuelve traducidos al ingles
+    /// aunque el podcast sea en espanol. El resto de la app sigue en ingles porque interpreta textos.
+    static var deviceLanguage: YouTubeLocale {
+        let country = SettingsStore.shared.contentCountry
+        let language = Locale.current.language.languageCode?.identifier ?? "en"
+        return YouTubeLocale(gl: country.isEmpty ? "US" : country, hl: language)
+    }
+}
+
 /// Live cipher/PoToken/format-sink wiring for stream resolution.
 extension StreamResolveProviders {
     static var tropLive: StreamResolveProviders {

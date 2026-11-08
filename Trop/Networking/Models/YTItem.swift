@@ -611,7 +611,9 @@ extension EpisodeItem {
             thumbnailUrl: thumbnailUrl,
             isExplicit: false,
             playlistId: nil,
-            likeStatus: nil
+            likeStatus: nil,
+            // Sin esto el episodio parece una cancion cualquiera (sin tipo ni, a veces, duracion).
+            musicVideoType: "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
         )
     }
 }

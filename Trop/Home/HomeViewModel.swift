@@ -276,9 +276,11 @@ final class HomeViewModel {
         let generation = loadGeneration
         cleanup.chipTask = Task {
             do {
+                // En el idioma del dispositivo: asi los titulos de podcasts no llegan traducidos al ingles.
                 let json = try await InnerTubeClient.tropShared.browse(
                     browseId: "FEmusic_home",
-                    params: chip?.params
+                    params: chip?.params,
+                    locale: .deviceLanguage
                 )
                 guard !Task.isCancelled, generation == loadGeneration else { return }
                 if let page = await Self.parseHome(json) {
@@ -316,7 +318,10 @@ final class HomeViewModel {
         Task {
             defer { isLoadingMore = false }
             do {
-                let json = try await InnerTubeClient.tropShared.browse(continuation: continuation)
+                let json = try await InnerTubeClient.tropShared.browse(
+                    continuation: continuation,
+                    locale: selectedChip != nil ? YouTubeLocale.deviceLanguage : nil
+                )
                 if let (newSections, newContinuation) = await Self.parseContinuation(json) {
                     homePage?.sections.append(contentsOf: newSections)
                     homePage?.continuation = newContinuation

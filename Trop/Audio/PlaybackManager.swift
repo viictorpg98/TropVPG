@@ -117,19 +117,9 @@ actor PlaybackManager {
     private func resolveAndPlayFromNetwork(videoId: String) async throws -> PlaybackResult {
         var request = StreamResolveRequest.playback(videoId: videoId)
         request.options.audioQuality = SettingsStore.shared.audioQuality
-        let song = await queueSong(for: videoId)
-        let isLong = (song?.duration ?? 0) >= Self.longContentSeconds
-            || song?.musicVideoType == "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
-        if isLong {
-            // Podcasts y contenidos largos: los clientes que no usan tu sesion contestan "confirma que
-            // no eres un robot" (comprobado con episodios reales) y fallan uno tras otro antes de llegar
-            // a uno que funcione. Se empieza directamente por los que usan tu sesion.
-            let withSession = ["WEB_REMIX", "TVHTML5"].flatMap { name in
-                request.chain.filter { $0.client.clientName == name }
-            }
-            request.chain = withSession + request.chain.filter { !withSession.contains($0) }
-        } else if let last = UserDefaults.standard.string(forKey: Self.lastClientKey),
-                  let index = request.chain.firstIndex(where: { $0.client.clientName == last }), index > 0 {
+        let isLong = await prioritizeSessionClientsIfLong(&request, videoId: videoId)
+        if !isLong, let last = UserDefaults.standard.string(forKey: Self.lastClientKey),
+           let index = request.chain.firstIndex(where: { $0.client.clientName == last }), index > 0 {
             // Prueba primero el cliente que funciono la ultima vez: si los de delante fallan, cada fallo
             // es una peticion de red perdida antes de que suene nada.
             request.chain.insert(request.chain.remove(at: index), at: 0)
@@ -143,6 +133,22 @@ actor PlaybackManager {
         if !isLong { UserDefaults.standard.set(result.clientName, forKey: Self.lastClientKey) }
         await playNetworkResult(result, videoId: videoId)
         return result
+    }
+
+    /// Podcasts y contenidos largos: los clientes que no usan tu sesion contestan "confirma que no eres
+    /// un robot" (comprobado con episodios reales) y fallan uno tras otro antes de llegar a uno que
+    /// funcione, asi que se empieza directamente por los que usan tu sesion. Devuelve si lo era.
+    @discardableResult
+    private func prioritizeSessionClientsIfLong(_ request: inout StreamResolveRequest, videoId: String) async -> Bool {
+        let song = await queueSong(for: videoId)
+        let isLong = (song?.duration ?? 0) >= Self.longContentSeconds
+            || song?.musicVideoType == "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
+        guard isLong else { return false }
+        let withSession = ["WEB_REMIX", "TVHTML5"].flatMap { name in
+            request.chain.filter { $0.client.clientName == name }
+        }
+        request.chain = withSession + request.chain.filter { !withSession.contains($0) }
+        return true
     }
 
     private func playNetworkResult(_ result: PlaybackResult, videoId: String) async {
@@ -261,6 +267,7 @@ actor PlaybackManager {
         request.options.preferredFormat = preferredFormat
         request.options.audioQuality = SettingsStore.shared.audioQuality
         request.options.downloadQuality = SettingsStore.shared.downloadQuality
+        await prioritizeSessionClientsIfLong(&request, videoId: videoId)
         return try await StreamFallback.resolveFirstValid(
             request,
             using: InnerTubeClient.tropShared,
