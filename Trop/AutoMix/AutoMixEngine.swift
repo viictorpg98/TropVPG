@@ -70,6 +70,10 @@ final class AutoMixEngine {
         // Siempre se pide analizar la actual y la siguiente (si ya estan hechas no cuesta nada).
         TrackAnalysisStore.shared.request(outId)
         TrackAnalysisStore.shared.request(inId)
+        // Y la letra de las dos (para saber cuando cantan y que las voces no se pisen en la mezcla).
+        VocalMaskStore.shared.request(outId)
+        VocalMaskStore.shared.request(inId)
+        guard VocalMaskStore.shared.isSettled(outId), VocalMaskStore.shared.isSettled(inId) else { return }
         guard let plan = plan(outId: outId, inId: inId) else { return }
 
         let lead = Double(plan.outgoingStartMs) / 1000 - position
@@ -102,13 +106,18 @@ final class AutoMixEngine {
         if let cached = planCache, cached.outId == outId, cached.inId == inId { return cached.plan }
         let store = TrackAnalysisStore.shared
         guard let out = store.structure(for: outId), let inc = store.structure(for: inId) else { return nil }
-        let plan = TransitionPlanner.plan(outgoing: out, incoming: inc)
+        let vocals = TransitionPlanner.Vocals(
+            outgoing: VocalMaskStore.shared.segments(for: outId), incoming: VocalMaskStore.shared.segments(for: inId)
+        )
+        let result = TransitionPlanner.plan(outgoing: out, incoming: inc, vocals: vocals)
+        let plan = result?.plan
         planCache = (outId, inId, plan)
-        PlaybackReport.record(plan.map {
+        PlaybackReport.record(result.map {
             String(
-                format: "automix: plan %@ -> %@: corte en %.1f s, dura %.0f s, entra desde %.1f s (%.0f -> %.0f BPM)",
-                outId, inId, Double($0.outgoingStartMs) / 1000, Double($0.durationMs) / 1000,
-                Double($0.incomingStartMs) / 1000, out.bpm, inc.bpm
+                format: "automix: plan %@ -> %@: corte en %.1f s, dura %.0f s, entra desde %.1f s (%.0f -> %.0f BPM, tempo %.3f/%.3f) %@",
+                outId, inId, Double($0.plan.outgoingStartMs) / 1000, Double($0.plan.durationMs) / 1000,
+                Double($0.plan.incomingStartMs) / 1000, out.bpm, inc.bpm, $0.plan.outgoingSpeedRatio, $0.plan.incomingSpeedRatio,
+                $0.note
             )
         } ?? "automix: \(outId) -> \(inId) sin mezcla posible (se usa el paso normal)")
         return plan

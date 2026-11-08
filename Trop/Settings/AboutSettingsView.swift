@@ -34,6 +34,9 @@ struct AboutSettingsView: View {
                 Link(destination: URL(string: "https://github.com/maxrave-dev/SimpMusic")!) {
                     Text("SimpMusic (AutoMix)")
                 }
+                Link(destination: URL(string: "https://github.com/Clash-Projects/LastWave-Native")!) {
+                    Text("LastWave (AutoMix ideas)")
+                }
             } header: {
                 Text("Links")
             } footer: {

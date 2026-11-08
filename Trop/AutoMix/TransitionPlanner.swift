@@ -27,19 +27,78 @@ struct TransitionPlan: Equatable {
 enum TransitionPlanner {
     /// Parte de la mezcla en que la saliente llega a su velocidad final (suavizado), y luego la mantiene.
     static let rampPortion = 0.6
+    /// Solape maximo de voces que se admite (ms), como en LastWave.
+    static let maxVocalOverlapMs = 350
+
+    /// Cuando se canta en cada cancion; `nil` si no se sabe.
+    struct Vocals {
+        var outgoing: [VocalMaskStore.Segment]?
+        var incoming: [VocalMaskStore.Segment]?
+    }
 
     /// Una mezcla entre dos canciones ya analizadas, con los puntos ajustados a compases. `nil` si no se puede
-    /// mezclar bien (cancion saliente demasiado corta, datos raros...).
-    static func plan(outgoing: TrackStructure, incoming: TrackStructure) -> TransitionPlan? {
+    /// mezclar bien (cancion saliente demasiado corta, datos raros...). Con las voces conocidas, busca una colocacion en
+    /// que no se pisen (acortando la mezcla o moviendo los puntos de corte y de entrada); sin ellas, limita la duracion.
+    static func plan(
+        outgoing: TrackStructure, incoming: TrackStructure, vocals: Vocals? = nil
+    ) -> (plan: TransitionPlan, note: String)? {
         guard outgoing.beatMs > 0, outgoing.bpm > 0, incoming.bpm > 0 else { return nil }
         // El cambio de tempo se reparte entre las dos canciones (cada una la raiz de la diferencia), asi ninguna se
-        // estira mucho: con un 20 % de diferencia, cada una cambia un 10 % en vez de una un 20 %.
+        // estira mucho, y como maximo un 6 % cada una (mas, en voces, suena mal).
         let full = AutoMixMath.speedRatio(outgoingBpm: outgoing.bpm, incomingBpm: incoming.bpm)
         let outgoingRatio = AutoMixMath.quantized(full.squareRoot())
         let incomingRatio = AutoMixMath.quantized(1 / full.squareRoot())
-        let durationMs = AutoMixMath.durationMs(outgoing: outgoing, incoming: incoming)
+        var baseDuration = AutoMixMath.durationMs(outgoing: outgoing, incoming: incoming)
 
-        let end = outgoing.lastChorusEndMs ?? outgoing.musicEndMs
+        let knownVocals = vocals?.outgoing != nil && vocals?.incoming != nil
+        if !knownVocals { baseDuration = min(baseDuration, 10_000) }
+
+        let bar = Int64(outgoing.beatMs * 4)
+        let incomingBar = Int64(incoming.beatMs * 4)
+        var durations: [Int64] = []
+        for candidate in [baseDuration, Int64(Double(baseDuration) * 0.8), Int64(Double(baseDuration) * 0.65), 8_000, 6_000] {
+            let value = min(candidate, baseDuration)
+            if value >= 6_000, !durations.contains(value) { durations.append(value) }
+        }
+        if durations.isEmpty { durations = [baseDuration] }
+
+        var best: (plan: TransitionPlan, overlap: Int)?
+        for duration in durations {
+            for cutShift in [Int64(0), bar, 2 * bar, 4 * bar] {
+                for incomingShift in [Int64(0), incomingBar, 2 * incomingBar, 4 * incomingBar, 8 * incomingBar] {
+                    guard let candidate = build(
+                        outgoing: outgoing, incoming: incoming, durationMs: duration,
+                        outgoingRatio: outgoingRatio, incomingRatio: incomingRatio,
+                        cutShiftMs: cutShift, incomingShiftMs: incomingShift
+                    ) else { continue }
+                    guard knownVocals, let out = vocals?.outgoing, let inc = vocals?.incoming else {
+                        return (candidate, "voces desconocidas, mezcla limitada a \(duration / 1000) s")
+                    }
+                    let overlap = VocalMaskStore.overlapMs(
+                        outgoing: out, incoming: inc,
+                        outgoingStart: Double(candidate.outgoingStartMs) / 1000,
+                        incomingStart: Double(candidate.incomingStartMs) / 1000,
+                        duration: Double(candidate.durationMs) / 1000
+                    )
+                    if overlap <= maxVocalOverlapMs {
+                        return (candidate, "voces: solape \(overlap) ms")
+                    }
+                    if best == nil || overlap < best!.overlap { best = (candidate, overlap) }
+                }
+            }
+        }
+        guard let best else { return nil }
+        return (best.plan, "voces: solape \(best.overlap) ms (no se pudo evitar)")
+    }
+
+    /// Una colocacion concreta: `cutShiftMs` retrasa el corte de la saliente e `incomingShiftMs` adelanta la entrada de la
+    /// entrante (hacia el principio de su cancion).
+    private static func build(
+        outgoing: TrackStructure, incoming: TrackStructure, durationMs: Int64,
+        outgoingRatio: Double, incomingRatio: Double, cutShiftMs: Int64, incomingShiftMs: Int64
+    ) -> TransitionPlan? {
+        let naturalEnd = outgoing.lastChorusEndMs ?? outgoing.musicEndMs
+        let end = min(naturalEnd + cutShiftMs, max(outgoing.musicEndMs, naturalEnd))
         // La saliente recorre mas (o menos) de su propia linea de tiempo de lo que dura la mezcla, porque
         // cambia de velocidad: media a mitad de rampa y luego la mantiene.
         let advance = Double(durationMs) * (1 + (outgoingRatio - 1) * (1 - rampPortion / 2))
@@ -61,6 +120,7 @@ enum TransitionPlanner {
         } else {
             incomingStart = incoming.firstSoundMs
         }
+        incomingStart = max(incomingStart - incomingShiftMs, 0)
         if let bar = incoming.downbeatsMs.min(by: { abs($0 - incomingStart) < abs($1 - incomingStart) }),
            abs(bar - incomingStart) < Int64(incoming.beatMs * 4) {
             incomingStart = bar
@@ -117,8 +177,8 @@ enum AutoMixMath {
     private static let beatCountOptions: [Double] = [8, 12, 16, 24, 32]
     private static let bpmGapScale = 2.0
     /// Diferencia de tempo maxima que se iguala (repartida entre las dos canciones).
-    private static let ratioMin = 0.80
-    private static let ratioMax = 1.25
+    private static let ratioMin = 0.8836   // 0,94 al cuadrado: cada cancion cambia como mucho un 6 %
+    private static let ratioMax = 1.1236   // 1,06 al cuadrado
     private static let speedStep = 0.005
     static let tempoMatching = true
     /// A partir de que punto de la mezcla la entrante vuelve a su velocidad normal (la saliente ya casi no se oye).
