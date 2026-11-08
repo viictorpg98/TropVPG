@@ -47,6 +47,19 @@ final class MixVoice {
         player.play(atTime: deviceTime)
     }
 
+    /// Vuelve a arrancar el tramo en otro punto (en silencio, con el volumen que tenga) y, si se indica, a una hora
+    /// concreta del dispositivo. Mover `currentTime` con el audio sonando deja el reproductor parado un rato; asi
+    /// se evita: primero se pausa y luego se coloca y se arranca.
+    func restart(from offset: TimeInterval, atDeviceTime deviceTime: TimeInterval?) {
+        player.pause()
+        player.currentTime = max(0, min(offset, player.duration - 0.05))
+        if let deviceTime {
+            player.play(atTime: deviceTime)
+        } else {
+            player.play()
+        }
+    }
+
     /// Hora del dispositivo de audio, comun a todos los reproductores de la app.
     var deviceTime: TimeInterval { player.deviceCurrentTime }
 
