@@ -65,11 +65,14 @@ actor EpisodePlaybackStore {
         guard duration > 0, position >= 0 else { return }
         let existing = positions[videoId]
         // Throttle: skip writes <5s apart unless finished/near-zero.
-        if let existing,
-           abs(existing.position - position) < 5,
-           Date().timeIntervalSince(existing.updatedAt) < 5,
-           !EpisodePosition(position: position, duration: duration, updatedAt: Date()).isFinished {
-            return
+        if let existing {
+            let elapsed = Date().timeIntervalSince(existing.updatedAt)
+            // Cerca del final se guardaba en cada llamada (cuatro veces por segundo): como minimo 1 s entre escrituras.
+            if elapsed < 1 { return }
+            if abs(existing.position - position) < 5, elapsed < 5,
+               !EpisodePosition(position: position, duration: duration, updatedAt: Date()).isFinished {
+                return
+            }
         }
         positions[videoId] = EpisodePosition(position: position, duration: duration, updatedAt: Date())
         persist()

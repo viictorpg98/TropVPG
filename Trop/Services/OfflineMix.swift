@@ -212,7 +212,10 @@ final class OfflineMix {
 
         let manager = DownloadManager.shared
         let played = await Self.lastPlayedDates()
-        let liked = Set(LikeStore.shared.liked.filter { $0.value }.keys)
+        // Las que te gustan se leen de la base de datos (el estado en memoria puede no haberse cargado
+        // todavia y entonces se borrarian canciones que te gustan): si no se puede leer, no se borra nada.
+        guard let likedSongs = try? await DatabaseService.shared.fetchLikedSongs() else { return }
+        let liked = Set(likedSongs.map(\.id))
         let cutoff = Date().addingTimeInterval(-Self.unusedAfter)
         let playingId = NowPlaying.shared.videoId
 

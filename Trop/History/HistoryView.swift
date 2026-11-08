@@ -248,8 +248,8 @@ struct HistoryScreenView: View {
 
     private var remoteList: some View {
         List {
-            ForEach(viewModel.remoteSections.indices, id: \.self) { sectionIndex in
-                let section = viewModel.remoteSections[sectionIndex]
+            // Se recorre una copia: si la lista cambia de tamano mientras se pintan las filas no se sale de rango.
+            ForEach(Array(viewModel.remoteSections.enumerated()), id: \.offset) { _, section in
                 Section {
                     ForEach(section.songs, id: \.videoId) { song in
                         SongRowView(song: song, onTap: {

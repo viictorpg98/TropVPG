@@ -120,7 +120,7 @@ actor PlaybackManager {
         var request = StreamResolveRequest.playback(videoId: videoId)
         request.options.audioQuality = SettingsStore.shared.audioQuality
         let started = Date()
-        let isLong = Self.isLong(await queueSong(for: videoId))
+        let isLong = Self.isLong(await queueSong(for: videoId)) || requireValidation.contains(videoId)
         PlaybackReport.record("pedir \(videoId) largo=\(isLong)")
         if !isLong, let last = UserDefaults.standard.string(forKey: Self.lastClientKey),
            let index = request.chain.firstIndex(where: { $0.client.clientName == last }), index > 0 {
@@ -208,6 +208,13 @@ actor PlaybackManager {
     /// Una direccion guardada por una version anterior para un podcast puede no funcionar: se descarta
     /// una vez por arranque para que se vuelva a resolver.
     private var purgedLongIds = Set<String>()
+
+    /// Contenidos cuya reproduccion fallo: su siguiente resolucion usa la cadena que comprueba todo.
+    private var requireValidation = Set<String>()
+
+    func requireValidatedChain(for videoId: String) {
+        requireValidation.insert(videoId)
+    }
 
     private func purgeStaleLongCache(_ videoId: String) async {
         guard !purgedLongIds.contains(videoId) else { return }
@@ -334,7 +341,7 @@ actor PlaybackManager {
         request.options.preferredFormat = preferredFormat
         request.options.audioQuality = SettingsStore.shared.audioQuality
         request.options.downloadQuality = SettingsStore.shared.downloadQuality
-        if Self.isLong(await queueSong(for: videoId)) {
+        if Self.isLong(await queueSong(for: videoId)) || requireValidation.contains(videoId) {
             return try await resolveLongContent(videoId: videoId, request: request)
         }
         return try await StreamFallback.resolveFirstValid(

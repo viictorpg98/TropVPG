@@ -161,7 +161,7 @@ actor PersonalizationService {
         var sections: [HomeSection] = []
         for artist in topArtists.prefix(3) {
             guard sections.count < 3 else { break }
-            guard let related = try? await innerTube.browse(browseId: artist.id),
+            guard let related = await artistPage(artist.id),
                   let items = parseRelatedItems(from: related), !items.isEmpty else { continue }
             let title = String(
                 format: NSLocalizedString("Similar to %@", comment: "Similar artist section title"),
@@ -183,7 +183,7 @@ actor PersonalizationService {
 
         for artist in topArtists {
             guard communityPlaylists.count < 5 else { break }
-            guard let json = try? await innerTube.browse(browseId: artist.id) else { continue }
+            guard let json = await artistPage(artist.id) else { continue }
             let playlists = LibraryBrowseParser.extractCommunityPlaylists(from: json)
             for playlist in playlists {
                 let pid = LibraryBrowseParser.normalizePlaylistId(playlist.browseId)
@@ -202,6 +202,19 @@ actor PersonalizationService {
     }
 
     // MARK: - Helpers
+
+    private var artistPageTasks: [String: (date: Date, task: Task<[String: Any]?, Never>)] = [:]
+
+    /// "Parecido a..." y "De la comunidad" necesitan la pagina de los mismos artistas y se piden a la vez:
+    /// se pide una sola vez y se comparte (durante dos minutos).
+    private func artistPage(_ id: String) async -> [String: Any]? {
+        artistPageTasks = artistPageTasks.filter { Date().timeIntervalSince($0.value.date) < 120 }
+        if let entry = artistPageTasks[id] { return await entry.task.value }
+        let client = innerTube
+        let task = Task { try? await client.browse(browseId: id) }
+        artistPageTasks[id] = (Date(), task)
+        return await task.value
+    }
 
     /// Tracks a background enrichment task so `drainEnrichments()` can
     /// wait for it to complete.

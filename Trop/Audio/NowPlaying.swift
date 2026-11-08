@@ -392,6 +392,9 @@ final class NowPlaying {
         Task {
             await PlayerConfigStore.shared.notifyStreamRejection()
             await StreamCache.shared.remove(videoId: videoId)
+            // Si la direccion fallo, el reintento comprueba todas las direcciones antes de usar ninguna
+            // (si no, podia repetir la misma direccion mala del mismo cliente).
+            await PlaybackManager.shared.requireValidatedChain(for: videoId)
             do {
                 try await PlaybackManager.shared.resolveAndPlay(videoId: videoId)
                 // Success – allow future retries for this video
@@ -581,7 +584,8 @@ final class NowPlaying {
         // El sistema extrapola la posicion con la velocidad: basta con avisarle una vez por segundo.
         PlayerController.shared.updateNowPlayingProgress(publishToSystem: tickCount % 4 == 0)
         SponsorBlockIntegration.shared.tick()
-        if let videoId, duration >= 600 || musicVideoType == "MUSIC_VIDEO_TYPE_PODCAST_EPISODE" {
+        // Cada 2 s basta (el almacen ya limita las escrituras): evita crear una tarea cuatro veces por segundo.
+        if tickCount % 8 == 0, let videoId, duration >= 600 || musicVideoType == "MUSIC_VIDEO_TYPE_PODCAST_EPISODE" {
             let vid = videoId
             let pos = currentTime
             let dur = duration
