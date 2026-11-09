@@ -130,6 +130,17 @@ struct LyricsView<ProgressSlider: View>: View {
                         .padding(.vertical, 8)
                     }
                     .scrollIndicators(.hidden)
+                    .mask(
+                        LinearGradient(
+                            stops: [
+                                .init(color: .clear, location: 0),
+                                .init(color: .black, location: 0.07),
+                                .init(color: .black, location: 0.86),
+                                .init(color: .clear, location: 1)
+                            ],
+                            startPoint: .top, endPoint: .bottom
+                        )
+                    )
                     .onScrollPhaseChange { _, newPhase in
                         if newPhase == .tracking || newPhase == .interacting {
                             pauseAutoScroll()
@@ -242,6 +253,7 @@ struct LyricsView<ProgressSlider: View>: View {
                 fontSize: settings.lyricsFontSize,
                 lineOpacity: index == activeIndex ? 1 : opacityForDistance(abs(index - activeIndex)),
                 lineScale: index == activeIndex ? 1 : scaleForDistance(abs(index - activeIndex)),
+                lineBlur: index == activeIndex ? 0 : min(2.6, Double(abs(index - activeIndex)) * 0.9),
                 romanizedText: romanized,
                 onTap: {
                     if let t = line.startTime {
@@ -414,9 +426,15 @@ struct LyricsView<ProgressSlider: View>: View {
         VStack(spacing: 6) {
             progressSlider()
 
-            PlayerPlayPauseButton(isPlaying: np.isPlaying) {
-                player.togglePlayPause()
-            }
+            PlaybackControlsRow(
+                isPlaying: np.isPlaying,
+                hasPrevious: np.hasPrevious,
+                hasNext: np.hasNext,
+                onPrevious: { np.playPrevious() },
+                onPlayPause: { player.togglePlayPause() },
+                onNext: { np.playNext() },
+                showsModes: true
+            )
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: np.isPlaying)
         }
         .frame(maxWidth: .infinity)
@@ -546,6 +564,8 @@ private struct LyricsLineView: View {
     let fontSize: Double
     var lineOpacity: Double = 1
     var lineScale: CGFloat = 1
+    /// Las lineas lejanas se desenfocan, como en Apple Music: la que suena es la que se ve nitida.
+    var lineBlur: Double = 0
     /// Romanized variant rendered under the main line, Metrolist-style.
     var romanizedText: String?
     let onTap: () -> Void
@@ -573,7 +593,10 @@ private struct LyricsLineView: View {
         }
         .buttonStyle(.plain)
         .opacity(lineOpacity)
+        .blur(radius: lineBlur)
+        .shadow(color: .white.opacity(isActive ? 0.35 : 0), radius: 14)
         .scaleEffect(lineScale, anchor: alignment.textAlignment == .leading ? .leading : alignment.textAlignment == .trailing ? .trailing : .center)
-        .animation(.easeInOut(duration: 0.3), value: isActive)
+        .animation(.spring(response: 0.5, dampingFraction: 0.82), value: isActive)
+        .animation(.easeInOut(duration: 0.35), value: lineBlur)
     }
 }

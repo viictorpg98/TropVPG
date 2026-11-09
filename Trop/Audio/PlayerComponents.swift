@@ -164,33 +164,66 @@ struct PlaybackControlsRow: View {
     let onPrevious: () -> Void
     let onPlayPause: () -> Void
     let onNext: () -> Void
+    /// Aleatorio a la izquierda del todo y repetir a la derecha del todo, como en YouTube Music.
+    var showsModes = false
+
+    private let np = NowPlaying.shared
+
+    private var previousButton: some View {
+        Button(action: onPrevious) {
+            Image(systemName: "backward.fill")
+                .font(.title)
+                .foregroundStyle(.white)
+        }
+        .disabled(!hasPrevious)
+        .opacity(hasPrevious ? 1 : 0.3)
+        .accessibilityLabel("Previous")
+    }
+
+    private var nextButton: some View {
+        Button(action: onNext) {
+            Image(systemName: "forward.fill")
+                .font(.title)
+                .foregroundStyle(.white)
+        }
+        .disabled(!hasNext)
+        .opacity(hasNext ? 1 : 0.3)
+        .accessibilityLabel("Next")
+    }
 
     var body: some View {
-        HStack(spacing: 0) {
-            Button(action: onPrevious) {
-                Image(systemName: "backward.fill")
-                    .font(.title)
-                    .foregroundStyle(.white)
+        if showsModes {
+            HStack(spacing: 0) {
+                ShuffleModeButton()
+                Spacer(minLength: 4)
+                previousButton
+                Spacer(minLength: 4)
+                PlayerPlayPauseButton(isPlaying: isPlaying, action: onPlayPause)
+                Spacer(minLength: 4)
+                nextButton
+                Spacer(minLength: 4)
+                SecondaryToggleButton(
+                    systemImage: np.isRepeatOn ? "repeat.1" : "repeat",
+                    isOn: np.isRepeatOn,
+                    accessibility: np.isRepeatOn ? "Repeat one" : "Repeat all"
+                ) {
+                    np.isRepeatOn.toggle()
+                }
             }
-            .disabled(!hasPrevious)
-            .opacity(hasPrevious ? 1 : 0.3)
-            .frame(maxWidth: .infinity)
-            .accessibilityLabel("Previous")
+            .padding(.horizontal, 14)
+        } else {
+            HStack(spacing: 0) {
+                previousButton
+                    .frame(maxWidth: .infinity)
 
-            PlayerPlayPauseButton(isPlaying: isPlaying, action: onPlayPause)
-            .frame(maxWidth: .infinity)
+                PlayerPlayPauseButton(isPlaying: isPlaying, action: onPlayPause)
+                    .frame(maxWidth: .infinity)
 
-            Button(action: onNext) {
-                Image(systemName: "forward.fill")
-                    .font(.title)
-                    .foregroundStyle(.white)
+                nextButton
+                    .frame(maxWidth: .infinity)
             }
-            .disabled(!hasNext)
-            .opacity(hasNext ? 1 : 0.3)
-            .frame(maxWidth: .infinity)
-            .accessibilityLabel("Next")
+            .padding(.horizontal, 24)
         }
-        .padding(.horizontal, 24)
     }
 }
 
@@ -225,54 +258,31 @@ struct PlayerTransportAirPlayFooter: View {
     }
 }
 
-// MARK: - SecondaryActionsRow
-/// AirPlay, aleatorio y cola: botones iguales, repartidos por igual.
-struct SecondaryActionsRow: View {
-    @Binding var showQueue: Bool
-    /// En la pantalla de la cola el aleatorio ya esta arriba: no se repite abajo.
-    var showsShuffle = true
-
+// MARK: - Aleatorio
+/// Tocar baraja la cola (y la vuelve a barajar cada vez que se toca); manteniendo pulsado se puede apagar.
+struct ShuffleModeButton: View {
     private let np = NowPlaying.shared
     @State private var shuffleCount = 0
 
     var body: some View {
-        HStack(spacing: 0) {
-            PlayerAirPlayControl()
-                .frame(maxWidth: .infinity)
-
-            if showsShuffle {
-                // Tocar baraja la cola (y vuelve a barajarla cada vez que se toca); manteniendo pulsado se puede apagar.
-                Menu {
-                    if np.isShuffleOn {
-                        Button {
-                            np.disableShuffle()
-                        } label: {
-                            Label("Turn Off Shuffle", systemImage: "shuffle")
-                        }
-                    }
+        Menu {
+            if np.isShuffleOn {
+                Button {
+                    np.disableShuffle()
                 } label: {
-                    SecondaryIcon(systemImage: "shuffle", isOn: np.isShuffleOn)
-                        .symbolEffect(.bounce, value: shuffleCount)
-                } primaryAction: {
-                    np.shuffleQueue()
-                    shuffleCount += 1
+                    Label("Turn Off Shuffle", systemImage: "shuffle")
                 }
-                .buttonStyle(.plain)
-                .sensoryFeedback(.impact(weight: .light), trigger: shuffleCount)
-                .accessibilityLabel(Text("Shuffle"))
-                .frame(maxWidth: .infinity)
             }
-
-            SecondaryToggleButton(
-                systemImage: "list.bullet",
-                isOn: showQueue,
-                accessibility: "Queue"
-            ) {
-                showQueue.toggle()
-            }
-            .frame(maxWidth: .infinity)
+        } label: {
+            SecondaryIcon(systemImage: "shuffle", isOn: np.isShuffleOn)
+                .symbolEffect(.bounce, value: shuffleCount)
+        } primaryAction: {
+            np.shuffleQueue()
+            shuffleCount += 1
         }
-        .padding(.vertical, 12)
+        .buttonStyle(.plain)
+        .sensoryFeedback(.impact(weight: .light), trigger: shuffleCount)
+        .accessibilityLabel(Text("Shuffle"))
     }
 }
 

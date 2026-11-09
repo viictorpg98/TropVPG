@@ -12,6 +12,10 @@ struct QueueView<ProgressSlider: View>: View {
     private let player = PlayerController.shared
     @ObservedObject private var likeStore = LikeStore.shared
 
+    /// Que parte se dibuja: todo junto (solo en modo video), la cabecera con la cancion o el panel con la lista.
+    enum Part { case all, header, list }
+    var part: Part = .all
+
     @Binding var showQueue: Bool
     @Binding var isShuffleOn: Bool
     @Binding var isRepeatOn: Bool
@@ -66,14 +70,36 @@ struct QueueView<ProgressSlider: View>: View {
 
     private var queueContent: some View {
         VStack(spacing: 0) {
-            if !isVideoMode {
+            if part == .header {
                 queueHeader
                     .padding(.horizontal, 20)
-                playbackPillsRow
+            } else {
+                if part == .all, !isVideoMode {
+                    queueHeader
+                        .padding(.horizontal, 20)
+                    playbackPillsRow
+                }
+
+                queueListHeaderRow
+
+                queueList
+
+                if isVideoMode {
+                    playbackPillsRow
+                    PlayerTransportAirPlayFooter(
+                        isPlaying: np.isPlaying,
+                        hasPrevious: np.hasPrevious,
+                        hasNext: np.hasNext,
+                        onPrevious: { np.playPrevious() },
+                        onPlayPause: { player.togglePlayPause() },
+                        onNext: { np.playNext() }
+                    )
+                }
             }
+        }
+    }
 
-            queueListHeaderRow
-
+    private var queueList: some View {
             ScrollViewReader { proxy in
                 let entries = queueEntries
                 List {
@@ -104,19 +130,6 @@ struct QueueView<ProgressSlider: View>: View {
                     }
                 }
             }
-
-            if isVideoMode {
-                playbackPillsRow
-                PlayerTransportAirPlayFooter(
-                    isPlaying: np.isPlaying,
-                    hasPrevious: np.hasPrevious,
-                    hasNext: np.hasNext,
-                    onPrevious: { np.playPrevious() },
-                    onPlayPause: { player.togglePlayPause() },
-                    onNext: { np.playNext() }
-                )
-            }
-        }
     }
 
     // MARK: - Queue Header
@@ -150,6 +163,7 @@ struct QueueView<ProgressSlider: View>: View {
                 ) {
                     Task { await likeStore.toggle(song: song) }
                 }
+                PlayerAirPlayControl()
                 PlayerOptionsButton(color: .white.opacity(0.6)) {
                     showSongMenu = true
                 }
@@ -165,7 +179,7 @@ struct QueueView<ProgressSlider: View>: View {
         .padding(.bottom, 8)
         .contentShape(Rectangle())
         .onTapGesture {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.9)) {
                 showQueue = false
             }
         }
@@ -208,6 +222,35 @@ struct QueueView<ProgressSlider: View>: View {
     }
 
     private var queueListHeaderRow: some View {
+        VStack(spacing: 6) {
+            if part == .list {
+                Capsule()
+                    .fill(.white.opacity(0.35))
+                    .frame(width: 36, height: 4)
+                    .padding(.top, 2)
+            }
+            queueListTitleRow
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard part == .list else { return }
+            closeQueue()
+        }
+        .gesture(
+            DragGesture(minimumDistance: 10).onEnded { value in
+                guard part == .list, value.translation.height > 24 else { return }
+                closeQueue()
+            }
+        )
+    }
+
+    private func closeQueue() {
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.9)) {
+            showQueue = false
+        }
+    }
+
+    private var queueListTitleRow: some View {
         HStack {
             Text("Queue")
                 .font(.subheadline.weight(.semibold))
@@ -381,5 +424,47 @@ struct QueueSongRow: View {
 
     private var titleColor: Color {
         isPlayed && !isCurrent ? Color.white.opacity(0.45) : .white
+    }
+}
+
+// MARK: - Asa de la cola (cerrada)
+
+/// El hueco bajo los controles: "Cola · siguiente cancion". Tocar o deslizar hacia arriba abre la cola desde abajo.
+struct QueueHandle: View {
+    let onOpen: () -> Void
+    private let np = NowPlaying.shared
+
+    private var nextTitle: String? {
+        np.queueSongs.indices.contains(np.queueIndex + 1) ? np.queueSongs[np.queueIndex + 1].title : nil
+    }
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Capsule()
+                .fill(.white.opacity(0.35))
+                .frame(width: 36, height: 4)
+
+            HStack(spacing: 6) {
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 10, weight: .bold))
+                (Text("Queue") + Text(nextTitle.map { " · \($0)" } ?? ""))
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(.white.opacity(0.7))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 28)
+        .padding(.top, 8)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onOpen)
+        .gesture(
+            DragGesture(minimumDistance: 8).onEnded { value in
+                if value.translation.height < -20 { onOpen() }
+            }
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(Text("Queue"))
     }
 }

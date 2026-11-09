@@ -72,9 +72,11 @@ struct FullPlayerView: View {
                         // Como en YouTube Music: al abrir la cola solo cambia la parte de arriba (carátula, titulo y
                         // botones <-> cola); la barra, los controles y el pie son el mismo bloque, en el mismo sitio,
                         // y no se mueve nada.
-                        ZStack {
+                        ZStack(alignment: .top) {
                             if showQueue {
+                                // Arriba solo queda la cancion que suena; la lista sube desde abajo.
                                 QueueView(
+                                    part: .header,
                                     showQueue: $showQueue,
                                     isShuffleOn: $np.isShuffleOn,
                                     isRepeatOn: $np.isRepeatOn,
@@ -83,6 +85,7 @@ struct FullPlayerView: View {
                                     pendingRoute: $pendingRoute,
                                     progressSlider: { progressSlider(horizontalPadding: horizontalPadding) }
                                 )
+                                .frame(maxHeight: .infinity, alignment: .center)
                                 .transition(.opacity)
                             } else {
                                 VStack(spacing: 0) {
@@ -103,12 +106,39 @@ struct FullPlayerView: View {
                         .frame(maxHeight: .infinity)
 
                         playerBottom(horizontalPadding: horizontalPadding, isCompact: isCompact)
+
+                        // Debajo de los controles: el asa de la cola (cerrada) o la lista (abierta). La altura es lo que
+                        // se anima, y con ella todo el bloque de controles sube o baja con suavidad.
+                        ZStack(alignment: .top) {
+                            if showQueue {
+                                QueueView(
+                                    part: .list,
+                                    showQueue: $showQueue,
+                                    isShuffleOn: $np.isShuffleOn,
+                                    isRepeatOn: $np.isRepeatOn,
+                                    editingProgress: $editingProgress,
+                                    isEditingSlider: $isEditingSlider,
+                                    pendingRoute: $pendingRoute,
+                                    progressSlider: { EmptyView() }
+                                )
+                                .transition(.move(edge: .bottom).combined(with: .opacity))
+                            } else {
+                                QueueHandle {
+                                    withAnimation(.spring(response: 0.45, dampingFraction: 0.9)) {
+                                        showQueue = true
+                                    }
+                                }
+                                .transition(.opacity)
+                            }
+                        }
+                        .frame(height: showQueue ? max(220, geometry.size.height - 300) : 58, alignment: .top)
+                        .clipped()
                     }
                 }
                 .frame(maxWidth: .infinity)
             }
             .offset(y: collapseOffset)
-            .animation(.easeInOut(duration: 0.35), value: showQueue)
+            .animation(.spring(response: 0.45, dampingFraction: 0.9), value: showQueue)
             .simultaneousGesture(collapseDrag)
             .onChange(of: np.videoId) { _, _ in
                 np.isVideoMode = false
@@ -262,17 +292,13 @@ struct FullPlayerView: View {
             hasNext: np.hasNext,
             onPrevious: { np.playPrevious() },
             onPlayPause: { player.togglePlayPause() },
-            onNext: { np.playNext() }
+            onNext: { np.playNext() },
+            showsModes: true
         )
         .scaleEffect(isCompact ? 0.94 : 1)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: np.isPlaying)
         .sensoryFeedback(.impact(weight: .light), trigger: np.isPlaying)
         .padding(.bottom, isCompact ? 2 : 6)
-
-        SecondaryActionsRow(showQueue: $showQueue)
-        .scaleEffect(isCompact ? 0.92 : 1)
-
-        Color.clear.frame(height: isCompact ? 2 : 6)
     }
 
     private var titleAndActionsRow: some View {
@@ -282,6 +308,7 @@ struct FullPlayerView: View {
             .layoutPriority(1)
 
             if currentSong != nil {
+                PlayerAirPlayControl()
                 PlayerOptionsButton {
                     showSongMenu = true
                 }
@@ -289,88 +316,67 @@ struct FullPlayerView: View {
         }
     }
 
-    /// Me gusta, No me gusta y Letra, como en YouTube Music.
+    /// Me gusta, No me gusta, Mezclar ya, Guardar y Descargar: una sola fila que se desliza entera.
     private var actionPills: some View {
-        HStack(spacing: 10) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    pillButtons
-                }
-                .padding(.trailing, 18)
-            }
-            .mask(
-                LinearGradient(
-                    stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.9), .init(color: .clear, location: 1)],
-                    startPoint: .leading, endPoint: .trailing
-                )
-            )
-
-            // Mezclar ya con la siguiente (AutoMix la prepara y empieza en unos segundos). Solo icono y fija a la
-            // derecha: asi la fila nunca se parte en dos lineas; mientras prepara se rellena y pulsa.
-            if settings.autoMixEnabled, np.hasNext, !AutoMixVisuals.shared.isMixing {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
                 PlayerPillButton(
-                    systemImage: "wand.and.stars",
-                    isActive: AutoMixVisuals.shared.preparingManual,
-                    accessibility: "Mix now",
-                    pulses: AutoMixVisuals.shared.preparingManual
+                    systemImage: isLiked ? "hand.thumbsup.fill" : "hand.thumbsup",
+                    isActive: isLiked,
+                    accessibility: "Like"
                 ) {
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    AutoMixEngine.shared.mixNow()
+                    guard let song = currentSong else { return }
+                    Task { await likeStore.toggle(song: song) }
+                }
+
+                PlayerPillButton(
+                    systemImage: isDisliked ? "hand.thumbsdown.fill" : "hand.thumbsdown",
+                    isActive: isDisliked,
+                    accessibility: "Dislike"
+                ) {
+                    guard let song = currentSong else { return }
+                    let willDislike = !isDisliked
+                    Task { await likeStore.toggleDislike(song: song) }
+                    // Como en YouTube Music: al marcar "No me gusta" pasa a la siguiente.
+                    if willDislike, np.hasNext { np.playNext() }
+                }
+
+                // Mezclar ya con la siguiente (AutoMix la prepara y empieza en unos segundos).
+                if settings.autoMixEnabled, np.hasNext, !AutoMixVisuals.shared.isMixing {
+                    PlayerPillButton(
+                        systemImage: "wand.and.stars",
+                        title: AutoMixVisuals.shared.preparingManual ? "Preparing…" : "Mix now",
+                        isActive: AutoMixVisuals.shared.preparingManual,
+                        accessibility: "Mix now",
+                        pulses: AutoMixVisuals.shared.preparingManual
+                    ) {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        AutoMixEngine.shared.mixNow()
+                    }
+                }
+
+                PlayerPillButton(
+                    systemImage: "plus.square.on.square",
+                    title: "Save",
+                    isActive: false,
+                    accessibility: "Add to Playlist"
+                ) {
+                    showPlaylistPicker = true
+                }
+
+                if let song = currentSong {
+                    PlayerDownloadPill(song: song)
                 }
             }
+            .padding(.trailing, 18)
         }
         .frame(height: 38)
-    }
-
-    /// Me gusta, No me gusta, Letra, Guardar y Descargar (la fila se desliza si no caben).
-    @ViewBuilder
-    private var pillButtons: some View {
-        Group {
-            PlayerPillButton(
-                systemImage: isLiked ? "hand.thumbsup.fill" : "hand.thumbsup",
-                isActive: isLiked,
-                accessibility: "Like"
-            ) {
-                guard let song = currentSong else { return }
-                Task { await likeStore.toggle(song: song) }
-            }
-
-            PlayerPillButton(
-                systemImage: isDisliked ? "hand.thumbsdown.fill" : "hand.thumbsdown",
-                isActive: isDisliked,
-                accessibility: "Dislike"
-            ) {
-                guard let song = currentSong else { return }
-                let willDislike = !isDisliked
-                Task { await likeStore.toggleDislike(song: song) }
-                // Como en YouTube Music: al marcar "No me gusta" pasa a la siguiente.
-                if willDislike, np.hasNext { np.playNext() }
-            }
-
-            PlayerPillButton(
-                systemImage: "text.quote",
-                title: "Lyrics",
-                isActive: false,
-                accessibility: "Lyrics"
-            ) {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    showLyrics = true
-                }
-            }
-
-            PlayerPillButton(
-                systemImage: "plus.square.on.square",
-                title: "Save",
-                isActive: false,
-                accessibility: "Add to Playlist"
-            ) {
-                showPlaylistPicker = true
-            }
-
-            if let song = currentSong {
-                PlayerDownloadPill(song: song)
-            }
-        }
+        .mask(
+            LinearGradient(
+                stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.9), .init(color: .clear, location: 1)],
+                startPoint: .leading, endPoint: .trailing
+            )
+        )
     }
 
     // MARK: - Gestures
