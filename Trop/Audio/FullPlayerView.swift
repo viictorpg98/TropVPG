@@ -520,6 +520,7 @@ private struct PlayerProgressSection: View {
     private let np = NowPlaying.shared
     private let visuals = AutoMixVisuals.shared
     @State private var waveform: [Float]?
+    @State private var incomingWaveform: [Float]?
 
     /// Donde (0...1) empezara la proxima mezcla de la cancion que suena.
     private var markerFraction: Double? {
@@ -552,18 +553,31 @@ private struct PlayerProgressSection: View {
                 waveform = nil
                 return
             }
-            // Si ya esta calculada (se adelanta al empezar la cancion) sale al instante; si no, mientras tanto se ve
-            // una onda de relleno y se cambia por la real en cuanto llega.
+            // Si la onda de esta cancion ya esta calculada (se adelanta al empezar) sale al instante, y si ya se vio
+            // como la de "la siguiente" durante una mezcla se conserva; si no, mientras tanto se ve una de relleno.
             waveform = WaveformStore.shared.cached(for: id)
             guard waveform == nil else { return }
-            WaveformStore.shared.request(id, urgent: true)
-            for _ in 0..<120 {
-                try? await Task.sleep(nanoseconds: 500_000_000)
-                guard !Task.isCancelled else { return }
-                if let wave = WaveformStore.shared.cached(for: id) {
-                    waveform = wave
-                    return
-                }
+            await loadWave(id) { waveform = $0 }
+        }
+        .task(id: visuals.incomingVideoId) {
+            guard SettingsStore.shared.waveformProgressBar, let id = visuals.incomingVideoId else {
+                incomingWaveform = nil
+                return
+            }
+            incomingWaveform = WaveformStore.shared.cached(for: id)
+            guard incomingWaveform == nil else { return }
+            await loadWave(id) { incomingWaveform = $0 }
+        }
+    }
+
+    private func loadWave(_ id: String, assign: ([Float]) -> Void) async {
+        WaveformStore.shared.request(id, urgent: true)
+        for _ in 0..<120 {
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            guard !Task.isCancelled else { return }
+            if let wave = WaveformStore.shared.cached(for: id) {
+                assign(wave)
+                return
             }
         }
     }
@@ -608,6 +622,9 @@ private struct PlayerProgressSection: View {
                 progress: .constant(Float(visuals.incomingProgress)),
                 accentColor: visuals.incomingColors.first ?? .white,
                 isPlaying: np.isPlaying,
+                waveform: SettingsStore.shared.waveformProgressBar
+                    ? (incomingWaveform ?? WaveformStore.placeholder(for: visuals.incomingVideoId)) : nil,
+                waveformIsPlaceholder: incomingWaveform == nil,
                 onEditingChanged: { _ in }
             )
             timeRow(elapsed: visuals.incomingElapsed, total: visuals.incomingDuration)
