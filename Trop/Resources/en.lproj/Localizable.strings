@@ -2,6 +2,7 @@
 
 "%@ plays" = "%@ plays";
 "%@ subscribers" = "%@ subscribers";
+"%@: %@ (%d of %d good)" = "%@: %@ (%d of %d good)";
 "%lld episode" = "%lld episode";
 "%lld episodes" = "%lld episodes";
 "%lld offline track" = "%lld offline track";
@@ -57,6 +58,7 @@
 "Auto-Download on Like" = "Auto-Download on Like";
 "Auto-download saves liked songs for offline playback. Wi-Fi Only blocks downloads on cellular data." = "Auto-download saves liked songs for offline playback. Wi-Fi Only blocks downloads on cellular data.";
 "AutoMix" = "AutoMix";
+"AutoMix Learns From Your Ratings" = "AutoMix Learns From Your Ratings";
 "Autoplay Similar" = "Autoplay Similar";
 "Back" = "Back";
 "Bad mix" = "Bad mix";
@@ -136,6 +138,7 @@
 "Deselect All" = "Deselect All";
 "Details" = "Details";
 "Details Template" = "Details Template";
+"Different tempos" = "Different tempos";
 "Disabled providers are skipped when fetching lyrics." = "Disabled providers are skipped when fetching lyrics.";
 "Discord" = "Discord";
 "Discord Rich Presence uses Discord's Social SDK. Token stays encrypted in Keychain." = "Discord Rich Presence uses Discord's Social SDK. Token stays encrypted in Keychain.";
@@ -155,6 +158,7 @@
 "Drag to reorder providers" = "Drag to reorder providers";
 "Duration" = "Duration";
 "EQ" = "EQ";
+"Each mix you rate teaches AutoMix which kinds of mixes you like: how long they last and whether the tempo is matched, depending on how close the two songs are. It still tries other styles now and then, and a pair of songs you rated badly is not mixed the same way again." = "Each mix you rate teaches AutoMix which kinds of mixes you like: how long they last and whether the tempo is matched, depending on how close the two songs are. It still tries other styles now and then, and a pair of songs you rated badly is not mixed the same way again.";
 "Edit" = "Edit";
 "Edit playlist" = "Edit playlist";
 "Education" = "Education";
@@ -339,6 +343,7 @@
 "No playback has been recorded yet." = "No playback has been recorded yet.";
 "No playlist data" = "No playlist data";
 "No podcast data" = "No podcast data";
+"No ratings yet. Rate the mixes with the thumbs that appear after each one." = "No ratings yet. Rate the mixes with the thumbs that appear after each one.";
 "No similar tracks" = "No similar tracks";
 "No songs found" = "No songs found";
 "Not enough of the song is left to mix." = "Not enough of the song is left to mix.";
@@ -409,6 +414,7 @@
 "Quick Picks" = "Quick Picks";
 "Quick picks" = "Quick picks";
 "Rating" = "Rating";
+"Ratings so far: %d" = "Ratings so far: %d";
 "Re-sync" = "Re-sync";
 "Recaps" = "Recaps";
 "Recently Played" = "Recently Played";
@@ -423,6 +429,7 @@
 "Remove Download" = "Remove Download";
 "Remove all downloads" = "Remove all downloads";
 "Remove from Playlist" = "Remove from Playlist";
+"Reset What AutoMix Learned" = "Reset What AutoMix Learned";
 "Reset offset" = "Reset offset";
 "Results" = "Results";
 "Resume Music" = "Resume Music";
@@ -468,6 +475,7 @@
 "Shuffle artist" = "Shuffle artist";
 "Sign in to see your YouTube Music history." = "Sign in to see your YouTube Music history.";
 "Similar" = "Similar";
+"Similar tempos" = "Similar tempos";
 "Similar to %@" = "Similar to %@";
 "Similar to this song" = "Similar to this song";
 "SimpMusic (AutoMix)" = "SimpMusic (AutoMix)";
@@ -576,6 +584,7 @@
 "Waiting for login…" = "Waiting for login…";
 "Watching" = "Watching";
 "Waveform Progress Bar" = "Waveform Progress Bar";
+"What AutoMix Learned" = "What AutoMix Learned";
 "When off, searches and playback are not recorded locally." = "When off, searches and playback are not recorded locally.";
 "When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on." = "When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on.";
 "Which song?" = "Which song?";
@@ -588,5 +597,10 @@
 "Your daily discover" = "Your daily discover";
 "Your recent searches will appear here." = "Your recent searches will appear here.";
 "Your shows" = "Your shows";
+"long mixes" = "long mixes";
+"medium mixes" = "medium mixes";
 "s" = "s";
+"short mixes" = "short mixes";
 "subscribers" = "subscribers";
+"tempo left alone" = "tempo left alone";
+"tempo matched" = "tempo matched";

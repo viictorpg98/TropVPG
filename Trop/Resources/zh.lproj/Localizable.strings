@@ -2,6 +2,7 @@
 
 "%@ plays" = "%@ plays";
 "%@ subscribers" = "%@ 位订阅者";
+"%@: %@ (%d of %d good)" = "%@: %@ (%d of %d good)";
 "%lld episode" = "%lld episode";
 "%lld episodes" = "%lld episodes";
 "%lld offline track" = "%lld offline track";
@@ -57,6 +58,7 @@
 "Auto-Download on Like" = "喜欢时自动下载";
 "Auto-download saves liked songs for offline playback. Wi-Fi Only blocks downloads on cellular data." = "自动下载会保存已喜欢的歌曲以供离线播放。仅 Wi‑Fi 模式会阻止使用蜂窝数据下载。";
 "AutoMix" = "AutoMix";
+"AutoMix Learns From Your Ratings" = "AutoMix Learns From Your Ratings";
 "Autoplay Similar" = "自动播放相似歌曲";
 "Back" = "Back";
 "Bad mix" = "Bad mix";
@@ -136,6 +138,7 @@
 "Deselect All" = "取消全选";
 "Details" = "详情";
 "Details Template" = "详情模板";
+"Different tempos" = "Different tempos";
 "Disabled providers are skipped when fetching lyrics." = "获取歌词时会跳过已停用的提供方。";
 "Discord" = "Discord";
 "Discord Rich Presence uses Discord's Social SDK. Token stays encrypted in Keychain." = "Discord Rich Presence 使用 Discord Social SDK。令牌会加密保存在钥匙串中。";
@@ -155,6 +158,7 @@
 "Drag to reorder providers" = "拖动以重新排列提供方";
 "Duration" = "时长";
 "EQ" = "均衡器";
+"Each mix you rate teaches AutoMix which kinds of mixes you like: how long they last and whether the tempo is matched, depending on how close the two songs are. It still tries other styles now and then, and a pair of songs you rated badly is not mixed the same way again." = "Each mix you rate teaches AutoMix which kinds of mixes you like: how long they last and whether the tempo is matched, depending on how close the two songs are. It still tries other styles now and then, and a pair of songs you rated badly is not mixed the same way again.";
 "Edit" = "编辑";
 "Edit playlist" = "编辑播放列表";
 "Education" = "Education";
@@ -339,6 +343,7 @@
 "No playback has been recorded yet." = "No playback has been recorded yet.";
 "No playlist data" = "无播放列表数据";
 "No podcast data" = "无播客数据";
+"No ratings yet. Rate the mixes with the thumbs that appear after each one." = "No ratings yet. Rate the mixes with the thumbs that appear after each one.";
 "No similar tracks" = "没有相似歌曲";
 "No songs found" = "未找到歌曲";
 "Not enough of the song is left to mix." = "Not enough of the song is left to mix.";
@@ -409,6 +414,7 @@
 "Quick Picks" = "快捷精选";
 "Quick picks" = "Quick picks";
 "Rating" = "评分";
+"Ratings so far: %d" = "Ratings so far: %d";
 "Re-sync" = "重新同步";
 "Recaps" = "Recaps";
 "Recently Played" = "最近播放";
@@ -423,6 +429,7 @@
 "Remove Download" = "移除下载";
 "Remove all downloads" = "移除所有下载";
 "Remove from Playlist" = "从播放列表移除";
+"Reset What AutoMix Learned" = "Reset What AutoMix Learned";
 "Reset offset" = "重置偏移";
 "Results" = "结果";
 "Resume Music" = "Resume Music";
@@ -468,6 +475,7 @@
 "Shuffle artist" = "随机播放艺人歌曲";
 "Sign in to see your YouTube Music history." = "登录以查看 YouTube Music 历史记录。";
 "Similar" = "相似";
+"Similar tempos" = "Similar tempos";
 "Similar to %@" = "与 %@ 相似";
 "Similar to this song" = "与此歌曲相似";
 "SimpMusic (AutoMix)" = "SimpMusic (AutoMix)";
@@ -576,6 +584,7 @@
 "Waiting for login…" = "等待登录…";
 "Watching" = "观看中";
 "Waveform Progress Bar" = "Waveform Progress Bar";
+"What AutoMix Learned" = "What AutoMix Learned";
 "When off, searches and playback are not recorded locally." = "关闭后，搜索和播放记录不会保存在本地。";
 "When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on." = "When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on.";
 "Which song?" = "Which song?";
@@ -588,5 +597,10 @@
 "Your daily discover" = "你的每日发现";
 "Your recent searches will appear here." = "你最近的搜索会显示在这里。";
 "Your shows" = "Your shows";
+"long mixes" = "long mixes";
+"medium mixes" = "medium mixes";
 "s" = "秒";
+"short mixes" = "short mixes";
 "subscribers" = "位订阅者";
+"tempo left alone" = "tempo left alone";
+"tempo matched" = "tempo matched";

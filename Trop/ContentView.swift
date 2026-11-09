@@ -44,7 +44,7 @@ struct ContentView: View {
                             isExpanded = false
                         }
                     })
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(.miniExpand)
                 }
             }
             .environment(scrollState)
@@ -144,4 +144,31 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
+}
+
+// MARK: - El reproductor grande crece desde el mini
+
+/// Aparece estirandose hacia arriba desde la barra del mini reproductor (y vuelve a ella al cerrarse), con las esquinas
+/// redondeadas al principio, como si el mini y el grande fueran el mismo objeto.
+private struct MiniExpandModifier: ViewModifier, Animatable {
+    /// 0 = solo la barra, 1 = pantalla completa.
+    var progress: CGFloat
+
+    var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(x: 1, y: 0.09 + 0.91 * progress, anchor: UnitPoint(x: 0.5, y: 0.9))
+            .clipShape(RoundedRectangle(cornerRadius: 26 * (1 - progress), style: .continuous))
+            .opacity(Double(min(1, progress * 2.4)))
+    }
+}
+
+private extension AnyTransition {
+    static var miniExpand: AnyTransition {
+        .modifier(active: MiniExpandModifier(progress: 0), identity: MiniExpandModifier(progress: 1))
+    }
 }

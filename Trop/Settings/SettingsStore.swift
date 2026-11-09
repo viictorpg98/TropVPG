@@ -223,6 +223,11 @@ final class SettingsStore {
         didSet { Self.defaults.set(autoMixEnabled, forKey: Keys.autoMixEnabled) }
     }
 
+    /// AutoMix aprende de las valoraciones de las mezclas (duracion y tempo) y las ajusta a lo que te gusta.
+    var autoMixLearns: Bool {
+        didSet { Self.defaults.set(autoMixLearns, forKey: Keys.autoMixLearns) }
+    }
+
     /// Mezclar tambien canciones en streaming con datos moviles (por defecto solo con Wi-Fi: hay que bajar su audio extra).
     var autoMixUsesMobileData: Bool {
         didSet { Self.defaults.set(autoMixUsesMobileData, forKey: Keys.autoMixUsesMobileData) }
@@ -419,6 +424,7 @@ final class SettingsStore {
         static let gaplessPlayback = "settings.gaplessPlayback"
         static let autoMixEnabled = "settings.autoMixEnabled"
         static let autoMixUsesMobileData = "settings.autoMixUsesMobileData"
+        static let autoMixLearns = "settings.autoMixLearns"
         static let fullWidthArtwork = "settings.fullWidthArtwork"
         static let animatedArtworkEnabled = "settings.animatedArtworkEnabled"
         static let preferAppleCovers = "settings.preferAppleCovers"
@@ -499,6 +505,7 @@ final class SettingsStore {
         gaplessPlayback = Self.load(Keys.gaplessPlayback, default: true)
         autoMixEnabled = Self.load(Keys.autoMixEnabled, default: false)
         autoMixUsesMobileData = Self.load(Keys.autoMixUsesMobileData, default: false)
+        autoMixLearns = Self.load(Keys.autoMixLearns, default: true)
         fullWidthArtwork = Self.load(Keys.fullWidthArtwork, default: true)
         animatedArtworkEnabled = Self.load(Keys.animatedArtworkEnabled, default: true)
         preferAppleCovers = Self.load(Keys.preferAppleCovers, default: true)

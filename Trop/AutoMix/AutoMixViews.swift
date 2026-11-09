@@ -59,6 +59,18 @@ private func reveal(_ progress: Double) -> Double {
 /// Lo mismo, para otras vistas (la barra de progreso entra a la vez que la carátula).
 func autoMixReveal(_ progress: Double) -> Double { reveal(progress) }
 
+/// Los dos colores (arriba y abajo) de la cancion que suena, como los usa el reproductor grande; durante una mezcla de
+/// AutoMix pasan a los de la entrante. Los usa tambien el mini reproductor, para ir a juego.
+@MainActor
+func playerPaletteNow(base: [Color], edge: Color?) -> [Color] {
+    let visuals = AutoMixVisuals.shared
+    let current = palette(edge: edge, fallback: base)
+    guard visuals.isMixing, !visuals.incomingColors.isEmpty else { return current }
+    let next = palette(edge: visuals.incomingEdgeColor, fallback: visuals.incomingColors)
+    let amount = reveal(visuals.progress)
+    return [mix(current[0], next[0], amount), mix(current[1], next[1], amount)]
+}
+
 // MARK: - El borde líquido
 
 /// Mascara con un borde que sube desde abajo, difuso y ondulado como un liquido (es lo que hace Apple Music al

@@ -139,7 +139,8 @@ final class AutoMixEngine {
         let vocals = TransitionPlanner.Vocals(
             outgoing: VocalMaskStore.shared.segments(for: outId), incoming: VocalMaskStore.shared.segments(for: inId)
         )
-        let result = TransitionPlanner.plan(outgoing: out, incoming: inc, vocals: vocals)
+        let style = MixLearning.shared.style(outId: outId, inId: inId, outBpm: out.bpm, inBpm: inc.bpm)
+        let result = TransitionPlanner.plan(outgoing: out, incoming: inc, vocals: vocals, style: style)
         let plan = result?.plan
         planCache = (outId, inId, plan)
         PlaybackReport.record(result.map {
@@ -147,7 +148,7 @@ final class AutoMixEngine {
                 format: "automix: plan %@ -> %@: corte en %.1f s, dura %.0f s, entra desde %.1f s (%.0f -> %.0f BPM, tempo %.3f/%.3f) %@",
                 outId, inId, Double($0.plan.outgoingStartMs) / 1000, Double($0.plan.durationMs) / 1000,
                 Double($0.plan.incomingStartMs) / 1000, out.bpm, inc.bpm, $0.plan.outgoingSpeedRatio, $0.plan.incomingSpeedRatio,
-                $0.note
+                $0.note + " [estilo \(style.key)]"
             )
         } ?? "automix: \(outId) -> \(inId) sin mezcla posible (se usa el paso normal)")
         return plan
@@ -502,7 +503,10 @@ final class AutoMixEngine {
         // Cuanto falta para empezar: lo que tardo en prepararse la ultima vez, con margen (entre 6 y 18 s).
         let lead = min(max(lastRenderSeconds * 1.4 + 2.5, 6), 18) + extraLead
         let startMs = Int64((PlayerController.shared.currentTime + lead) * 1000)
-        guard let result = TransitionPlanner.plan(outgoing: out, incoming: inc, vocals: vocals, forcedStartMs: startMs) else {
+        let style = MixLearning.shared.style(outId: outId, inId: inId, outBpm: out.bpm, inBpm: inc.bpm)
+        guard let result = TransitionPlanner.plan(
+            outgoing: out, incoming: inc, vocals: vocals, forcedStartMs: startMs, style: style
+        ) else {
             abortManual("Not enough of the song is left to mix.")
             return
         }

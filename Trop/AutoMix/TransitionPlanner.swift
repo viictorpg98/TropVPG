@@ -22,6 +22,8 @@ struct TransitionPlan: Equatable {
     var outgoingSpeedRatio: Double
     /// Velocidad con la que empieza la entrante (vuelve a 1 al final de la mezcla).
     var incomingSpeedRatio: Double
+    /// El estilo de mezcla con que se hizo (lo elige el aprendizaje); sirve para aprender de su valoracion.
+    var styleKey: String?
 }
 
 enum TransitionPlanner {
@@ -40,15 +42,31 @@ enum TransitionPlanner {
     /// mezclar bien (cancion saliente demasiado corta, datos raros...). Con las voces conocidas, busca una colocacion en
     /// que no se pisen (acortando la mezcla o moviendo los puntos de corte y de entrada); sin ellas, limita la duracion.
     static func plan(
-        outgoing: TrackStructure, incoming: TrackStructure, vocals: Vocals? = nil, forcedStartMs: Int64? = nil
+        outgoing: TrackStructure, incoming: TrackStructure, vocals: Vocals? = nil, forcedStartMs: Int64? = nil,
+        style: MixStyle? = nil
+    ) -> (plan: TransitionPlan, note: String)? {
+        guard var result = planUnstyled(
+            outgoing: outgoing, incoming: incoming, vocals: vocals, forcedStartMs: forcedStartMs, style: style
+        ) else { return nil }
+        result.plan.styleKey = style?.key
+        return result
+    }
+
+    private static func planUnstyled(
+        outgoing: TrackStructure, incoming: TrackStructure, vocals: Vocals?, forcedStartMs: Int64?, style: MixStyle?
     ) -> (plan: TransitionPlan, note: String)? {
         guard outgoing.beatMs > 0, outgoing.bpm > 0, incoming.bpm > 0 else { return nil }
         // El cambio de tempo se reparte entre las dos canciones (cada una la raiz de la diferencia), asi ninguna se
         // estira mucho, y como maximo un 6 % cada una (mas, en voces, suena mal).
-        let full = AutoMixMath.speedRatio(outgoingBpm: outgoing.bpm, incomingBpm: incoming.bpm)
+        // Si el aprendizaje prefiere dejar el tempo como esta, no se estira ninguna de las dos.
+        let full = style?.matchTempo == false
+            ? 1.0
+            : AutoMixMath.speedRatio(outgoingBpm: outgoing.bpm, incomingBpm: incoming.bpm)
         let outgoingRatio = AutoMixMath.quantized(full.squareRoot())
         let incomingRatio = AutoMixMath.quantized(1 / full.squareRoot())
-        var baseDuration = AutoMixMath.durationMs(outgoing: outgoing, incoming: incoming)
+        var baseDuration = AutoMixMath.durationMs(
+            outgoing: outgoing, incoming: incoming, scale: style?.length.durationScale ?? 1
+        )
         // Si los tempos no se pueden igualar (mas de un 7 %, contando mitad y doble), las dos suenan a la vez con ritmos
         // distintos: cuanto mas dure, peor. Una mezcla corta.
         let folded = AutoMixMath.foldedRatio(outgoingBpm: outgoing.bpm, incomingBpm: incoming.bpm)
@@ -205,16 +223,19 @@ enum AutoMixMath {
         return 14_000 - (clamped - 70) * 50
     }
 
-    static func durationMs(outgoing: TrackStructure, incoming: TrackStructure) -> Int64 {
+    static func durationMs(outgoing: TrackStructure, incoming: TrackStructure, scale: Double = 1) -> Int64 {
         let beatMs = 60_000 / outgoing.bpm
         // Un salto grande de tempo pide una mezcla mas larga. Mitad y doble de tempo cuentan como iguales.
         var ratio = incoming.bpm / outgoing.bpm
         while ratio > 1.5 { ratio /= 2 }
         while ratio < 0.67 { ratio *= 2 }
         let gapFactor = min(1 + abs(1 - ratio) * bpmGapScale, 1.3)
-        let target = baseTargetMs(bpm: outgoing.bpm) * gapFactor
+        let target = baseTargetMs(bpm: outgoing.bpm) * gapFactor * scale
         let beats = beatCountOptions.min(by: { abs($0 * beatMs - target) < abs($1 * beatMs - target) }) ?? 32
-        let duration = min(max(beats * beatMs, minDurationMs), maxDurationMs)
+        // Con el estilo "corta" se baja el minimo; con "larga" se sube el maximo.
+        let lowest = scale < 1 ? 6_000.0 : minDurationMs
+        let highest = scale > 1 ? 22_000.0 : maxDurationMs
+        let duration = min(max(beats * beatMs, lowest), highest)
         return Int64(duration)
     }
 

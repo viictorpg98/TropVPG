@@ -22,6 +22,8 @@ struct MixRecord: Codable, Identifiable {
     var incomingRatio: Double
     /// 1 = bien, -1 = mal, 0 = sin valorar.
     var rating = 0
+    /// El estilo de mezcla con que se hizo (para que el aprendizaje sepa de que se trata la valoracion).
+    var arm: String?
 }
 
 @MainActor
@@ -53,7 +55,8 @@ final class MixFeedbackStore {
             durationSeconds: Double(plan.durationMs) / 1000,
             outgoingBpm: store.structure(for: outId)?.bpm ?? 0,
             incomingBpm: store.structure(for: inId)?.bpm ?? 0,
-            outgoingRatio: plan.outgoingSpeedRatio, incomingRatio: plan.incomingSpeedRatio
+            outgoingRatio: plan.outgoingSpeedRatio, incomingRatio: plan.incomingSpeedRatio,
+            arm: plan.styleKey
         )
         records.append(record)
         if records.count > 300 { records.removeFirst(records.count - 300) }
@@ -74,6 +77,10 @@ final class MixFeedbackStore {
             current.outId, current.inId, value > 0 ? "bien" : "mal",
             current.durationSeconds, current.outgoingBpm, current.incomingBpm
         ))
+        // Solo cuenta la valoracion explicita: el aprendizaje de AutoMix se ajusta con ella.
+        if let arm = current.arm {
+            MixLearning.shared.record(arm: arm, outId: current.outId, inId: current.inId, rating: value)
+        }
         thanks = true
         schedule(after: 1.4)
     }

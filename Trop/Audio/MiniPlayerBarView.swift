@@ -45,39 +45,24 @@ struct MiniPlayerBarView: View {
         46
     }
 
-    private var isDarkMode: Bool {
-        if let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
-           let window = scene.windows.first(where: { $0.isKeyWindow }) ?? scene.windows.first {
-            return window.traitCollection.userInterfaceStyle == .dark
-        }
-        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let window = scene.windows.first {
-            return window.traitCollection.userInterfaceStyle == .dark
-        }
-        return colorScheme == .dark
-    }
+    /// Sobre el color de la carátula el texto es siempre blanco, como en el reproductor grande.
+    private var titleColor: Color { .white }
 
-    private var titleColor: Color {
-        isDarkMode ? .white : .black
-    }
-
-    private var artistColor: Color {
-        isDarkMode ? Color.white.opacity(0.85) : Color.black.opacity(0.80)
-    }
+    private var artistColor: Color { Color.white.opacity(0.78) }
 
     var body: some View {
-        VStack(spacing: 0) {
-            MiniProgressLine()
-            HStack(spacing: 0) {
-                pagingArea
-                    .mask(textFadeMask)
-                transportControls
-                    .padding(.trailing, 8)
-            }
-            .frame(height: barHeight)
+        HStack(spacing: 0) {
+            pagingArea
+                .mask(textFadeMask)
+            transportControls
+                .padding(.trailing, 6)
         }
+        .frame(height: barHeight)
         .frame(maxWidth: .infinity)
-        .background(Color(.secondarySystemBackground))
+        // La onda de la cancion hace de fondo de la barra (solo se ve; para saltar a un punto esta el reproductor grande).
+        .background { MiniWaveformBackdrop() }
+        // El color de la carátula, que sigue por debajo hasta la barra de pestañas: todo parece un solo bloque.
+        .background { MiniColorBackdrop().ignoresSafeArea(edges: .bottom) }
         .onChange(of: np.videoId) { _, _ in
             dragOffset = 0
             preloadLyrics()
@@ -182,9 +167,9 @@ struct MiniPlayerBarView: View {
         Button(action: { player.togglePlayPause() }, label: {
             Image(systemName: np.isPlaying ? "pause.fill" : "play.fill")
                 .contentTransition(.symbolEffect(.replace))
-                .font(.system(size: 28))
+                .font(.system(size: 25))
                 .foregroundStyle(titleColor)
-                .frame(width: 48, height: 48)
+                .frame(width: 44, height: 48)
                 .contentShape(Rectangle())
         })
         .buttonStyle(.plain)
@@ -204,16 +189,30 @@ struct MiniPlayerBarView: View {
         )
     }
 
+    /// Anterior, pausa y siguiente: iconos pequeños, sin circulos.
     private var transportControls: some View {
         HStack(spacing: 0) {
-            playPauseButton
-            Button(action: { np.playNext() }, label: {
-                Image(systemName: "forward.fill")
-                    .font(.system(size: 22))
-                    .foregroundStyle(np.hasNext ? titleColor : titleColor.opacity(0.35))
-                    .frame(width: 48, height: 48)
+            Button(action: { np.playPrevious() }, label: {
+                Image(systemName: "backward.fill")
+                    .font(.system(size: 17))
+                    .foregroundStyle(np.hasPrevious ? titleColor : titleColor.opacity(0.35))
+                    .frame(width: 38, height: 48)
                     .contentShape(Rectangle())
             })
+            .buttonStyle(.plain)
+            .disabled(!np.hasPrevious)
+            .accessibilityLabel("Previous")
+
+            playPauseButton
+
+            Button(action: { np.playNext() }, label: {
+                Image(systemName: "forward.fill")
+                    .font(.system(size: 17))
+                    .foregroundStyle(np.hasNext ? titleColor : titleColor.opacity(0.35))
+                    .frame(width: 38, height: 48)
+                    .contentShape(Rectangle())
+            })
+            .buttonStyle(.plain)
             .disabled(!np.hasNext)
             .accessibilityLabel("Next")
         }
@@ -311,22 +310,68 @@ struct MiniPlayerBarView: View {
     }
 }
 
-// MARK: - Barra de progreso fina (vista propia: solo ella se redibuja con el tiempo)
+// MARK: - Fondo del mini reproductor
 
-private struct MiniProgressLine: View {
+/// Degradado con los colores de la carátula (los mismos que el reproductor grande; durante una mezcla de AutoMix pasan a
+/// los de la entrante), algo oscurecido para que el texto blanco se lea siempre.
+private struct MiniColorBackdrop: View {
     private let np = NowPlaying.shared
+    private let visuals = AutoMixVisuals.shared
 
     var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Rectangle().fill(Color.primary.opacity(0.12))
-                Rectangle()
-                    .fill(.tint)
-                    .frame(width: max(0, min(geo.size.width, geo.size.width * CGFloat(np.progress))))
+        let colors = playerPaletteNow(base: np.dominantColors, edge: np.artworkEdgeColor)
+        LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
+            .overlay(Color.black.opacity(0.22))
+            .animation(visuals.isMixing ? nil : .easeInOut(duration: 0.8), value: colors)
+    }
+}
+
+/// La onda de la cancion a todo lo ancho de la barra, tenue; lo ya sonado un poco mas claro y una linea fina donde va.
+private struct MiniWaveformBackdrop: View {
+    private let np = NowPlaying.shared
+    @State private var wave: [Float]?
+
+    var body: some View {
+        let progress = CGFloat(np.progress)
+        let levels = wave ?? WaveformStore.placeholder(for: np.videoId)
+        let isReal = wave != nil
+        Canvas { context, size in
+            let count = levels.count
+            guard count > 0 else { return }
+            let slot: CGFloat = size.width / CGFloat(count)
+            for index in 0..<count {
+                let level: CGFloat = CGFloat(levels[index])
+                let height: CGFloat = max(3, level * size.height * 0.66)
+                let rect = CGRect(
+                    x: CGFloat(index) * slot + slot * 0.2, y: (size.height - height) / 2,
+                    width: slot * 0.6, height: height
+                )
+                let middle: CGFloat = (CGFloat(index) + 0.5) / CGFloat(count)
+                let played = middle <= progress
+                let base: Double = isReal ? (played ? 0.30 : 0.12) : (played ? 0.16 : 0.07)
+                context.fill(Path(roundedRect: rect, cornerRadius: slot * 0.3), with: .color(Color.white.opacity(base)))
+            }
+            let head = CGRect(x: size.width * progress - 0.75, y: 0, width: 1.5, height: size.height)
+            context.fill(Path(head), with: .color(Color.white.opacity(0.55)))
+        }
+        .allowsHitTesting(false)
+        .animation(.easeInOut(duration: 0.4), value: isReal)
+        .task(id: np.videoId) {
+            guard SettingsStore.shared.waveformProgressBar, let id = np.videoId else {
+                wave = nil
+                return
+            }
+            wave = WaveformStore.shared.cached(for: id)
+            guard wave == nil else { return }
+            for _ in 0..<90 {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                guard !Task.isCancelled else { return }
+                if let found = WaveformStore.shared.cached(for: id) {
+                    wave = found
+                    return
+                }
             }
         }
-        .frame(height: 2)
-        .allowsHitTesting(false)
     }
 }
 

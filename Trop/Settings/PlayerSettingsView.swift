@@ -9,6 +9,7 @@ import SwiftUI
 
 struct PlayerSettingsView: View {
     @Environment(\.settingsStore) private var settings
+    @State private var learnedLines: [String] = []
 
     var body: some View {
         @Bindable var settings = settings
@@ -68,10 +69,30 @@ struct PlayerSettingsView: View {
             Section {
                 SettingsToggleRow("AutoMix", icon: "wand.and.stars", isOn: $settings.autoMixEnabled)
                 SettingsToggleRow("Mix Streamed Songs on Mobile Data", icon: "antenna.radiowaves.left.and.right", isOn: $settings.autoMixUsesMobileData)
+                SettingsToggleRow("AutoMix Learns From Your Ratings", icon: "brain", isOn: $settings.autoMixLearns)
             } header: {
                 Text("AutoMix")
             } footer: {
                 Text("Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Downloaded songs always mix; streamed songs mix over Wi-Fi, or also on mobile data if you turn that on (it downloads each song's audio an extra time). The Playback Report shows what it did.")
+            }
+
+            Section {
+                if learnedLines.isEmpty {
+                    Text("No ratings yet. Rate the mixes with the thumbs that appear after each one.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(learnedLines, id: \.self) { line in
+                        Text(line)
+                    }
+                    Button("Reset What AutoMix Learned", role: .destructive) {
+                        MixLearning.shared.reset()
+                        learnedLines = MixLearning.shared.summary()
+                    }
+                }
+            } header: {
+                Text("What AutoMix Learned")
+            } footer: {
+                Text("Each mix you rate teaches AutoMix which kinds of mixes you like: how long they last and whether the tempo is matched, depending on how close the two songs are. It still tries other styles now and then, and a pair of songs you rated badly is not mixed the same way again.")
             }
 
             Section {
@@ -91,6 +112,7 @@ struct PlayerSettingsView: View {
                 Text("Swipe left or right on the artwork in the full player to play the next or previous song.")
             }
         }
+        .onAppear { learnedLines = MixLearning.shared.summary() }
         .navigationTitle("Player")
         .navigationBarTitleDisplayMode(.inline)
         .miniPlayerTracksScroll()
