@@ -56,6 +56,9 @@ private func reveal(_ progress: Double) -> Double {
     smooth((progress - 0.38) / 0.24)
 }
 
+/// Lo mismo, para otras vistas (la barra de progreso entra a la vez que la carátula).
+func autoMixReveal(_ progress: Double) -> Double { reveal(progress) }
+
 // MARK: - El borde líquido
 
 /// Mascara con un borde que sube desde abajo, difuso y ondulado como un liquido (es lo que hace Apple Music al

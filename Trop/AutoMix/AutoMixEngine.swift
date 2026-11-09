@@ -49,8 +49,12 @@ final class AutoMixEngine {
     private var outgoingDuration: TimeInterval = 0
     private var beatMs: Double = 500
     private var beatsPerPulse: Double = 1
-    /// La app ya ve la entrante como cancion actual (la mezcla acabo, aunque el archivo siga unos segundos).
-    private var adopted = false
+    /// La app ya ve la entrante como cancion actual (el relevo se hace al acabar la revelacion de la carátula).
+    private var handedOver = false
+    /// Duracion de la cancion que entra (para la barra de progreso durante la mezcla).
+    private var incomingSongDuration: TimeInterval = 0
+    /// A que punto de la mezcla (0...1) la app pasa a ver la entrante como actual: justo despues de la revelacion.
+    private let handoverAt = 0.66
 
     private let fastInterval: TimeInterval = 0.03
 
@@ -215,7 +219,10 @@ final class AutoMixEngine {
             return
         }
         outgoingDuration = controller.duration
-        adopted = false
+        handedOver = false
+        let next = NowPlaying.shared.queueIndex + 1
+        incomingSongDuration = NowPlaying.shared.queueSongs.indices.contains(next)
+            ? TimeInterval(NowPlaying.shared.queueSongs[next].duration) : 0
         if let structure = TrackAnalysisStore.shared.structure(for: p.outId) {
             beatMs = structure.beatMs
             // Por encima de 140 BPM el latido seria nervioso: se hace cada dos pulsos.
@@ -284,59 +291,74 @@ final class AutoMixEngine {
         let duration = Double(p.plan.durationMs) / 1000
         let visuals = AutoMixVisuals.shared
         if mixPosition < duration {
-            // La saliente avanza mas (o menos) que la mezcla porque cambia de velocidad.
-            let advanced = AutoMixMath.outgoingAdvance(ratio: p.plan.outgoingSpeedRatio, duration: duration, seconds: mixPosition)
-            controller.positionOverride = min(p.cutAt + advanced, max(outgoingDuration, p.cutAt))
-            visuals.progress = min(max(mixPosition / duration, 0), 1)
+            let progress = min(max(mixPosition / duration, 0), 1)
+            visuals.progress = progress
             let beats = (mixPosition * 1000) / max(beatMs, 1) / beatsPerPulse
             visuals.beatPhase = beats - beats.rounded(.down)
+            // Donde va la entrante en su cancion (con sus cambios de velocidad): su barra de progreso entra con la carátula.
+            let incomingPosition = Double(p.plan.incomingStartMs) / 1000
+                + AutoMixMath.incomingAdvance(startRatio: p.plan.incomingSpeedRatio, duration: duration, seconds: mixPosition)
+            visuals.incomingElapsed = incomingPosition
+            visuals.incomingDuration = incomingSongDuration
+            visuals.incomingProgress = incomingSongDuration > 0 ? min(incomingPosition / incomingSongDuration, 1) : 0
+            if !handedOver, progress >= handoverAt { handOver(p, position: incomingPosition) }
+            if handedOver {
+                controller.positionOverride = incomingPosition
+            } else {
+                // La saliente avanza mas (o menos) que la mezcla porque cambia de velocidad.
+                let advanced = AutoMixMath.outgoingAdvance(ratio: p.plan.outgoingSpeedRatio, duration: duration, seconds: mixPosition)
+                controller.positionOverride = min(p.cutAt + advanced, max(outgoingDuration, p.cutAt))
+            }
         } else {
             // La mezcla acabo: la entrante ya suena sola, desde el mismo archivo (lleva el resto de la cancion).
-            if !adopted { adoptIncoming(p) }
+            if !handedOver { handOver(p, position: p.mixEndsAt) }
+            completeMix(p)
         }
     }
 
     // MARK: - Fin de la mezcla: mpv ya suena la entrante
 
-    /// La mezcla acabo (la parte mezclada del archivo): la app pasa a ver la entrante como cancion actual. mpv sigue
-    /// unos segundos en el archivo de la mezcla (la entrante tal cual) hasta el punto flojo donde cambia a su archivo.
-    private func adoptIncoming(_ p: Prepared) {
-        adopted = true
+    /// Relevo: justo despues de revelarse la carátula, la app pasa a ver la entrante como la actual (cola, letra, mini
+    /// reproductor, pantalla de bloqueo, barra...), aunque el audio aun sea la mezcla.
+    private func handOver(_ p: Prepared, position: Double) {
+        handedOver = true
         let controller = PlayerController.shared
-        let duration = Double(p.plan.durationMs) / 1000
         let ok = NowPlaying.shared.adoptGaplessIncoming(
-            videoId: p.inId, position: p.mixEndsAt, artwork: AutoMixVisuals.shared.incomingImage
+            videoId: p.inId, position: position, artwork: AutoMixVisuals.shared.incomingImage
         )
-        // El archivo de la mezcla lleva ya el resto de la entrante: desde aqui suena como si fuera su cancion. La posicion y la
-        // duracion que se ven son las de la cancion (las del archivo mas este desplazamiento).
         controller.currentVideoId = p.inId
         controller.pendingVideoId = nil
+        controller.durationOverride = incomingSongDuration > 0 ? incomingSongDuration : nil
+        PlaybackReport.record(ok
+            ? String(format: "automix: relevo, la app pasa a ver %@ como actual (en %.0f s de su cancion)", p.inId, position)
+            : "automix: no se pudo pasar a \(p.inId)")
+    }
+
+    /// La mezcla acabo: el archivo de la mezcla lleva ya el resto de la entrante y suena como si fuera su cancion. La posicion y
+    /// la duracion que se ven son las de la cancion (las del archivo mas este desplazamiento).
+    private func completeMix(_ p: Prepared) {
+        let controller = PlayerController.shared
+        let duration = Double(p.plan.durationMs) / 1000
         controller.positionOverride = nil
         controller.durationOverride = nil
         controller.timeline = (shift: p.mixEndsAt - duration, mixEnd: duration)
         playingMix = p.mixURL
-        PlaybackReport.record(ok ? "automix: mezcla terminada, la entrante \(p.inId) suena sola" : "automix: no se pudo pasar a \(p.inId)")
+        PlaybackReport.record("automix: mezcla terminada, la entrante \(p.inId) suena sola")
         AutoMixVisuals.shared.progress = 1
         AutoMixVisuals.shared.end()
+        MixFeedbackStore.shared.mixFinished(outId: p.outId, inId: p.inId, plan: p.plan)
         finish(keepingMix: true)
     }
 
-    /// mpv acabo el archivo de la mezcla y pasa al archivo de la entrante, en el punto flojo elegido.
-    func gaplessReachedIncoming() {
-        guard phase != .idle, let p = prepared else { return }
-        if !adopted { adoptIncoming(p) }
-        let controller = PlayerController.shared
-        controller.positionOverride = nil
-        controller.durationOverride = nil
-        PlaybackReport.record(String(format: "automix: empalme con la entrante en el segundo %.2f de su archivo", p.resumeAt))
-        finish()
-    }
+    /// Ya no se usa (era el empalme de archivos de una version anterior); se deja para no tocar otros archivos.
+    func gaplessReachedIncoming() {}
 
     private func finish(keepingMix: Bool = false) {
         stopTimer()
         if !keepingMix, let prepared { try? FileManager.default.removeItem(at: prepared.mixURL) }
         prepared = nil
         planCache = nil
+        handedOver = false
         phase = .idle
     }
 
@@ -347,10 +369,16 @@ final class AutoMixEngine {
         let controller = PlayerController.shared
         let stage = controller.gaplessStage
         controller.disarmGaplessMix()
-        // Si ya sonaba el archivo de la mezcla y la cancion sigue siendo la saliente, se vuelve a ella donde iba.
-        if stage == 2, let p = prepared, NowPlaying.shared.videoId == p.outId {
-            let position = min(p.cutAt + controller.rawTimePos(), max(outgoingDuration, p.cutAt))
-            Task { _ = try? await PlaybackManager.shared.resolveAndPlay(videoId: p.outId, startAt: position) }
+        // Si ya sonaba el archivo de la mezcla y la cancion sigue siendo la saliente, se vuelve a ella donde iba; si ya habia
+        // relevo (la app ve la entrante como actual), se carga la entrante normal en su punto.
+        if stage == 2, let p = prepared {
+            if handedOver {
+                let position = AutoMixVisuals.shared.incomingElapsed
+                Task { _ = try? await PlaybackManager.shared.resolveAndPlay(videoId: p.inId, startAt: position) }
+            } else if NowPlaying.shared.videoId == p.outId {
+                let position = min(p.cutAt + controller.rawTimePos(), max(outgoingDuration, p.cutAt))
+                Task { _ = try? await PlaybackManager.shared.resolveAndPlay(videoId: p.outId, startAt: position) }
+            }
         }
         controller.positionOverride = nil
         controller.durationOverride = nil
@@ -363,6 +391,17 @@ final class AutoMixEngine {
     func userSeek(to time: TimeInterval) -> Bool {
         let controller = PlayerController.shared
         guard let p = prepared else { return false }
+        if controller.gaplessStage == 2, handedOver {
+            // Ya se veia la entrante como actual: el cambio de posicion es en su cancion.
+            PlaybackReport.record("automix: cancelada (cambio de posicion tras el relevo)")
+            controller.disarmGaplessMix()
+            controller.positionOverride = nil
+            controller.durationOverride = nil
+            AutoMixVisuals.shared.end()
+            finish()
+            Task { _ = try? await PlaybackManager.shared.resolveAndPlay(videoId: p.inId, startAt: time) }
+            return true
+        }
         if controller.gaplessStage == 2, NowPlaying.shared.videoId == p.outId {
             PlaybackReport.record("automix: cancelada (cambio de posicion durante la mezcla)")
             controller.disarmGaplessMix()
@@ -379,6 +418,45 @@ final class AutoMixEngine {
         AutoMixVisuals.shared.end()
         finish()
         return false
+    }
+
+    /// El usuario pide mezclar ya: se planifica una mezcla que empieza dentro de unos segundos (lo que tarda en prepararse).
+    @discardableResult
+    func mixNow() -> Bool {
+        guard SettingsStore.shared.autoMixEnabled else { return false }
+        guard phase == .idle, prepared == nil, preparingKey == nil else { return false }
+        guard let (outId, inId) = currentPair() else {
+            PlaybackNotice.shared.show(NSLocalizedString("Can't mix right now.", comment: ""))
+            return false
+        }
+        let store = TrackAnalysisStore.shared
+        store.request(outId)
+        store.request(inId)
+        guard let out = store.structure(for: outId), let inc = store.structure(for: inId) else {
+            PlaybackNotice.shared.show(NSLocalizedString("Analysing songs…", comment: ""))
+            return false
+        }
+        let vocals = TransitionPlanner.Vocals(
+            outgoing: VocalMaskStore.shared.segments(for: outId), incoming: VocalMaskStore.shared.segments(for: inId)
+        )
+        let startMs = Int64((PlayerController.shared.currentTime + 15) * 1000)
+        guard let result = TransitionPlanner.plan(outgoing: out, incoming: inc, vocals: vocals, forcedStartMs: startMs) else {
+            PlaybackNotice.shared.show(NSLocalizedString("Not enough of the song is left to mix.", comment: ""))
+            return false
+        }
+        planCache = (outId, inId, result.plan)
+        PlaybackReport.record(String(
+            format: "automix: mezcla pedida a mano %@ -> %@: empieza en %.1f s, dura %.0f s, entra desde %.1f s",
+            outId, inId, Double(result.plan.outgoingStartMs) / 1000, Double(result.plan.durationMs) / 1000,
+            Double(result.plan.incomingStartMs) / 1000
+        ))
+        let next = NowPlaying.shared.queueIndex + 1
+        if NowPlaying.shared.queueSongs.indices.contains(next) {
+            AutoMixVisuals.shared.prepare(song: NowPlaying.shared.queueSongs[next])
+        }
+        prepare(outId: outId, inId: inId, plan: result.plan)
+        PlaybackNotice.shared.show(NSLocalizedString("Preparing the mix…", comment: ""))
+        return true
     }
 
     /// Para cuando el usuario cambia de cancion a mano o se vacia la cola.

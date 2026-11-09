@@ -569,5 +569,16 @@
   "Animated Artwork on Mobile Data": "Animated Artwork on Mobile Data",
   "Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one; otherwise the normal cover is shown. It uses Wi-Fi unless you allow mobile data, and it turns off in Low Power Mode or with Reduce Motion.": "Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one; otherwise the normal cover is shown. It uses Wi-Fi unless you allow mobile data, and it turns off in Low Power Mode or with Reduce Motion.",
   "High-Quality Covers": "High-Quality Covers",
-  "Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one. High-Quality Covers also swaps the cover for the official one when the same song is found there, or for the audio version's cover when a video has one, which helps video clips and remixes. It uses Wi-Fi unless you allow mobile data, and the video turns off in Low Power Mode or with Reduce Motion.": "Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one. High-Quality Covers also swaps the cover for the official one when the same song is found there, or for the audio version's cover when a video has one, which helps video clips and remixes. It uses Wi-Fi unless you allow mobile data, and the video turns off in Low Power Mode or with Reduce Motion."
+  "Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one. High-Quality Covers also swaps the cover for the official one when the same song is found there, or for the audio version's cover when a video has one, which helps video clips and remixes. It uses Wi-Fi unless you allow mobile data, and the video turns off in Low Power Mode or with Reduce Motion.": "Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one. High-Quality Covers also swaps the cover for the official one when the same song is found there, or for the audio version's cover when a video has one, which helps video clips and remixes. It uses Wi-Fi unless you allow mobile data, and the video turns off in Low Power Mode or with Reduce Motion.",
+  "Top result": "Top result",
+  "Use suggestion": "Use suggestion",
+  "How was the mix?": "How was the mix?",
+  "Thanks!": "Thanks!",
+  "Good mix": "Good mix",
+  "Bad mix": "Bad mix",
+  "Mix now": "Mix now",
+  "Can't mix right now.": "Can't mix right now.",
+  "Analysing songs…": "Analysing songs…",
+  "Not enough of the song is left to mix.": "Not enough of the song is left to mix.",
+  "Preparing the mix…": "Preparing the mix…"
 }

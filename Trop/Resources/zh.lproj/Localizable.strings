@@ -35,6 +35,7 @@
 "Albums for you" = "为你推荐的专辑";
 "All Results" = "全部结果";
 "Ambient + atmospheric" = "Ambient + atmospheric";
+"Analysing songs…" = "Analysing songs…";
 "Animated Artwork" = "Animated Artwork";
 "Animated Artwork on Mobile Data" = "Animated Artwork on Mobile Data";
 "App volume" = "应用音量";
@@ -57,6 +58,7 @@
 "AutoMix" = "AutoMix";
 "Autoplay Similar" = "自动播放相似歌曲";
 "Back" = "Back";
+"Bad mix" = "Bad mix";
 "Based on Trop by SwiftyMedia (GPL-3.0)." = "Based on Trop by SwiftyMedia (GPL-3.0).";
 "Bass Boost" = "增强低音";
 "Bass Reducer" = "降低低音";
@@ -69,6 +71,7 @@
 "Button 1" = "按钮 1";
 "Button 2" = "按钮 2";
 "Buttons" = "按钮";
+"Can't mix right now." = "Can't mix right now.";
 "Can't play this yet: %@" = "Can't play this yet: %@";
 "Cancel" = "取消";
 "Canvas" = "画布";
@@ -200,6 +203,7 @@
 "Get new episodes in your library" = "在你的资料库中获取新剧集";
 "GitHub" = "GitHub";
 "Go to Downloads" = "Go to Downloads";
+"Good mix" = "Good mix";
 "Government" = "Government";
 "Guest" = "访客";
 "Health & Fitness" = "Health & Fitness";
@@ -212,6 +216,7 @@
 "Home" = "主页";
 "Home Feed" = "主页动态";
 "Hopeless romantic" = "Hopeless romantic";
+"How was the mix?" = "How was the mix?";
 "I couldn't find that song." = "I couldn't find that song.";
 "ITAG" = "ITAG";
 "Idle" = "空闲";
@@ -285,6 +290,7 @@
 "Minimum Duration" = "最短时长";
 "Minimum Track Duration" = "最短歌曲时长";
 "Mix Streamed Songs on Mobile Data" = "Mix Streamed Songs on Mobile Data";
+"Mix now" = "Mix now";
 "Mixed for you" = "为你混配";
 "Mood & Genres" = "心情与流派";
 "Moods & genres" = "心情与流派";
@@ -331,6 +337,7 @@
 "No podcast data" = "无播客数据";
 "No similar tracks" = "没有相似歌曲";
 "No songs found" = "未找到歌曲";
+"Not enough of the song is left to mix." = "Not enough of the song is left to mix.";
 "Not logged in" = "未登录";
 "Nothing here" = "这里没有内容";
 "Nothing to explore" = "没有可探索的内容";
@@ -384,6 +391,7 @@
 "Pop" = "流行";
 "Power boost" = "Power boost";
 "Preferences" = "偏好设置";
+"Preparing the mix…" = "Preparing the mix…";
 "Presence" = "状态";
 "Preview" = "预览";
 "Previous" = "上一首";
@@ -512,6 +520,7 @@
 "TV & Film" = "TV & Film";
 "Technology" = "Technology";
 "Template" = "模板";
+"Thanks!" = "Thanks!";
 "Theme" = "主题";
 "Theme Mode" = "主题模式";
 "This permanently deletes all offline tracks from your device." = "这会永久删除设备上的所有离线歌曲。";
@@ -522,6 +531,7 @@
 "Top 100 Music Videos %@" = "Top 100 Music Videos %@";
 "Top Lists Length" = "热门榜单长度";
 "Top artists" = "Top artists";
+"Top result" = "Top result";
 "Track" = "歌曲";
 "Track Play History" = "记录播放历史";
 "Track Search History" = "记录搜索历史";
@@ -542,6 +552,7 @@
 "Unsubscribe" = "Unsubscribe";
 "Unsubscribe from this podcast" = "取消订阅此播客";
 "Use cellular data" = "使用蜂窝数据";
+"Use suggestion" = "Use suggestion";
 "User Status" = "用户状态";
 "V-Shape" = "V 形";
 "Variety" = "多样";

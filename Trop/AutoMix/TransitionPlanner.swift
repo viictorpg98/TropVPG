@@ -40,7 +40,7 @@ enum TransitionPlanner {
     /// mezclar bien (cancion saliente demasiado corta, datos raros...). Con las voces conocidas, busca una colocacion en
     /// que no se pisen (acortando la mezcla o moviendo los puntos de corte y de entrada); sin ellas, limita la duracion.
     static func plan(
-        outgoing: TrackStructure, incoming: TrackStructure, vocals: Vocals? = nil
+        outgoing: TrackStructure, incoming: TrackStructure, vocals: Vocals? = nil, forcedStartMs: Int64? = nil
     ) -> (plan: TransitionPlan, note: String)? {
         guard outgoing.beatMs > 0, outgoing.bpm > 0, incoming.bpm > 0 else { return nil }
         // El cambio de tempo se reparte entre las dos canciones (cada una la raiz de la diferencia), asi ninguna se
@@ -73,7 +73,7 @@ enum TransitionPlanner {
                     guard let candidate = build(
                         outgoing: outgoing, incoming: incoming, durationMs: duration,
                         outgoingRatio: outgoingRatio, incomingRatio: incomingRatio,
-                        cutShiftMs: cutShift, incomingShiftMs: incomingShift
+                        cutShiftMs: cutShift, incomingShiftMs: incomingShift, forcedStartMs: forcedStartMs
                     ) else { continue }
                     guard knownVocals, let out = vocals?.outgoing, let inc = vocals?.incoming else {
                         return (candidate, "voces desconocidas, mezcla limitada a \(duration / 1000) s")
@@ -99,20 +99,28 @@ enum TransitionPlanner {
     /// entrante (hacia el principio de su cancion).
     private static func build(
         outgoing: TrackStructure, incoming: TrackStructure, durationMs: Int64,
-        outgoingRatio: Double, incomingRatio: Double, cutShiftMs: Int64, incomingShiftMs: Int64
+        outgoingRatio: Double, incomingRatio: Double, cutShiftMs: Int64, incomingShiftMs: Int64, forcedStartMs: Int64? = nil
     ) -> TransitionPlan? {
-        let naturalEnd = outgoing.lastChorusEndMs ?? outgoing.musicEndMs
-        let end = min(naturalEnd + cutShiftMs, max(outgoing.musicEndMs, naturalEnd))
         // La saliente recorre mas (o menos) de su propia linea de tiempo de lo que dura la mezcla, porque
         // cambia de velocidad: media a mitad de rampa y luego la mantiene.
         let advance = Double(durationMs) * (1 + (outgoingRatio - 1) * (1 - rampPortion / 2))
-        var start = Int64(Double(end) - advance)
-        if start <= outgoing.firstSoundMs { return nil }
-
-        // Se empieza en el inicio de compas de la saliente inmediatamente anterior, para que la mezcla quede
-        // dentro de la ventana.
-        if let bar = outgoing.downbeatsMs.last(where: { $0 <= start }), start - bar < Int64(outgoing.beatMs * 4) {
-            start = bar
+        let end: Int64
+        var start: Int64
+        if let forced = forcedStartMs {
+            // Mezcla pedida a mano: empieza en el siguiente compas a partir de ese punto y dura lo que toque.
+            start = outgoing.downbeatsMs.first(where: { $0 >= forced }) ?? forced
+            end = start + Int64(advance)
+            if end > outgoing.musicEndMs + 4_000 { return nil }
+        } else {
+            let naturalEnd = outgoing.lastChorusEndMs ?? outgoing.musicEndMs
+            end = min(naturalEnd + cutShiftMs, max(outgoing.musicEndMs, naturalEnd))
+            start = Int64(Double(end) - advance)
+            if start <= outgoing.firstSoundMs { return nil }
+            // Se empieza en el inicio de compas de la saliente inmediatamente anterior, para que la mezcla quede
+            // dentro de la ventana.
+            if let bar = outgoing.downbeatsMs.last(where: { $0 <= start }), start - bar < Int64(outgoing.beatMs * 4) {
+                start = bar
+            }
         }
         if start <= outgoing.firstSoundMs { return nil }
 
@@ -274,6 +282,18 @@ enum AutoMixMath {
         for k in 0..<steps {
             let progress = (Double(k) + 0.5) / Double(steps)
             total += incomingRate(startRatio: startRatio, progress: progress) * duration / Double(steps)
+        }
+        return total
+    }
+
+    /// Segundos de la entrante (en su propia cancion) que se recorren en `seconds` s de mezcla de `duration` s.
+    static func incomingAdvance(startRatio: Double, duration: Double, seconds: Double) -> Double {
+        let limit = min(max(seconds, 0), duration)
+        let steps = 400
+        var total = 0.0
+        for k in 0..<steps {
+            let t = (Double(k) + 0.5) / Double(steps) * limit
+            total += incomingRate(startRatio: startRatio, progress: t / duration) * limit / Double(steps)
         }
         return total
     }

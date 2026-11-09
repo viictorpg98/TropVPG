@@ -35,6 +35,7 @@
 "Albums for you" = "Albums for you";
 "All Results" = "All Results";
 "Ambient + atmospheric" = "Ambient + atmospheric";
+"Analysing songs…" = "Analysing songs…";
 "Animated Artwork" = "Animated Artwork";
 "Animated Artwork on Mobile Data" = "Animated Artwork on Mobile Data";
 "App volume" = "App volume";
@@ -57,6 +58,7 @@
 "AutoMix" = "AutoMix";
 "Autoplay Similar" = "Autoplay Similar";
 "Back" = "Back";
+"Bad mix" = "Bad mix";
 "Based on Trop by SwiftyMedia (GPL-3.0)." = "Based on Trop by SwiftyMedia (GPL-3.0).";
 "Bass Boost" = "Bass Boost";
 "Bass Reducer" = "Bass Reducer";
@@ -69,6 +71,7 @@
 "Button 1" = "Button 1";
 "Button 2" = "Button 2";
 "Buttons" = "Buttons";
+"Can't mix right now." = "Can't mix right now.";
 "Can't play this yet: %@" = "Can't play this yet: %@";
 "Cancel" = "Cancel";
 "Canvas" = "Canvas";
@@ -200,6 +203,7 @@
 "Get new episodes in your library" = "Get new episodes in your library";
 "GitHub" = "GitHub";
 "Go to Downloads" = "Go to Downloads";
+"Good mix" = "Good mix";
 "Government" = "Government";
 "Guest" = "Guest";
 "Health & Fitness" = "Health & Fitness";
@@ -212,6 +216,7 @@
 "Home" = "Home";
 "Home Feed" = "Home Feed";
 "Hopeless romantic" = "Hopeless romantic";
+"How was the mix?" = "How was the mix?";
 "I couldn't find that song." = "I couldn't find that song.";
 "ITAG" = "ITAG";
 "Idle" = "Idle";
@@ -285,6 +290,7 @@
 "Minimum Duration" = "Minimum Duration";
 "Minimum Track Duration" = "Minimum Track Duration";
 "Mix Streamed Songs on Mobile Data" = "Mix Streamed Songs on Mobile Data";
+"Mix now" = "Mix now";
 "Mixed for you" = "Mixed for you";
 "Mood & Genres" = "Mood & Genres";
 "Moods & genres" = "Moods & genres";
@@ -331,6 +337,7 @@
 "No podcast data" = "No podcast data";
 "No similar tracks" = "No similar tracks";
 "No songs found" = "No songs found";
+"Not enough of the song is left to mix." = "Not enough of the song is left to mix.";
 "Not logged in" = "Not logged in";
 "Nothing here" = "Nothing here";
 "Nothing to explore" = "Nothing to explore";
@@ -384,6 +391,7 @@
 "Pop" = "Pop";
 "Power boost" = "Power boost";
 "Preferences" = "Preferences";
+"Preparing the mix…" = "Preparing the mix…";
 "Presence" = "Presence";
 "Preview" = "Preview";
 "Previous" = "Previous";
@@ -512,6 +520,7 @@
 "TV & Film" = "TV & Film";
 "Technology" = "Technology";
 "Template" = "Template";
+"Thanks!" = "Thanks!";
 "Theme" = "Theme";
 "Theme Mode" = "Theme Mode";
 "This permanently deletes all offline tracks from your device." = "This permanently deletes all offline tracks from your device.";
@@ -522,6 +531,7 @@
 "Top 100 Music Videos %@" = "Top 100 Music Videos %@";
 "Top Lists Length" = "Top Lists Length";
 "Top artists" = "Top artists";
+"Top result" = "Top result";
 "Track" = "Track";
 "Track Play History" = "Track Play History";
 "Track Search History" = "Track Search History";
@@ -542,6 +552,7 @@
 "Unsubscribe" = "Unsubscribe";
 "Unsubscribe from this podcast" = "Unsubscribe from this podcast";
 "Use cellular data" = "Use cellular data";
+"Use suggestion" = "Use suggestion";
 "User Status" = "User Status";
 "V-Shape" = "V-Shape";
 "Variety" = "Variety";

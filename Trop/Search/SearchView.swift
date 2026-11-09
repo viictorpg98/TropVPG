@@ -14,6 +14,7 @@ struct SearchView: View {
     @FocusState private var fieldFocused: Bool
 
     @State private var pendingRoute: DetailRoute?
+    @State private var suggestions = SearchSuggestionsModel()
 
     var body: some View {
         NavigationStack(path: $router.searchPath) {
@@ -37,6 +38,9 @@ struct SearchView: View {
             }
             .onChange(of: router.selectedTabIndex) { _, _ in
                 focusIfSearchTab()
+            }
+            .onChange(of: viewModel.fieldText) { _, text in
+                suggestions.update(for: text)
             }
             .task(id: viewModel.results.count) {
                 let urls = viewModel.results
@@ -134,7 +138,9 @@ struct SearchView: View {
     private var content: some View {
         switch viewModel.phase {
         case .idle:
-            if viewModel.searchHistory.isEmpty {
+            if !viewModel.fieldText.trimmingCharacters(in: .whitespaces).isEmpty {
+                suggestionsView
+            } else if viewModel.searchHistory.isEmpty {
                 noRecentSearchesView
             } else {
                 searchHistoryView
@@ -166,6 +172,80 @@ struct SearchView: View {
         }
         fieldFocused = false
         viewModel.submit()
+    }
+
+    /// Mientras se escribe: la mejor cancion, tus busquedas recientes que coinciden y las sugerencias de YouTube Music.
+    private var suggestionsView: some View {
+        let typed = viewModel.fieldText.trimmingCharacters(in: .whitespaces)
+        let lowered = typed.lowercased()
+        let history = Array(
+            viewModel.searchHistory.map(\.query)
+                .filter { $0.lowercased().contains(lowered) && $0.lowercased() != lowered }
+                .prefix(3)
+        )
+        let remote = suggestions.items.filter { candidate in
+            !history.contains(candidate) && candidate.lowercased() != lowered
+        }
+        return ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                if let song = suggestions.topSong {
+                    Text("Top result")
+                        .font(.headline)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                    SongRowView(
+                        song: song,
+                        onTap: {
+                            fieldFocused = false
+                            PlaybackQueue.playSingleWithRadio(song, log: Log.searchView)
+                        },
+                        onNavigate: { pendingRoute = $0 }
+                    )
+                    .padding(.horizontal, 16)
+                    Divider().padding(.leading, 16)
+                }
+                ForEach(history, id: \.self) { suggestionRow($0, icon: "clock.arrow.trianglehead.counterclockwise.rotate.90") }
+                ForEach(remote, id: \.self) { suggestionRow($0, icon: "magnifyingglass") }
+            }
+        }
+        .scrollDismissesKeyboard(.immediately)
+        .miniPlayerTracksScroll()
+    }
+
+    private func suggestionRow(_ text: String, icon: String) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                Button {
+                    submit(text)
+                } label: {
+                    HStack {
+                        Image(systemName: icon)
+                            .foregroundColor(settings.accentColor)
+                            .frame(width: 24)
+                        Text(text)
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                        Spacer()
+                    }
+                    .padding(.leading, 16)
+                    .padding(.vertical, 12)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(PressableButtonStyle())
+                // Pasa la frase al campo sin buscar, para seguir escribiendo a partir de ella.
+                Button {
+                    viewModel.fieldText = text + " "
+                } label: {
+                    Image(systemName: "arrow.up.left")
+                        .foregroundStyle(.secondary)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Use suggestion")
+            }
+            Divider().padding(.leading, 16)
+        }
     }
 
     private var searchHistoryView: some View {

@@ -34,6 +34,10 @@ final class AutoMixVisuals {
     var incomingTitle = ""
     var incomingArtist = ""
     var incomingVideoId: String?
+    /// La barra de progreso de la entrante durante la mezcla (para que entre a la vez que la carátula).
+    var incomingProgress = 0.0
+    var incomingElapsed = 0.0
+    var incomingDuration = 0.0
     /// El video en bucle de la cancion que entra (si tiene), ya cargandose para que este listo cuando se revele.
     var incomingVideoURL: URL?
     private var incomingCoverIsApple = false
@@ -134,6 +138,8 @@ final class AutoMixVisuals {
         outgoingEdgeColor = NowPlaying.shared.artworkEdgeColor
         progress = 0
         beatPhase = 0
+        incomingProgress = 0
+        incomingElapsed = 0
         pulsing = true
         isMixing = true
     }

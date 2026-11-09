@@ -35,6 +35,7 @@
 "Albums for you" = "Álbumes para ti";
 "All Results" = "Todos los resultados";
 "Ambient + atmospheric" = "Ambiental y atmosférico";
+"Analysing songs…" = "Analizando canciones…";
 "Animated Artwork" = "Carátulas animadas";
 "Animated Artwork on Mobile Data" = "Carátulas animadas con datos móviles";
 "App volume" = "Volumen de la app";
@@ -57,6 +58,7 @@
 "AutoMix" = "AutoMix";
 "Autoplay Similar" = "Reproducción automática de similares";
 "Back" = "Atrás";
+"Bad mix" = "Mala mezcla";
 "Based on Trop by SwiftyMedia (GPL-3.0)." = "Basada en Trop, de SwiftyMedia (GPL-3.0).";
 "Bass Boost" = "Realce de graves";
 "Bass Reducer" = "Reducción de graves";
@@ -69,6 +71,7 @@
 "Button 1" = "Botón 1";
 "Button 2" = "Botón 2";
 "Buttons" = "Botones";
+"Can't mix right now." = "Ahora no se puede mezclar.";
 "Can't play this yet: %@" = "Todavía no se puede reproducir: %@";
 "Cancel" = "Cancelar";
 "Canvas" = "Canvas";
@@ -200,6 +203,7 @@
 "Get new episodes in your library" = "Recibe episodios nuevos en tu biblioteca";
 "GitHub" = "GitHub";
 "Go to Downloads" = "Ir a Descargas";
+"Good mix" = "Buena mezcla";
 "Government" = "Gobierno";
 "Guest" = "Invitado";
 "Health & Fitness" = "Salud y bienestar";
@@ -212,6 +216,7 @@
 "Home" = "Inicio";
 "Home Feed" = "Pantalla de inicio";
 "Hopeless romantic" = "Romántico empedernido";
+"How was the mix?" = "¿Qué tal la mezcla?";
 "I couldn't find that song." = "No he encontrado esa canción.";
 "ITAG" = "ITAG";
 "Idle" = "Inactivo";
@@ -285,6 +290,7 @@
 "Minimum Duration" = "Duración mínima";
 "Minimum Track Duration" = "Duración mínima de la canción";
 "Mix Streamed Songs on Mobile Data" = "Mezclar canciones en streaming con datos móviles";
+"Mix now" = "Mezclar ya";
 "Mixed for you" = "Mezclado para ti";
 "Mood & Genres" = "Estados de ánimo y géneros";
 "Moods & genres" = "Estados de ánimo y géneros";
@@ -331,6 +337,7 @@
 "No podcast data" = "Sin datos del pódcast";
 "No similar tracks" = "No hay canciones similares";
 "No songs found" = "No se encontraron canciones";
+"Not enough of the song is left to mix." = "Queda muy poco de la canción para mezclar.";
 "Not logged in" = "Sesión no iniciada";
 "Nothing here" = "No hay nada aquí";
 "Nothing to explore" = "Nada que explorar";
@@ -384,6 +391,7 @@
 "Pop" = "Pop";
 "Power boost" = "Subidón de energía";
 "Preferences" = "Preferencias";
+"Preparing the mix…" = "Preparando la mezcla…";
 "Presence" = "Presencia";
 "Preview" = "Vista previa";
 "Previous" = "Anterior";
@@ -512,6 +520,7 @@
 "TV & Film" = "Cine y televisión";
 "Technology" = "Tecnología";
 "Template" = "Plantilla";
+"Thanks!" = "¡Gracias!";
 "Theme" = "Tema";
 "Theme Mode" = "Modo del tema";
 "This permanently deletes all offline tracks from your device." = "Esto elimina de forma permanente todas las canciones sin conexión de tu dispositivo.";
@@ -522,6 +531,7 @@
 "Top 100 Music Videos %@" = "Top 100 videoclips %@";
 "Top Lists Length" = "Longitud de las listas Top";
 "Top artists" = "Artistas más escuchados";
+"Top result" = "Mejor resultado";
 "Track" = "Canción";
 "Track Play History" = "Guardar historial de reproducción";
 "Track Search History" = "Guardar historial de búsqueda";
@@ -542,6 +552,7 @@
 "Unsubscribe" = "Cancelar suscripción";
 "Unsubscribe from this podcast" = "Cancelar la suscripción a este pódcast";
 "Use cellular data" = "Usar datos móviles";
+"Use suggestion" = "Usar sugerencia";
 "User Status" = "Estado del usuario";
 "V-Shape" = "En V";
 "Variety" = "Variedad";

@@ -206,6 +206,8 @@ struct FullPlayerView: View {
         Group {
             if AutoMixVisuals.shared.isMixing {
                 AutoMixPill()
+            } else if MixFeedbackStore.shared.pending != nil {
+                MixFeedbackPill()
             } else {
                 ActiveLyricLine(lines: currentLyrics) {
                     withAnimation(.easeInOut(duration: 0.3)) {
@@ -289,6 +291,18 @@ struct FullPlayerView: View {
             ) {
                 withAnimation(.easeInOut(duration: 0.3)) {
                     showLyrics = true
+                }
+            }
+
+            // Mezclar ya con la siguiente (AutoMix la prepara y empieza en unos segundos).
+            if settings.autoMixEnabled, np.hasNext, !AutoMixVisuals.shared.isMixing {
+                PlayerPillButton(
+                    systemImage: "wand.and.stars",
+                    title: "Mix now",
+                    isActive: false,
+                    accessibility: "Mix now"
+                ) {
+                    AutoMixEngine.shared.mixNow()
                 }
             }
 
@@ -490,8 +504,30 @@ private struct PlayerProgressSection: View {
 
     private let player = PlayerController.shared
     private let np = NowPlaying.shared
+    private let visuals = AutoMixVisuals.shared
 
     var body: some View {
+        Group {
+            if visuals.isMixing, visuals.incomingDuration > 0 {
+                // Durante una mezcla, la barra y los tiempos de la siguiente entran a la vez que su carátula.
+                let amount = autoMixReveal(visuals.progress)
+                ZStack {
+                    currentBar
+                        .opacity(1 - amount)
+                        .blur(radius: 6 * amount)
+                    incomingBar
+                        .opacity(amount)
+                        .blur(radius: 6 * (1 - amount))
+                        .allowsHitTesting(false)
+                }
+            } else {
+                currentBar
+            }
+        }
+        .padding(.horizontal, horizontalPadding)
+    }
+
+    private var currentBar: some View {
         VStack(spacing: 6) {
             ProgressBar(
                 progress: Binding(
@@ -513,21 +549,38 @@ private struct PlayerProgressSection: View {
                 }
             )
 
-            HStack {
-                Text(DurationFormat.playbackTime(isEditingSlider
-                    ? TimeInterval(editingProgress) * np.duration
-                    : np.currentTime))
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.white.opacity(0.6))
-
-                Spacer()
-
-                Text(DurationFormat.playbackTime(np.duration))
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.white.opacity(0.6))
-            }
+            timeRow(
+                elapsed: isEditingSlider ? TimeInterval(editingProgress) * np.duration : np.currentTime,
+                total: np.duration
+            )
         }
-        .padding(.horizontal, horizontalPadding)
+    }
+
+    /// La barra de la cancion que entra (solo se ve durante la mezcla; no se puede tocar).
+    private var incomingBar: some View {
+        VStack(spacing: 6) {
+            ProgressBar(
+                progress: .constant(Float(visuals.incomingProgress)),
+                accentColor: visuals.incomingColors.first ?? .white,
+                isPlaying: np.isPlaying,
+                onEditingChanged: { _ in }
+            )
+            timeRow(elapsed: visuals.incomingElapsed, total: visuals.incomingDuration)
+        }
+    }
+
+    private func timeRow(elapsed: TimeInterval, total: TimeInterval) -> some View {
+        HStack {
+            Text(DurationFormat.playbackTime(elapsed))
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.white.opacity(0.6))
+
+            Spacer()
+
+            Text(DurationFormat.playbackTime(total))
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.white.opacity(0.6))
+        }
     }
 }
 
