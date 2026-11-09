@@ -588,8 +588,12 @@ final class NowPlaying {
         guard SettingsStore.shared.preferAppleCovers else { return }
         Task {
             guard let song = await MainActor.run(body: { self.queueSongs.first { $0.videoId == videoId } }) else { return }
-            guard let info = await AnimatedArtworkService.shared.info(for: song), let cover = info.cover,
-                  let image = try? await ArtworkLoader.image(for: cover) else { return }
+            // La oficial de Apple Music / TIDAL; si no hay, y la cancion es un video, la de su version de audio.
+            var coverURL = await AnimatedArtworkService.shared.info(for: song)?.cover
+            if coverURL == nil, AudioCounterpartStore.isVideoType(song) || song.isVideo == true {
+                coverURL = await AudioCounterpartStore.shared.coverURL(for: song.videoId)
+            }
+            guard let coverURL, let image = try? await ArtworkLoader.image(for: coverURL) else { return }
             await MainActor.run {
                 guard self.lastLoadedVideoId == videoId else { return }
                 self.highQualityCoverFor = videoId

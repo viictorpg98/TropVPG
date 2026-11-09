@@ -47,7 +47,7 @@ struct PlayerSettingsView: View {
             } header: {
                 Text("Animated Artwork")
             } footer: {
-                Text("Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one. High-Quality Covers also swaps the cover for the official one when the same song is found there, which helps video clips and remixes. It uses Wi-Fi unless you allow mobile data, and the video turns off in Low Power Mode or with Reduce Motion.")
+                Text("Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one. High-Quality Covers also swaps the cover for the official one when the same song is found there, or for the audio version's cover when a video has one, which helps video clips and remixes. It uses Wi-Fi unless you allow mobile data, and the video turns off in Low Power Mode or with Reduce Motion.")
             }
 
             Section {

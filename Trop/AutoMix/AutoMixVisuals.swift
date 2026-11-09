@@ -58,14 +58,18 @@ final class AutoMixVisuals {
             let service = AnimatedArtworkService.shared
             let wantsVideo = service.blockReason == nil
             let wantsCover = SettingsStore.shared.preferAppleCovers
-            guard wantsVideo || wantsCover, let info = await service.info(for: song) else { return }
+            var info: AnimatedArtworkService.Info?
+            if wantsVideo || wantsCover { info = await service.info(for: song) }
             guard let self, self.incomingVideoId == videoId else { return }
-            if wantsVideo, let video = info.video {
+            if wantsVideo, let video = info?.video {
                 self.incomingVideoURL = video
                 AnimatedVideoPool.shared.warm(video)
             }
-            if wantsCover, let cover = info.cover, let image = try? await ArtworkLoader.image(for: cover),
-               self.incomingVideoId == videoId {
+            var coverURL = wantsCover ? info?.cover : nil
+            if wantsCover, coverURL == nil, AudioCounterpartStore.isVideoType(song) || song.isVideo == true {
+                coverURL = await AudioCounterpartStore.shared.coverURL(for: videoId)
+            }
+            if let coverURL, let image = try? await ArtworkLoader.image(for: coverURL), self.incomingVideoId == videoId {
                 self.apply(image, apple: true)
             }
         }
