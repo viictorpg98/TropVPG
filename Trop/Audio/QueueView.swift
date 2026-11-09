@@ -115,28 +115,6 @@ struct QueueView<ProgressSlider: View>: View {
                     onPlayPause: { player.togglePlayPause() },
                     onNext: { np.playNext() }
                 )
-            } else {
-                // Mismas medidas que en el reproductor grande: al abrir la cola nada se mueve de sitio.
-                VStack(spacing: 0) {
-                    progressSlider()
-                        .padding(.top, 4)
-                        .padding(.bottom, 12)
-
-                    PlaybackControlsRow(
-                        isPlaying: np.isPlaying,
-                        hasPrevious: np.hasPrevious,
-                        hasNext: np.hasNext,
-                        onPrevious: { np.playPrevious() },
-                        onPlayPause: { player.togglePlayPause() },
-                        onNext: { np.playNext() }
-                    )
-                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: np.isPlaying)
-                    .padding(.bottom, 6)
-
-                    SecondaryActionsRow(showQueue: $showQueue, showsShuffle: false)
-
-                    Color.clear.frame(height: 6)
-                }
             }
         }
     }
@@ -235,6 +213,12 @@ struct QueueView<ProgressSlider: View>: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white)
                 .textCase(.uppercase)
+
+            if np.queueSongs.count > 1 {
+                Text("\(np.queueSongs.count)")
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(.white.opacity(0.5))
+            }
 
             Spacer()
         }
@@ -344,6 +328,18 @@ struct QueueSongRow: View {
                 .frame(width: 44, height: 44)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 .opacity(isPlayed ? 0.5 : 1)
+                .overlay {
+                    if isCurrent {
+                        // Esta es la que suena (como el ecualizador de YouTube Music).
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 6).fill(.black.opacity(0.45))
+                            Image(systemName: "waveform")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .symbolEffect(.variableColor.iterative, isActive: NowPlaying.shared.isPlaying)
+                        }
+                    }
+                }
 
             VStack(alignment: .leading, spacing: 2) {
                 MarqueeText(
@@ -354,11 +350,17 @@ struct QueueSongRow: View {
                 )
 
                 let artistStr = song.artists.map(\.name).joined(separator: ", ")
-                if !artistStr.isEmpty {
-                    SubtitleWithDownloadMark(videoId: song.videoId, text: artistStr)
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(isPlayed ? 0.35 : 0.6))
-                        .lineLimit(1)
+                let subtitle = song.duration > 0
+                    ? (artistStr.isEmpty ? "" : artistStr + " · ") + DurationFormat.playbackTime(TimeInterval(song.duration))
+                    : artistStr
+                if !subtitle.isEmpty {
+                    HStack(spacing: 4) {
+                        if song.isExplicit { ExplicitBadge() }
+                        SubtitleWithDownloadMark(videoId: song.videoId, text: subtitle)
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(isPlayed ? 0.35 : 0.6))
+                            .lineLimit(1)
+                    }
                 }
             }
 

@@ -105,7 +105,7 @@ struct ProgressBar: View {
                 if let shimmer {
                     // Un brillo que recorre la onda de izquierda a derecha mientras llega la real.
                     let wave = sin((Double(index) / Double(count)) * 9 - shimmer * 3.2)
-                    opacity = (isPlayed ? 0.7 : 0.2) + 0.16 * max(0, wave)
+                    opacity = (isPlayed ? 0.75 : 0.28) + 0.22 * max(0, wave)
                 }
                 context.fill(
                     Path(roundedRect: rect, cornerRadius: slot * 0.3),

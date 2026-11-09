@@ -67,27 +67,41 @@ struct FullPlayerView: View {
                         )
                     } else if np.isVideoMode && np.hasVideo {
                         musicVideoContent
-                    } else if showQueue {
-                        QueueView(
-                            showQueue: $showQueue,
-                            isShuffleOn: $np.isShuffleOn,
-                            isRepeatOn: $np.isRepeatOn,
-                            editingProgress: $editingProgress,
-                            isEditingSlider: $isEditingSlider,
-                            pendingRoute: $pendingRoute,
-                            progressSlider: { progressSlider(horizontalPadding: horizontalPadding) }
-                        )
                     } else {
-                        mainContent(
-                            artSide: artworkSide(in: geometry, horizontalPadding: horizontalPadding),
-                            fullSize: CGSize(
-                                width: geometry.size.width,
-                                height: max(220, min(geometry.size.width, geometry.size.height - 400))
-                            ),
-                            topInset: geometry.safeAreaInsets.top,
-                            horizontalPadding: horizontalPadding,
-                            isCompact: isCompact
-                        )
+                        // Como en YouTube Music: al abrir la cola solo cambia la parte de arriba (carátula, titulo y
+                        // botones <-> cola); la barra, los controles y el pie son el mismo bloque, en el mismo sitio,
+                        // y no se mueve nada.
+                        ZStack {
+                            if showQueue {
+                                QueueView(
+                                    showQueue: $showQueue,
+                                    isShuffleOn: $np.isShuffleOn,
+                                    isRepeatOn: $np.isRepeatOn,
+                                    editingProgress: $editingProgress,
+                                    isEditingSlider: $isEditingSlider,
+                                    pendingRoute: $pendingRoute,
+                                    progressSlider: { progressSlider(horizontalPadding: horizontalPadding) }
+                                )
+                                .transition(.opacity)
+                            } else {
+                                VStack(spacing: 0) {
+                                    mainContent(
+                                        artSide: artworkSide(in: geometry, horizontalPadding: horizontalPadding),
+                                        fullSize: CGSize(
+                                            width: geometry.size.width,
+                                            height: max(220, min(geometry.size.width, geometry.size.height - 400))
+                                        ),
+                                        topInset: geometry.safeAreaInsets.top,
+                                        horizontalPadding: horizontalPadding,
+                                        isCompact: isCompact
+                                    )
+                                }
+                                .transition(.opacity)
+                            }
+                        }
+                        .frame(maxHeight: .infinity)
+
+                        playerBottom(horizontalPadding: horizontalPadding, isCompact: isCompact)
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -227,7 +241,11 @@ struct FullPlayerView: View {
         .padding(.horizontal, horizontalPadding)
         .frame(maxWidth: .infinity)
         .frame(height: 33, alignment: .bottom)
+    }
 
+    /// Barra de progreso, controles y botones del pie: el mismo bloque con la carátula y con la cola.
+    @ViewBuilder
+    private func playerBottom(horizontalPadding: CGFloat, isCompact: Bool) -> some View {
         progressSlider(horizontalPadding: horizontalPadding)
             .padding(.top, 4)
             .padding(.bottom, isCompact ? 8 : 12)

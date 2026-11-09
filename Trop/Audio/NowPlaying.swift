@@ -282,6 +282,11 @@ final class NowPlaying {
         if let artwork { publishArtwork(artwork) }
         persistQueueState()
         updateVideoAvailability()
+        // Tras un relevo de AutoMix tambien se adelanta la onda de las proximas.
+        WaveformStore.shared.songStarted(
+            current: videoId,
+            upcoming: queueSongs.dropFirst(queueIndex + 1).map(\.videoId)
+        )
         Task {
             await PlaybackStateService.shared.stopTracking()
             await PlaybackStateService.shared.startTracking(videoId: videoId)
