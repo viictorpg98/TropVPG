@@ -54,7 +54,28 @@ final class AutoMixEngine {
 
     private let fastInterval: TimeInterval = 0.03
 
-    private init() {}
+    /// El archivo de mezcla que suena ahora como si fuera la cancion (se borra cuando deja de hacerlo).
+    private var playingMix: URL?
+
+    private init() {
+        removeStaleMixFiles()
+    }
+
+    private func releasePlayingMix() {
+        if let url = playingMix {
+            try? FileManager.default.removeItem(at: url)
+            playingMix = nil
+        }
+    }
+
+    /// Restos de mezclas de otra vez (la app se cerro sonando una): al arrancar no hay ninguna en uso.
+    private func removeStaleMixFiles() {
+        let directory = FileManager.default.temporaryDirectory
+        for url in (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+        where url.lastPathComponent.hasPrefix("automix-") && url.pathExtension == "wav" {
+            try? FileManager.default.removeItem(at: url)
+        }
+    }
 
     // MARK: - Llamada desde el temporizador de NowPlaying (cada 0,25 s)
 
@@ -77,7 +98,8 @@ final class AutoMixEngine {
         guard let plan = plan(outId: outId, inId: inId) else { return }
 
         let lead = Double(plan.outgoingStartMs) / 1000 - position
-        if lead > 14 || lead < 0.8 { return }
+        // La mezcla lleva ahora el resto entero de la entrante: preparar el archivo puede llevar unos segundos mas.
+        if lead > 30 || lead < 0.8 { return }
         AutoMixVisuals.shared.prepare(song: NowPlaying.shared.queueSongs[NowPlaying.shared.queueIndex + 1])
         prepare(outId: outId, inId: inId, plan: plan)
         // Se deja detras de la cancion con tiempo de sobra antes del corte.
@@ -185,7 +207,7 @@ final class AutoMixEngine {
         guard let p = prepared, phase == .idle else { return }
         let controller = PlayerController.shared
         guard controller.armGaplessMix(
-            mixURL: p.mixURL, incomingURL: p.incomingURL, incomingStart: p.resumeAt, endAt: p.cutAt, incomingId: p.inId
+            mixURL: p.mixURL, incomingURL: nil, incomingStart: p.resumeAt, endAt: p.cutAt, incomingId: p.inId
         ) else {
             PlaybackReport.record("automix: mpv no acepto la mezcla encadenada, se usa el paso normal")
             planCache = (p.outId, p.inId, nil)
@@ -238,12 +260,14 @@ final class AutoMixEngine {
         }
         let controller = PlayerController.shared
         if controller.gaplessStage == 2 {
-            // mpv ya paso al archivo de la mezcla.
+            // mpv ya paso al archivo de la mezcla (el de la mezcla anterior, si lo habia, ya no se usa).
             phase = .mixing
+            controller.clearTimeline()
+            releasePlayingMix()
             controller.durationOverride = outgoingDuration
             AutoMixVisuals.shared.begin()
             PlaybackReport.record("automix: empieza la mezcla \(p.outId) -> \(p.inId)")
-        } else if controller.gaplessStage == 1, controller.rawTimePos() > p.cutAt + 0.8 {
+        } else if controller.gaplessStage == 1, controller.currentTime > p.cutAt + 0.8 {
             // Deberia haber cortado ya: si mpv no lo hace, se deja la cancion como estaba.
             PlaybackReport.record("automix: mpv no corto la saliente en su sitio, se cancela la mezcla")
             planCache = (p.outId, p.inId, nil)
@@ -267,9 +291,8 @@ final class AutoMixEngine {
             let beats = (mixPosition * 1000) / max(beatMs, 1) / beatsPerPulse
             visuals.beatPhase = beats - beats.rounded(.down)
         } else {
-            // La mezcla acabo: la entrante ya suena sola (queda un trozo de archivo hasta el empalme con su propio archivo).
+            // La mezcla acabo: la entrante ya suena sola, desde el mismo archivo (lleva el resto de la cancion).
             if !adopted { adoptIncoming(p) }
-            controller.positionOverride = p.mixEndsAt + (mixPosition - duration)
         }
     }
 
@@ -280,17 +303,22 @@ final class AutoMixEngine {
     private func adoptIncoming(_ p: Prepared) {
         adopted = true
         let controller = PlayerController.shared
-        controller.durationOverride = nil
+        let duration = Double(p.plan.durationMs) / 1000
         let ok = NowPlaying.shared.adoptGaplessIncoming(
             videoId: p.inId, position: p.mixEndsAt, artwork: AutoMixVisuals.shared.incomingImage
         )
-        // La duracion que se ve es la de la entrante (mpv sigue con la del archivo de la mezcla).
-        if let song = NowPlaying.shared.queueSongs.first(where: { $0.videoId == p.inId }), song.duration > 0 {
-            controller.durationOverride = TimeInterval(song.duration)
-        }
+        // El archivo de la mezcla lleva ya el resto de la entrante: desde aqui suena como si fuera su cancion. La posicion y la
+        // duracion que se ven son las de la cancion (las del archivo mas este desplazamiento).
+        controller.currentVideoId = p.inId
+        controller.pendingVideoId = nil
+        controller.positionOverride = nil
+        controller.durationOverride = nil
+        controller.timeline = (shift: p.mixEndsAt - duration, mixEnd: duration)
+        playingMix = p.mixURL
         PlaybackReport.record(ok ? "automix: mezcla terminada, la entrante \(p.inId) suena sola" : "automix: no se pudo pasar a \(p.inId)")
         AutoMixVisuals.shared.progress = 1
         AutoMixVisuals.shared.end()
+        finish(keepingMix: true)
     }
 
     /// mpv acabo el archivo de la mezcla y pasa al archivo de la entrante, en el punto flojo elegido.
@@ -304,9 +332,9 @@ final class AutoMixEngine {
         finish()
     }
 
-    private func finish() {
+    private func finish(keepingMix: Bool = false) {
         stopTimer()
-        if let prepared { try? FileManager.default.removeItem(at: prepared.mixURL) }
+        if !keepingMix, let prepared { try? FileManager.default.removeItem(at: prepared.mixURL) }
         prepared = nil
         planCache = nil
         phase = .idle
@@ -360,6 +388,7 @@ final class AutoMixEngine {
 
     func songChanged() {
         lastSongChange = Date()
+        releasePlayingMix()
         if phase != .idle {
             let controller = PlayerController.shared
             controller.disarmGaplessMix()

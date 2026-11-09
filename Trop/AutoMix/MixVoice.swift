@@ -28,6 +28,8 @@ enum MixRenderer {
     /// mas flojo donde mpv cambia de archivo (el cambio puede dejar un hueco de unas decenas de milisegundos, que asi
     /// cae sobre algo casi silencioso).
     nonisolated static let tailSeconds = 4.0
+    /// Lo mas que se guarda de la entrante detras de la mezcla (en segundos): 8 minutos.
+    nonisolated static let maxRestSeconds = 480.0
 
     /// - Saliente: desde `outgoingStart`, durante `duration` s, un paso bajo que se cierra de 20 kHz a 200 Hz, con el
     ///   volumen bajando por coseno y los graves intactos hasta el intercambio. Si hace falta, estirada hasta
@@ -43,7 +45,6 @@ enum MixRenderer {
         // Misma frecuencia de muestreo que la saliente, para que mpv no tenga que cambiar de formato al encadenar.
         let rate = sampleRate(of: outgoingURL)
         let frames = Int((duration * rate).rounded())
-        let tailFrames = Int((tailSeconds * rate).rounded())
         guard frames > 0 else { return nil }
 
         let stretchOut = abs(outgoingRatio - 1) > 0.003
@@ -64,7 +65,7 @@ enum MixRenderer {
             seconds: Double(outPad) / rate + advanceOut + margin, rate: rate
         ), let incomingSource = decode(
             url: incomingURL, start: incomingStart - Double(inPad) / rate,
-            seconds: Double(inPad) / rate + advanceIn + tailSeconds + margin + 0.2, rate: rate
+            seconds: Double(inPad) / rate + advanceIn + margin + 0.2, rate: rate
         ) else { return nil }
 
         // Saliente en el tiempo de la mezcla.
@@ -136,10 +137,8 @@ enum MixRenderer {
             }
         }
 
-        // Detras de la mezcla va la entrante tal cual, desde donde la deja el estirado, hasta el momento mas flojo.
-        guard tailStart + tailFrames <= incomingSource[0].count else { return nil }
-        var tail = slice(incomingSource, from: tailStart, count: tailFrames)
         // Empalme suave entre lo mezclado y lo que sigue (la mezcla ya acaba casi igual que la cancion).
+        guard tailStart <= incomingSource[0].count else { return nil }
         let blend = min(Int(0.003 * rate), frames, tailStart)
         if blend > 0 {
             for channel in 0..<2 {
@@ -151,19 +150,13 @@ enum MixRenderer {
                 }
             }
         }
-        let cut = quietestFrame(tail, from: Int(0.4 * rate), to: tailFrames - Int(0.2 * rate), rate: rate)
-        for channel in 0..<2 {
-            mixed[channel].append(contentsOf: tail[channel][0..<cut])
-        }
-        tail.removeAll()
-        // Un fundido cortisimo al final evita un chasquido en el borde del archivo.
-        let fade = min(Int(0.002 * rate), mixed[0].count)
-        for channel in 0..<2 {
-            let total = mixed[channel].count
-            for i in 0..<fade { mixed[channel][total - 1 - i] *= Float(i) / Float(fade) }
-        }
-        guard let url = write(mixed, rate: rate) else { return nil }
-        return Output(url: url, mixEndsAt: mixEndsAt, extra: Double(cut) / rate)
+        // Detras de la mezcla va el resto de la entrante tal cual, hasta el final de su cancion, en el MISMO archivo: asi mpv no
+        // tiene que cambiar de archivo al acabar la mezcla (ese cambio era lo que dejaba el microcorte). Si la cancion es
+        // demasiado larga para guardarla entera, no se mezcla.
+        guard let restURL = decodeToFile(url: incomingURL, start: mixEndsAt, seconds: maxRestSeconds, rate: rate) else { return nil }
+        defer { try? FileManager.default.removeItem(at: restURL) }
+        guard let url = write(mixed, followedBy: restURL, rate: rate) else { return nil }
+        return Output(url: url, mixEndsAt: mixEndsAt, extra: 0)
     }
 
     // MARK: - Decodificacion con FFmpeg
@@ -230,8 +223,32 @@ enum MixRenderer {
         return (sum / Double(total * channels.count)).squareRoot()
     }
 
-    /// Escribe la mezcla como WAV de 32 bits en coma flotante (sin recodificar, para no alterar nada).
-    nonisolated private static func write(_ channels: [[Float]], rate: Double) -> URL? {
+    /// Decodifica `url` desde `start` hasta el final (como mucho `seconds`) a un archivo WAV temporal. `nil` si no se puede o si la
+    /// cancion es mas larga que el limite (el archivo quedaria corto).
+    nonisolated private static func decodeToFile(url: URL, start: TimeInterval, seconds: TimeInterval, rate: Double) -> URL? {
+        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("automix-\(UUID().uuidString).wav")
+        let input = url.isFileURL ? url.path : url.absoluteString
+        let arguments = ["-y", "-v", "error"] + AutoMixSource.inputOptions(for: url) + [
+            "-ss", String(format: "%.6f", max(0, start)),
+            "-t", String(format: "%.6f", seconds),
+            "-i", input,
+            "-vn", "-ac", "2", "-ar", String(Int(rate)),
+            "-acodec", "pcm_f32le", "-f", "wav",
+            temporary.path
+        ]
+        let session = FFmpegKit.execute(withArguments: arguments)
+        guard ReturnCode.isSuccess(session?.getReturnCode()),
+              let file = try? AVAudioFile(forReading: temporary), file.length > 0,
+              Double(file.length) / rate < seconds - 1 else {
+            try? FileManager.default.removeItem(at: temporary)
+            return nil
+        }
+        return temporary
+    }
+
+    /// Escribe la mezcla como WAV de 32 bits en coma flotante (sin recodificar, para no alterar nada) y, detras, el contenido de
+    /// `restURL` (copiado por trozos para no llenar la memoria).
+    nonisolated private static func write(_ channels: [[Float]], followedBy restURL: URL, rate: Double) -> URL? {
         guard let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: rate, channels: 2, interleaved: false),
               let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(channels[0].count)),
               let data = buffer.floatChannelData else { return nil }
@@ -252,6 +269,16 @@ enum MixRenderer {
         do {
             let file = try AVAudioFile(forWriting: url, settings: settings)
             try file.write(from: buffer)
+            let rest = try AVAudioFile(forReading: restURL)
+            let chunkFrames: AVAudioFrameCount = 65_536
+            guard let chunk = AVAudioPCMBuffer(pcmFormat: rest.processingFormat, frameCapacity: chunkFrames) else {
+                throw CocoaError(.fileWriteUnknown)
+            }
+            while rest.framePosition < rest.length {
+                try rest.read(into: chunk, frameCount: chunkFrames)
+                if chunk.frameLength == 0 { break }
+                try file.write(from: chunk)
+            }
             return url
         } catch {
             try? FileManager.default.removeItem(at: url)
