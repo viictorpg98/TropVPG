@@ -22,6 +22,7 @@ struct MiniPlayerBarView: View {
 
     private let player = PlayerController.shared
     @Bindable private var np = NowPlaying.shared
+    private let visuals = AutoMixVisuals.shared
 
     @State private var dragOffset: CGFloat = 0
     @State private var dragAxis: DragAxis?
@@ -37,12 +38,13 @@ struct MiniPlayerBarView: View {
         false
     }
 
+    /// Alto de la fila con la carátula, el titulo y los botones (debajo va la franja con la onda).
     private var barHeight: CGFloat {
-        62
+        50
     }
 
     private var artworkSize: CGFloat {
-        46
+        42
     }
 
     /// Sobre el color de la carátula el texto es siempre blanco, como en el reproductor grande.
@@ -51,16 +53,22 @@ struct MiniPlayerBarView: View {
     private var artistColor: Color { Color.white.opacity(0.78) }
 
     var body: some View {
-        HStack(spacing: 0) {
-            pagingArea
-                .mask(textFadeMask)
-            transportControls
-                .padding(.trailing, 6)
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                pagingArea
+                    .mask(textFadeMask)
+                transportControls
+                    .padding(.trailing, 6)
+            }
+            .frame(height: barHeight)
+
+            // La onda de la cancion, en una franja fina debajo (solo se ve; para saltar a un punto esta el grande).
+            MiniWaveformStrip()
+                .frame(height: 12)
+                .padding(.horizontal, 14)
+                .padding(.bottom, 7)
         }
-        .frame(height: barHeight)
         .frame(maxWidth: .infinity)
-        // La onda de la cancion hace de fondo de la barra (solo se ve; para saltar a un punto esta el reproductor grande).
-        .background { MiniWaveformBackdrop() }
         // El color de la carátula, oscurecido, para que case con la barra de pestañas de debajo.
         .background { MiniColorBackdrop() }
         // Una tarjeta redondeada con margen, separada del menu: no choca con el.
@@ -119,30 +127,19 @@ struct MiniPlayerBarView: View {
     }
 
     private func page(for song: SongItem, width: CGFloat) -> some View {
-        HStack(spacing: 12) {
-            barArtwork(for: song)
-
-            VStack(alignment: .leading, spacing: 0) {
-                if isInline {
-                    Text(song.title)
-                        .font(.system(size: 15, weight: .semibold))
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .foregroundStyle(titleColor)
-                } else {
-                    MarqueeText(
-                        text: song.title,
-                        font: .system(size: 15, weight: .semibold),
-                        frameHeight: 19,
-                        textColor: titleColor
-                    )
-                }
-
-                SubtitleWithDownloadMark(videoId: song.videoId, text: artistLine(for: song))
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(artistColor)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+        // Durante una mezcla de AutoMix, la carátula y el titulo de la entrante entran a la vez que en el reproductor
+        // grande, con un fundido, en lugar de saltar de golpe cuando la app pasa a la nueva cancion.
+        let mixing = visuals.isMixing && !visuals.incomingTitle.isEmpty
+            && song.videoId == np.videoId && visuals.incomingVideoId != np.videoId
+        let amount: Double = mixing ? autoMixReveal(visuals.progress) : 0
+        return ZStack(alignment: .leading) {
+            pageContent(for: song)
+                .opacity(1 - amount)
+                .blur(radius: 4 * amount)
+            if mixing {
+                incomingPageContent
+                    .opacity(amount)
+                    .blur(radius: 4 * (1 - amount))
             }
         }
         // El margen va DENTRO del ancho de la pagina: antes la pagina medía 14 puntos de mas y, al estar las vecinas
@@ -151,6 +148,58 @@ struct MiniPlayerBarView: View {
         .frame(width: width, alignment: .leading)
         .clipped()
         .contentShape(Rectangle())
+    }
+
+    private func pageContent(for song: SongItem) -> some View {
+        HStack(spacing: 12) {
+            barArtwork(for: song)
+
+            VStack(alignment: .leading, spacing: 0) {
+                MarqueeText(
+                    text: song.title,
+                    font: .system(size: 15, weight: .semibold),
+                    frameHeight: 19,
+                    textColor: titleColor
+                )
+
+                SubtitleWithDownloadMark(videoId: song.videoId, text: artistLine(for: song))
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(artistColor)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+        }
+    }
+
+    /// La cancion que entra en una mezcla (lo que el reproductor grande ya tiene preparado).
+    private var incomingPageContent: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                if let image = visuals.incomingImage {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Color.white.opacity(0.12)
+                }
+            }
+            .frame(width: artworkSize, height: artworkSize)
+            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 0) {
+                MarqueeText(
+                    text: visuals.incomingTitle,
+                    font: .system(size: 15, weight: .semibold),
+                    frameHeight: 19,
+                    textColor: titleColor
+                )
+                Text(visuals.incomingArtist)
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(artistColor)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+        }
     }
 
     @ViewBuilder
@@ -328,42 +377,61 @@ private struct MiniColorBackdrop: View {
         let colors = playerPaletteNow(base: np.dominantColors, edge: np.artworkEdgeColor)
         LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
             .overlay(Color.black.opacity(0.5))
-            .animation(visuals.isMixing ? nil : .easeInOut(duration: 0.8), value: colors)
+            .animation(.easeInOut(duration: 0.7), value: colors)
     }
 }
 
-/// La onda de la cancion a todo lo ancho de la barra, tenue; lo ya sonado un poco mas claro y una linea fina donde va.
-private struct MiniWaveformBackdrop: View {
+/// La franja con la onda: la de la cancion que suena y, durante una mezcla, la de la que entra, con el mismo fundido.
+private struct MiniWaveformStrip: View {
     private let np = NowPlaying.shared
+    private let visuals = AutoMixVisuals.shared
+
+    var body: some View {
+        if visuals.isMixing, visuals.incomingDuration > 0, let incomingId = visuals.incomingVideoId, incomingId != np.videoId {
+            let amount = autoMixReveal(visuals.progress)
+            ZStack {
+                MiniWaveformBars(videoId: np.videoId, progress: Double(np.progress))
+                    .opacity(1 - amount)
+                MiniWaveformBars(videoId: incomingId, progress: visuals.incomingProgress)
+                    .opacity(amount)
+            }
+        } else {
+            MiniWaveformBars(videoId: np.videoId, progress: Double(np.progress))
+        }
+    }
+}
+
+/// Las barras de una onda: lo ya sonado mas claro y lo que falta tenue. Sin linea que marque donde va.
+private struct MiniWaveformBars: View {
+    let videoId: String?
+    let progress: Double
     @State private var wave: [Float]?
 
     var body: some View {
-        let progress = CGFloat(np.progress)
-        let levels = wave ?? WaveformStore.placeholder(for: np.videoId)
+        let levels = wave ?? WaveformStore.placeholder(for: videoId)
         let isReal = wave != nil
+        let played = CGFloat(progress)
         Canvas { context, size in
             let count = levels.count
             guard count > 0 else { return }
             let slot: CGFloat = size.width / CGFloat(count)
             for index in 0..<count {
                 let level: CGFloat = CGFloat(levels[index])
-                let height: CGFloat = max(3, level * size.height * 0.66)
+                let height: CGFloat = max(2, level * size.height)
                 let rect = CGRect(
                     x: CGFloat(index) * slot + slot * 0.2, y: (size.height - height) / 2,
                     width: slot * 0.6, height: height
                 )
                 let middle: CGFloat = (CGFloat(index) + 0.5) / CGFloat(count)
-                let played = middle <= progress
-                let base: Double = isReal ? (played ? 0.30 : 0.12) : (played ? 0.16 : 0.07)
-                context.fill(Path(roundedRect: rect, cornerRadius: slot * 0.3), with: .color(Color.white.opacity(base)))
+                let isPlayed = middle <= played
+                let opacity: Double = isReal ? (isPlayed ? 0.9 : 0.28) : (isPlayed ? 0.4 : 0.16)
+                context.fill(Path(roundedRect: rect, cornerRadius: slot * 0.3), with: .color(Color.white.opacity(opacity)))
             }
-            let head = CGRect(x: size.width * progress - 0.75, y: 0, width: 1.5, height: size.height)
-            context.fill(Path(head), with: .color(Color.white.opacity(0.55)))
         }
         .allowsHitTesting(false)
         .animation(.easeInOut(duration: 0.4), value: isReal)
-        .task(id: np.videoId) {
-            guard SettingsStore.shared.waveformProgressBar, let id = np.videoId else {
+        .task(id: videoId) {
+            guard SettingsStore.shared.waveformProgressBar, let id = videoId else {
                 wave = nil
                 return
             }
