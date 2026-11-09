@@ -221,17 +221,26 @@ private enum AppleMotionArtwork {
         trace: AnimatedArtworkService.Trace
     ) async -> URL? {
         guard let token = await bearer() else { trace.add("apple: sin token"); return nil }
-        if let url = await searchSongs(title: title, artist: artist, album: album, wanted: wanted, token: token, trace: trace) {
-            return url
-        }
-        guard let album, !album.isEmpty else { trace.add("apple: sin album para buscar por album"); return nil }
-        return await searchAlbums(artist: artist, album: album, wanted: wanted, token: token, trace: trace)
+        let songs = await searchSongs(title: title, artist: artist, album: album, wanted: wanted, token: token, trace: trace)
+        if let url = songs.url { return url }
+        // El album que da Apple para la cancion (la cola no siempre trae el album de YouTube Music).
+        let albumName = (album?.isEmpty == false ? album : nil) ?? songs.albumName
+        guard let albumName, !albumName.isEmpty else { trace.add("apple: sin album para buscar por album"); return nil }
+        return await searchAlbums(artist: artist, album: albumName, wanted: wanted, token: token, trace: trace)
+    }
+
+    /// El numero de album que lleva la direccion de la cancion en Apple Music (".../album/nombre/1234567890?i=...").
+    private static func albumId(fromURL string: String?) -> String? {
+        guard let string, let range = string.range(of: "/album/") else { return nil }
+        let tail = string[range.upperBound...].split(separator: "?").first.map(String.init) ?? ""
+        let last = tail.split(separator: "/").last.map(String.init) ?? ""
+        return !last.isEmpty && last.allSatisfy(\.isNumber) ? last : nil
     }
 
     private static func searchSongs(
         title: String, artist: String, album: String?, wanted: AnimatedArtworkService.Wanted, token: String,
         trace: AnimatedArtworkService.Trace
-    ) async -> URL? {
+    ) async -> (url: URL?, albumName: String?) {
         let first = AnimatedArtworkService.Matching.artists(artist).first ?? artist
         var term = title.localizedCaseInsensitiveContains(first) ? title : "\(first) \(title)"
         if let album, !album.isEmpty, !title.localizedCaseInsensitiveContains(album) { term += " \(album)" }
@@ -244,14 +253,16 @@ private enum AppleMotionArtwork {
             .init(name: "extend", value: "editorialVideo"),
             .init(name: "include", value: "albums")
         ]
-        guard let url = components?.url, let json = await request(url, token: token, trace: trace) else { return nil }
+        guard let url = components?.url, let json = await request(url, token: token, trace: trace) else { return (nil, nil) }
         guard let songs = ((json["results"] as? [String: Any])?["songs"] as? [String: Any])?["data"] as? [[String: Any]] else {
             trace.add("apple canciones: 0 resultados")
-            return nil
+            return (nil, nil)
         }
 
         var matched = 0
         var albumsTried = 0
+        var triedIds: Set<String> = []
+        var matchedAlbumName: String?
         for song in songs {
             guard let attributes = song["attributes"] as? [String: Any],
                   let name = attributes["name"] as? String,
@@ -260,17 +271,20 @@ private enum AppleMotionArtwork {
             let albumName = (attributes["albumName"] as? String) ?? ""
             if isCompilation(name) || isCompilation(albumName) { continue }
             matched += 1
-            if let video = attributes["editorialVideo"] as? [String: Any], let motion = motionURL(video) { return motion }
+            if matchedAlbumName == nil, !albumName.isEmpty { matchedAlbumName = albumName }
+            if let video = attributes["editorialVideo"] as? [String: Any], let motion = motionURL(video) { return (motion, albumName) }
 
+            // El album: de la relacion si viene, y si no del numero que lleva la direccion de la cancion.
             let relationships = song["relationships"] as? [String: Any]
-            let albumId = (((relationships?["albums"] as? [String: Any])?["data"] as? [[String: Any]])?.first?["id"]) as? String
-            if let albumId, !albumId.hasPrefix("pl.") {
+            let related = (((relationships?["albums"] as? [String: Any])?["data"] as? [[String: Any]])?.first?["id"]) as? String
+            let albumId = related ?? albumId(fromURL: attributes["url"] as? String)
+            if let albumId, !albumId.hasPrefix("pl."), triedIds.insert(albumId).inserted {
                 albumsTried += 1
-                if let motion = await albumMotion(id: albumId, token: token, trace: trace) { return motion }
+                if let motion = await albumMotion(id: albumId, token: token, trace: trace) { return (motion, albumName) }
             }
         }
         trace.add("apple canciones: \(songs.count) resultados, \(matched) coinciden, \(albumsTried) albumes mirados, sin video")
-        return nil
+        return (nil, matchedAlbumName)
     }
 
     /// Segunda via: buscar el album directamente (algunos albumes tienen video aunque la cancion no lo traiga).
@@ -315,9 +329,14 @@ private enum AppleMotionArtwork {
         guard let url = components?.url, let json = await request(url, token: token, trace: trace),
               let album = (json["data"] as? [[String: Any]])?.first,
               let attributes = album["attributes"] as? [String: Any],
-              let name = attributes["name"] as? String, !isCompilation(name),
-              let video = attributes["editorialVideo"] as? [String: Any] else { return nil }
-        return motionURL(video)
+              let name = attributes["name"] as? String, !isCompilation(name) else { return nil }
+        guard let video = attributes["editorialVideo"] as? [String: Any] else {
+            trace.add("apple album \"\(name)\": sin editorialVideo")
+            return nil
+        }
+        let motion = motionURL(video)
+        if motion == nil { trace.add("apple album \"\(name)\": editorialVideo sin enlace (\(video.keys.sorted().joined(separator: ",")))") }
+        return motion
     }
 
     /// Prefiere el cuadrado (la caratula es cuadrada); si no, el mas parecido.
