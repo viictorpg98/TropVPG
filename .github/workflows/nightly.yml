@@ -16,7 +16,7 @@ env:
 jobs:
   build-ios:
     name: Build iOS IPA
-    runs-on: macos-26
+    runs-on: macos-15-intel
     permissions:
       contents: write
     steps:
@@ -38,9 +38,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build/DerivedDataApp
-          key: trop-dd-${{ runner.os }}-${{ hashFiles('Trop.xcodeproj/**', '**/Package.resolved', 'Trop/**/*.swift') }}
+          key: trop-dd-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Trop.xcodeproj/**', '**/Package.resolved', 'Trop/**/*.swift') }}
           restore-keys: |
-            trop-dd-${{ runner.os }}-
+            trop-dd-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Make build script executable
         run: chmod +x ./build_ipa.sh
