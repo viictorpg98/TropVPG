@@ -20,7 +20,7 @@ final class AnimatedArtworkService {
     static let shared = AnimatedArtworkService()
 
     /// Lo que se ha encontrado para una cancion: el video en bucle y/o la caratula grande.
-    struct Info: Sendable {
+    struct Info: Codable, Sendable {
         var video: URL?
         var cover: URL?
         var source = ""
@@ -35,7 +35,37 @@ final class AnimatedArtworkService {
     private var inflight: [String: Task<Info?, Never>] = [:]
     private let missRetry: TimeInterval = 15 * 60
 
-    private init() {}
+    private static let storeKey = "animatedArtwork.cache.v1"
+
+    private init() {
+        // Lo ya encontrado se recuerda entre arranques: asi la carátula buena sale al instante, sin ver antes la de YouTube.
+        if let data = UserDefaults.standard.data(forKey: Self.storeKey),
+           let saved = try? JSONDecoder().decode([String: Info].self, from: data) {
+            for (videoId, info) in saved { cache[videoId] = .hit(info) }
+        }
+    }
+
+    private func persistHits() {
+        var hits: [String: Info] = [:]
+        for (videoId, entry) in cache {
+            if case .hit(let info) = entry { hits[videoId] = info }
+        }
+        if hits.count > 300 { hits = Dictionary(uniqueKeysWithValues: hits.prefix(300).map { ($0.key, $0.value) }) }
+        if let data = try? JSONEncoder().encode(hits) { UserDefaults.standard.set(data, forKey: Self.storeKey) }
+    }
+
+    /// Lo encontrado antes para esta cancion (sin buscar nada).
+    func cachedInfo(forVideoId videoId: String) -> Info? {
+        if case .hit(let info) = cache[videoId] { return info }
+        return nil
+    }
+
+    /// Empieza a buscar en segundo plano (por ejemplo al pulsar una cancion, mientras carga su audio), para que la
+    /// carátula buena ya este cuando suene.
+    func prefetch(_ song: SongItem) {
+        guard wantsLookup, cache[song.videoId] == nil else { return }
+        Task { _ = await info(for: song) }
+    }
 
     // MARK: - Cuando se puede usar
 
@@ -105,6 +135,7 @@ final class AnimatedArtworkService {
             self.inflight[videoId] = nil
             if let found {
                 self.cache[videoId] = .hit(found)
+                self.persistHits()
             } else {
                 self.cache[videoId] = .miss(Date())
             }

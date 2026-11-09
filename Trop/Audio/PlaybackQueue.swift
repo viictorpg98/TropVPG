@@ -39,6 +39,7 @@ enum PlaybackQueue {
         var list = songs
         list[index] = first
         NowPlaying.shared.setQueue(list, startIndex: index)
+        AnimatedArtworkService.shared.prefetch(first)
     }
 
     /// Shuffled variant of `play(_:startIndex:)`.
@@ -109,6 +110,7 @@ enum PlaybackQueue {
 
     private static func startSingleWithRadio(_ song: SongItem, log: AppLogger) {
         NowPlaying.shared.setQueue([song], startIndex: 0)
+        AnimatedArtworkService.shared.prefetch(song)
         Task { @MainActor in
             do {
                 try await PlaybackManager.shared.resolveAndPlay(videoId: song.videoId)

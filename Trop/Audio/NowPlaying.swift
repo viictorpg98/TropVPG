@@ -608,9 +608,10 @@ final class NowPlaying {
     private var highQualityCoverFor: String?
 
     /// Busca la caratula oficial de la cancion (Apple Music, luego TIDAL) y, si coincide, sustituye a la de YouTube.
-    private func fetchHighQualityCover(videoId: String) {
-        guard SettingsStore.shared.preferAppleCovers else { return }
-        Task {
+    @discardableResult
+    private func fetchHighQualityCover(videoId: String) -> Task<Void, Never>? {
+        guard SettingsStore.shared.preferAppleCovers else { return nil }
+        return Task {
             guard let song = await MainActor.run(body: { self.queueSongs.first { $0.videoId == videoId } }) else { return }
             // La oficial de Apple Music / TIDAL; si no hay, y la cancion es un video, la de su version de audio.
             var coverURL = await AnimatedArtworkService.shared.info(for: song)?.cover
@@ -630,7 +631,10 @@ final class NowPlaying {
         guard videoId != lastLoadedVideoId else { return }
         lastLoadedVideoId = videoId
         highQualityCoverFor = nil
-        fetchHighQualityCover(videoId: videoId)
+        let highQuality = fetchHighQualityCover(videoId: videoId)
+        // Si la carátula buena ya se conoce (de otra vez), se pinta ella sola: no se ve primero la de YouTube y luego la otra.
+        let knownHighQuality = SettingsStore.shared.preferAppleCovers
+            && (AnimatedArtworkService.shared.cachedInfo(forVideoId: videoId)?.cover != nil)
         // Safety net: callers that resolve without song metadata pass nil.
         // The queue usually still knows this track's artwork — use it rather
         // than falling back to the low-res ytimg default.
@@ -640,6 +644,10 @@ final class NowPlaying {
         }
 
         Task {
+            if knownHighQuality, let highQuality {
+                await highQuality.value
+                guard self.lastLoadedVideoId == videoId, self.highQualityCoverFor != videoId else { return }
+            }
             // For downloaded songs, try to extract embedded artwork from the local file first.
             if let localURL = await DownloadManager.shared.localURL(for: videoId) {
                 loadArtworkFromLocalFile(localURL, videoId: videoId, thumbnailUrl: thumb)
