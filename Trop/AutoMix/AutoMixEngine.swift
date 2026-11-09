@@ -453,7 +453,13 @@ final class AutoMixEngine {
     @discardableResult
     func mixNow() -> Bool {
         guard SettingsStore.shared.autoMixEnabled else { return false }
-        guard phase == .idle, prepared == nil, preparingKey == nil, !AutoMixVisuals.shared.preparingManual else { return false }
+        guard !AutoMixVisuals.shared.preparingManual else { return false }
+        // Ya hay una mezcla automatica preparandose o armada (el final de la cancion esta cerca): antes no se enseñaba nada.
+        // Ahora se ve el aviso animado hasta que empieza, que sera en unos segundos.
+        guard phase == .idle, prepared == nil, preparingKey == nil else {
+            holdPillUntilMixStarts()
+            return true
+        }
         guard let (outId, inId) = currentPair() else {
             PlaybackNotice.shared.show(NSLocalizedString("Can't mix right now.", comment: ""))
             return false
@@ -462,6 +468,17 @@ final class AutoMixEngine {
         manualRetries = 0
         Task { await runManualMix(outId: outId, inId: inId, extraLead: 0) }
         return true
+    }
+
+    /// La mezcla que viene ya la esta preparando el propio AutoMix: se deja el aviso animado hasta que empiece (se apaga solo
+    /// al empezar, al cambiar de cancion o, por si acaso, a los 45 s).
+    private func holdPillUntilMixStarts() {
+        PlaybackReport.record("automix: \"Mezclar\" pedido con una mezcla ya en camino (fase \(phase)), se espera a que empiece")
+        AutoMixVisuals.shared.preparingManual = true
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 45_000_000_000)
+            if !AutoMixVisuals.shared.isMixing { AutoMixVisuals.shared.preparingManual = false }
+        }
     }
 
     private func abortManual(_ message: String? = nil) {
@@ -491,8 +508,12 @@ final class AutoMixEngine {
             waited += 0.4
             guard AutoMixVisuals.shared.preparingManual, stillCurrent(outId, inId) else { abortManual(); return }
         }
-        guard AutoMixVisuals.shared.preparingManual, stillCurrent(outId, inId),
-              phase == .idle, prepared == nil, preparingKey == nil else { abortManual(); return }
+        guard AutoMixVisuals.shared.preparingManual, stillCurrent(outId, inId) else { abortManual(); return }
+        // Mientras se esperaba, el propio AutoMix empezo a preparar la mezcla del final: se deja esa y el aviso sigue.
+        guard phase == .idle, prepared == nil, preparingKey == nil else {
+            holdPillUntilMixStarts()
+            return
+        }
         guard let out = store.structure(for: outId), let inc = store.structure(for: inId) else {
             abortManual("Can't mix right now.")
             return
