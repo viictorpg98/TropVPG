@@ -155,14 +155,6 @@ struct QueueView<ProgressSlider: View>: View {
             Spacer()
 
             if let song = np.queueSongs.indices.contains(np.queueIndex) ? np.queueSongs[np.queueIndex] : nil {
-                let liked = likeStore.isLiked(videoId: song.videoId)
-                PlayerPillButton(
-                    systemImage: liked ? "hand.thumbsup.fill" : "hand.thumbsup",
-                    isActive: liked,
-                    accessibility: "Like"
-                ) {
-                    Task { await likeStore.toggle(song: song) }
-                }
                 PlayerAirPlayControl()
                 PlayerOptionsButton(color: .white.opacity(0.6)) {
                     showSongMenu = true
@@ -429,13 +421,13 @@ struct QueueSongRow: View {
 
 // MARK: - Asa de la cola (cerrada)
 
-/// El hueco bajo los controles: "Cola · siguiente cancion". Tocar o deslizar hacia arriba abre la cola desde abajo.
+/// El hueco bajo los controles: "Cola · cancion que suena". Tocar o deslizar hacia arriba abre la cola desde abajo.
 struct QueueHandle: View {
     let onOpen: () -> Void
     private let np = NowPlaying.shared
 
-    private var nextTitle: String? {
-        np.queueSongs.indices.contains(np.queueIndex + 1) ? np.queueSongs[np.queueIndex + 1].title : nil
+    private var currentTitle: String? {
+        np.title.isEmpty ? nil : np.title
     }
 
     var body: some View {
@@ -447,7 +439,7 @@ struct QueueHandle: View {
             HStack(spacing: 6) {
                 Image(systemName: "chevron.up")
                     .font(.system(size: 10, weight: .bold))
-                (Text("Queue") + Text(nextTitle.map { " · \($0)" } ?? ""))
+                (Text("Queue") + Text(currentTitle.map { " · \($0)" } ?? ""))
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
             }

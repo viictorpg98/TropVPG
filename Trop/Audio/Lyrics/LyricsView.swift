@@ -403,14 +403,6 @@ struct LyricsView<ProgressSlider: View>: View {
             .accessibilityAddTraits(.isButton)
             .accessibilityLabel("Close lyrics")
 
-            PlayerLikeButton(
-                isLiked: isLiked,
-                fontSize: 18
-            ) {
-                guard let song = np.queueSongs.indices.contains(np.queueIndex) ? np.queueSongs[np.queueIndex] : nil else { return }
-                Task { await likeStore.toggle(song: song) }
-            }
-
             if np.queueSongs.indices.contains(np.queueIndex) {
                 PlayerOptionsButton(color: .white.opacity(0.6)) {
                     showSongMenu = true

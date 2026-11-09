@@ -139,7 +139,7 @@ struct FullPlayerView: View {
             }
             .offset(y: collapseOffset)
             .animation(.spring(response: 0.45, dampingFraction: 0.9), value: showQueue)
-            .simultaneousGesture(collapseDrag)
+            .simultaneousGesture(collapseDrag(listTop: max(220, geometry.size.height - 300) > 0 ? geometry.size.height - max(220, geometry.size.height - 300) : 300))
             .onChange(of: np.videoId) { _, _ in
                 np.isVideoMode = false
                 // Si el cambio lo hizo AutoMix o el paso automatico a la siguiente, te quedas donde estabas (cola, letra...);
@@ -368,14 +368,20 @@ struct FullPlayerView: View {
                     PlayerDownloadPill(song: song)
                 }
             }
-            .padding(.trailing, 18)
+            .padding(.horizontal, 18)
         }
         .frame(height: 38)
+        // La fila se extiende 18 pt por cada lado y se difumina igual por los dos: en reposo el primer boton queda
+        // alineado con el titulo, y al deslizar se desvanece por izquierda y derecha por igual.
+        .padding(.horizontal, -18)
         .mask(
-            LinearGradient(
-                stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.9), .init(color: .clear, location: 1)],
-                startPoint: .leading, endPoint: .trailing
-            )
+            HStack(spacing: 0) {
+                LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: 18)
+                Rectangle()
+                LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: 18)
+            }
         )
     }
 
@@ -409,16 +415,25 @@ struct FullPlayerView: View {
     /// Swipe down anywhere to collapse. Vertical-dominant drags only.
     /// `collapseOffset` es un @GestureState: vuelve solo a 0 (con animacion) cuando el gesto
     /// termina o el sistema lo cancela, asi que el reproductor nunca se queda desplazado.
-    private var collapseDrag: some Gesture {
+    private func collapseDrag(listTop: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 12)
             .updating($collapseOffset) { value, state, _ in
-                guard value.translation.height > 0,
+                // Con la cola abierta, bajar el dedo no desplaza el reproductor entero.
+                guard !showQueue,
+                      value.translation.height > 0,
                       value.translation.height > abs(value.translation.width) else { return }
                 state = value.translation.height
             }
             .onEnded { value in
                 let isVertical = value.translation.height > abs(value.translation.width)
-                if isVertical, value.translation.height > 140 {
+                guard isVertical else { return }
+                if showQueue {
+                    // Deslizar hacia abajo por encima de la lista (cancion, barra, controles) cierra la cola y vuelve a
+                    // la carátula; dentro de la lista es para desplazarla.
+                    if value.translation.height > 60, value.startLocation.y < listTop {
+                        withAnimation(.spring(response: 0.45, dampingFraction: 0.9)) { showQueue = false }
+                    }
+                } else if value.translation.height > 140 {
                     onCollapse()
                 }
             }

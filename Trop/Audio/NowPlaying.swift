@@ -336,7 +336,20 @@ final class NowPlaying {
                 isResolvingNext = false
             }
             afterResolve?()
+            await self.verifyPlaybackStarted(song.videoId, startAt: startAt, logContext: logContext)
         }
+    }
+
+    /// Red de seguridad: si tras pedir una cancion el reproductor ni la ha cargado ni la tiene en camino (seguia sonando
+    /// la anterior), se vuelve a pedir una vez y queda apuntado en el informe.
+    private func verifyPlaybackStarted(_ videoId: String, startAt: TimeInterval, logContext: String) async {
+        try? await Task.sleep(nanoseconds: 3_000_000_000)
+        guard self.videoId == videoId, isPlaying else { return }
+        let controller = PlayerController.shared
+        guard controller.currentVideoId != videoId, controller.pendingVideoId != videoId,
+              controller.gaplessStage == 0 else { return }
+        PlaybackReport.record("cola: \(videoId) no llego a sonar tras \(logContext) (suena \(controller.currentVideoId ?? "nada")), se reintenta")
+        _ = try? await PlaybackManager.shared.resolveAndPlay(videoId: videoId, startAt: startAt)
     }
 
     func update(title: String, artist: String?, videoId: String, album: String? = nil, artists: [YTArtist] = [], thumbnailUrl: String? = nil) {
