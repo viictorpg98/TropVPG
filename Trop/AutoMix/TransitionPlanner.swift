@@ -186,7 +186,7 @@ enum AutoMixMath {
     private static let ratioMin = 0.94
     private static let ratioMax = 1.06
     private static let speedStep = 0.005
-    static let tempoMatching = true
+    static let tempoMatching = false
     /// A partir de que punto de la mezcla la entrante vuelve a su velocidad normal (la saliente ya casi no se oye).
     static let incomingRampStart = 0.75
 

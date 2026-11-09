@@ -2,14 +2,16 @@
 //  AutoMixEngine.swift
 //  Trop
 //
-//  Mezcla una cancion descargada con la siguiente como un DJ, dentro de un unico reproductor (mpv).
+//  Mezcla una cancion con la siguiente con un crossfade limpio, como LastWave: dos reproductores mpv a la vez.
 //
-//  Unos segundos antes del punto de mezcla se prepara UN archivo con la transicion ya hecha (`MixRenderer`: el final de
-//  la saliente con su paso bajo, el intercambio de graves y los volumenes, sumado al principio de la entrante). Se le
-//  dice a mpv que corte la saliente en ese punto y que a continuacion reproduzca ese archivo y despues la entrante, a
-//  partir de donde la deja la mezcla. mpv encadena los tres sin pausa y con un solo reloj: al no haber dos
-//  reproductores que sincronizar, no puede haber doblados ni ecos.
-//  Diseno y formulas adaptados de AutoMix de SimpMusic (maxrave-dev/core, GPL-3.0).
+//  Unos segundos antes del punto de mezcla se prepara un segundo mpv (`AutoMixDeck`) que carga la entrante en su punto de
+//  entrada, en pausa y sin sonido. Al llegar la saliente al punto de mezcla, el segundo mpv empieza a sonar y los dos
+//  suben y bajan con una curva de potencia constante (coseno / seno) y un pequeno recorte de ganancia para que no sature.
+//  Al 65 % de la mezcla el segundo mpv pasa a ser el reproductor principal (la app ya ve la entrante como la actual) y el
+//  que sale se atenua hasta el final y se destruye. La entrante nunca cambia de archivo ni de reproductor: no hay empalme.
+//  Los puntos (cuando empezar, cuanto dura, por donde entra la nueva, sin pisar voces) los decide `TransitionPlanner`.
+//  Ideas: crossfade y cambio de reproductor de LastWave (github.com/Clash-Projects/LastWave-Native, GPL-3.0) y
+//  planificacion de AutoMix de SimpMusic (maxrave-dev/core, GPL-3.0); el codigo es propio.
 //
 
 import AVFoundation
@@ -20,39 +22,47 @@ import Foundation
 final class AutoMixEngine {
     static let shared = AutoMixEngine()
 
-    private enum Phase { case idle, armed, mixing }
+    private enum Phase { case idle, preparing, ready, blending }
 
-    /// Todo lo necesario para una mezcla ya preparada.
-    private struct Prepared {
+    /// Todo lo necesario para la mezcla en curso.
+    private struct Current {
         let key: String
         let outId: String
         let inId: String
         let plan: TransitionPlan
-        let mixURL: URL
-        let outgoingURL: URL
-        let incomingURL: URL
-        /// Segundo de la saliente donde mpv la corta y empieza el archivo de la mezcla.
-        let cutAt: Double
-        /// Segundo de la entrante por donde sigue mpv cuando acaba el archivo de la mezcla (despues de la cola).
-        let resumeAt: Double
-        /// Segundo de la entrante donde acaba la mezcla propiamente dicha (a partir de ahi suena tal cual).
-        let mixEndsAt: Double
+        var inLoudness: Double?
     }
 
     private var phase = Phase.idle
-    private var prepared: Prepared?
-    private var preparingKey: String?
+    private var current: Current?
     private var planCache: (outId: String, inId: String, plan: TransitionPlan?)?
     private var timer: Timer?
+    private var prepareTask: Task<Void, Never>?
 
-    // Estado mientras suena la mezcla
-    private var outgoingDuration: TimeInterval = 0
+    /// El segundo mpv, que carga la entrante.
+    private var deck: AutoMixDeck?
+    /// El mpv que sale, cuando ya ha dejado de ser el principal.
+    private var fadingDeck: AutoMixDeck?
+    private var swapped = false
+    private var secondaryPaused = false
+    private var blendStartedAt = Date()
+    /// Para comprobar que el segundo mpv suena de verdad: donde estaba al empezar y si ya se comprobo.
+    private var deckStartPosition: Double?
+    private var healthChecked = false
+
     private var beatMs: Double = 500
     private var beatsPerPulse: Double = 1
-    /// La app ya ve la entrante como cancion actual (la mezcla acabo, aunque el archivo siga unos segundos).
-    private var adopted = false
 
     private let fastInterval: TimeInterval = 0.03
+    /// Punto de la mezcla (0...1) en que la entrante pasa a ser el reproductor principal.
+    private let swapAt = 0.65
+
+    /// Cuando se pidio la ultima cancion: el analisis en streaming espera un poco para no pedir direcciones a YouTube a la
+    /// vez que la reproduccion que se acaba de pedir.
+    private(set) var lastSongChange = Date.distantPast
+
+    /// Hay una mezcla preparandose, lista o sonando.
+    var isActive: Bool { phase != .idle }
 
     private init() {}
 
@@ -61,11 +71,20 @@ final class AutoMixEngine {
     func tick(position: TimeInterval) {
         guard SettingsStore.shared.autoMixEnabled else {
             if phase != .idle { cancel("desactivado") }
-            dropPrepared()
             return
         }
-        guard phase == .idle else { return }
-        guard let (outId, inId) = currentPair() else { dropPrepared(); return }
+        switch phase {
+        case .blending, .preparing:
+            return
+        case .ready:
+            guard let c = current, stillValid(c) else { cancel("la cola cambio"); return }
+            // El arranque exacto lo hace el temporizador rapido cuando se acerca el punto de mezcla.
+            if Double(c.plan.outgoingStartMs) / 1000 - position <= 2, timer == nil { startTimer() }
+            return
+        case .idle:
+            break
+        }
+        guard let (outId, inId) = currentPair() else { return }
 
         // Siempre se pide analizar la actual y la siguiente (si ya estan hechas no cuesta nada).
         TrackAnalysisStore.shared.request(outId)
@@ -77,11 +96,9 @@ final class AutoMixEngine {
         guard let plan = plan(outId: outId, inId: inId) else { return }
 
         let lead = Double(plan.outgoingStartMs) / 1000 - position
-        if lead > 14 || lead < 0.8 { return }
+        if lead > 22 || lead < 0.5 { return }
         AutoMixVisuals.shared.prepare(song: NowPlaying.shared.queueSongs[NowPlaying.shared.queueIndex + 1])
         prepare(outId: outId, inId: inId, plan: plan)
-        // Se deja detras de la cancion con tiempo de sobra antes del corte.
-        if lead <= 7, prepared?.key == pairKey(outId, inId) { arm() }
     }
 
     private func pairKey(_ outId: String, _ inId: String) -> String { "\(outId)>\(inId)" }
@@ -95,11 +112,19 @@ final class AutoMixEngine {
               let outId = np.videoId,
               np.queueSongs[np.queueIndex].videoId == outId else { return nil }
         let inId = np.queueSongs[np.queueIndex + 1].videoId
-        // Descargadas, o con Wi-Fi tambien las de streaming (FFmpeg las lee directamente).
+        // Descargadas, o con Wi-Fi tambien las de streaming (el segundo mpv las lee directamente).
         guard outId != inId, AutoMixSource.isAvailable(videoId: outId), AutoMixSource.isAvailable(videoId: inId) else {
             return nil
         }
         return (outId, inId)
+    }
+
+    /// Nada ha cambiado desde que se preparo: sigue sonando la saliente y la siguiente de la cola es la entrante.
+    private func stillValid(_ c: Current) -> Bool {
+        let np = NowPlaying.shared
+        return np.videoId == c.outId && !np.isVideoMode
+            && np.queueSongs.indices.contains(np.queueIndex) && np.queueIndex + 1 < np.queueSongs.count
+            && np.queueSongs[np.queueIndex + 1].videoId == c.inId
     }
 
     private func plan(outId: String, inId: String) -> TransitionPlan? {
@@ -114,95 +139,78 @@ final class AutoMixEngine {
         planCache = (outId, inId, plan)
         PlaybackReport.record(result.map {
             String(
-                format: "automix: plan %@ -> %@: corte en %.1f s, dura %.0f s, entra desde %.1f s (%.0f -> %.0f BPM, tempo %.3f/%.3f) %@",
+                format: "automix: plan %@ -> %@: empieza en %.1f s, dura %.0f s, entra desde %.1f s (%.0f -> %.0f BPM) %@",
                 outId, inId, Double($0.plan.outgoingStartMs) / 1000, Double($0.plan.durationMs) / 1000,
-                Double($0.plan.incomingStartMs) / 1000, out.bpm, inc.bpm, $0.plan.outgoingSpeedRatio, $0.plan.incomingSpeedRatio,
-                $0.note
+                Double($0.plan.incomingStartMs) / 1000, out.bpm, inc.bpm, $0.note
             )
         } ?? "automix: \(outId) -> \(inId) sin mezcla posible (se usa el paso normal)")
         return plan
     }
 
-    // MARK: - Preparacion del archivo de la mezcla
+    // MARK: - Preparar el segundo reproductor
 
     private func prepare(outId: String, inId: String, plan: TransitionPlan) {
-        let key = pairKey(outId, inId)
-        if prepared?.key == key { return }
-        guard preparingKey != key else { return }
-        dropPrepared()
-        preparingKey = key
-        Task { [weak self] in
-            defer { self?.preparingKey = nil }
-            guard let outSource = await AutoMixSource.source(for: outId),
-                  let inSource = await AutoMixSource.source(for: inId) else { return }
-            let outURL = outSource.url
-            let inURL = inSource.url
-            let began = Date()
-            let cutAt = Double(plan.outgoingStartMs) / 1000
-            let inStart = Double(plan.incomingStartMs) / 1000
-            let duration = Double(plan.durationMs) / 1000
-            let outgoingRatio = plan.outgoingSpeedRatio
-            let incomingRatio = plan.incomingSpeedRatio
-            let rendered = await Task.detached(priority: .userInitiated) {
-                MixRenderer.render(
-                    outgoingURL: outURL, outgoingStart: cutAt,
-                    incomingURL: inURL, incomingStart: inStart,
-                    duration: duration, outgoingRatio: outgoingRatio, incomingRatio: incomingRatio
-                )
-            }.value
-            guard let rendered else {
-                PlaybackReport.record("automix: no se pudo preparar la mezcla \(outId) -> \(inId)")
-                self?.planCache = (outId, inId, nil)
-                return
-            }
-            guard let self else { try? FileManager.default.removeItem(at: rendered.url); return }
-            if self.prepared?.key != key, self.phase == .idle {
-                self.prepared = Prepared(
-                    key: key, outId: outId, inId: inId, plan: plan, mixURL: rendered.url,
-                    outgoingURL: outURL, incomingURL: inURL, cutAt: cutAt,
-                    resumeAt: rendered.mixEndsAt + rendered.extra, mixEndsAt: rendered.mixEndsAt
-                )
-                PlaybackReport.record(String(
-                    format: "automix: mezcla %@ -> %@ preparada en %.1f s", outId, inId, Date().timeIntervalSince(began)
-                ))
-            } else {
-                try? FileManager.default.removeItem(at: rendered.url)
-            }
-        }
-    }
-
-    private func dropPrepared() {
         guard phase == .idle else { return }
-        if let prepared {
-            try? FileManager.default.removeItem(at: prepared.mixURL)
-            self.prepared = nil
-        }
+        let key = pairKey(outId, inId)
+        phase = .preparing
+        current = Current(key: key, outId: outId, inId: inId, plan: plan, inLoudness: nil)
+        prepareTask?.cancel()
+        prepareTask = Task { [weak self] in await self?.runPrepare(key: key) }
     }
 
-    // MARK: - Dejar la mezcla detras de la cancion
-
-    private func arm() {
-        guard let p = prepared, phase == .idle else { return }
-        let controller = PlayerController.shared
-        guard controller.armGaplessMix(
-            mixURL: p.mixURL, incomingURL: p.incomingURL, incomingStart: p.resumeAt, endAt: p.cutAt, incomingId: p.inId
-        ) else {
-            PlaybackReport.record("automix: mpv no acepto la mezcla encadenada, se usa el paso normal")
-            planCache = (p.outId, p.inId, nil)
-            dropPrepared()
+    private func runPrepare(key: String) async {
+        guard let c = current, c.key == key else { return }
+        let began = Date()
+        guard let source = await AutoMixSource.source(for: c.inId) else {
+            fail("no hay direccion de la entrante", key)
             return
         }
-        outgoingDuration = controller.duration
-        adopted = false
-        if let structure = TrackAnalysisStore.shared.structure(for: p.outId) {
-            beatMs = structure.beatMs
-            // Por encima de 140 BPM el latido seria nervioso: se hace cada dos pulsos.
-            beatsPerPulse = structure.bpm > 140 ? 2 : 1
+        guard phase == .preparing, current?.key == key else { return }
+        current?.inLoudness = source.loudnessDb
+        let chain = PlayerController.shared.audioFilterChain(loudness: source.loudnessDb)
+        let start = Double(c.plan.incomingStartMs) / 1000
+        guard let created = await AutoMixDeck.create(
+            videoId: c.inId, url: source.url.absoluteString, isLocal: source.isLocal, start: start, filterChain: chain
+        ) else {
+            fail("mpv no pudo crear el segundo reproductor", key)
+            return
         }
-        phase = .armed
-        startTimer()
-        PlaybackReport.record(String(format: "automix: mezcla encadenada lista, corte en %.1f s", p.cutAt))
+        guard phase == .preparing, current?.key == key else { created.destroy(); return }
+        deck = created
+
+        var sawLoading = false
+        for _ in 0..<110 {
+            try? await Task.sleep(nanoseconds: 200_000_000)
+            guard phase == .preparing, current?.key == key, !Task.isCancelled else { return }
+            let status = await created.status()
+            if !status.idle { sawLoading = true }
+            if sawLoading, status.idle {
+                fail("la entrante no se pudo abrir", key)
+                return
+            }
+            // Una descargada esta lista enseguida; una de streaming, cuando tiene unos segundos por delante.
+            let buffered = created.isLocal || (status.cacheAhead ?? 0) >= 3
+            if status.timePos != nil, (status.duration ?? 0) > 0, buffered {
+                phase = .ready
+                PlaybackReport.record(String(
+                    format: "automix: segundo reproductor listo con %@ en %.1f s", c.inId, Date().timeIntervalSince(began)
+                ))
+                return
+            }
+        }
+        fail("la entrante tardo demasiado en cargar", key)
     }
+
+    /// No se pudo preparar: la cancion sigue como estaba y no se vuelve a intentar con esta pareja.
+    private func fail(_ reason: String, _ key: String) {
+        guard let c = current, c.key == key else { return }
+        PlaybackReport.record("automix: \(reason), se usa el paso normal")
+        planCache = (c.outId, c.inId, nil)
+        AutoMixVisuals.shared.end()
+        teardown()
+    }
+
+    // MARK: - Temporizador rapido
 
     private func startTimer() {
         timer?.invalidate()
@@ -220,155 +228,188 @@ final class AutoMixEngine {
 
     private func step() {
         switch phase {
-        case .idle: stopTimer()
-        case .armed: stepArmed()
-        case .mixing: stepMixing()
+        case .ready: stepReady()
+        case .blending: stepBlending()
+        default: stopTimer()
         }
     }
 
-    /// Esperando el corte: se comprueba que nada ha cambiado y que mpv encadena de verdad.
-    private func stepArmed() {
-        guard let p = prepared else { cancel("sin datos"); return }
-        let np = NowPlaying.shared
-        guard np.videoId == p.outId, !np.isVideoMode,
-              np.queueSongs.indices.contains(np.queueIndex), np.queueIndex + 1 < np.queueSongs.count,
-              np.queueSongs[np.queueIndex + 1].videoId == p.inId else {
-            cancel("la cola cambio")
+    /// Esperando el punto de mezcla: cuando la saliente llega, empieza el solape.
+    private func stepReady() {
+        guard let c = current, stillValid(c) else { cancel("la cola cambio"); return }
+        guard PlayerController.shared.rawTimePos() >= Double(c.plan.outgoingStartMs) / 1000 else { return }
+        startBlend(c)
+    }
+
+    private func startBlend(_ c: Current) {
+        guard let deck else { cancel("sin segundo reproductor"); return }
+        // El segundo mpv puede reajustar la sesion de audio al sonar: se vuelve a dejar como la quiere la app.
+        PlayerController.shared.assertAudioSession()
+        deck.setVolume(0)
+        deck.setPaused(false)
+        deckStartPosition = nil
+        healthChecked = false
+        Task { [weak self, weak deck] in
+            guard let deck else { return }
+            let status = await deck.status()
+            self?.deckStartPosition = status.timePos
+        }
+        phase = .blending
+        swapped = false
+        secondaryPaused = false
+        blendStartedAt = Date()
+        if let structure = TrackAnalysisStore.shared.structure(for: c.outId) {
+            beatMs = structure.beatMs
+            // Por encima de 140 BPM el latido seria nervioso: se hace cada dos pulsos.
+            beatsPerPulse = structure.bpm > 140 ? 2 : 1
+        }
+        AutoMixVisuals.shared.begin()
+        PlaybackReport.record(String(
+            format: "automix: empieza la mezcla %@ -> %@ (%.0f s)", c.outId, c.inId, Double(c.plan.durationMs) / 1000
+        ))
+    }
+
+    // MARK: - El solape
+
+    private func stepBlending() {
+        guard let c = current else { cancel("sin datos"); return }
+        let controller = PlayerController.shared
+        guard swapped || stillValid(c) else { cancel("la cola cambio"); return }
+        let duration = Double(c.plan.durationMs) / 1000
+        // Seguridad: si el reloj no avanza (por ejemplo, un fallo del reproductor), no se queda la mezcla colgada.
+        if Date().timeIntervalSince(blendStartedAt) > duration * 2 + 8 { cancel("la mezcla no avanzaba"); return }
+
+        // El reloj de la mezcla es la posicion del reproductor principal (la saliente, y tras el cambio la entrante): si se
+        // pausa, la mezcla se queda quieta.
+        let reference = Double(swapped ? c.plan.incomingStartMs : c.plan.outgoingStartMs) / 1000
+        let progress = min(max((controller.rawTimePos() - reference) / duration, 0), 1)
+
+        // Potencia constante: la suma de cuadrados de las ganancias es 1 en todo el solape (sin hueco en el medio), y un
+        // recorte de 1/raiz(suma) evita que dos canciones fuertes sumen por encima del maximo.
+        let gainOut = cos(progress * .pi / 2)
+        let gainIn = sin(progress * .pi / 2)
+        let sum = gainOut + gainIn
+        let trim = sum <= 1 ? 1 : 1 / sum.squareRoot()
+        // La propiedad `volume` de mpv aplica su cubo: se le da la raiz cubica de la ganancia que se quiere.
+        let base = SettingsStore.shared.playerVolume * 100
+        if swapped {
+            controller.volumeScale = cbrt(gainIn * trim)
+            controller.applyPlayerVolume()
+            fadingDeck?.setVolume(base * cbrt(gainOut * trim))
+        } else {
+            controller.volumeScale = cbrt(gainOut * trim)
+            controller.applyPlayerVolume()
+            deck?.setVolume(base * cbrt(gainIn * trim))
+        }
+
+        // Si se pausa la reproduccion, el otro mpv tambien.
+        let paused = controller.playState.value != .playing
+        if paused != secondaryPaused {
+            secondaryPaused = paused
+            (swapped ? fadingDeck : deck)?.setPaused(paused)
+        }
+
+        let visuals = AutoMixVisuals.shared
+        visuals.progress = progress
+        let beats = progress * duration * 1000 / max(beatMs, 1) / beatsPerPulse
+        visuals.beatPhase = beats - beats.rounded(.down)
+
+        // Poco despues de empezar se comprueba que el segundo mpv avanza: si no suena (por ejemplo, si el sistema no deja abrir
+        // otra salida de audio), se cancela la mezcla y la cancion sigue como estaba, en vez de quedarse en silencio.
+        if !swapped, !healthChecked, progress >= 0.12 {
+            healthChecked = true
+            let startPosition = deckStartPosition
+            Task { [weak self] in
+                guard let self, let deck = self.deck else { return }
+                let status = await deck.status()
+                guard self.phase == .blending, !self.swapped, !self.secondaryPaused,
+                      let startPosition, let now = status.timePos else { return }
+                if now - startPosition < 0.3 { self.cancel("el segundo reproductor no suena") }
+            }
+        }
+
+        if !swapped, progress >= swapAt { swapRoles(c, progress: progress) }
+        if progress >= 1 { finishBlend(c) }
+    }
+
+    /// El segundo mpv pasa a ser el principal: la app ve la entrante como la actual. El que sale sigue atenuandose.
+    private func swapRoles(_ c: Current, progress: Double) {
+        guard let deck, let handle = deck.releaseHandle() else { cancel("sin segundo reproductor"); return }
+        let controller = PlayerController.shared
+        controller.currentLoudnessDb = c.inLoudness
+        guard let old = controller.adoptDeck(handle, videoId: c.inId) else {
+            AutoMixDeck.discard(handle)
+            cancel("no se pudo cambiar de reproductor")
             return
         }
-        let controller = PlayerController.shared
-        if controller.gaplessStage == 2 {
-            // mpv ya paso al archivo de la mezcla.
-            phase = .mixing
-            controller.durationOverride = outgoingDuration
-            AutoMixVisuals.shared.begin()
-            PlaybackReport.record("automix: empieza la mezcla \(p.outId) -> \(p.inId)")
-        } else if controller.gaplessStage == 1, controller.rawTimePos() > p.cutAt + 0.8 {
-            // Deberia haber cortado ya: si mpv no lo hace, se deja la cancion como estaba.
-            PlaybackReport.record("automix: mpv no corto la saliente en su sitio, se cancela la mezcla")
-            planCache = (p.outId, p.inId, nil)
-            cancel("sin corte")
-        }
-    }
-
-    /// Suena el archivo de la mezcla: la barra de progreso sigue a la saliente y las animaciones, a la mezcla.
-    private func stepMixing() {
-        guard let p = prepared else { cancel("sin datos"); return }
-        let controller = PlayerController.shared
-        guard controller.gaplessStage == 2 else { return }
-        let mixPosition = controller.rawTimePos()
-        let duration = Double(p.plan.durationMs) / 1000
-        let visuals = AutoMixVisuals.shared
-        if mixPosition < duration {
-            // La saliente avanza mas (o menos) que la mezcla porque cambia de velocidad.
-            let advanced = AutoMixMath.outgoingAdvance(ratio: p.plan.outgoingSpeedRatio, duration: duration, seconds: mixPosition)
-            controller.positionOverride = min(p.cutAt + advanced, max(outgoingDuration, p.cutAt))
-            visuals.progress = min(max(mixPosition / duration, 0), 1)
-            let beats = (mixPosition * 1000) / max(beatMs, 1) / beatsPerPulse
-            visuals.beatPhase = beats - beats.rounded(.down)
-        } else {
-            // La mezcla acabo: la entrante ya suena sola (queda un trozo de archivo hasta el empalme con su propio archivo).
-            if !adopted { adoptIncoming(p) }
-            controller.positionOverride = p.mixEndsAt + (mixPosition - duration)
-        }
-    }
-
-    // MARK: - Fin de la mezcla: mpv ya suena la entrante
-
-    /// La mezcla acabo (la parte mezclada del archivo): la app pasa a ver la entrante como cancion actual. mpv sigue
-    /// unos segundos en el archivo de la mezcla (la entrante tal cual) hasta el punto flojo donde cambia a su archivo.
-    private func adoptIncoming(_ p: Prepared) {
-        adopted = true
-        let controller = PlayerController.shared
+        fadingDeck = AutoMixDeck.adopting(old, videoId: c.outId)
+        self.deck = nil
+        swapped = true
+        secondaryPaused = false
+        controller.positionOverride = nil
         controller.durationOverride = nil
+        let position = Double(c.plan.incomingStartMs) / 1000 + progress * Double(c.plan.durationMs) / 1000
         let ok = NowPlaying.shared.adoptGaplessIncoming(
-            videoId: p.inId, position: p.mixEndsAt, artwork: AutoMixVisuals.shared.incomingImage
+            videoId: c.inId, position: position, artwork: AutoMixVisuals.shared.incomingImage
         )
-        // La duracion que se ve es la de la entrante (mpv sigue con la del archivo de la mezcla).
-        if let song = NowPlaying.shared.queueSongs.first(where: { $0.videoId == p.inId }), song.duration > 0 {
-            controller.durationOverride = TimeInterval(song.duration)
-        }
-        PlaybackReport.record(ok ? "automix: mezcla terminada, la entrante \(p.inId) suena sola" : "automix: no se pudo pasar a \(p.inId)")
+        PlaybackReport.record(ok
+            ? String(format: "automix: la entrante %@ pasa a ser el reproductor principal (%.0f %% de la mezcla)", c.inId, progress * 100)
+            : "automix: no se pudo pasar a \(c.inId)")
+    }
+
+    private func finishBlend(_ c: Current) {
+        PlaybackReport.record("automix: mezcla terminada, la entrante \(c.inId) suena sola")
         AutoMixVisuals.shared.progress = 1
         AutoMixVisuals.shared.end()
-    }
-
-    /// mpv acabo el archivo de la mezcla y pasa al archivo de la entrante, en el punto flojo elegido.
-    func gaplessReachedIncoming() {
-        guard phase != .idle, let p = prepared else { return }
-        if !adopted { adoptIncoming(p) }
-        let controller = PlayerController.shared
-        controller.positionOverride = nil
-        controller.durationOverride = nil
-        PlaybackReport.record(String(format: "automix: empalme con la entrante en el segundo %.2f de su archivo", p.resumeAt))
-        finish()
-    }
-
-    private func finish() {
-        stopTimer()
-        if let prepared { try? FileManager.default.removeItem(at: prepared.mixURL) }
-        prepared = nil
+        teardown()
         planCache = nil
-        phase = .idle
     }
 
-    // MARK: - Cancelar
+    // MARK: - Limpiar y cancelar
+
+    /// Deja todo como si no hubiera mezcla: destruye los segundos mpv y devuelve el volumen.
+    private func teardown() {
+        stopTimer()
+        prepareTask?.cancel()
+        prepareTask = nil
+        deck?.destroy()
+        deck = nil
+        fadingDeck?.destroy()
+        fadingDeck = nil
+        let controller = PlayerController.shared
+        if controller.volumeScale != 1 {
+            controller.volumeScale = 1
+            controller.applyPlayerVolume()
+        }
+        phase = .idle
+        current = nil
+        swapped = false
+        secondaryPaused = false
+    }
 
     func cancel(_ reason: String, quiet: Bool = false) {
+        guard phase != .idle else { return }
         if !quiet { PlaybackReport.record("automix: cancelada (\(reason))") }
-        let controller = PlayerController.shared
-        let stage = controller.gaplessStage
-        controller.disarmGaplessMix()
-        // Si ya sonaba el archivo de la mezcla y la cancion sigue siendo la saliente, se vuelve a ella donde iba.
-        if stage == 2, let p = prepared, NowPlaying.shared.videoId == p.outId {
-            let position = min(p.cutAt + controller.rawTimePos(), max(outgoingDuration, p.cutAt))
-            Task { _ = try? await PlaybackManager.shared.resolveAndPlay(videoId: p.outId, startAt: position) }
-        }
-        controller.positionOverride = nil
-        controller.durationOverride = nil
         AutoMixVisuals.shared.end()
-        finish()
+        teardown()
+        planCache = nil
     }
 
-    /// El usuario cambia la posicion mientras hay una mezcla preparada o sonando. Devuelve `true` si ya se ha encargado
-    /// de todo (la saliente se vuelve a cargar en esa posicion); `false` si hay que seguir con el cambio normal.
+    /// El usuario cambia la posicion mientras hay una mezcla: se cancela y el cambio sigue su curso normal (sobre el
+    /// reproductor principal, que antes del cambio de papeles es la saliente).
     func userSeek(to time: TimeInterval) -> Bool {
-        let controller = PlayerController.shared
-        guard let p = prepared else { return false }
-        if controller.gaplessStage == 2, NowPlaying.shared.videoId == p.outId {
-            PlaybackReport.record("automix: cancelada (cambio de posicion durante la mezcla)")
-            controller.disarmGaplessMix()
-            controller.positionOverride = nil
-            controller.durationOverride = nil
-            AutoMixVisuals.shared.end()
-            finish()
-            Task { _ = try? await PlaybackManager.shared.resolveAndPlay(videoId: p.outId, startAt: time) }
-            return true
-        }
-        // Antes del corte: se deshace lo preparado y el cambio de posicion sigue su curso normal.
-        PlaybackReport.record("automix: cancelada (cambio de posicion)")
-        controller.disarmGaplessMix()
-        AutoMixVisuals.shared.end()
-        finish()
+        guard phase != .idle else { return false }
+        cancel("cambio de posicion")
         return false
     }
 
     /// Para cuando el usuario cambia de cancion a mano o se vacia la cola.
-    /// Cuando se pidio la ultima cancion: el analisis en streaming espera un poco para no pedir direcciones a YouTube a la vez que
-    /// la reproduccion que se acaba de pedir.
-    private(set) var lastSongChange = Date.distantPast
-
     func songChanged() {
         lastSongChange = Date()
-        if phase != .idle {
-            let controller = PlayerController.shared
-            controller.disarmGaplessMix()
-            controller.positionOverride = nil
-            controller.durationOverride = nil
-            AutoMixVisuals.shared.end()
-            finish()
-        }
+        if phase != .idle { cancel("cambio de cancion", quiet: true) }
         planCache = nil
-        dropPrepared()
     }
+
+    /// Ya no se usa (era el empalme de archivos de la version anterior); se deja para no tocar otros archivos.
+    func gaplessReachedIncoming() {}
 }

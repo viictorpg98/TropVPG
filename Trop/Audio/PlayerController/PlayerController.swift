@@ -22,6 +22,12 @@ struct DetectedCrop {
     let y: Int
 }
 
+/// Para retirar el bucle de eventos de un mpv sin destruirlo (cuando AutoMix cambia de reproductor principal).
+final class LoopToken: @unchecked Sendable {
+    var stop = false
+    var destroyOnExit = true
+}
+
 // MARK: - PlayerController
 
 @MainActor
@@ -33,6 +39,7 @@ final class PlayerController {
     let mpvAccessQueue = DispatchQueue(label: "com.686udjie.PlayerController.mpvAccess")
 
     nonisolated(unsafe) private var eventLoopThread: Thread?
+    nonisolated(unsafe) private var loopToken = LoopToken()
 
     nonisolated(unsafe) var isRunning = false
     nonisolated(unsafe) var currentVideoId: String?
@@ -247,6 +254,7 @@ extension PlayerController {
         )
         // Una carga normal borra cualquier mezcla encadenada que hubiera preparada.
         resetGaplessMix()
+        AutoMixEngine.shared.cancel("nueva carga", quiet: true)
         let cmdResult = withMpv { mpv -> Int32 in
             mpv_set_property_string(mpv, "pause", "no")
             mpv_set_property_string(mpv, "end", "none")
@@ -273,7 +281,7 @@ extension PlayerController {
     func seek(to time: TimeInterval) {
         // Con una mezcla encadenada preparada o sonando, la posicion que se pide es de la saliente: AutoMix la deshace
         // primero (y, si ya sonaba el archivo de la mezcla, vuelve a cargar la saliente en ese punto).
-        if gaplessStage == 1 || gaplessStage == 2, AutoMixEngine.shared.userSeek(to: time) { return }
+        if AutoMixEngine.shared.isActive { _ = AutoMixEngine.shared.userSeek(to: time) }
         pendingSeek = (time, Date().addingTimeInterval(1.5))
         NowPlaying.shared.currentTime = time
         withMpv { mpv in
@@ -448,10 +456,12 @@ extension PlayerController {
                 }
             }
 
+            let token = LoopToken()
+            self.loopToken = token
             let thread = Thread { [weak self] in
                 guard let self else { return }
                 self.isRunning = true
-                self.eventLoop(mpv)
+                self.eventLoop(mpv, token: token)
             }
             self.eventLoopThread = thread
             thread.name = "com.686udjie.PlayerController.eventLoop"
@@ -504,8 +514,8 @@ extension PlayerController {
         mpv_observe_property(mpv, 2, "video-out-params", MPV_FORMAT_NODE)
     }
 
-    nonisolated fileprivate func eventLoop(_ mpv: OpaquePointer) {
-        while isRunning {
+    nonisolated fileprivate func eventLoop(_ mpv: OpaquePointer, token: LoopToken) {
+        while isRunning, !token.stop {
             guard let event = mpv_wait_event(mpv, 0.2) else { continue }
             switch event.pointee.event_id {
             case MPV_EVENT_NONE:
@@ -528,7 +538,9 @@ extension PlayerController {
                 break
             }
         }
-        mpvAccessQueue.sync { self._mpv = nil }
+        // Un mpv que sale por el cambio de papeles de AutoMix no se destruye aqui: lo sigue controlando AutoMix.
+        guard token.destroyOnExit else { return }
+        mpvAccessQueue.sync { if self._mpv == mpv { self._mpv = nil } }
         mpv_destroy(mpv)
     }
 
@@ -1451,5 +1463,66 @@ extension PlayerController {
         gaplessMixLoaded = false
         positionOverride = nil
         durationOverride = nil
+    }
+}
+
+// MARK: - AutoMix: segundo mpv (deck) y cambio de reproductor principal
+
+extension PlayerController {
+    /// Un mpv nuevo, listo para cargar una cancion, sin hilo de eventos y sin tocar el principal.
+    nonisolated static func makeDeckHandle() -> OpaquePointer? {
+        guard let mpv = mpv_create() else { return nil }
+        applyMpvStartupOptions(mpv)
+        // Va a tener unos segundos de audio por delante, no dos minutos.
+        mpv_set_option_string(mpv, "cache-secs", "40")
+        mpv_set_option_string(mpv, "demuxer-max-bytes", "64M")
+        guard mpv_initialize(mpv) >= 0 else {
+            mpv_destroy(mpv)
+            return nil
+        }
+        applyPostInitProperties(mpv)
+        return mpv
+    }
+
+    /// La cadena de filtros de audio (ecualizador y normalizacion) para una cancion con esa sonoridad.
+    func audioFilterChain(loudness: Double?) -> String {
+        let settings = SettingsStore.shared
+        var filters: [String] = []
+        if settings.equalizerEnabled {
+            let entries = zip(equalizerFrequencies, settings.equalizerGains)
+                .map { "entry(\(Self.fmt($0.0)),\(Self.fmt($0.1)))" }
+                .joined(separator: ";")
+            if !entries.isEmpty { filters.append("firequalizer=gain_entry=\"\(entries)\"") }
+        }
+        if settings.audioNormalization, let loudness, loudness.isFinite {
+            filters.append("volume=\(Self.fmt(max(-12, min(12, -14 - loudness))))dB")
+        }
+        return filters.joined(separator: ",")
+    }
+
+    /// El mpv de AutoMix pasa a ser el principal: se le enciende el bucle de eventos (que recoge lo que ya paso: archivo
+    /// cargado, etc., y deja la app al dia) y el que era principal se retira sin destruirlo. Devuelve el que sale, que sigue
+    /// sonando hasta que AutoMix lo destruya.
+    func adoptDeck(_ handle: OpaquePointer, videoId: String) -> OpaquePointer? {
+        guard let old = mpvAccessQueue.sync(execute: { _mpv }) else { return nil }
+        let oldToken = loopToken
+        oldToken.destroyOnExit = false
+        oldToken.stop = true
+        mpv_wakeup(old)
+
+        let token = LoopToken()
+        loopToken = token
+        pendingVideoId = videoId
+        desiredPlaying = true
+        mpvAccessQueue.sync { _mpv = handle }
+        Self.applyObservedProperties(handle)
+        mpv_request_log_messages(handle, "warn")
+        let thread = Thread { [weak self] in
+            self?.eventLoop(handle, token: token)
+        }
+        thread.name = "com.686udjie.PlayerController.eventLoop"
+        eventLoopThread = thread
+        thread.start()
+        return old
     }
 }

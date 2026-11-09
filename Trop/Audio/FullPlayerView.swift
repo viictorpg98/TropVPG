@@ -97,8 +97,12 @@ struct FullPlayerView: View {
             .simultaneousGesture(collapseDrag)
             .onChange(of: np.videoId) { _, _ in
                 np.isVideoMode = false
-                showLyrics = false
-                showQueue = false
+                // Si el cambio lo hizo AutoMix o el paso automatico a la siguiente, te quedas donde estabas (cola, letra...);
+                // solo si lo has pedido tu se vuelve a la carátula.
+                if Date().timeIntervalSince(np.lastAutomaticChange) > 8 {
+                    showLyrics = false
+                    showQueue = false
+                }
                 preloadLyrics()
             }
             .onChange(of: np.queueSongs.count) { _, _ in

@@ -56,7 +56,7 @@ struct PlayerSettingsView: View {
             } header: {
                 Text("AutoMix")
             } footer: {
-                Text("Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Downloaded songs always mix; streamed songs mix over Wi-Fi, or also on mobile data if you turn that on (it downloads each song's audio an extra time). The Playback Report shows what it did.")
+                Text("Blends one song into the next with a smooth crossfade placed at the best moment: it looks at the beats and avoids singing over singing. Downloaded songs always mix; streamed songs mix over Wi-Fi, or also on mobile data if you turn that on (the next song is loaded in advance). The Playback Report shows what it did.")
             }
 
             Section {

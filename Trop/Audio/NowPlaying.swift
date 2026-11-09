@@ -41,6 +41,8 @@ final class NowPlaying {
 
     var queueSongs: [SongItem] = []
     var queueIndex = 0
+    /// Cuando se cambio de cancion por si sola (AutoMix o paso automatico a la siguiente), para no cerrar la cola ni la letra.
+    var lastAutomaticChange = Date.distantPast
 
     var isShuffleOn = false
     var isRepeatOn = false
@@ -258,6 +260,7 @@ final class NowPlaying {
             }
         }
         if !automatic { lastManualSkipTime = Date() }
+        if automatic { lastAutomaticChange = Date() }
         queueIndex = target
         playCurrentSong(logContext: "playNext")
     }
@@ -266,6 +269,7 @@ final class NowPlaying {
     /// No carga nada: solo pone al dia lo que la app muestra y recuerda.
     func adoptGaplessIncoming(videoId: String, position: TimeInterval, artwork: UIImage?) -> Bool {
         guard queueIndex + 1 < queueSongs.count, queueSongs[queueIndex + 1].videoId == videoId else { return false }
+        lastAutomaticChange = Date()
         queueIndex += 1
         let song = queueSongs[queueIndex]
         update(with: song)
@@ -435,6 +439,43 @@ final class NowPlaying {
             stopTimer()
             PlayerController.shared.updateNowPlayingProgress()
             Task { await PlaybackStateService.shared.stopTracking() }
+        }
+    }
+
+    private var isExtendingQueue = false
+    private var lastExtendAttempt = Date.distantPast
+
+    /// La cola no se acaba: cuando quedan pocas canciones por sonar, se anaden mas de la radio de la que suena (como YouTube
+    /// Music). Asi no hay que esperar al final para pedirlas, y AutoMix siempre tiene una siguiente.
+    func extendQueueIfNeeded() {
+        guard SettingsStore.shared.autoplaySimilar, !isRepeatOn, !isExtendingQueue,
+              !offlineQueueActive, !offlineFallbackActive, NetworkMonitor.shared.hasConnection,
+              queueSongs.indices.contains(queueIndex),
+              queueSongs.count - queueIndex - 1 <= 4,
+              Date().timeIntervalSince(lastExtendAttempt) > 20 else { return }
+        lastExtendAttempt = Date()
+        isExtendingQueue = true
+        let current = queueSongs[queueIndex].videoId
+        let last = queueSongs[queueSongs.count - 1].videoId
+        Task {
+            var added: [SongItem] = []
+            var seeds = [current]
+            if last != current { seeds.append(last) }
+            for seed in seeds {
+                guard let radio = try? await PersonalizationService.shared.fetchRadio(videoId: seed) else { continue }
+                let known = Set(self.queueSongs.map(\.videoId))
+                added = radio.songs.filter { !known.contains($0.videoId) }
+                if !added.isEmpty { break }
+            }
+            self.isExtendingQueue = false
+            guard !added.isEmpty, self.queueSongs.indices.contains(self.queueIndex) else {
+                PlaybackReport.record("cola: no se pudo ampliar (la radio de \(current) no trajo canciones nuevas)")
+                return
+            }
+            self.queueSongs += added
+            self.applyAudioVersions()
+            self.persistQueueState()
+            PlaybackReport.record("cola: ampliada con \(added.count) canciones de la radio de \(current)")
         }
     }
 
@@ -812,6 +853,7 @@ final class NowPlaying {
         // El sistema extrapola la posicion con la velocidad: basta con avisarle una vez por segundo.
         PlayerController.shared.updateNowPlayingProgress(publishToSystem: tickCount % 4 == 0)
         SponsorBlockIntegration.shared.tick()
+        if tickCount % 20 == 0 { extendQueueIfNeeded() }
         // Cada 2 s basta (el almacen ya limita las escrituras): evita crear una tarea cuatro veces por segundo.
         if tickCount % 8 == 0, let videoId, duration >= 600 || musicVideoType == "MUSIC_VIDEO_TYPE_PODCAST_EPISODE" {
             let vid = videoId

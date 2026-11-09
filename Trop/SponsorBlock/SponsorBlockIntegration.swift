@@ -75,7 +75,7 @@ final class SponsorBlockIntegration {
         guard SponsorBlock.isEnabled, let id = nowPlaying.videoId else { return }
         // Durante una mezcla de AutoMix (o con una preparada) y en la cancion que llega por ella, no se salta nada:
         // un cambio de posicion cancelaria la mezcla o se oiria como un corte.
-        if PlayerController.shared.gaplessStage != 0 || ignoredId == id { return }
+        if AutoMixEngine.shared.isActive || ignoredId == id { return }
         if id != videoId {
             videoId = id
             segments = []
