@@ -61,8 +61,14 @@ struct MiniPlayerBarView: View {
         .frame(maxWidth: .infinity)
         // La onda de la cancion hace de fondo de la barra (solo se ve; para saltar a un punto esta el reproductor grande).
         .background { MiniWaveformBackdrop() }
-        // El color de la carátula, que sigue por debajo hasta la barra de pestañas: todo parece un solo bloque.
-        .background { MiniColorBackdrop().ignoresSafeArea(edges: .bottom) }
+        // El color de la carátula, oscurecido, para que case con la barra de pestañas de debajo.
+        .background { MiniColorBackdrop() }
+        // Una tarjeta redondeada con margen, separada del menu: no choca con el.
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5))
+        .padding(.horizontal, 8)
+        .padding(.top, 4)
+        .padding(.bottom, 4)
         .onChange(of: np.videoId) { _, _ in
             dragOffset = 0
             preloadLyrics()
@@ -321,7 +327,7 @@ private struct MiniColorBackdrop: View {
     var body: some View {
         let colors = playerPaletteNow(base: np.dominantColors, edge: np.artworkEdgeColor)
         LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
-            .overlay(Color.black.opacity(0.22))
+            .overlay(Color.black.opacity(0.5))
             .animation(visuals.isMixing ? nil : .easeInOut(duration: 0.8), value: colors)
     }
 }
