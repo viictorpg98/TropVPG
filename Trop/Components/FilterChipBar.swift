@@ -36,7 +36,7 @@ struct FilterChipBar<Item, ID: Hashable>: View {
                                         : Color(.systemGray5))
                             )
                             .foregroundColor(isSelected(item)
-                                ? .white
+                                ? settings.accentOnColor
                                 : .primary)
                     }
                     .buttonStyle(.plain)

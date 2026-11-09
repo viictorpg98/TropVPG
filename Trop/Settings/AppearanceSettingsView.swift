@@ -47,11 +47,11 @@ struct AppearanceSettingsView: View {
                 }
                 .padding(.vertical, 4)
 
-                SettingsToggleRow("Accent Follows the Song", icon: "paintpalette", isOn: $settings.accentFollowsSong)
+                SettingsToggleRow("Neutral Accent", icon: "circle.lefthalf.filled", isOn: $settings.neutralAccent)
             } header: {
                 Text("Accent Color")
             } footer: {
-                Text("Applies to buttons, highlights, and selected items. With \"Accent Follows the Song\" on, the accent takes the color of the cover that is playing; the one you pick here is used when nothing is playing or the cover has no color.")
+                Text("Applies to buttons, highlights, and selected items. The neutral accent uses no color: white in the dark theme and black in the light theme.")
             }
 
             Section {

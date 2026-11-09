@@ -93,7 +93,7 @@ struct LibraryView: View {
                                 Button(action: { showCreateDialog = true }, label: {
                     Image(systemName: "plus")
                         .font(.title2.weight(.semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(settings.accentOnColor)
                         .frame(width: 56, height: 56)
                         .background(Circle().fill(settings.accentColor))
                         .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
@@ -632,7 +632,7 @@ struct CreatePlaylistDialog: View {
                         Text("Create")
                             .font(.body.weight(.semibold))
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(settings.accentOnColor)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(

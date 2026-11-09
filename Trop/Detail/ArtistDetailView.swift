@@ -531,7 +531,7 @@ struct ArtistDetailView: View {
                     Button(action: { shufflePlay(artist) }, label: {
                         Image(systemName: "shuffle")
                             .font(.title3.weight(.bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(SettingsStore.shared.accentOnColor)
                             .frame(width: 52, height: 52)
                             .background(Circle().fill(Color.accentColor))
                     })

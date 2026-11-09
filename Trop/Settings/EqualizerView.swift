@@ -91,7 +91,7 @@ struct EqualizerView: View {
                             .background(
                                 Capsule().fill(isSelected ? settings.accentColor : Color(.secondarySystemGroupedBackground))
                             )
-                            .foregroundStyle(isSelected ? Color.white : Color.primary)
+                            .foregroundStyle(isSelected ? settings.accentOnColor : Color.primary)
                     }
                 }
             }

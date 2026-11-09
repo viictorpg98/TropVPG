@@ -884,29 +884,15 @@ final class NowPlaying {
         timer = nil
     }
 
-    /// Un color vivo y claro con el tono de la carátula, para usarlo de acento sobre el fondo oscuro de la app (con texto
-    /// blanco encima). Si la carátula es casi gris o blanca y negra no hay tono que seguir: `nil` (se usa el elegido).
-    static func accentFrom(_ colors: [Color]) -> Color? {
-        guard let first = colors.first else { return nil }
-        var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0, alpha: CGFloat = 0
-        UIColor(first).getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
-        guard saturation > 0.22 else { return nil }
-        let vividSaturation = min(1, max(saturation * 1.1, 0.5))
-        let lightBrightness = min(0.95, max(brightness, 0.78))
-        return Color(hue: Double(hue), saturation: Double(vividSaturation), brightness: Double(lightBrightness))
-    }
-
     @MainActor
     private func updateDominantColors(from uiImage: UIImage?) {
         guard let uiImage = uiImage else {
             self.dominantColors = [Color(red: 0.15, green: 0.15, blue: 0.2), Color(red: 0.05, green: 0.05, blue: 0.08)]
             self.artworkEdgeColor = nil
-            SettingsStore.shared.setDynamicAccent(nil)
             return
         }
         self.dominantColors = uiImage.extractDominantColors()
         self.artworkEdgeColor = uiImage.bottomEdgeColor()
-        SettingsStore.shared.setDynamicAccent(Self.accentFrom(self.dominantColors))
     }
 }
 

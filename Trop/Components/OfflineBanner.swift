@@ -34,7 +34,7 @@ struct OfflineBanner: View {
                     Button(action: openDownloads) {
                         Text("Go to Downloads")
                             .font(.footnote.weight(.semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(settings.accentOnColor)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 7)
                             .background(Capsule().fill(settings.accentColor))
