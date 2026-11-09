@@ -49,6 +49,10 @@ enum TransitionPlanner {
         let outgoingRatio = AutoMixMath.quantized(full.squareRoot())
         let incomingRatio = AutoMixMath.quantized(1 / full.squareRoot())
         var baseDuration = AutoMixMath.durationMs(outgoing: outgoing, incoming: incoming)
+        // Si los tempos no se pueden igualar (mas de un 7 %, contando mitad y doble), las dos suenan a la vez con ritmos
+        // distintos: cuanto mas dure, peor. Una mezcla corta.
+        let folded = AutoMixMath.foldedRatio(outgoingBpm: outgoing.bpm, incomingBpm: incoming.bpm)
+        if full == 1, abs(1 - folded) > 0.07 { baseDuration = min(baseDuration, 8_000) }
 
         let knownVocals = vocals?.outgoing != nil && vocals?.incoming != nil
         if !knownVocals { baseDuration = min(baseDuration, 10_000) }
@@ -177,8 +181,10 @@ enum AutoMixMath {
     private static let beatCountOptions: [Double] = [8, 12, 16, 24, 32]
     private static let bpmGapScale = 2.0
     /// Diferencia de tempo maxima que se iguala (repartida entre las dos canciones).
-    private static let ratioMin = 0.8836   // 0,94 al cuadrado: cada cancion cambia como mucho un 6 %
-    private static let ratioMax = 1.1236   // 1,06 al cuadrado
+    // Cambio total de tempo como maximo un 6 % (LastWave estira una sola cancion hasta ese 6 %): como aqui se reparte entre
+    // las dos, cada una cambia como mucho un 3 %. Mas que eso, el estirado de las voces se nota.
+    private static let ratioMin = 0.94
+    private static let ratioMax = 1.06
     private static let speedStep = 0.005
     static let tempoMatching = true
     /// A partir de que punto de la mezcla la entrante vuelve a su velocidad normal (la saliente ya casi no se oye).
@@ -202,6 +208,14 @@ enum AutoMixMath {
         let beats = beatCountOptions.min(by: { abs($0 * beatMs - target) < abs($1 * beatMs - target) }) ?? 32
         let duration = min(max(beats * beatMs, minDurationMs), maxDurationMs)
         return Int64(duration)
+    }
+
+    /// Relacion de tempos de las dos canciones llevada a un entorno de 1 (la mitad o el doble de tempo cuentan como iguales).
+    static func foldedRatio(outgoingBpm: Double, incomingBpm: Double) -> Double {
+        var ratio = incomingBpm / outgoingBpm
+        while ratio > 1.5 { ratio /= 2 }
+        while ratio < 0.67 { ratio *= 2 }
+        return ratio
     }
 
     /// Cuanto hay que acelerar (o frenar) la saliente para igualar el tempo de la entrante; 1 si la diferencia es

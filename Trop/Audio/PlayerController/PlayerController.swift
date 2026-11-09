@@ -478,6 +478,10 @@ extension PlayerController {
         mpv_set_option_string(mpv, "cache-secs", "120")
         mpv_set_option_string(mpv, "demuxer-max-bytes", "200M")
         mpv_set_option_string(mpv, "gapless-audio", "yes")
+        // Salida siempre a 48 kHz y en estereo: asi, al pasar de una cancion de 44,1 kHz (descargada) a otra de 48 kHz
+        // (streaming), o por el archivo de una mezcla, el dispositivo de audio no se reabre (eso dejaba un hueco).
+        mpv_set_option_string(mpv, "audio-samplerate", "48000")
+        mpv_set_option_string(mpv, "audio-channels", "stereo")
     }
 
     nonisolated private static func applyPostInitProperties(_ mpv: OpaquePointer) {
