@@ -314,6 +314,10 @@ final class NowPlaying {
         let song = queueSongs[queueIndex]
         update(with: song)
         persistQueueState()
+        WaveformStore.shared.songStarted(
+            current: song.videoId,
+            upcoming: queueSongs.dropFirst(queueIndex + 1).map(\.videoId)
+        )
         Task {
             do {
                 try await PlaybackManager.shared.resolveAndPlay(videoId: song.videoId, startAt: startAt)

@@ -15,6 +15,8 @@ struct ProgressBar: View {
     let isPlaying: Bool
     /// Forma de onda de la cancion (0...1): si hay, la barra se dibuja como onda.
     var waveform: [Float]?
+    /// La onda es de relleno (la real aun no esta): se dibuja con un brillo suave que la recorre.
+    var waveformIsPlaceholder = false
     /// Donde (0...1) empezara la proxima mezcla de AutoMix, si se sabe.
     var markerFraction: Double?
     let onEditingChanged: (Bool) -> Void
@@ -24,6 +26,7 @@ struct ProgressBar: View {
         accentColor: Color,
         isPlaying: Bool,
         waveform: [Float]? = nil,
+        waveformIsPlaceholder: Bool = false,
         markerFraction: Double? = nil,
         onEditingChanged: @escaping (Bool) -> Void
     ) {
@@ -31,6 +34,7 @@ struct ProgressBar: View {
         self.accentColor = accentColor
         self.isPlaying = isPlaying
         self.waveform = waveform
+        self.waveformIsPlaceholder = waveformIsPlaceholder
         self.markerFraction = markerFraction
         self.onEditingChanged = onEditingChanged
     }
@@ -44,7 +48,17 @@ struct ProgressBar: View {
 
             ZStack(alignment: .leading) {
                 if hasWaveform, let waveform {
-                    waveformCanvas(waveform)
+                    Group {
+                        if waveformIsPlaceholder {
+                            TimelineView(.animation(minimumInterval: 1.0 / 20)) { timeline in
+                                waveformCanvas(waveform, shimmer: timeline.date.timeIntervalSinceReferenceDate)
+                            }
+                        } else {
+                            waveformCanvas(waveform, shimmer: nil)
+                        }
+                    }
+                    .id(waveformIsPlaceholder)
+                    .transition(.opacity)
                 } else {
                     // Remaining track (unwatched)
                     Capsule()
@@ -57,6 +71,7 @@ struct ProgressBar: View {
                         .frame(width: elapsedWidth, height: 6)
                 }
             }
+            .animation(.easeInOut(duration: 0.5), value: waveformIsPlaceholder)
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
@@ -76,7 +91,7 @@ struct ProgressBar: View {
 
     /// La onda: las barras ya sonadas en blanco y las que faltan apagadas; una linea marca dónde está, y un rombo dónde
     /// empezará la próxima mezcla.
-    private func waveformCanvas(_ levels: [Float]) -> some View {
+    private func waveformCanvas(_ levels: [Float], shimmer: Double?) -> some View {
         Canvas { context, size in
             let count = levels.count
             let slot = size.width / CGFloat(count)
@@ -86,9 +101,15 @@ struct ProgressBar: View {
                 let x = CGFloat(index) * slot
                 let rect = CGRect(x: x + slot * 0.2, y: (size.height - height) / 2, width: slot * 0.6, height: height)
                 let isPlayed = (CGFloat(index) + 0.5) / CGFloat(count) <= played
+                var opacity = isPlayed ? 0.95 : 0.27
+                if let shimmer {
+                    // Un brillo que recorre la onda de izquierda a derecha mientras llega la real.
+                    let wave = sin((Double(index) / Double(count)) * 9 - shimmer * 3.2)
+                    opacity = (isPlayed ? 0.7 : 0.2) + 0.16 * max(0, wave)
+                }
                 context.fill(
                     Path(roundedRect: rect, cornerRadius: slot * 0.3),
-                    with: .color(isPlayed ? Color.white.opacity(0.95) : Color.white.opacity(0.27))
+                    with: .color(Color.white.opacity(opacity))
                 )
             }
             // Donde va.
@@ -205,6 +226,7 @@ struct PlayerTransportAirPlayFooter: View {
 }
 
 // MARK: - SecondaryActionsRow
+/// AirPlay, repetir y cola: tres botones iguales, repartidos por igual, sin botones diminutos pegados unos a otros.
 struct SecondaryActionsRow: View {
     @Binding var showQueue: Bool
     @Binding var isRepeatOn: Bool
@@ -214,35 +236,48 @@ struct SecondaryActionsRow: View {
             PlayerAirPlayControl()
                 .frame(maxWidth: .infinity)
 
-            // Queue + Repeat stacked like Apple Music
-            ZStack(alignment: .topTrailing) {
-                Button {
-                    showQueue.toggle()
-                } label: {
-                    Image(systemName: "list.bullet")
-                        .font(.title3)
-                        .foregroundStyle(showQueue ? .white : .white.opacity(0.7))
-                        .padding(10)
-                        .background(showQueue ? Circle().fill(.white.opacity(0.15)) : Circle().fill(.clear))
-                }
-                .accessibilityLabel("Queue")
+            SecondaryToggleButton(
+                systemImage: isRepeatOn ? "repeat.1" : "repeat",
+                isOn: isRepeatOn,
+                accessibility: isRepeatOn ? "Repeat one" : "Repeat all"
+            ) {
+                isRepeatOn.toggle()
+            }
+            .frame(maxWidth: .infinity)
 
-                if !showQueue {
-                    Button {
-                        isRepeatOn.toggle()
-                    } label: {
-                        Image(systemName: isRepeatOn ? "repeat.1" : "repeat")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(isRepeatOn ? .white : .white.opacity(0.7))
-                            .padding(4)
-                    }
-                    .offset(x: 2, y: -2)
-                    .accessibilityLabel(isRepeatOn ? "Repeat one" : "Repeat all")
-                }
+            SecondaryToggleButton(
+                systemImage: "list.bullet",
+                isOn: showQueue,
+                accessibility: "Queue"
+            ) {
+                showQueue.toggle()
             }
             .frame(maxWidth: .infinity)
         }
-        .padding(.vertical, 16)
+        .padding(.vertical, 12)
+    }
+}
+
+/// Boton redondo del pie del reproductor: apagado se ve tenue y encendido se rellena de cristal claro.
+struct SecondaryToggleButton: View {
+    let systemImage: String
+    let isOn: Bool
+    let accessibility: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(isOn ? Color.white : Color.white.opacity(0.7))
+                .contentTransition(.symbolEffect(.replace))
+                .frame(width: 46, height: 46)
+                .background(Circle().fill(isOn ? Color.white.opacity(0.2) : Color.clear))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.2), value: isOn)
+        .accessibilityLabel(Text(LocalizedStringKey(accessibility)))
     }
 }
 
@@ -250,9 +285,9 @@ struct PlayerAirPlayControl: View {
     var body: some View {
         Button {} label: {
             Image(systemName: "airplayaudio")
-                .font(.title3)
+                .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.7))
-                .padding(10)
+                .frame(width: 46, height: 46)
         }
         .overlay(AirPlayButton())
         .accessibilityLabel("AirPlay")

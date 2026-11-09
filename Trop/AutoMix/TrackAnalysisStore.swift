@@ -130,7 +130,7 @@ final class TrackAnalysisStore {
     }
 
     /// Una cancion en streaming: FFmpeg la lee de internet y la decodifica a PCM crudo en un archivo temporal.
-    nonisolated private static func decodeRemote(_ url: URL) -> [Int16]? {
+    nonisolated static func decodeRemote(_ url: URL) -> [Int16]? {
         let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("automix-\(UUID().uuidString).pcm")
         defer { try? FileManager.default.removeItem(at: temporary) }
         let arguments = ["-y", "-v", "error"] + AutoMixSource.inputOptions(for: url) + [
@@ -146,7 +146,7 @@ final class TrackAnalysisStore {
         return samples
     }
 
-    nonisolated private static func decode(_ url: URL) async -> [Int16]? {
+    nonisolated static func decode(_ url: URL) async -> [Int16]? {
         let asset = AVURLAsset(url: url)
         guard let track = try? await asset.loadTracks(withMediaType: .audio).first,
               let reader = try? AVAssetReader(asset: asset) else { return nil }

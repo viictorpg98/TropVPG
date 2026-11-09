@@ -303,11 +303,13 @@ struct FullPlayerView: View {
                 }
             }
 
-            // Mezclar ya con la siguiente (AutoMix la prepara y empieza en unos segundos).
+            Spacer(minLength: 0)
+
+            // Mezclar ya con la siguiente (AutoMix la prepara y empieza en unos segundos). Solo icono, a la derecha:
+            // asi la fila nunca se parte en dos lineas; mientras prepara se rellena y pulsa.
             if settings.autoMixEnabled, np.hasNext, !AutoMixVisuals.shared.isMixing {
                 PlayerPillButton(
                     systemImage: "wand.and.stars",
-                    title: AutoMixVisuals.shared.preparingManual ? "Preparing…" : "Mix now",
                     isActive: AutoMixVisuals.shared.preparingManual,
                     accessibility: "Mix now",
                     pulses: AutoMixVisuals.shared.preparingManual
@@ -316,8 +318,6 @@ struct FullPlayerView: View {
                     AutoMixEngine.shared.mixNow()
                 }
             }
-
-            Spacer(minLength: 0)
         }
     }
 
@@ -548,17 +548,22 @@ private struct PlayerProgressSection: View {
         }
         .padding(.horizontal, horizontalPadding)
         .task(id: np.videoId) {
-            waveform = nil
-            guard SettingsStore.shared.waveformProgressBar, let id = np.videoId else { return }
-            // La onda sale del analisis de la cancion (el mismo que usa AutoMix): se espera a que este.
-            for _ in 0..<45 {
-                TrackAnalysisStore.shared.request(id)
-                if let wave = TrackAnalysisStore.shared.structure(for: id)?.waveform, !wave.isEmpty {
+            guard SettingsStore.shared.waveformProgressBar, let id = np.videoId else {
+                waveform = nil
+                return
+            }
+            // Si ya esta calculada (se adelanta al empezar la cancion) sale al instante; si no, mientras tanto se ve
+            // una onda de relleno y se cambia por la real en cuanto llega.
+            waveform = WaveformStore.shared.cached(for: id)
+            guard waveform == nil else { return }
+            WaveformStore.shared.request(id, urgent: true)
+            for _ in 0..<120 {
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                guard !Task.isCancelled else { return }
+                if let wave = WaveformStore.shared.cached(for: id) {
                     waveform = wave
                     return
                 }
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-                guard !Task.isCancelled else { return }
             }
         }
     }
@@ -572,7 +577,9 @@ private struct PlayerProgressSection: View {
                 ),
                 accentColor: np.dominantColors.first ?? .white,
                 isPlaying: np.isPlaying,
-                waveform: SettingsStore.shared.waveformProgressBar ? waveform : nil,
+                waveform: SettingsStore.shared.waveformProgressBar
+                    ? (waveform ?? WaveformStore.placeholder(for: np.videoId)) : nil,
+                waveformIsPlaceholder: waveform == nil,
                 markerFraction: markerFraction,
                 onEditingChanged: { editing in
                     if editing {
@@ -706,10 +713,13 @@ private struct PlayerPillButton: View {
                 if let title {
                     Text(LocalizedStringKey(title))
                         .font(.system(size: 14, weight: .semibold))
+                        .lineLimit(1)
+                        .fixedSize()
                 }
             }
             .foregroundStyle(isActive ? Color.black : Color.white)
-            .padding(.horizontal, 16)
+            .padding(.horizontal, title == nil ? 0 : 16)
+            .frame(minWidth: title == nil ? 50 : nil)
             .frame(height: 38)
             .background(Capsule().fill(isActive ? Color.white : Color.clear))
             .glassEffect(.regular.interactive(), in: Capsule())
