@@ -206,6 +206,7 @@
 "Hide Explicit Content" = "隐藏成人内容";
 "High" = "高";
 "High (128–192 kbps)" = "高（128–192 kbps）";
+"High-Quality Covers" = "High-Quality Covers";
 "Hip-Hop" = "嘻哈";
 "History" = "历史记录";
 "Home" = "主页";
@@ -375,6 +376,7 @@
 "Playlists" = "播放列表";
 "Plays a song you ask for by name." = "Plays a song you ask for by name.";
 "Plays the looping video behind the player artwork when Spotify has one for the track." = "如果 Spotify 为歌曲提供视频，则在播放器封面后播放循环视频。";
+"Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one. High-Quality Covers also swaps the cover for the official one when the same song is found there, which helps video clips and remixes. It uses Wi-Fi unless you allow mobile data, and the video turns off in Low Power Mode or with Reduce Motion." = "Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one. High-Quality Covers also swaps the cover for the official one when the same song is found there, which helps video clips and remixes. It uses Wi-Fi unless you allow mobile data, and the video turns off in Low Power Mode or with Reduce Motion.";
 "Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one; otherwise the normal cover is shown. It uses Wi-Fi unless you allow mobile data, and it turns off in Low Power Mode or with Reduce Motion." = "Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one; otherwise the normal cover is shown. It uses Wi-Fi unless you allow mobile data, and it turns off in Low Power Mode or with Reduce Motion.";
 "Podcast" = "Podcast";
 "Podcasts" = "播客";

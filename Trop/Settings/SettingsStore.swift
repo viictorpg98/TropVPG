@@ -230,6 +230,12 @@ final class SettingsStore {
 
     /// Reproductor grande con la carátula de lado a lado y el fondo del color de la carátula (como Apple Music).
     /// Video en bucle detras de la caratula del reproductor (Apple Music / TIDAL), cuando la cancion lo tiene.
+    /// Sustituir la caratula por la de alta calidad de Apple Music / TIDAL cuando se encuentra la misma cancion (sobre todo
+    /// videoclips y remixes, cuya miniatura de YouTube es un fotograma).
+    var preferAppleCovers: Bool {
+        didSet { Self.defaults.set(preferAppleCovers, forKey: Keys.preferAppleCovers) }
+    }
+
     var animatedArtworkEnabled: Bool {
         didSet { Self.defaults.set(animatedArtworkEnabled, forKey: Keys.animatedArtworkEnabled) }
     }
@@ -394,6 +400,7 @@ final class SettingsStore {
         static let autoMixUsesMobileData = "settings.autoMixUsesMobileData"
         static let fullWidthArtwork = "settings.fullWidthArtwork"
         static let animatedArtworkEnabled = "settings.animatedArtworkEnabled"
+        static let preferAppleCovers = "settings.preferAppleCovers"
         static let animatedArtworkUsesMobileData = "settings.animatedArtworkUsesMobileData"
         static let autoplaySimilar = "settings.autoplaySimilar"
         static let persistQueue = "settings.persistQueue"
@@ -469,6 +476,7 @@ final class SettingsStore {
         autoMixUsesMobileData = Self.load(Keys.autoMixUsesMobileData, default: false)
         fullWidthArtwork = Self.load(Keys.fullWidthArtwork, default: true)
         animatedArtworkEnabled = Self.load(Keys.animatedArtworkEnabled, default: true)
+        preferAppleCovers = Self.load(Keys.preferAppleCovers, default: true)
         animatedArtworkUsesMobileData = Self.load(Keys.animatedArtworkUsesMobileData, default: false)
         autoplaySimilar = Self.load(Keys.autoplaySimilar, default: true)
         persistQueue = Self.load(Keys.persistQueue, default: false)

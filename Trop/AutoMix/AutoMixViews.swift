@@ -204,10 +204,18 @@ struct MixAwareArtwork<Content: View>: View {
                 .blur(radius: blur * amount)
                 .scaleEffect(reduceMotion ? 1 : 1 + 0.04 * amount)
 
-            Image(uiImage: incoming)
-                .resizable()
-                .scaledToFill()
+            ZStack {
+                Image(uiImage: incoming)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: width, height: height)
+                if let videoURL = visuals.incomingVideoURL {
+                    IncomingArtworkVideo(url: videoURL)
+                        .frame(width: width, height: height)
+                }
+            }
                 .frame(width: width, height: height)
+                .clipped()
                 .blur(radius: blur * (1 - amount))
                 .scaleEffect(reduceMotion ? 1 : 0.96 + 0.04 * amount)
                 .mask {

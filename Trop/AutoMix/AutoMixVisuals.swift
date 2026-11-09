@@ -34,6 +34,9 @@ final class AutoMixVisuals {
     var incomingTitle = ""
     var incomingArtist = ""
     var incomingVideoId: String?
+    /// El video en bucle de la cancion que entra (si tiene), ya cargandose para que este listo cuando se revele.
+    var incomingVideoURL: URL?
+    private var incomingCoverIsApple = false
 
     private init() {}
 
@@ -44,10 +47,28 @@ final class AutoMixVisuals {
         incomingImage = nil
         incomingColors = []
         incomingEdgeColor = nil
+        incomingVideoURL = nil
+        incomingCoverIsApple = false
         incomingTitle = song.title
         incomingArtist = artistDisplayString(from: song.artists)
         let videoId = song.videoId
         let thumbnail = song.thumbnailUrl
+        // Video y caratula de alta calidad (Apple Music / TIDAL), si los hay.
+        Task { [weak self] in
+            let service = AnimatedArtworkService.shared
+            let wantsVideo = service.blockReason == nil
+            let wantsCover = SettingsStore.shared.preferAppleCovers
+            guard wantsVideo || wantsCover, let info = await service.info(for: song) else { return }
+            guard let self, self.incomingVideoId == videoId else { return }
+            if wantsVideo, let video = info.video {
+                self.incomingVideoURL = video
+                AnimatedVideoPool.shared.warm(video)
+            }
+            if wantsCover, let cover = info.cover, let image = try? await ArtworkLoader.image(for: cover),
+               self.incomingVideoId == videoId {
+                self.apply(image, apple: true)
+            }
+        }
         Task { [weak self] in
             // 1) La incrustada en el archivo descargado, para tener algo enseguida.
             var best: UIImage?
@@ -75,7 +96,10 @@ final class AutoMixVisuals {
         }
     }
 
-    private func apply(_ image: UIImage) {
+    private func apply(_ image: UIImage, apple: Bool = false) {
+        // La de Apple Music manda: las demas (incrustada, internet) no la pisan.
+        if incomingCoverIsApple, !apple { return }
+        if apple { incomingCoverIsApple = true }
         let square = image.centerCroppedSquare()
         incomingImage = square
         incomingColors = square.extractDominantColors()

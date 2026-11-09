@@ -42,11 +42,12 @@ struct PlayerSettingsView: View {
 
             Section {
                 SettingsToggleRow("Animated Artwork", icon: "play.rectangle.on.rectangle", isOn: $settings.animatedArtworkEnabled)
+                SettingsToggleRow("High-Quality Covers", icon: "photo.on.rectangle", isOn: $settings.preferAppleCovers)
                 SettingsToggleRow("Animated Artwork on Mobile Data", icon: "antenna.radiowaves.left.and.right", isOn: $settings.animatedArtworkUsesMobileData)
             } header: {
                 Text("Animated Artwork")
             } footer: {
-                Text("Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one; otherwise the normal cover is shown. It uses Wi-Fi unless you allow mobile data, and it turns off in Low Power Mode or with Reduce Motion.")
+                Text("Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one. High-Quality Covers also swaps the cover for the official one when the same song is found there, which helps video clips and remixes. It uses Wi-Fi unless you allow mobile data, and the video turns off in Low Power Mode or with Reduce Motion.")
             }
 
             Section {

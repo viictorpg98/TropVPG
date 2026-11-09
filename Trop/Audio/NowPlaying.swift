@@ -579,10 +579,29 @@ final class NowPlaying {
     }
 
     private var lastLoadedVideoId: String?
+    /// Cancion cuya caratula ya es la de alta calidad de Apple Music / TIDAL: las demas fuentes no la pisan.
+    private var highQualityCoverFor: String?
+
+    /// Busca la caratula oficial de la cancion (Apple Music, luego TIDAL) y, si coincide, sustituye a la de YouTube.
+    private func fetchHighQualityCover(videoId: String) {
+        guard SettingsStore.shared.preferAppleCovers else { return }
+        Task {
+            guard let song = await MainActor.run(body: { self.queueSongs.first { $0.videoId == videoId } }) else { return }
+            guard let info = await AnimatedArtworkService.shared.info(for: song), let cover = info.cover,
+                  let image = try? await ArtworkLoader.image(for: cover) else { return }
+            await MainActor.run {
+                guard self.lastLoadedVideoId == videoId else { return }
+                self.highQualityCoverFor = videoId
+                self.publishArtwork(image, highQuality: true)
+            }
+        }
+    }
 
     private func loadThumbnail(videoId: String, thumbnailUrl: String? = nil) {
         guard videoId != lastLoadedVideoId else { return }
         lastLoadedVideoId = videoId
+        highQualityCoverFor = nil
+        fetchHighQualityCover(videoId: videoId)
         // Safety net: callers that resolve without song metadata pass nil.
         // The queue usually still knows this track's artwork — use it rather
         // than falling back to the low-res ytimg default.
@@ -634,7 +653,8 @@ final class NowPlaying {
     }
 
     /// Publishes a loaded image as the current artwork (cropped square).
-    private func publishArtwork(_ image: UIImage) {
+    private func publishArtwork(_ image: UIImage, highQuality: Bool = false) {
+        if !highQuality, let id = highQualityCoverFor, id == lastLoadedVideoId { return }
         let cropped = image.centerCroppedSquare()
         thumbnailUIImage = cropped
         thumbnailImage = Image(uiImage: cropped)

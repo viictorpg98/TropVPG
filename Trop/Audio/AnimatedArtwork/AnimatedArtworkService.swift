@@ -2,37 +2,55 @@
 //  AnimatedArtworkService.swift
 //  Trop
 //
-//  Busca el video en bucle que acompana a la caratula de una cancion. La idea (y el orden de fuentes: Apple Music, luego
+//  Busca el video en bucle y la caratula de alta calidad de una cancion. La idea (y el orden de fuentes: Apple Music, luego
 //  TIDAL) viene de LastWave (github.com/Clash-Projects/LastWave-Native, GPL-3.0); el codigo es propio, reescrito en Swift.
 //
-//  - Apple Music: "motion artwork" (`editorialVideo` del catalogo), un video HLS. Usa el token de invitado de su web.
-//  - TIDAL: "video cover" cuadrado de 1280x1280 que cuelga del album en su buscador publico.
+//  - Apple Music: "motion artwork" (`editorialVideo` del catalogo), un video HLS, y su caratula grande. Usa el token de
+//    invitado de su web.
+//  - TIDAL: "video cover" cuadrado de 1280x1280 y la caratula del album en su buscador publico.
 //
 //  Son accesos no oficiales y pueden dejar de funcionar sin aviso: si algo falla, no hay video y se ve la caratula de siempre.
 //
 
 import Foundation
+import UIKit
 
 @MainActor
 final class AnimatedArtworkService {
     static let shared = AnimatedArtworkService()
 
+    /// Lo que se ha encontrado para una cancion: el video en bucle y/o la caratula grande.
+    struct Info: Sendable {
+        var video: URL?
+        var cover: URL?
+        var source = ""
+    }
+
     private enum Entry {
-        case hit(URL)
+        case hit(Info)
         case miss(Date)
     }
 
     private var cache: [String: Entry] = [:]
-    private var inflight: [String: Task<URL?, Never>] = [:]
+    private var inflight: [String: Task<Info?, Never>] = [:]
     private let missRetry: TimeInterval = 15 * 60
 
     private init() {}
 
     // MARK: - Cuando se puede usar
 
-    /// Activado en ajustes, y con red adecuada (Wi-Fi, o datos moviles si el usuario lo permite).
-    var isAllowed: Bool {
-        SettingsStore.shared.animatedArtworkEnabled && networkBlockReason == nil
+    /// Hay algo que buscar (video o caratulas de Apple Music) y la red lo permite.
+    var wantsLookup: Bool {
+        let settings = SettingsStore.shared
+        return (settings.animatedArtworkEnabled || settings.preferAppleCovers) && networkBlockReason == nil
+    }
+
+    /// Por que no se puede enseñar video ahora (nil si se puede): ajustes, accesibilidad, bateria y red.
+    var blockReason: String? {
+        if !SettingsStore.shared.animatedArtworkEnabled { return "ajuste apagado" }
+        if UIAccessibility.isReduceMotionEnabled { return "Reducir movimiento activado" }
+        if ProcessInfo.processInfo.isLowPowerModeEnabled { return "modo de bajo consumo" }
+        return networkBlockReason
     }
 
     /// Por que la red no permite buscar ahora (nil si se puede).
@@ -54,38 +72,50 @@ final class AnimatedArtworkService {
 
     // MARK: - Busqueda
 
-    /// El video de la cancion, si tiene. Las respuestas (tambien las negativas) se guardan para no repetir la busqueda.
+    /// El video de la cancion, si tiene (y esta activado). Usa el mismo resultado guardado que `info`.
     func url(videoId: String, title: String, artist: String, album: String?) async -> URL? {
+        guard SettingsStore.shared.animatedArtworkEnabled else { return nil }
+        return await info(videoId: videoId, title: title, artist: artist, album: album)?.video
+    }
+
+    func info(for song: SongItem) async -> Info? {
+        await info(videoId: song.videoId, title: song.title, artist: artistDisplayString(from: song.artists), album: song.album)
+    }
+
+    /// Video y caratula de la cancion, si tiene. Las respuestas (tambien las negativas) se guardan para no repetir la busqueda.
+    func info(videoId: String, title: String, artist: String, album: String?) async -> Info? {
         if let entry = cache[videoId] {
             switch entry {
-            case .hit(let url): return url
+            case .hit(let info): return info
             case .miss(let date):
                 if Date().timeIntervalSince(date) < missRetry {
-                    note(videoId, "no se busca (ya se busco hace poco y no habia video)")
+                    note(videoId, "no se busca (ya se busco hace poco y no habia nada)")
                     return nil
                 }
             }
         }
-        guard isAllowed else { return nil }
+        guard wantsLookup else { return nil }
         if let running = inflight[videoId] { return await running.value }
 
-        let task = Task<URL?, Never> { [weak self] in
+        let task = Task<Info?, Never> { [weak self] in
             let started = Date()
             let trace = Trace()
             let found = await Self.search(title: title, artist: artist, album: album, trace: trace)
-            guard let self else { return found?.url }
+            guard let self else { return found }
             self.inflight[videoId] = nil
             if let found {
-                self.cache[videoId] = .hit(found.url)
+                self.cache[videoId] = .hit(found)
             } else {
                 self.cache[videoId] = .miss(Date())
             }
             if self.cache.count > 200 { self.cache = self.cache.filter { if case .hit = $0.value { return true }; return false } }
             PlaybackReport.record(String(
-                format: "caratula animada: %@ -> %@ (%.1f s) [%@]",
-                videoId, found.map { $0.source } ?? "ninguna", Date().timeIntervalSince(started), trace.text
+                format: "caratula animada: %@ -> %@ (video %@, portada %@) (%.1f s) [%@]",
+                videoId, found.map { $0.source } ?? "ninguna",
+                found?.video != nil ? "si" : "no", found?.cover != nil ? "si" : "no",
+                Date().timeIntervalSince(started), trace.text
             ))
-            return found?.url
+            return found
         }
         inflight[videoId] = task
         return await task.value
@@ -99,24 +129,26 @@ final class AnimatedArtworkService {
         var text: String { lock.lock(); defer { lock.unlock() }; return parts.joined(separator: "; ") }
     }
 
-    private struct Found {
-        let url: URL
-        let source: String
-    }
-
-    nonisolated private static func search(title: String, artist: String, album: String?, trace: Trace) async -> Found? {
+    nonisolated private static func search(title: String, artist: String, album: String?, trace: Trace) async -> Info? {
         let wantedTitles = Matching.titleKeys(title)
         let wantedArtists = Matching.artists(artist)
         guard !wantedTitles.isEmpty, !wantedArtists.isEmpty else { return nil }
         let wanted = Wanted(titles: wantedTitles, artists: wantedArtists, album: album.map(Matching.normalize))
 
-        if let url = await AppleMotionArtwork.search(title: title, artist: artist, album: album, wanted: wanted, trace: trace) {
-            return Found(url: url, source: "Apple Music")
+        var info = Info()
+        let apple = await AppleMotionArtwork.search(title: title, artist: artist, album: album, wanted: wanted, trace: trace)
+        info.video = apple.video
+        info.cover = apple.cover
+        if apple.video != nil || apple.cover != nil { info.source = "Apple Music" }
+        if info.video == nil {
+            let tidal = await TidalVideoCover.search(title: title, artist: artist, album: album, wanted: wanted, trace: trace)
+            if let video = tidal.video { info.video = video; info.source = "TIDAL" }
+            if info.cover == nil, let cover = tidal.cover {
+                info.cover = cover
+                if info.source.isEmpty { info.source = "TIDAL" }
+            }
         }
-        if let url = await TidalVideoCover.search(title: title, artist: artist, album: album, wanted: wanted, trace: trace) {
-            return Found(url: url, source: "TIDAL")
-        }
-        return nil
+        return (info.video == nil && info.cover == nil) ? nil : info
     }
 
     // MARK: - Comparacion de nombres
@@ -143,10 +175,35 @@ final class AnimatedArtworkService {
             return t.trimmingCharacters(in: .whitespaces)
         }
 
-        /// Quita lo que cada servicio anade al titulo: parentesis, corchetes, "feat. ...", "- Remastered", "- Topic".
+        /// Palabras que distinguen otra version de la cancion: si aparecen, el otro titulo tiene que llevarlas tambien (un remix
+        /// no debe quedarse con la caratula del original).
+        private static let editionWords = [
+            "remix", "live", "en vivo", "directo", "acoustic", "acustic", "version", "mix", "edit", "sped", "slowed",
+            "instrumental", "cover", "demo", "extended", "reverb", "nightcore", "8d"
+        ]
+
+        private static func hasEdition(_ text: String) -> Bool {
+            let lower = text.lowercased()
+            return editionWords.contains { lower.contains($0) }
+        }
+
+        /// Quita lo que cada servicio anade al titulo: parentesis y corchetes (salvo los de una edicion: remix, en vivo...),
+        /// "feat. ...", "- Topic".
         private static func stripped(_ text: String) -> String {
             var t = text
-            t = t.replacingOccurrences(of: #"[\(\[][^\)\]]*[\)\]]"#, with: " ", options: .regularExpression)
+            if let regex = try? NSRegularExpression(pattern: #"[\(\[][^\)\]]*[\)\]]"#) {
+                let source = t as NSString
+                var result = ""
+                var last = 0
+                for match in regex.matches(in: t, range: NSRange(location: 0, length: source.length)) {
+                    result += source.substring(with: NSRange(location: last, length: match.range.location - last))
+                    let piece = source.substring(with: match.range)
+                    result += hasEdition(piece) ? " " + String(piece.dropFirst().dropLast()) + " " : " "
+                    last = match.range.location + match.range.length
+                }
+                result += source.substring(from: last)
+                t = result
+            }
             t = t.replacingOccurrences(of: #"(?i)\b(feat|ft|featuring)\b\.?.*$"#, with: " ", options: .regularExpression)
             return t
         }
@@ -158,7 +215,8 @@ final class AnimatedArtworkService {
             let whole = normalize(base)
             if !whole.isEmpty { keys.insert(whole) }
             let parts = base.components(separatedBy: " - ")
-            if parts.count >= 2 {
+            // "Cancion - Remix" es una sola cosa; solo se separa "Artista - Cancion".
+            if parts.count >= 2, !parts.contains(where: hasEdition) {
                 for part in parts {
                     let value = normalize(part)
                     if value.count >= 2 { keys.insert(value) }
@@ -219,14 +277,26 @@ private enum AppleMotionArtwork {
     static func search(
         title: String, artist: String, album: String?, wanted: AnimatedArtworkService.Wanted,
         trace: AnimatedArtworkService.Trace
-    ) async -> URL? {
-        guard let token = await bearer() else { trace.add("apple: sin token"); return nil }
+    ) async -> (video: URL?, cover: URL?) {
+        guard let token = await bearer() else { trace.add("apple: sin token"); return (nil, nil) }
         let songs = await searchSongs(title: title, artist: artist, album: album, wanted: wanted, token: token, trace: trace)
-        if let url = songs.url { return url }
+        if let video = songs.video { return (video, songs.cover) }
         // El album que da Apple para la cancion (la cola no siempre trae el album de YouTube Music).
         let albumName = (album?.isEmpty == false ? album : nil) ?? songs.albumName
-        guard let albumName, !albumName.isEmpty else { trace.add("apple: sin album para buscar por album"); return nil }
-        return await searchAlbums(artist: artist, album: albumName, wanted: wanted, token: token, trace: trace)
+        guard let albumName, !albumName.isEmpty else {
+            trace.add("apple: sin album para buscar por album")
+            return (nil, songs.cover)
+        }
+        let video = await searchAlbums(artist: artist, album: albumName, wanted: wanted, token: token, trace: trace)
+        return (video, songs.cover)
+    }
+
+    /// La caratula grande de un elemento del catalogo (la direccion trae {w}x{h} para elegir el tamano).
+    private static func artworkURL(_ value: Any?) -> URL? {
+        guard let artwork = value as? [String: Any], var template = artwork["url"] as? String else { return nil }
+        template = template.replacingOccurrences(of: "{w}", with: "1500").replacingOccurrences(of: "{h}", with: "1500")
+            .replacingOccurrences(of: "{c}", with: "bb").replacingOccurrences(of: "{f}", with: "jpg")
+        return URL(string: template)
     }
 
     /// El numero de album que lleva la direccion de la cancion en Apple Music (".../album/nombre/1234567890?i=...").
@@ -240,7 +310,7 @@ private enum AppleMotionArtwork {
     private static func searchSongs(
         title: String, artist: String, album: String?, wanted: AnimatedArtworkService.Wanted, token: String,
         trace: AnimatedArtworkService.Trace
-    ) async -> (url: URL?, albumName: String?) {
+    ) async -> (video: URL?, cover: URL?, albumName: String?) {
         let first = AnimatedArtworkService.Matching.artists(artist).first ?? artist
         var term = title.localizedCaseInsensitiveContains(first) ? title : "\(first) \(title)"
         if let album, !album.isEmpty, !title.localizedCaseInsensitiveContains(album) { term += " \(album)" }
@@ -253,16 +323,17 @@ private enum AppleMotionArtwork {
             .init(name: "extend", value: "editorialVideo"),
             .init(name: "include", value: "albums")
         ]
-        guard let url = components?.url, let json = await request(url, token: token, trace: trace) else { return (nil, nil) }
+        guard let url = components?.url, let json = await request(url, token: token, trace: trace) else { return (nil, nil, nil) }
         guard let songs = ((json["results"] as? [String: Any])?["songs"] as? [String: Any])?["data"] as? [[String: Any]] else {
             trace.add("apple canciones: 0 resultados")
-            return (nil, nil)
+            return (nil, nil, nil)
         }
 
         var matched = 0
         var albumsTried = 0
         var triedIds: Set<String> = []
         var matchedAlbumName: String?
+        var matchedCover: URL?
         for song in songs {
             guard let attributes = song["attributes"] as? [String: Any],
                   let name = attributes["name"] as? String,
@@ -272,7 +343,10 @@ private enum AppleMotionArtwork {
             if isCompilation(name) || isCompilation(albumName) { continue }
             matched += 1
             if matchedAlbumName == nil, !albumName.isEmpty { matchedAlbumName = albumName }
-            if let video = attributes["editorialVideo"] as? [String: Any], let motion = motionURL(video) { return (motion, albumName) }
+            if matchedCover == nil { matchedCover = artworkURL(attributes["artwork"]) }
+            if let video = attributes["editorialVideo"] as? [String: Any], let motion = motionURL(video) {
+                return (motion, matchedCover, albumName)
+            }
 
             // El album: de la relacion si viene, y si no del numero que lleva la direccion de la cancion.
             let relationships = song["relationships"] as? [String: Any]
@@ -280,11 +354,11 @@ private enum AppleMotionArtwork {
             let albumId = related ?? albumId(fromURL: attributes["url"] as? String)
             if let albumId, !albumId.hasPrefix("pl."), triedIds.insert(albumId).inserted {
                 albumsTried += 1
-                if let motion = await albumMotion(id: albumId, token: token, trace: trace) { return (motion, albumName) }
+                if let motion = await albumMotion(id: albumId, token: token, trace: trace) { return (motion, matchedCover, albumName) }
             }
         }
         trace.add("apple canciones: \(songs.count) resultados, \(matched) coinciden, \(albumsTried) albumes mirados, sin video")
-        return (nil, matchedAlbumName)
+        return (nil, matchedCover, matchedAlbumName)
     }
 
     /// Segunda via: buscar el album directamente (algunos albumes tienen video aunque la cancion no lo traiga).
@@ -453,7 +527,7 @@ private enum TidalVideoCover {
     static func search(
         title: String, artist: String, album: String?, wanted: AnimatedArtworkService.Wanted,
         trace: AnimatedArtworkService.Trace
-    ) async -> URL? {
+    ) async -> (video: URL?, cover: URL?) {
         let first = AnimatedArtworkService.Matching.artists(artist).first ?? artist
         var query = "\(first) \(title)"
         if let album, !album.isEmpty { query = "\(album) \(query)" }
@@ -465,10 +539,11 @@ private enum TidalVideoCover {
             .init(name: "countryCode", value: AnimatedArtworkService.region.uppercased())
         ]
         guard let url = components?.url, let json = await requestJSON(url, trace: trace),
-              let items = (json["tracks"] as? [String: Any])?["items"] as? [[String: Any]] else { return nil }
+              let items = (json["tracks"] as? [String: Any])?["items"] as? [[String: Any]] else { return (nil, nil) }
 
         var matched = 0
         var albumTitle: String?
+        var matchedCover: URL?
         for item in items {
             guard let name = item["title"] as? String else { continue }
             let credited = ((item["artists"] as? [[String: Any]]) ?? []).compactMap { $0["name"] as? String }.joined(separator: ", ")
@@ -476,12 +551,20 @@ private enum TidalVideoCover {
             matched += 1
             let albumObject = item["album"] as? [String: Any]
             if albumTitle == nil { albumTitle = albumObject?["title"] as? String }
-            if let cover = albumObject?["videoCover"] as? String, let video = coverURL(cover) { return video }
+            if matchedCover == nil, let image = albumObject?["cover"] as? String { matchedCover = imageURL(image) }
+            if let cover = albumObject?["videoCover"] as? String, let video = coverURL(cover) { return (video, matchedCover) }
         }
         trace.add("tidal canciones: \(items.count) resultados, \(matched) coinciden, sin videoCover en su album")
         // Segunda via: en la busqueda de albumes si aparece el video aunque la cancion no lo traiga.
-        guard let albumName = albumTitle ?? album else { return nil }
-        return await searchAlbums(artist: first, album: albumName, wanted: wanted, trace: trace)
+        guard let albumName = albumTitle ?? album else { return (nil, matchedCover) }
+        return (await searchAlbums(artist: first, album: albumName, wanted: wanted, trace: trace), matchedCover)
+    }
+
+    /// La caratula del album en el servidor de imagenes de TIDAL.
+    private static func imageURL(_ id: String) -> URL? {
+        let parts = id.split(separator: "-")
+        guard parts.count == 5 else { return nil }
+        return URL(string: "https://resources.tidal.com/images/\(parts.joined(separator: "/"))/1280x1280.jpg")
     }
 
     private static func searchAlbums(

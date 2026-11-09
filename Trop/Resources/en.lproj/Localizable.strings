@@ -206,6 +206,7 @@
 "Hide Explicit Content" = "Hide Explicit Content";
 "High" = "High";
 "High (128–192 kbps)" = "High (128–192 kbps)";
+"High-Quality Covers" = "High-Quality Covers";
 "Hip-Hop" = "Hip-Hop";
 "History" = "History";
 "Home" = "Home";
@@ -375,6 +376,7 @@
 "Playlists" = "Playlists";
 "Plays a song you ask for by name." = "Plays a song you ask for by name.";
 "Plays the looping video behind the player artwork when Spotify has one for the track." = "Plays the looping video behind the player artwork when Spotify has one for the track.";
+"Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one. High-Quality Covers also swaps the cover for the official one when the same song is found there, which helps video clips and remixes. It uses Wi-Fi unless you allow mobile data, and the video turns off in Low Power Mode or with Reduce Motion." = "Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one. High-Quality Covers also swaps the cover for the official one when the same song is found there, which helps video clips and remixes. It uses Wi-Fi unless you allow mobile data, and the video turns off in Low Power Mode or with Reduce Motion.";
 "Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one; otherwise the normal cover is shown. It uses Wi-Fi unless you allow mobile data, and it turns off in Low Power Mode or with Reduce Motion." = "Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one; otherwise the normal cover is shown. It uses Wi-Fi unless you allow mobile data, and it turns off in Low Power Mode or with Reduce Motion.";
 "Podcast" = "Podcast";
 "Podcasts" = "Podcasts";
