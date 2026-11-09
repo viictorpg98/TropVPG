@@ -93,48 +93,53 @@ struct ProgressBar: View {
     /// empezará la próxima mezcla.
     private func waveformCanvas(_ levels: [Float], shimmer: Double?) -> some View {
         Canvas { context, size in
-            let count = levels.count
-            let slot = size.width / CGFloat(count)
-            let played = CGFloat(progress)
-            for index in 0..<count {
-                let height = max(3, CGFloat(levels[index]) * size.height)
-                let x = CGFloat(index) * slot
-                let rect = CGRect(x: x + slot * 0.2, y: (size.height - height) / 2, width: slot * 0.6, height: height)
-                let isPlayed = (CGFloat(index) + 0.5) / CGFloat(count) <= played
-                var opacity = isPlayed ? 0.95 : 0.27
-                if let shimmer {
-                    // Un brillo que recorre la onda de izquierda a derecha mientras llega la real.
-                    let wave = sin((Double(index) / Double(count)) * 9 - shimmer * 3.2)
-                    opacity = (isPlayed ? 0.75 : 0.28) + 0.22 * max(0, wave)
-                }
-                context.fill(
-                    Path(roundedRect: rect, cornerRadius: slot * 0.3),
-                    with: .color(Color.white.opacity(opacity))
-                )
-            }
-            // Donde va.
-            let head = size.width * played
-            context.fill(
-                Path(roundedRect: CGRect(x: head - 1, y: 0, width: 2, height: size.height), cornerRadius: 1),
-                with: .color(accentColor)
-            )
-            // Donde empezara la proxima mezcla.
-            if let markerFraction {
-                let x = size.width * CGFloat(markerFraction)
-                var diamond = Path()
-                diamond.move(to: CGPoint(x: x, y: 0))
-                diamond.addLine(to: CGPoint(x: x + 4, y: 4))
-                diamond.addLine(to: CGPoint(x: x, y: 8))
-                diamond.addLine(to: CGPoint(x: x - 4, y: 4))
-                diamond.closeSubpath()
-                context.fill(diamond, with: .color(accentColor))
-                context.fill(
-                    Path(CGRect(x: x - 0.5, y: 8, width: 1, height: size.height - 8)),
-                    with: .color(accentColor.opacity(0.5))
-                )
-            }
+            drawWave(&context, size: size, levels: levels, shimmer: shimmer)
         }
         .allowsHitTesting(false)
+    }
+
+    /// Opacidad de una barra: sonada o no, y con el brillo que recorre la onda de relleno si lo hay.
+    private func barOpacity(index: Int, count: Int, isPlayed: Bool, shimmer: Double?) -> Double {
+        guard let shimmer else { return isPlayed ? 0.95 : 0.27 }
+        let position: Double = Double(index) / Double(count)
+        let wave: Double = sin(position * 9.0 - shimmer * 3.2)
+        let base: Double = isPlayed ? 0.75 : 0.28
+        return base + 0.22 * max(0.0, wave)
+    }
+
+    private func drawWave(_ context: inout GraphicsContext, size: CGSize, levels: [Float], shimmer: Double?) {
+        let count: Int = levels.count
+        guard count > 0 else { return }
+        let slot: CGFloat = size.width / CGFloat(count)
+        let played: CGFloat = CGFloat(progress)
+        for index in 0..<count {
+            let level: CGFloat = CGFloat(levels[index])
+            let height: CGFloat = max(3, level * size.height)
+            let x: CGFloat = CGFloat(index) * slot + slot * 0.2
+            let y: CGFloat = (size.height - height) / 2
+            let rect = CGRect(x: x, y: y, width: slot * 0.6, height: height)
+            let middle: CGFloat = (CGFloat(index) + 0.5) / CGFloat(count)
+            let opacity: Double = barOpacity(index: index, count: count, isPlayed: middle <= played, shimmer: shimmer)
+            let bar = Path(roundedRect: rect, cornerRadius: slot * 0.3)
+            context.fill(bar, with: .color(Color.white.opacity(opacity)))
+        }
+        // Donde va.
+        let head: CGFloat = size.width * played
+        let headRect = CGRect(x: head - 1, y: 0, width: 2, height: size.height)
+        context.fill(Path(roundedRect: headRect, cornerRadius: 1), with: .color(accentColor))
+        // Donde empezara la proxima mezcla.
+        if let markerFraction {
+            let x: CGFloat = size.width * CGFloat(markerFraction)
+            var diamond = Path()
+            diamond.move(to: CGPoint(x: x, y: 0))
+            diamond.addLine(to: CGPoint(x: x + 4, y: 4))
+            diamond.addLine(to: CGPoint(x: x, y: 8))
+            diamond.addLine(to: CGPoint(x: x - 4, y: 4))
+            diamond.closeSubpath()
+            context.fill(diamond, with: .color(accentColor))
+            let stem = CGRect(x: x - 0.5, y: 8, width: 1, height: size.height - 8)
+            context.fill(Path(stem), with: .color(accentColor.opacity(0.5)))
+        }
     }
 }
 

@@ -135,10 +135,7 @@ struct LibraryView: View {
             .onAppear { applyFilterRequest(router.libraryFilterRequest) }
             .task(id: isLoading) {
                 guard !isLoading else { return }
-                let urls = (playlists.map(\.thumbnailUrl) + albums.map(\.thumbnailUrl) + artists.map(\.thumbnailUrl) + podcasts.map(\.thumbnailUrl))
-                    .compactMap { $0 }
-                    .compactMap(URL.init)
-                await ImagePreloader.shared.preload(urls)
+                await ImagePreloader.shared.preload(thumbnailURLsToPreload())
             }
             .refreshable {
                 await SyncBridge.forceFullSync()
@@ -158,6 +155,16 @@ struct LibraryView: View {
                 }
             }
         }
+    }
+
+    /// Las miniaturas de todo lo que hay en la Biblioteca (separado del cuerpo para que compile rapido en cualquier Xcode).
+    private func thumbnailURLsToPreload() -> [URL] {
+        var strings: [String?] = []
+        strings += playlists.map { $0.thumbnailUrl }
+        strings += albums.map { $0.thumbnailUrl }
+        strings += artists.map { $0.thumbnailUrl }
+        strings += podcasts.map { $0.thumbnailUrl }
+        return strings.compactMap { $0 }.compactMap { URL(string: $0) }
     }
 
     // MARK: - Filter Bar
