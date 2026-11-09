@@ -40,6 +40,13 @@ enum PlaybackQueue {
         list[index] = first
         NowPlaying.shared.setQueue(list, startIndex: index)
         AnimatedArtworkService.shared.prefetch(first)
+        warmArtwork(first)
+    }
+
+    /// Empieza a cargar su miniatura para que el mini reproductor la tenga lista (y no enseñe otra mientras tanto).
+    private static func warmArtwork(_ song: SongItem) {
+        guard let thumbnail = song.thumbnailUrl, let url = URL(string: thumbnail) else { return }
+        Task { _ = try? await ArtworkLoader.image(for: url) }
     }
 
     /// Shuffled variant of `play(_:startIndex:)`.
@@ -111,6 +118,7 @@ enum PlaybackQueue {
     private static func startSingleWithRadio(_ song: SongItem, log: AppLogger) {
         NowPlaying.shared.setQueue([song], startIndex: 0)
         AnimatedArtworkService.shared.prefetch(song)
+        warmArtwork(song)
         Task { @MainActor in
             do {
                 try await PlaybackManager.shared.resolveAndPlay(videoId: song.videoId)

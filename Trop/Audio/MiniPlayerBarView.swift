@@ -129,7 +129,7 @@ struct MiniPlayerBarView: View {
 
     private func page(for song: SongItem, width: CGFloat) -> some View {
         HStack(spacing: 12) {
-            barArtwork(for: song.videoId)
+            barArtwork(for: song)
 
             VStack(alignment: .leading, spacing: 0) {
                 if isInline {
@@ -163,15 +163,15 @@ struct MiniPlayerBarView: View {
     }
 
     @ViewBuilder
-    private func barArtwork(for videoId: String) -> some View {
-        let isCurrent = videoId == np.videoId
+    private func barArtwork(for song: SongItem) -> some View {
+        let isCurrent = song.videoId == np.videoId
         ZStack {
             if isCurrent, let uiImage = np.thumbnailUIImage {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
             } else {
-                MiniArtworkView(videoId: videoId)
+                MiniArtworkView(song: song)
             }
         }
         .frame(width: artworkSize, height: artworkSize)
@@ -334,9 +334,16 @@ private struct MiniProgressLine: View {
 
 @MainActor
 private struct MiniArtworkView: View {
-    let videoId: String
+    let song: SongItem
 
     @State private var uiImage: UIImage?
+
+    /// La misma miniatura que enseñan las listas (la de la version de audio si el elemento es un video). El fotograma de
+    /// YouTube por identificador (el del video) solo se usa si la cancion no trae ninguna.
+    private var sourceURL: URL? {
+        if let candidate = AudioCounterpartStore.shared.thumbnailURL(for: song), let url = URL(string: candidate) { return url }
+        return URL(string: NowPlaying.artworkURL(for: song.videoId))
+    }
 
     var body: some View {
         ZStack {
@@ -351,25 +358,21 @@ private struct MiniArtworkView: View {
                     .foregroundStyle(.white.opacity(0.4))
             }
         }
-        .onAppear { load() }
+        .task(id: sourceURL) { load() }
     }
 
     private func load() {
-        if let cached = cachedArtwork(for: videoId) {
-            uiImage = cached
+        guard let url = sourceURL else { return }
+        if let cached = ArtworkLoader.cachedImage(for: url) {
+            uiImage = cached.centerCroppedSquare()
             return
         }
-        guard let url = URL(string: NowPlaying.artworkURL(for: videoId)) else { return }
         loggedTask(Log.nowPlaying, "Mini artwork load failed") {
             let image = try await ArtworkLoader.image(for: url)
             let cropped = image.centerCroppedSquare()
+            // Si mientras tanto cambio la miniatura (llego la del audio), esta ya no vale.
+            guard sourceURL == url else { return }
             await MainActor.run { uiImage = cropped }
         }
     }
-}
-
-@MainActor
-private func cachedArtwork(for videoId: String) -> UIImage? {
-    guard let url = URL(string: NowPlaying.artworkURL(for: videoId)) else { return nil }
-    return ArtworkLoader.cachedImage(for: url)?.centerCroppedSquare()
 }
