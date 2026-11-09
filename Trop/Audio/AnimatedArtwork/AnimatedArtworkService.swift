@@ -53,7 +53,8 @@ final class AnimatedArtworkService {
 
         let task = Task<URL?, Never> { [weak self] in
             let started = Date()
-            let found = await Self.search(title: title, artist: artist, album: album)
+            let trace = Trace()
+            let found = await Self.search(title: title, artist: artist, album: album, trace: trace)
             guard let self else { return found?.url }
             self.inflight[videoId] = nil
             if let found {
@@ -63,8 +64,8 @@ final class AnimatedArtworkService {
             }
             if self.cache.count > 200 { self.cache = self.cache.filter { if case .hit = $0.value { return true }; return false } }
             PlaybackReport.record(String(
-                format: "caratula animada: %@ -> %@ (%.1f s)",
-                videoId, found.map { $0.source } ?? "ninguna", Date().timeIntervalSince(started)
+                format: "caratula animada: %@ -> %@ (%.1f s) [%@]",
+                videoId, found.map { $0.source } ?? "ninguna", Date().timeIntervalSince(started), trace.text
             ))
             return found?.url
         }
@@ -72,21 +73,29 @@ final class AnimatedArtworkService {
         return await task.value
     }
 
+    /// Lo que paso en cada paso de la busqueda, para el informe (sin esto solo se sabe que "no hay video").
+    final class Trace: @unchecked Sendable {
+        private let lock = NSLock()
+        private var parts: [String] = []
+        func add(_ text: String) { lock.lock(); parts.append(text); lock.unlock() }
+        var text: String { lock.lock(); defer { lock.unlock() }; return parts.joined(separator: "; ") }
+    }
+
     private struct Found {
         let url: URL
         let source: String
     }
 
-    nonisolated private static func search(title: String, artist: String, album: String?) async -> Found? {
+    nonisolated private static func search(title: String, artist: String, album: String?, trace: Trace) async -> Found? {
         let wantedTitles = Matching.titleKeys(title)
         let wantedArtists = Matching.artists(artist)
         guard !wantedTitles.isEmpty, !wantedArtists.isEmpty else { return nil }
         let wanted = Wanted(titles: wantedTitles, artists: wantedArtists, album: album.map(Matching.normalize))
 
-        if let url = await AppleMotionArtwork.search(title: title, artist: artist, album: album, wanted: wanted) {
+        if let url = await AppleMotionArtwork.search(title: title, artist: artist, album: album, wanted: wanted, trace: trace) {
             return Found(url: url, source: "Apple Music")
         }
-        if let url = await TidalVideoCover.search(title: title, artist: artist, album: album, wanted: wanted) {
+        if let url = await TidalVideoCover.search(title: title, artist: artist, album: album, wanted: wanted, trace: trace) {
             return Found(url: url, source: "TIDAL")
         }
         return nil
@@ -190,9 +199,21 @@ private enum AppleMotionArtwork {
     }
 
     static func search(
-        title: String, artist: String, album: String?, wanted: AnimatedArtworkService.Wanted
+        title: String, artist: String, album: String?, wanted: AnimatedArtworkService.Wanted,
+        trace: AnimatedArtworkService.Trace
     ) async -> URL? {
-        guard let token = await bearer() else { return nil }
+        guard let token = await bearer() else { trace.add("apple: sin token"); return nil }
+        if let url = await searchSongs(title: title, artist: artist, album: album, wanted: wanted, token: token, trace: trace) {
+            return url
+        }
+        guard let album, !album.isEmpty else { trace.add("apple: sin album para buscar por album"); return nil }
+        return await searchAlbums(artist: artist, album: album, wanted: wanted, token: token, trace: trace)
+    }
+
+    private static func searchSongs(
+        title: String, artist: String, album: String?, wanted: AnimatedArtworkService.Wanted, token: String,
+        trace: AnimatedArtworkService.Trace
+    ) async -> URL? {
         let first = AnimatedArtworkService.Matching.artists(artist).first ?? artist
         var term = title.localizedCaseInsensitiveContains(first) ? title : "\(first) \(title)"
         if let album, !album.isEmpty, !title.localizedCaseInsensitiveContains(album) { term += " \(album)" }
@@ -205,10 +226,14 @@ private enum AppleMotionArtwork {
             .init(name: "extend", value: "editorialVideo"),
             .init(name: "include", value: "albums")
         ]
-        guard let url = components?.url, let json = await request(url, token: token),
-              let songs = ((json["results"] as? [String: Any])?["songs"] as? [String: Any])?["data"] as? [[String: Any]]
-        else { return nil }
+        guard let url = components?.url, let json = await request(url, token: token, trace: trace) else { return nil }
+        guard let songs = ((json["results"] as? [String: Any])?["songs"] as? [String: Any])?["data"] as? [[String: Any]] else {
+            trace.add("apple canciones: 0 resultados")
+            return nil
+        }
 
+        var matched = 0
+        var albumsTried = 0
         for song in songs {
             guard let attributes = song["attributes"] as? [String: Any],
                   let name = attributes["name"] as? String,
@@ -216,21 +241,60 @@ private enum AppleMotionArtwork {
                   wanted.matches(title: name, artist: credited) else { continue }
             let albumName = (attributes["albumName"] as? String) ?? ""
             if isCompilation(name) || isCompilation(albumName) { continue }
+            matched += 1
             if let video = attributes["editorialVideo"] as? [String: Any], let motion = motionURL(video) { return motion }
 
             let relationships = song["relationships"] as? [String: Any]
             let albumId = (((relationships?["albums"] as? [String: Any])?["data"] as? [[String: Any]])?.first?["id"]) as? String
-            if let albumId, !albumId.hasPrefix("pl."), let motion = await albumMotion(id: albumId, token: token) {
-                return motion
+            if let albumId, !albumId.hasPrefix("pl.") {
+                albumsTried += 1
+                if let motion = await albumMotion(id: albumId, token: token, trace: trace) { return motion }
             }
         }
+        trace.add("apple canciones: \(songs.count) resultados, \(matched) coinciden, \(albumsTried) albumes mirados, sin video")
         return nil
     }
 
-    private static func albumMotion(id: String, token: String) async -> URL? {
+    /// Segunda via: buscar el album directamente (algunos albumes tienen video aunque la cancion no lo traiga).
+    private static func searchAlbums(
+        artist: String, album: String, wanted: AnimatedArtworkService.Wanted, token: String,
+        trace: AnimatedArtworkService.Trace
+    ) async -> URL? {
+        let first = AnimatedArtworkService.Matching.artists(artist).first ?? artist
+        var components = URLComponents(string: "\(catalog)/\(storefront)/search")
+        components?.queryItems = [
+            .init(name: "term", value: "\(first) \(album)"),
+            .init(name: "types", value: "albums"),
+            .init(name: "limit", value: "10"),
+            .init(name: "extend", value: "editorialVideo")
+        ]
+        guard let url = components?.url, let json = await request(url, token: token, trace: trace) else { return nil }
+        guard let albums = ((json["results"] as? [String: Any])?["albums"] as? [String: Any])?["data"] as? [[String: Any]] else {
+            trace.add("apple albumes: 0 resultados")
+            return nil
+        }
+        let wantedAlbum = AnimatedArtworkService.Matching.normalize(album)
+        var matched = 0
+        for record in albums {
+            guard let attributes = record["attributes"] as? [String: Any],
+                  let name = attributes["name"] as? String, !isCompilation(name),
+                  let credited = attributes["artistName"] as? String else { continue }
+            let hitAlbum = AnimatedArtworkService.Matching.normalize(name)
+            guard hitAlbum == wantedAlbum else { continue }
+            let firstWanted = wanted.artists.first ?? ""
+            let creditedArtists = AnimatedArtworkService.Matching.artists(credited)
+            guard creditedArtists.contains(where: { $0 == firstWanted || $0.contains(firstWanted) || firstWanted.contains($0) }) else { continue }
+            matched += 1
+            if let video = attributes["editorialVideo"] as? [String: Any], let motion = motionURL(video) { return motion }
+        }
+        trace.add("apple albumes: \(albums.count) resultados, \(matched) coinciden, sin video")
+        return nil
+    }
+
+    private static func albumMotion(id: String, token: String, trace: AnimatedArtworkService.Trace) async -> URL? {
         var components = URLComponents(string: "\(catalog)/\(storefront)/albums/\(id)")
         components?.queryItems = [.init(name: "extend", value: "editorialVideo")]
-        guard let url = components?.url, let json = await request(url, token: token),
+        guard let url = components?.url, let json = await request(url, token: token, trace: trace),
               let album = (json["data"] as? [[String: Any]])?.first,
               let attributes = album["attributes"] as? [String: Any],
               let name = attributes["name"] as? String, !isCompilation(name),
@@ -260,13 +324,17 @@ private enum AppleMotionArtwork {
 
     private static var storefront: String { AnimatedArtworkService.region.lowercased() }
 
-    private static func request(_ url: URL, token: String) async -> [String: Any]? {
+    private static func request(_ url: URL, token: String, trace: AnimatedArtworkService.Trace) async -> [String: Any]? {
         let headers = [
             "Authorization": "Bearer \(token)",
             "Origin": "https://music.apple.com",
             "Referer": "https://music.apple.com/"
         ]
-        guard let (data, status) = await AnimatedArtworkService.get(url, headers: headers) else { return nil }
+        guard let (data, status) = await AnimatedArtworkService.get(url, headers: headers) else {
+            trace.add("apple: sin respuesta")
+            return nil
+        }
+        if status != 200 { trace.add("apple: HTTP \(status)") }
         if status == 401 {
             // El token ya no vale: se olvida y se vuelve a sacar de la web la proxima vez.
             state.reject(token)
@@ -346,7 +414,8 @@ private enum TidalVideoCover {
     private static let token = "vNVdglQOjFJJGG2U"
 
     static func search(
-        title: String, artist: String, album: String?, wanted: AnimatedArtworkService.Wanted
+        title: String, artist: String, album: String?, wanted: AnimatedArtworkService.Wanted,
+        trace: AnimatedArtworkService.Trace
     ) async -> URL? {
         let first = AnimatedArtworkService.Matching.artists(artist).first ?? artist
         var query = "\(first) \(title)"
@@ -358,20 +427,64 @@ private enum TidalVideoCover {
             .init(name: "types", value: "TRACKS"),
             .init(name: "countryCode", value: AnimatedArtworkService.region.uppercased())
         ]
-        guard let url = components?.url,
-              let (data, status) = await AnimatedArtworkService.get(url, headers: ["X-Tidal-Token": token]), status == 200,
-              let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+        guard let url = components?.url, let json = await requestJSON(url, trace: trace),
               let items = (json["tracks"] as? [String: Any])?["items"] as? [[String: Any]] else { return nil }
 
+        var matched = 0
+        var albumTitle: String?
         for item in items {
             guard let name = item["title"] as? String else { continue }
             let credited = ((item["artists"] as? [[String: Any]]) ?? []).compactMap { $0["name"] as? String }.joined(separator: ", ")
             guard wanted.matches(title: name, artist: credited) else { continue }
-            guard let cover = (item["album"] as? [String: Any])?["videoCover"] as? String,
-                  let video = coverURL(cover) else { continue }
-            return video
+            matched += 1
+            let albumObject = item["album"] as? [String: Any]
+            if albumTitle == nil { albumTitle = albumObject?["title"] as? String }
+            if let cover = albumObject?["videoCover"] as? String, let video = coverURL(cover) { return video }
         }
+        trace.add("tidal canciones: \(items.count) resultados, \(matched) coinciden, sin videoCover en su album")
+        // Segunda via: en la busqueda de albumes si aparece el video aunque la cancion no lo traiga.
+        guard let albumName = albumTitle ?? album else { return nil }
+        return await searchAlbums(artist: first, album: albumName, wanted: wanted, trace: trace)
+    }
+
+    private static func searchAlbums(
+        artist: String, album: String, wanted: AnimatedArtworkService.Wanted, trace: AnimatedArtworkService.Trace
+    ) async -> URL? {
+        var components = URLComponents(string: search)
+        components?.queryItems = [
+            .init(name: "query", value: "\(album) \(artist)"),
+            .init(name: "limit", value: "10"),
+            .init(name: "types", value: "ALBUMS"),
+            .init(name: "countryCode", value: AnimatedArtworkService.region.uppercased())
+        ]
+        guard let url = components?.url, let json = await requestJSON(url, trace: trace),
+              let items = (json["albums"] as? [String: Any])?["items"] as? [[String: Any]] else { return nil }
+        let wantedAlbum = AnimatedArtworkService.Matching.normalize(album)
+        var matched = 0
+        for item in items {
+            guard let name = item["title"] as? String,
+                  AnimatedArtworkService.Matching.normalize(name) == wantedAlbum else { continue }
+            let credited = ((item["artists"] as? [[String: Any]]) ?? []).compactMap { $0["name"] as? String }
+                .map(AnimatedArtworkService.Matching.normalize)
+            let firstWanted = wanted.artists.first ?? ""
+            guard credited.contains(where: { $0 == firstWanted || $0.contains(firstWanted) || firstWanted.contains($0) }) else { continue }
+            matched += 1
+            if let cover = item["videoCover"] as? String, let video = coverURL(cover) { return video }
+        }
+        trace.add("tidal albumes: \(items.count) resultados, \(matched) coinciden, sin videoCover")
         return nil
+    }
+
+    private static func requestJSON(_ url: URL, trace: AnimatedArtworkService.Trace) async -> [String: Any]? {
+        guard let (data, status) = await AnimatedArtworkService.get(url, headers: ["X-Tidal-Token": token]) else {
+            trace.add("tidal: sin respuesta")
+            return nil
+        }
+        guard status == 200 else {
+            trace.add("tidal: HTTP \(status)")
+            return nil
+        }
+        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
     }
 
     private static func coverURL(_ id: String) -> URL? {
