@@ -38,13 +38,12 @@ struct MiniPlayerBarView: View {
         false
     }
 
-    /// Alto de la fila con la carátula, el titulo y los botones (debajo va la franja con la onda).
     private var barHeight: CGFloat {
-        50
+        58
     }
 
     private var artworkSize: CGFloat {
-        42
+        44
     }
 
     /// Sobre el color de la carátula el texto es siempre blanco, como en el reproductor grande.
@@ -53,21 +52,13 @@ struct MiniPlayerBarView: View {
     private var artistColor: Color { Color.white.opacity(0.78) }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                pagingArea
-                    .mask(textFadeMask)
-                transportControls
-                    .padding(.trailing, 6)
-            }
-            .frame(height: barHeight)
-
-            // La onda de la cancion, en una franja fina debajo (solo se ve; para saltar a un punto esta el grande).
-            MiniWaveformStrip()
-                .frame(height: 12)
-                .padding(.horizontal, 14)
-                .padding(.bottom, 7)
+        HStack(spacing: 0) {
+            pagingArea
+                .mask(textFadeMask)
+            transportControls
+                .padding(.trailing, 6)
         }
+        .frame(height: barHeight)
         .frame(maxWidth: .infinity)
         // El color de la carátula, oscurecido, para que case con la barra de pestañas de debajo.
         .background { MiniColorBackdrop() }
@@ -220,12 +211,17 @@ struct MiniPlayerBarView: View {
 
     private var playPauseButton: some View {
         Button(action: { player.togglePlayPause() }, label: {
-            Image(systemName: np.isPlaying ? "pause.fill" : "play.fill")
-                .contentTransition(.symbolEffect(.replace))
-                .font(.system(size: 25))
-                .foregroundStyle(titleColor)
-                .frame(width: 44, height: 48)
-                .contentShape(Rectangle())
+            ZStack {
+                // El progreso de la cancion, como un aro alrededor del boton (en una mezcla, el de la entrante entra con el
+                // mismo fundido que la carátula).
+                MiniProgressRing()
+                Image(systemName: np.isPlaying ? "pause.fill" : "play.fill")
+                    .contentTransition(.symbolEffect(.replace))
+                    .font(.system(size: 17))
+                    .foregroundStyle(titleColor)
+            }
+            .frame(width: 46, height: 48)
+            .contentShape(Rectangle())
         })
         .buttonStyle(.plain)
         .accessibilityLabel(np.isPlaying ? "Pause" : "Play")
@@ -381,8 +377,8 @@ private struct MiniColorBackdrop: View {
     }
 }
 
-/// La franja con la onda: la de la cancion que suena y, durante una mezcla, la de la que entra, con el mismo fundido.
-private struct MiniWaveformStrip: View {
+/// Aro de progreso alrededor del boton de pausa: la pista tenue es toda la cancion y el trazo claro lo ya sonado.
+private struct MiniProgressRing: View {
     private let np = NowPlaying.shared
     private let visuals = AutoMixVisuals.shared
 
@@ -390,62 +386,26 @@ private struct MiniWaveformStrip: View {
         if visuals.isMixing, visuals.incomingDuration > 0, let incomingId = visuals.incomingVideoId, incomingId != np.videoId {
             let amount = autoMixReveal(visuals.progress)
             ZStack {
-                MiniWaveformBars(videoId: np.videoId, progress: Double(np.progress))
-                    .opacity(1 - amount)
-                MiniWaveformBars(videoId: incomingId, progress: visuals.incomingProgress)
-                    .opacity(amount)
+                ring(progress: Double(np.progress)).opacity(1 - amount)
+                ring(progress: visuals.incomingProgress).opacity(amount)
             }
         } else {
-            MiniWaveformBars(videoId: np.videoId, progress: Double(np.progress))
+            ring(progress: Double(np.progress))
         }
     }
-}
 
-/// Las barras de una onda: lo ya sonado mas claro y lo que falta tenue. Sin linea que marque donde va.
-private struct MiniWaveformBars: View {
-    let videoId: String?
-    let progress: Double
-    @State private var wave: [Float]?
-
-    var body: some View {
-        let levels = wave ?? WaveformStore.placeholder(for: videoId)
-        let isReal = wave != nil
-        let played = CGFloat(progress)
-        Canvas { context, size in
-            let count = levels.count
-            guard count > 0 else { return }
-            let slot: CGFloat = size.width / CGFloat(count)
-            for index in 0..<count {
-                let level: CGFloat = CGFloat(levels[index])
-                let height: CGFloat = max(2, level * size.height)
-                let rect = CGRect(
-                    x: CGFloat(index) * slot + slot * 0.2, y: (size.height - height) / 2,
-                    width: slot * 0.6, height: height
-                )
-                let middle: CGFloat = (CGFloat(index) + 0.5) / CGFloat(count)
-                let isPlayed = middle <= played
-                let opacity: Double = isReal ? (isPlayed ? 0.9 : 0.28) : (isPlayed ? 0.4 : 0.16)
-                context.fill(Path(roundedRect: rect, cornerRadius: slot * 0.3), with: .color(Color.white.opacity(opacity)))
-            }
+    private func ring(progress: Double) -> some View {
+        let clamped = min(max(progress, 0), 1)
+        return ZStack {
+            Circle()
+                .stroke(Color.white.opacity(0.18), lineWidth: 2.5)
+            Circle()
+                .trim(from: 0, to: CGFloat(max(clamped, 0.004)))
+                .stroke(Color.white.opacity(0.95), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .animation(.linear(duration: 0.3), value: clamped)
         }
-        .allowsHitTesting(false)
-        .animation(.easeInOut(duration: 0.4), value: isReal)
-        .task(id: videoId) {
-            guard SettingsStore.shared.waveformProgressBar, let id = videoId else {
-                wave = nil
-                return
-            }
-            wave = WaveformStore.shared.cached(for: id)
-            guard wave == nil else { return }
-            for _ in 0..<90 {
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
-                guard !Task.isCancelled else { return }
-                if let found = WaveformStore.shared.cached(for: id) {
-                    wave = found
-                    return
-                }
-            }
-        }
+        .frame(width: 38, height: 38)
     }
 }
 
