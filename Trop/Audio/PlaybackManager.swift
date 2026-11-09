@@ -64,6 +64,7 @@ actor PlaybackManager {
 
         await purgeStaleLongCache(videoId)
         if let cached = await StreamCache.shared.get(videoId: videoId) {
+            clientUsed[videoId] = cached.clientName
             let queueSong = await queueSong(for: videoId)
             await PlayerController.shared.play(
                 url: cached.streamUrl,
@@ -129,15 +130,28 @@ actor PlaybackManager {
             // es una peticion de red perdida antes de que suene nada.
             request.chain.insert(request.chain.remove(at: index), at: 0)
         }
+        let fullChain = request.chain
+        request.chain = filteredChain(request.chain)
         let result: PlaybackResult
         if isLong {
             result = try await resolveLongContent(videoId: videoId, request: request)
         } else {
-            result = try await StreamFallback.resolveFirstValid(
-                request,
-                using: InnerTubeClient.tropShared,
-                providers: .tropLive
-            )
+            do {
+                result = try await StreamFallback.resolveFirstValid(
+                    request,
+                    using: InnerTubeClient.tropShared,
+                    providers: .tropLive
+                )
+            } catch {
+                // Sin los clientes descartados no hubo direccion: se prueba con todos.
+                guard request.chain.count != fullChain.count else { throw error }
+                request.chain = fullChain
+                result = try await StreamFallback.resolveFirstValid(
+                    request,
+                    using: InnerTubeClient.tropShared,
+                    providers: .tropLive
+                )
+            }
         }
         PlaybackReport.record("direccion de \(videoId): cliente \(result.clientName) en \(Int(Date().timeIntervalSince(started) * 1000)) ms, \(result.mimeType)")
         // Lo que funciona para un podcast no dice nada de la musica: no se recuerda.
@@ -226,6 +240,7 @@ actor PlaybackManager {
     }
 
     private func playNetworkResult(_ result: PlaybackResult, videoId: String) async {
+        clientUsed[videoId] = result.clientName
         // Para el informe: si la direccion lleva el token (&pot=) que pide YouTube a los clientes web.
         PlaybackReport.record("direccion de \(videoId): token pot \(result.streamUrl.contains("pot=") ? "si" : "NO")")
         let queueSong = await queueSong(for: videoId)
@@ -245,6 +260,41 @@ actor PlaybackManager {
             thumbnailUrl: queueSong?.thumbnailUrl
         )
         await publishVideoAvailability(result: result, videoId: videoId, rowType: queueSong?.musicVideoType)
+    }
+
+    // MARK: - Clientes cuya direccion no abre el reproductor
+
+    private static let avoidedKey = "playback.avoidedClients"
+    /// Que cliente de YouTube dio la direccion con la que suena (o se intento sonar) cada cancion.
+    private var clientUsed: [String: String] = [:]
+
+    private func avoidedClientNames() -> Set<String> {
+        let now = Date().timeIntervalSince1970
+        let stored = (UserDefaults.standard.dictionary(forKey: Self.avoidedKey) as? [String: Double]) ?? [:]
+        let live = stored.filter { $0.value > now }
+        if live.count != stored.count { UserDefaults.standard.set(live, forKey: Self.avoidedKey) }
+        return Set(live.keys)
+    }
+
+    /// La cadena sin los clientes descartados (si no quedara ninguno, la entera).
+    private func filteredChain(_ chain: [FallbackClient]) -> [FallbackClient] {
+        let avoided = avoidedClientNames()
+        let kept = chain.filter { !avoided.contains($0.client.clientName) }
+        return kept.isEmpty ? chain : kept
+    }
+
+    /// El reproductor no pudo abrir la direccion de esta cancion (403...): el cliente que la dio se deja de usar durante 3 horas
+    /// y se olvidan las direcciones guardadas (pueden ser del mismo cliente).
+    func noteStreamFailure(videoId: String) async {
+        guard let name = clientUsed[videoId] else { return }
+        var stored = (UserDefaults.standard.dictionary(forKey: Self.avoidedKey) as? [String: Double]) ?? [:]
+        stored[name] = Date().timeIntervalSince1970 + 3 * 3600
+        UserDefaults.standard.set(stored, forKey: Self.avoidedKey)
+        if UserDefaults.standard.string(forKey: Self.lastClientKey) == name {
+            UserDefaults.standard.removeObject(forKey: Self.lastClientKey)
+        }
+        await StreamCache.shared.clear()
+        PlaybackReport.record("cliente \(name) descartado 3 h: su direccion de \(videoId) no se pudo abrir en el reproductor")
     }
 
     private func clearInflight(key: String) {
@@ -349,6 +399,7 @@ actor PlaybackManager {
         request.options.preferredFormat = preferredFormat
         request.options.audioQuality = SettingsStore.shared.audioQuality
         request.options.downloadQuality = SettingsStore.shared.downloadQuality
+        if !forDownload { request.chain = filteredChain(request.chain) }
         if Self.isLong(await queueSong(for: videoId)) || requireValidation.contains(videoId) {
             return try await resolveLongContent(videoId: videoId, request: request)
         }

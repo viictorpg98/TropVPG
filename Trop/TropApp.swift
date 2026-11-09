@@ -13,6 +13,9 @@ struct TropApp: App {
     @State private var settings = SettingsStore.shared
 
     init() {
+        // El informe de reproduccion empieza de cero en cada arranque de la app.
+        PlaybackReport.clear()
+        PlaybackReport.record("app iniciada")
         configureNuke()
         ensureDirectories()
         Log.wireSwiftyTube()

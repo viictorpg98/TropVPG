@@ -689,7 +689,9 @@ extension PlayerController {
             Task { @MainActor in AutoMixEngine.shared.gaplessReachedIncoming() }
             return
         }
-        let stoppedVideoId = self.currentVideoId
+        // Si la carga fallo, aun no hubo "archivo cargado": la que fallo es la pendiente, no la que sonaba antes (si no, el
+        // error se atribuia a la anterior y la cancion se quedaba sin cargar y sin reintentarse).
+        let stoppedVideoId = (isError ? self.pendingVideoId : nil) ?? self.currentVideoId
         Task { @MainActor [weak self] in
             guard let self else { return }
             let videoId = stoppedVideoId

@@ -557,6 +557,7 @@ final class NowPlaying {
         Log.nowPlaying.notice("Stream failed mid-play, re-resolving \(videoId)")
         Task {
             await PlayerConfigStore.shared.notifyStreamRejection()
+            await PlaybackManager.shared.noteStreamFailure(videoId: videoId)
             await StreamCache.shared.remove(videoId: videoId)
             // Si la direccion fallo, el reintento comprueba todas las direcciones antes de usar ninguna
             // (si no, podia repetir la misma direccion mala del mismo cliente).
