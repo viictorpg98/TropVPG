@@ -432,6 +432,7 @@ struct FullPlayerView: View {
             } else {
                 ZStack {
                     artworkImage
+                    AnimatedArtworkLayer()
                 }
                 .onTapGesture {
                     guard np.hasVideo else { return }

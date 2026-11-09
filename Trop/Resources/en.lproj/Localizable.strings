@@ -35,6 +35,8 @@
 "Albums for you" = "Albums for you";
 "All Results" = "All Results";
 "Ambient + atmospheric" = "Ambient + atmospheric";
+"Animated Artwork" = "Animated Artwork";
+"Animated Artwork on Mobile Data" = "Animated Artwork on Mobile Data";
 "App volume" = "App volume";
 "Appearance" = "Appearance";
 "Applies to buttons, highlights, and selected items." = "Applies to buttons, highlights, and selected items.";
@@ -230,7 +232,7 @@
 "Last week" = "Last week";
 "Last.fm" = "Last.fm";
 "Last.fm Login" = "Last.fm Login";
-"LastWave (AutoMix ideas)" = "LastWave (AutoMix ideas)";
+"LastWave (AutoMix and animated artwork)" = "LastWave (AutoMix and animated artwork)";
 "Latin party" = "Latin party";
 "Layout" = "Layout";
 "Left" = "Left";
@@ -373,6 +375,7 @@
 "Playlists" = "Playlists";
 "Plays a song you ask for by name." = "Plays a song you ask for by name.";
 "Plays the looping video behind the player artwork when Spotify has one for the track." = "Plays the looping video behind the player artwork when Spotify has one for the track.";
+"Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one; otherwise the normal cover is shown. It uses Wi-Fi unless you allow mobile data, and it turns off in Low Power Mode or with Reduce Motion." = "Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one; otherwise the normal cover is shown. It uses Wi-Fi unless you allow mobile data, and it turns off in Low Power Mode or with Reduce Motion.";
 "Podcast" = "Podcast";
 "Podcasts" = "Podcasts";
 "Politics" = "Politics";

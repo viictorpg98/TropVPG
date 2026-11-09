@@ -564,5 +564,8 @@
   "Shows the cover edge to edge and tints the player with its colors, like Apple Music.": "Shows the cover edge to edge and tints the player with its colors, like Apple Music.",
   "Mix Streamed Songs on Mobile Data": "Mix Streamed Songs on Mobile Data",
   "Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Downloaded songs always mix; streamed songs mix over Wi-Fi, or also on mobile data if you turn that on (it downloads each song's audio an extra time). The Playback Report shows what it did.": "Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Downloaded songs always mix; streamed songs mix over Wi-Fi, or also on mobile data if you turn that on (it downloads each song's audio an extra time). The Playback Report shows what it did.",
-  "LastWave (AutoMix ideas)": "LastWave (AutoMix ideas)"
+  "LastWave (AutoMix and animated artwork)": "LastWave (AutoMix and animated artwork)",
+  "Animated Artwork": "Animated Artwork",
+  "Animated Artwork on Mobile Data": "Animated Artwork on Mobile Data",
+  "Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one; otherwise the normal cover is shown. It uses Wi-Fi unless you allow mobile data, and it turns off in Low Power Mode or with Reduce Motion.": "Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one; otherwise the normal cover is shown. It uses Wi-Fi unless you allow mobile data, and it turns off in Low Power Mode or with Reduce Motion."
 }

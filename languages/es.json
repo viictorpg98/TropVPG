@@ -564,5 +564,8 @@
   "Shows the cover edge to edge and tints the player with its colors, like Apple Music.": "Muestra la carátula de lado a lado y tiñe el reproductor con sus colores, como Apple Music.",
   "Mix Streamed Songs on Mobile Data": "Mezclar canciones en streaming con datos móviles",
   "Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Downloaded songs always mix; streamed songs mix over Wi-Fi, or also on mobile data if you turn that on (it downloads each song's audio an extra time). The Playback Report shows what it did.": "Mezcla una canción con la siguiente como un DJ: se solapan, se iguala el tempo y se intercambian los graves. Las descargadas siempre se mezclan; las de streaming, con Wi-Fi o también con datos móviles si lo activas (se descarga el audio de cada canción una vez más). El Informe de reproducción cuenta qué hizo.",
-  "LastWave (AutoMix ideas)": "LastWave (ideas de AutoMix)"
+  "LastWave (AutoMix and animated artwork)": "LastWave (AutoMix y carátulas animadas)",
+  "Animated Artwork": "Carátulas animadas",
+  "Animated Artwork on Mobile Data": "Carátulas animadas con datos móviles",
+  "Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one; otherwise the normal cover is shown. It uses Wi-Fi unless you allow mobile data, and it turns off in Low Power Mode or with Reduce Motion.": "Reproduce el vídeo en bucle que acompaña a una carátula (de Apple Music o TIDAL) cuando la canción lo tiene; si no, se ve la carátula de siempre. Usa Wi-Fi salvo que permitas los datos móviles, y se desactiva con el modo de bajo consumo o con «Reducir movimiento»."
 }

@@ -229,6 +229,16 @@ final class SettingsStore {
     }
 
     /// Reproductor grande con la carátula de lado a lado y el fondo del color de la carátula (como Apple Music).
+    /// Video en bucle detras de la caratula del reproductor (Apple Music / TIDAL), cuando la cancion lo tiene.
+    var animatedArtworkEnabled: Bool {
+        didSet { Self.defaults.set(animatedArtworkEnabled, forKey: Keys.animatedArtworkEnabled) }
+    }
+
+    /// Buscar y bajar esos videos tambien con datos moviles (por defecto solo con Wi-Fi).
+    var animatedArtworkUsesMobileData: Bool {
+        didSet { Self.defaults.set(animatedArtworkUsesMobileData, forKey: Keys.animatedArtworkUsesMobileData) }
+    }
+
     var fullWidthArtwork: Bool {
         didSet { Self.defaults.set(fullWidthArtwork, forKey: Keys.fullWidthArtwork) }
     }
@@ -383,6 +393,8 @@ final class SettingsStore {
         static let autoMixEnabled = "settings.autoMixEnabled"
         static let autoMixUsesMobileData = "settings.autoMixUsesMobileData"
         static let fullWidthArtwork = "settings.fullWidthArtwork"
+        static let animatedArtworkEnabled = "settings.animatedArtworkEnabled"
+        static let animatedArtworkUsesMobileData = "settings.animatedArtworkUsesMobileData"
         static let autoplaySimilar = "settings.autoplaySimilar"
         static let persistQueue = "settings.persistQueue"
         static let lastRadioStyle = "settings.lastRadioStyle"
@@ -456,6 +468,8 @@ final class SettingsStore {
         autoMixEnabled = Self.load(Keys.autoMixEnabled, default: false)
         autoMixUsesMobileData = Self.load(Keys.autoMixUsesMobileData, default: false)
         fullWidthArtwork = Self.load(Keys.fullWidthArtwork, default: true)
+        animatedArtworkEnabled = Self.load(Keys.animatedArtworkEnabled, default: true)
+        animatedArtworkUsesMobileData = Self.load(Keys.animatedArtworkUsesMobileData, default: false)
         autoplaySimilar = Self.load(Keys.autoplaySimilar, default: true)
         persistQueue = Self.load(Keys.persistQueue, default: false)
         lastRadioStyle = Self.loadEnum(Keys.lastRadioStyle, default: .similar)

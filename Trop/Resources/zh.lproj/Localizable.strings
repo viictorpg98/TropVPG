@@ -35,6 +35,8 @@
 "Albums for you" = "为你推荐的专辑";
 "All Results" = "全部结果";
 "Ambient + atmospheric" = "Ambient + atmospheric";
+"Animated Artwork" = "Animated Artwork";
+"Animated Artwork on Mobile Data" = "Animated Artwork on Mobile Data";
 "App volume" = "应用音量";
 "Appearance" = "外观";
 "Applies to buttons, highlights, and selected items." = "应用于按钮、高亮和选中项目。";
@@ -230,7 +232,7 @@
 "Last week" = "上周";
 "Last.fm" = "Last.fm";
 "Last.fm Login" = "Last.fm 登录";
-"LastWave (AutoMix ideas)" = "LastWave (AutoMix ideas)";
+"LastWave (AutoMix and animated artwork)" = "LastWave (AutoMix and animated artwork)";
 "Latin party" = "Latin party";
 "Layout" = "Layout";
 "Left" = "左对齐";
@@ -373,6 +375,7 @@
 "Playlists" = "播放列表";
 "Plays a song you ask for by name." = "Plays a song you ask for by name.";
 "Plays the looping video behind the player artwork when Spotify has one for the track." = "如果 Spotify 为歌曲提供视频，则在播放器封面后播放循环视频。";
+"Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one; otherwise the normal cover is shown. It uses Wi-Fi unless you allow mobile data, and it turns off in Low Power Mode or with Reduce Motion." = "Plays the looping video that goes with a cover (from Apple Music or TIDAL) when the song has one; otherwise the normal cover is shown. It uses Wi-Fi unless you allow mobile data, and it turns off in Low Power Mode or with Reduce Motion.";
 "Podcast" = "Podcast";
 "Podcasts" = "播客";
 "Politics" = "Politics";
