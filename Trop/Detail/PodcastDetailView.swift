@@ -779,12 +779,22 @@ private struct EpisodeRowView: View {
     var onTap: () -> Void
     var onNavigate: ((DetailRoute) -> Void)?
 
-    @ObservedObject private var downloadManager = DownloadManager.shared
+    // Sin observar todo el gestor: cada avance de una descarga redibujaba todas las filas. Solo importa si esta descargado.
+    private let downloadManager = DownloadManager.shared
+    @State private var isDownloadedEpisode = false
     @State private var progress: Double = 0
     @State private var hasResume = false
     @State private var showMenu = false
 
     var body: some View {
+        content
+            .onAppear { isDownloadedEpisode = downloadManager.isDownloaded(videoId: episode.videoId) }
+            .onReceive(downloadManager.$tracks) { _ in
+                isDownloadedEpisode = downloadManager.isDownloaded(videoId: episode.videoId)
+            }
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 12) {
                 AsyncImageView(url: episode.thumbnailUrl, keepsVideoFrame: true)
@@ -812,7 +822,7 @@ private struct EpisodeRowView: View {
                     }
 
                     HStack(spacing: 4) {
-                        if downloadManager.isDownloaded(videoId: episode.videoId) {
+                        if isDownloadedEpisode {
                             Image(systemName: "arrow.down.circle.fill")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)

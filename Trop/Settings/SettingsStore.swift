@@ -236,6 +236,17 @@ final class SettingsStore {
         didSet { Self.defaults.set(preferAppleCovers, forKey: Keys.preferAppleCovers) }
     }
 
+    /// Dejar el video del videoclip listo detras de la caratula mientras el reproductor grande esta abierto, para que pasar a
+    /// video sea instantaneo. Descarga el video aunque no se vea.
+    var videoPreloadEnabled: Bool {
+        didSet { Self.defaults.set(videoPreloadEnabled, forKey: Keys.videoPreloadEnabled) }
+    }
+
+    /// Hacerlo tambien con datos moviles.
+    var videoPreloadUsesMobileData: Bool {
+        didSet { Self.defaults.set(videoPreloadUsesMobileData, forKey: Keys.videoPreloadUsesMobileData) }
+    }
+
     var animatedArtworkEnabled: Bool {
         didSet { Self.defaults.set(animatedArtworkEnabled, forKey: Keys.animatedArtworkEnabled) }
     }
@@ -401,6 +412,8 @@ final class SettingsStore {
         static let fullWidthArtwork = "settings.fullWidthArtwork"
         static let animatedArtworkEnabled = "settings.animatedArtworkEnabled"
         static let preferAppleCovers = "settings.preferAppleCovers"
+        static let videoPreloadEnabled = "settings.videoPreloadEnabled"
+        static let videoPreloadUsesMobileData = "settings.videoPreloadUsesMobileData"
         static let animatedArtworkUsesMobileData = "settings.animatedArtworkUsesMobileData"
         static let autoplaySimilar = "settings.autoplaySimilar"
         static let persistQueue = "settings.persistQueue"
@@ -477,6 +490,8 @@ final class SettingsStore {
         fullWidthArtwork = Self.load(Keys.fullWidthArtwork, default: true)
         animatedArtworkEnabled = Self.load(Keys.animatedArtworkEnabled, default: true)
         preferAppleCovers = Self.load(Keys.preferAppleCovers, default: true)
+        videoPreloadEnabled = Self.load(Keys.videoPreloadEnabled, default: true)
+        videoPreloadUsesMobileData = Self.load(Keys.videoPreloadUsesMobileData, default: true)
         animatedArtworkUsesMobileData = Self.load(Keys.animatedArtworkUsesMobileData, default: false)
         autoplaySimilar = Self.load(Keys.autoplaySimilar, default: true)
         persistQueue = Self.load(Keys.persistQueue, default: false)

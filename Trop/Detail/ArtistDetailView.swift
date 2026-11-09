@@ -570,7 +570,7 @@ struct ArtistDetailView: View {
 
     @ViewBuilder
     private func songsSection(songs: [SongItem]) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        LazyVStack(alignment: .leading, spacing: 4) {
             Text(LocalizedStringKey("Songs"))
                 .font(.title2)
                 .fontWeight(.bold)

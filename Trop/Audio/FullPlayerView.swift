@@ -115,6 +115,8 @@ struct FullPlayerView: View {
             .onChange(of: showQueue) { _, newValue in
                 if newValue { np.preloadNeighborArtwork() }
             }
+            .onAppear { PlayerController.shared.setFullPlayerVisible(true) }
+            .onDisappear { PlayerController.shared.setFullPlayerVisible(false) }
             .task {
                 // Se retrasa para no competir con la animacion de apertura.
                 try? await Task.sleep(nanoseconds: 400_000_000)

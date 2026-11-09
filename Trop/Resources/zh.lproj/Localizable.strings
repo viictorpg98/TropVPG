@@ -230,8 +230,11 @@
 "June" = "六月";
 "Keep Listening" = "继续聆听";
 "Keep Mix Offline" = "Keep Mix Offline";
+"Keep Video Ready" = "Keep Video Ready";
+"Keep Video Ready on Mobile Data" = "Keep Video Ready on Mobile Data";
 "Keep listening" = "Keep listening";
 "Keeps some songs from your mix downloaded (only on Wi-Fi) so Play My Music starts instantly, even without a connection. The set rotates: songs you've heard are replaced by new ones." = "Keeps some songs from your mix downloaded (only on Wi-Fi) so Play My Music starts instantly, even without a connection. The set rotates: songs you've heard are replaced by new ones.";
+"Keeps the music video ready behind the cover while the full player is open, so switching to video is instant. It downloads the video even if you never watch it, and uses more battery and data." = "Keeps the music video ready behind the cover while the full player is open, so switching to video is instant. It downloads the video even if you never watch it, and uses more battery and data.";
 "Kicking back" = "Kicking back";
 "Kids & Family" = "Kids & Family";
 "Label" = "标签";
@@ -558,6 +561,7 @@
 "V-Shape" = "V 形";
 "Variety" = "多样";
 "Version" = "版本";
+"Video" = "Video";
 "Video ID" = "视频 ID";
 "Video charts" = "Video charts";
 "Videos" = "视频";

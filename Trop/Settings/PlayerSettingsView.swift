@@ -51,6 +51,19 @@ struct PlayerSettingsView: View {
             }
 
             Section {
+                SettingsToggleRow("Keep Video Ready", icon: "play.rectangle", isOn: $settings.videoPreloadEnabled)
+                SettingsToggleRow(
+                    "Keep Video Ready on Mobile Data",
+                    icon: "antenna.radiowaves.left.and.right",
+                    isOn: $settings.videoPreloadUsesMobileData
+                )
+            } header: {
+                Text("Video")
+            } footer: {
+                Text("Keeps the music video ready behind the cover while the full player is open, so switching to video is instant. It downloads the video even if you never watch it, and uses more battery and data.")
+            }
+
+            Section {
                 SettingsToggleRow("AutoMix", icon: "wand.and.stars", isOn: $settings.autoMixEnabled)
                 SettingsToggleRow("Mix Streamed Songs on Mobile Data", icon: "antenna.radiowaves.left.and.right", isOn: $settings.autoMixUsesMobileData)
             } header: {

@@ -289,14 +289,6 @@ final class NowPlaying {
         return true
     }
 
-    /// AutoMix: pasa a la siguiente de la cola empezando en `startAt` (la mezcla ya la esta haciendo sonar).
-    func advanceForAutoMix(startAt: TimeInterval) -> Bool {
-        guard queueIndex + 1 < queueSongs.count, !isResolvingNext else { return false }
-        queueIndex += 1
-        playCurrentSong(logContext: "autoMix", startAt: startAt)
-        return true
-    }
-
     func playPrevious() {
         guard hasPrevious else { return }
         guard !isResolvingNext else { return }

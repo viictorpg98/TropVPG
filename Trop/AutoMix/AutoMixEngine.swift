@@ -525,6 +525,9 @@ final class AutoMixEngine {
     /// la reproduccion que se acaba de pedir.
     private(set) var lastSongChange = Date.distantPast
 
+    /// Hay una mezcla preparandose, preparada o sonando.
+    var isActive: Bool { phase != .idle }
+
     func songChanged() {
         lastSongChange = Date()
         releasePlayingMix()

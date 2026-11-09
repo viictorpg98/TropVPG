@@ -230,8 +230,11 @@
 "June" = "Junio";
 "Keep Listening" = "Sigue escuchando";
 "Keep Mix Offline" = "Mantener la mezcla descargada";
+"Keep Video Ready" = "Dejar el vídeo listo";
+"Keep Video Ready on Mobile Data" = "Dejar el vídeo listo con datos móviles";
 "Keep listening" = "Sigue escuchando";
 "Keeps some songs from your mix downloaded (only on Wi-Fi) so Play My Music starts instantly, even without a connection. The set rotates: songs you've heard are replaced by new ones." = "Mantiene descargadas algunas canciones de tu mezcla (solo con Wi-Fi) para que «Pon mi música» arranque al instante, incluso sin conexión. El conjunto va rotando: las canciones que ya has escuchado se sustituyen por otras nuevas.";
+"Keeps the music video ready behind the cover while the full player is open, so switching to video is instant. It downloads the video even if you never watch it, and uses more battery and data." = "Deja el vídeo del videoclip listo detrás de la carátula mientras el reproductor grande está abierto, para que pasar a vídeo sea instantáneo. Descarga el vídeo aunque nunca lo veas, y gasta más batería y datos.";
 "Kicking back" = "Relajándome";
 "Kids & Family" = "Niños y familia";
 "Label" = "Etiqueta";
@@ -558,6 +561,7 @@
 "V-Shape" = "En V";
 "Variety" = "Variedad";
 "Version" = "Versión";
+"Video" = "Vídeo";
 "Video ID" = "ID del vídeo";
 "Video charts" = "Listas de vídeos";
 "Videos" = "Vídeos";

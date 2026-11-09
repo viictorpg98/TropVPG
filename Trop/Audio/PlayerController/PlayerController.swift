@@ -103,6 +103,14 @@ final class PlayerController {
     /// posicion de la cancion es la de mpv mas `shift`; hasta `mixEnd` (en tiempo del archivo) es la parte mezclada.
     var timeline: (shift: TimeInterval, mixEnd: TimeInterval)?
 
+    /// El reproductor grande esta abierto: solo entonces se deja el video listo por adelantado.
+    private(set) var fullPlayerVisible = false
+
+    func setFullPlayerVisible(_ visible: Bool) {
+        fullPlayerVisible = visible
+        if visible { preloadVideoURL() }
+    }
+
     /// Desplazamiento de tiempo del archivo de la mezcla a la cancion (0 si no hay).
     var timelineShift: TimeInterval { timeline?.shift ?? 0 }
 
@@ -333,44 +341,9 @@ extension PlayerController {
         }
     }
 
-    /// Pausa o reanuda mpv sin tocar el estado de reproduccion de la app (AutoMix lo calla mientras suenan sus tramos).
-    func setRawPause(_ paused: Bool) {
-        withMpv { mpv in
-            var flag: Int32 = paused ? 1 : 0
-            mpv_set_property(mpv, "pause", MPV_FORMAT_FLAG, &flag)
-        }
-    }
-
-    /// Velocidad de reproduccion de mpv (sin cambiar el tono): AutoMix la usa para igualar tempos.
-    func setPlaybackSpeed(_ speed: Double) {
-        withMpv { mpv in
-            var val = speed
-            mpv_set_property(mpv, "speed", MPV_FORMAT_DOUBLE, &val)
-        }
-    }
-
     /// Filtro paso bajo de AutoMix. El FFmpeg de MPVKit solo incluye una lista cerrada de filtros (hay `firequalizer`
     /// y `volume`, pero no `lowpass`), asi que se hace con un ecualizador FIR cuya curva se cambia en caliente.
     private static let djFilterSpec = "@dj:firequalizer=gain_entry=\"entry(0,0);entry(22000,0)\":delay=0.03:accuracy=10"
-
-    /// Cambia la frecuencia de corte (Hz) del filtro `dj`: sin cambios por encima de ~0,8 de la frecuencia y una
-    /// bajada de hasta 42 dB mas arriba. Devuelve el codigo de mpv (<0 = fallo).
-    @discardableResult
-    func setDJLowpass(_ hz: Double) -> Int32 {
-        let cutoff = min(max(hz, 100), 20_000)
-        // Casi abierto del todo: sin atenuacion. Cerrandose: hasta 42 dB.
-        let depth = 42 * min(1, max(0, (20_000 - cutoff) / 12_000))
-        let upper = min(cutoff * 2.5, 21_000)
-        let flat = min(cutoff * 0.8, upper * 0.6)
-        let curve = String(
-            format: "entry(0,0);entry(%.0f,0);entry(%.0f,-%.1f);entry(22000,-%.1f)",
-            flat, upper, depth, depth
-        )
-        let command = ["af-command", "dj", "gain_entry", curve]
-        return withMpv { mpv in
-            command.withUnsafeCArg { mpv_command(mpv, $0) }
-        } ?? -1
-    }
 
     func applyPlaybackSettings() {
         let settings = SettingsStore.shared
@@ -911,7 +884,32 @@ extension PlayerController {
                     return
                 }
             }
+            await preattachVideoIfAllowed(videoId: videoId)
         }
+    }
+
+    /// Engancha el video al reproductor por adelantado (sin enseñarlo): asi, al pulsar "video", el camino rapido de
+    /// `setVideoMode` lo pone al instante. Solo con el reproductor grande abierto, con el ajuste activado y, si no hay Wi-Fi,
+    /// solo si se permiten los datos moviles; nunca durante una mezcla de AutoMix ni sobre el archivo de una mezcla.
+    private func preattachVideoIfAllowed(videoId: String) async {
+        func allowed() -> Bool {
+            let settings = SettingsStore.shared
+            return settings.videoPreloadEnabled && fullPlayerVisible && NowPlaying.shared.videoId == videoId
+                && NowPlaying.shared.hasVideo && !NowPlaying.shared.isVideoMode
+                && !muxedActive && !videoModeSwitchInFlight
+                && timeline == nil && gaplessStage == 0 && !AutoMixEngine.shared.isActive
+                && NetworkMonitor.shared.hasConnection
+                && (DownloadManager.shared.isOnWiFiNow || settings.videoPreloadUsesMobileData)
+        }
+        guard allowed() else { return }
+        // Un momento, para no pelearse con la carga de la cancion que acaba de empezar.
+        try? await Task.sleep(nanoseconds: 1_200_000_000)
+        guard allowed() else { return }
+        let started = Date()
+        let ok = await ensureVideoAttached(videoId: videoId)
+        PlaybackReport.record(String(
+            format: "video: precarga de %@ %@ (%.1f s)", videoId, ok ? "lista" : "no se pudo", Date().timeIntervalSince(started)
+        ))
     }
 
     private func isVideoPrerendered(videoId: String) -> Bool {

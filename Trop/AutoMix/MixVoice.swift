@@ -24,10 +24,6 @@ enum MixRenderer {
         let extra: TimeInterval
     }
 
-    /// Segundos de la entrante que se dejan en el archivo despues de la mezcla, para elegir dentro de ellos el momento
-    /// mas flojo donde mpv cambia de archivo (el cambio puede dejar un hueco de unas decenas de milisegundos, que asi
-    /// cae sobre algo casi silencioso).
-    nonisolated static let tailSeconds = 4.0
     /// Lo mas que se guarda de la entrante detras de la mezcla (en segundos): 8 minutos.
     nonisolated static let maxRestSeconds = 480.0
 
@@ -284,50 +280,6 @@ enum MixRenderer {
             try? FileManager.default.removeItem(at: url)
             return nil
         }
-    }
-
-    /// Fotograma, dentro de `from..<to`, donde la entrante suena mas floja (ventana de 30 ms), ajustado al paso por cero
-    /// mas cercano.
-    nonisolated private static func quietestFrame(_ channels: [[Float]], from: Int, to: Int, rate: Double) -> Int {
-        let total = channels[0].count
-        let start = min(max(from, 0), total - 1)
-        let end = min(max(to, start + 1), total)
-        let hop = max(Int(0.005 * rate), 1)
-        let window = 6
-        // Energia por tramos de 5 ms (mono).
-        var energy: [Double] = []
-        var i = start
-        while i + hop <= end {
-            var sum = 0.0
-            for frame in i..<(i + hop) {
-                let v = Double(channels[0][frame] + channels[1][frame]) * 0.5
-                sum += v * v
-            }
-            energy.append(sum)
-            i += hop
-        }
-        guard energy.count > window else { return min(start + Int(0.5 * rate), end) }
-        var best = 0
-        var bestValue = Double.infinity
-        for k in 0...(energy.count - window) {
-            let value = energy[k..<(k + window)].reduce(0, +)
-            if value < bestValue {
-                bestValue = value
-                best = k
-            }
-        }
-        var center = start + (best + window / 2) * hop
-        // Paso por cero: dentro de +-3 ms, el fotograma con menos amplitud.
-        let span = Int(0.003 * rate)
-        var lowest = Float.infinity
-        for frame in max(center - span, start)...min(center + span, end - 1) {
-            let level = abs(channels[0][frame]) + abs(channels[1][frame])
-            if level < lowest {
-                lowest = level
-                center = frame
-            }
-        }
-        return min(max(center, start), end)
     }
 
     // MARK: - Filtros (biquad RBJ) y curvas

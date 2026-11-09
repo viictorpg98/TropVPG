@@ -13,6 +13,8 @@ struct TropApp: App {
     @State private var settings = SettingsStore.shared
 
     init() {
+        // La base de datos se abre en segundo plano al arrancar, no la primera vez que una pantalla la pide en el hilo principal.
+        Task.detached(priority: .userInitiated) { _ = DatabaseService.shared }
         // El informe de reproduccion empieza de cero en cada arranque de la app.
         PlaybackReport.clear()
         PlaybackReport.record("app iniciada")
