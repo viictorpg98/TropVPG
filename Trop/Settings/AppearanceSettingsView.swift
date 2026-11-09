@@ -46,10 +46,12 @@ struct AppearanceSettingsView: View {
                     }
                 }
                 .padding(.vertical, 4)
+
+                SettingsToggleRow("Accent Follows the Song", icon: "paintpalette", isOn: $settings.accentFollowsSong)
             } header: {
                 Text("Accent Color")
             } footer: {
-                Text("Applies to buttons, highlights, and selected items.")
+                Text("Applies to buttons, highlights, and selected items. With \"Accent Follows the Song\" on, the accent takes the color of the cover that is playing; the one you pick here is used when nothing is playing or the cover has no color.")
             }
 
             Section {

@@ -42,8 +42,21 @@ struct MiniPlayerBarView: View {
         58
     }
 
-    private var artworkSize: CGFloat {
-        44
+    /// Ancho de la carátula: ocupa toda la altura de la tarjeta, pegada a su borde izquierdo, y se difumina hacia el color
+    /// de la tarjeta (como en Apple Music).
+    private var artworkWidth: CGFloat {
+        82
+    }
+
+    private var artworkFade: LinearGradient {
+        LinearGradient(
+            stops: [
+                .init(color: .black, location: 0),
+                .init(color: .black, location: 0.48),
+                .init(color: .clear, location: 1)
+            ],
+            startPoint: .leading, endPoint: .trailing
+        )
     }
 
     /// Sobre el color de la carátula el texto es siempre blanco, como en el reproductor grande.
@@ -133,16 +146,14 @@ struct MiniPlayerBarView: View {
                     .blur(radius: 4 * (1 - amount))
             }
         }
-        // El margen va DENTRO del ancho de la pagina: antes la pagina medía 14 puntos de mas y, al estar las vecinas
-        // pegadas, el final del titulo de la cancion anterior asomaba por el borde izquierdo.
-        .padding(.leading, 14)
+        // La carátula va pegada al borde izquierdo de la tarjeta (sin margen).
         .frame(width: width, alignment: .leading)
         .clipped()
         .contentShape(Rectangle())
     }
 
     private func pageContent(for song: SongItem) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 0) {
             barArtwork(for: song)
 
             VStack(alignment: .leading, spacing: 0) {
@@ -159,12 +170,13 @@ struct MiniPlayerBarView: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
+            .padding(.leading, 2)
         }
     }
 
     /// La cancion que entra en una mezcla (lo que el reproductor grande ya tiene preparado).
     private var incomingPageContent: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 0) {
             ZStack {
                 if let image = visuals.incomingImage {
                     Image(uiImage: image)
@@ -174,8 +186,9 @@ struct MiniPlayerBarView: View {
                     Color.white.opacity(0.12)
                 }
             }
-            .frame(width: artworkSize, height: artworkSize)
-            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            .frame(width: artworkWidth, height: barHeight)
+            .clipped()
+            .mask(artworkFade)
 
             VStack(alignment: .leading, spacing: 0) {
                 MarqueeText(
@@ -190,6 +203,7 @@ struct MiniPlayerBarView: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
+            .padding(.leading, 2)
         }
     }
 
@@ -205,8 +219,9 @@ struct MiniPlayerBarView: View {
                 MiniArtworkView(song: song)
             }
         }
-        .frame(width: artworkSize, height: artworkSize)
-        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .frame(width: artworkWidth, height: barHeight)
+        .clipped()
+        .mask(artworkFade)
     }
 
     private var playPauseButton: some View {

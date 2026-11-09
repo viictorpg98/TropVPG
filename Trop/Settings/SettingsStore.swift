@@ -140,12 +140,32 @@ final class SettingsStore {
         didSet { Self.defaults.set(themeMode.rawValue, forKey: Keys.themeMode) }
     }
 
-    var accentColor: Color = AccentPreset.all[0].color
+    /// El color de acento elegido en Ajustes (el de respaldo cuando no hay uno sacado de la canción).
+    var presetAccent: Color = AccentPreset.all[0].color
+
+    /// El acento que usa toda la app: el sacado de la carátula de la canción que suena (si el ajuste esta activo y la
+    /// carátula tiene color) o, si no, el elegido en Ajustes.
+    var accentColor: Color {
+        accentFollowsSong ? (dynamicAccent ?? presetAccent) : presetAccent
+    }
+
+    /// El acento sacado de la carátula que suena; `nil` si no suena nada o la carátula es casi gris.
+    var dynamicAccent: Color?
+
+    /// El acento de la app sigue el color de la canción que suena.
+    var accentFollowsSong: Bool {
+        didSet { Self.defaults.set(accentFollowsSong, forKey: Keys.accentFollowsSong) }
+    }
+
+    /// Cambia el acento de la canción con un fundido suave.
+    func setDynamicAccent(_ color: Color?) {
+        withAnimation(.easeInOut(duration: 0.8)) { dynamicAccent = color }
+    }
 
     var accentName: String {
         didSet {
             Self.defaults.set(accentName, forKey: Keys.accentName)
-            accentColor = AccentPreset.all.first { $0.name == accentName }?.color ?? AccentPreset.all[0].color
+            presetAccent = AccentPreset.all.first { $0.name == accentName }?.color ?? AccentPreset.all[0].color
         }
     }
 
@@ -425,6 +445,7 @@ final class SettingsStore {
         static let autoMixEnabled = "settings.autoMixEnabled"
         static let autoMixUsesMobileData = "settings.autoMixUsesMobileData"
         static let autoMixLearns = "settings.autoMixLearns"
+        static let accentFollowsSong = "settings.accentFollowsSong"
         static let fullWidthArtwork = "settings.fullWidthArtwork"
         static let animatedArtworkEnabled = "settings.animatedArtworkEnabled"
         static let preferAppleCovers = "settings.preferAppleCovers"
@@ -480,9 +501,10 @@ final class SettingsStore {
     private init() {
         let d = Self.defaults
         themeMode = Self.loadEnum(Keys.themeMode, default: .system)
-        accentColor = AccentPreset.all
+        presetAccent = AccentPreset.all
             .first { $0.name == (d.string(forKey: Keys.accentName) ?? AccentPreset.all[0].name) }?
             .color ?? AccentPreset.all[0].color
+        accentFollowsSong = Self.load(Keys.accentFollowsSong, default: true)
         accentName = d.string(forKey: Keys.accentName) ?? AccentPreset.all[0].name
         playerBackgroundStyle = Self.loadEnum(Keys.playerBackgroundStyle, default: .dynamic)
         // Migrated when Explore took index 2 (was Search): stored 2 → 3.
