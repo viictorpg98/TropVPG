@@ -226,6 +226,8 @@ actor PlaybackManager {
     }
 
     private func playNetworkResult(_ result: PlaybackResult, videoId: String) async {
+        // Para el informe: si la direccion lleva el token (&pot=) que pide YouTube a los clientes web.
+        PlaybackReport.record("direccion de \(videoId): token pot \(result.streamUrl.contains("pot=") ? "si" : "NO")")
         let queueSong = await queueSong(for: videoId)
         await PlayerController.shared.play(
             url: result.streamUrl,

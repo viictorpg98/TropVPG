@@ -60,6 +60,12 @@ final class TrackAnalysisStore {
     func request(_ videoId: String) {
         guard !isSettled(videoId), !queued.contains(videoId) else { return }
         if let later = retryAfter[videoId], later > Date() { return }
+        // En streaming hay que pedir su direccion a YouTube: no se hace mientras se resuelve una cancion ni en los
+        // segundos siguientes a un cambio (varias peticiones a la vez dejaban sin direccion valida a la que se quiere oir).
+        if !DownloadManager.shared.isDownloaded(videoId: videoId) {
+            if NowPlaying.shared.isBusyResolving { return }
+            if Date().timeIntervalSince(AutoMixEngine.shared.lastSongChange) < 12 { return }
+        }
         queued.append(videoId)
         drain()
     }

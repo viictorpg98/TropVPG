@@ -379,7 +379,9 @@ final class NowPlaying {
 
     func stopped(videoId: String?, isEof: Bool = true) {
         guard self.videoId == videoId else { return }
-        if let skipTime = lastManualSkipTime, Date().timeIntervalSince(skipTime) < 2, isResolvingNext {
+        // Un error es de esta cancion (el fin de la anterior no llega como error): antes, si llegaba a menos de 2 s de un
+        // salto manual, se descartaba y la cancion se quedaba sin cargar sin reintentarlo.
+        if isEof, let skipTime = lastManualSkipTime, Date().timeIntervalSince(skipTime) < 2, isResolvingNext {
             return
         }
         guard isEof else {
@@ -545,10 +547,12 @@ final class NowPlaying {
             return
         }
         if let last = lastFailureAt[videoId], Date().timeIntervalSince(last) < 30 {
+            PlaybackReport.record("reproductor: \(videoId) fallo otra vez en menos de 30 s, no se reintenta")
             isPlaying = false
             return
         }
         lastFailureAt[videoId] = Date()
+        PlaybackReport.record("reproductor: \(videoId) no cargo, se pide de nuevo comprobando todas las direcciones")
         isPlaying = false
         Log.nowPlaying.notice("Stream failed mid-play, re-resolving \(videoId)")
         Task {

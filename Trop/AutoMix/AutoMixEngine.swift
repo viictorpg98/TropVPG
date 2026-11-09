@@ -354,7 +354,12 @@ final class AutoMixEngine {
     }
 
     /// Para cuando el usuario cambia de cancion a mano o se vacia la cola.
+    /// Cuando se pidio la ultima cancion: el analisis en streaming espera un poco para no pedir direcciones a YouTube a la vez que
+    /// la reproduccion que se acaba de pedir.
+    private(set) var lastSongChange = Date.distantPast
+
     func songChanged() {
+        lastSongChange = Date()
         if phase != .idle {
             let controller = PlayerController.shared
             controller.disarmGaplessMix()
