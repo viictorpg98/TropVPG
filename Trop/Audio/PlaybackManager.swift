@@ -13,6 +13,9 @@ actor PlaybackManager {
     static let shared = PlaybackManager()
 
     private var inflightResolutions: [String: Task<PlaybackResult, Error>] = [:]
+    /// Canciones cuya resolucion en curso SI va a reproducirse al terminar (la lanzo `resolveAndPlay`). Las otras
+    /// (`resolve`: onda de la barra, analisis de AutoMix...) solo piden la direccion y no reproducen nada.
+    private var playingResolutions: Set<String> = []
     private static let lastClientKey = "playback.lastWorkingClient"
     /// Desde esta duracion un contenido se trata como "largo" (podcasts, directos grabados...).
     private static let longContentSeconds = 20 * 60
@@ -81,14 +84,26 @@ actor PlaybackManager {
         }
 
         if let existing = inflightResolutions[videoId] {
-            return try await existing.value
+            let existingPlays = playingResolutions.contains(videoId)
+            let result = try await existing.value
+            if !existingPlays {
+                // La resolucion en curso solo pedia la direccion (onda, analisis de AutoMix...) y no reproduce: antes se
+                // devolvia sin mas y la cancion elegida no sonaba. Se reproduce aqui el resultado.
+                PlaybackReport.record("reproducir \(videoId): se unio a una resolucion que no reproducia, se reproduce ahora")
+                await playNetworkResult(result, videoId: videoId)
+            }
+            return result
         }
 
         let task = Task { [self] in
             try await resolveAndPlayFromNetwork(videoId: videoId)
         }
         inflightResolutions[videoId] = task
-        defer { clearInflight(key: videoId) }
+        playingResolutions.insert(videoId)
+        defer {
+            clearInflight(key: videoId)
+            playingResolutions.remove(videoId)
+        }
         do {
             return try await task.value
         } catch {

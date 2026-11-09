@@ -223,6 +223,7 @@ extension PlayerController {
 
         let skipStart = await SponsorBlockIntegration.shared.preloadedStartOffset(for: videoId)
         guard NowPlaying.shared.videoId == videoId else {
+            PlaybackReport.record("reproducir: descartada \(videoId ?? "?"), ahora es \(NowPlaying.shared.videoId ?? "nada")")
             return
         }
 
@@ -275,6 +276,7 @@ extension PlayerController {
         } ?? -1
         if cmdResult != 0 {
             Log.player.error("mpv_command loadfile failed result=\(cmdResult)")
+            PlaybackReport.record("reproducir: loadfile de \(videoId ?? "?") fallo (codigo \(cmdResult))")
             pendingVideoId = nil
             return
         }
