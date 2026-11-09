@@ -260,10 +260,9 @@ struct FullPlayerView: View {
             .padding(.bottom, 6)
 
         Group {
-            if AutoMixVisuals.shared.isMixing {
-                AutoMixPill()
-            } else if AutoMixVisuals.shared.preparingManual {
-                AutoMixPill(preparing: true)
+            if AutoMixVisuals.shared.isMixing || AutoMixVisuals.shared.preparingManual {
+                // El estado de la mezcla lo muestra el propio boton de Mezclar (sin otro aviso encima de la onda).
+                Color.clear
             } else if MixFeedbackStore.shared.pending != nil {
                 MixFeedbackPill()
             } else {
@@ -316,6 +315,11 @@ struct FullPlayerView: View {
         }
     }
 
+    /// 0 = Mezclar, 1 = preparando, 2 = sonando la mezcla (para animar la fila cuando el boton cambia de tamaño).
+    private var mixPillMode: Int {
+        AutoMixVisuals.shared.isMixing ? 2 : (AutoMixVisuals.shared.preparingManual ? 1 : 0)
+    }
+
     /// Me gusta, No me gusta, Mezclar ya, Guardar y Descargar: una sola fila que se desliza entera.
     private var actionPills: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -341,15 +345,10 @@ struct FullPlayerView: View {
                     if willDislike, np.hasNext { np.playNext() }
                 }
 
-                // Mezclar ya con la siguiente (AutoMix la prepara y empieza en unos segundos).
-                if settings.autoMixEnabled, np.hasNext, !AutoMixVisuals.shared.isMixing {
-                    PlayerPillButton(
-                        systemImage: "wand.and.stars",
-                        title: AutoMixVisuals.shared.preparingManual ? "Preparing…" : "Mix now",
-                        isActive: AutoMixVisuals.shared.preparingManual,
-                        accessibility: "Mix now",
-                        pulses: AutoMixVisuals.shared.preparingManual
-                    ) {
+                // Mezclar con la siguiente. El propio boton cuenta lo que pasa: se prepara, y luego, mientras suena la
+                // mezcla, se convierte en "AutoMix" con las ondas; al acabar vuelve a ser "Mezclar" (no se oculta ni aparece).
+                if settings.autoMixEnabled, np.hasNext || AutoMixVisuals.shared.isMixing {
+                    MixNowPill {
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                         AutoMixEngine.shared.mixNow()
                     }
@@ -369,6 +368,7 @@ struct FullPlayerView: View {
                 }
             }
             .padding(.horizontal, 18)
+            .animation(.smooth(duration: 0.4), value: mixPillMode)
         }
         .frame(height: 38)
         // La fila se extiende 18 pt por cada lado y se difumina igual por los dos: en reposo el primer boton queda
@@ -765,6 +765,60 @@ private struct ActiveLyricLine: View {
         } else {
             Color.clear
         }
+    }
+}
+
+// MARK: - Boton de Mezclar (cambia de estado en su sitio)
+
+private struct MixNowPill: View {
+    let action: () -> Void
+    private let visuals = AutoMixVisuals.shared
+
+    private enum Mode { case idle, preparing, mixing }
+
+    private var mode: Mode {
+        visuals.isMixing ? .mixing : (visuals.preparingManual ? .preparing : .idle)
+    }
+
+    private func title(_ mode: Mode) -> String {
+        switch mode {
+        case .idle: return "Mix now"
+        case .preparing: return "Preparing…"
+        case .mixing: return "AutoMix"
+        }
+    }
+
+    var body: some View {
+        let mode = mode
+        Button {
+            if mode == .idle { action() }
+        } label: {
+            HStack(spacing: 6) {
+                if mode == .mixing {
+                    AutoMixWaves()
+                        .transition(.opacity)
+                } else {
+                    Image(systemName: "wand.and.stars")
+                        .font(.system(size: 16, weight: .semibold))
+                        .symbolEffect(.variableColor.iterative, isActive: mode == .preparing)
+                        .transition(.opacity)
+                }
+                Text(LocalizedStringKey(title(mode)))
+                    .font(.system(size: 14, weight: .semibold))
+                    .lineLimit(1)
+                    .fixedSize()
+                    .contentTransition(.opacity)
+            }
+            .foregroundStyle(mode == .preparing ? Color.black : Color.white)
+            .padding(.horizontal, 16)
+            .frame(height: 38)
+            .background(Capsule().fill(mode == .preparing ? Color.white : Color.clear))
+            .glassEffect(.regular.interactive(), in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(mode == .mixing)
+        .animation(.smooth(duration: 0.4), value: mode)
+        .accessibilityLabel(Text("Mix now"))
     }
 }
 

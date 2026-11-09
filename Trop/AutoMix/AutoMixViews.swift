@@ -308,7 +308,7 @@ struct AutoMixPill: View {
         HStack(spacing: 8) {
             Image(systemName: "wand.and.stars")
                 .font(.system(size: 12, weight: .semibold))
-            waves
+            AutoMixWaves()
             Text(LocalizedStringKey(preparing ? "Preparing the mix…" : "AutoMix"))
                 .font(.caption.weight(.semibold))
         }
@@ -320,8 +320,15 @@ struct AutoMixPill: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("AutoMix")
     }
+}
 
-    private var waves: some View {
+/// Las cinco barras que suben y bajan (y laten con el pulso de la mezcla): el "se esta mezclando" del reproductor.
+struct AutoMixWaves: View {
+    var color: Color = .white
+    private let visuals = AutoMixVisuals.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 24.0, paused: reduceMotion)) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
             let beat = visuals.pulsing ? exp(-visuals.beatPhase * 6) : 0
@@ -329,7 +336,7 @@ struct AutoMixPill: View {
                 ForEach(0..<5, id: \.self) { i in
                     let wave = reduceMotion ? 0.6 : 0.25 + 0.75 * abs(sin(t * 2.6 + Double(i) * 0.9))
                     Capsule()
-                        .fill(.white)
+                        .fill(color)
                         .frame(width: 3, height: 4 + 12 * wave * (0.7 + 0.3 * beat))
                 }
             }
