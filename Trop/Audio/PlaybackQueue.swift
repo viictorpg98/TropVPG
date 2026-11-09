@@ -16,11 +16,29 @@ enum PlaybackQueue {
     static func play(_ songs: [SongItem], startIndex: Int = 0, log: AppLogger, context: String) {
         guard !songs.isEmpty else { return }
         let index = min(max(startIndex, 0), songs.count - 1)
-        let first = songs[index]
-        NowPlaying.shared.setQueue(songs, startIndex: index)
+        let store = AudioCounterpartStore.shared
+        // Un video que tiene version de audio suena como audio (como hace YouTube Music). Si aun no se ha mirado, se mira ahora,
+        // con un limite de espera para no retrasar el sonido.
+        if store.needsLookup(songs[index]) {
+            loggedTask(log, "\(context) failed") {
+                let first = await store.resolve(songs[index])
+                start(songs, index: index, first: first)
+                try await PlaybackManager.shared.resolveAndPlay(videoId: first.videoId)
+            }
+            return
+        }
+        let first = store.preferAudio(songs[index])
+        start(songs, index: index, first: first)
         loggedTask(log, "\(context) failed") {
             try await PlaybackManager.shared.resolveAndPlay(videoId: first.videoId)
         }
+    }
+
+    /// Pone la cola con `first` en el sitio de la cancion elegida.
+    private static func start(_ songs: [SongItem], index: Int, first: SongItem) {
+        var list = songs
+        list[index] = first
+        NowPlaying.shared.setQueue(list, startIndex: index)
     }
 
     /// Shuffled variant of `play(_:startIndex:)`.
@@ -61,6 +79,7 @@ enum PlaybackQueue {
             guard NowPlaying.shared.videoId == song.videoId else { return }
             NowPlaying.shared.queueSongs = preservingArtists(radio.songs, over: NowPlaying.shared.queueSongs)
             NowPlaying.shared.queueIndex = radio.currentIndex
+            NowPlaying.shared.applyAudioVersions()
         }
     }
 
@@ -76,6 +95,19 @@ enum PlaybackQueue {
             }
             return
         }
+        // Si es un video con version de audio, suena el audio (se mira antes si hace falta, con un limite de espera).
+        let store = AudioCounterpartStore.shared
+        if store.needsLookup(song) {
+            Task { @MainActor in
+                let resolved = await store.resolve(song)
+                startSingleWithRadio(resolved, log: log)
+            }
+        } else {
+            startSingleWithRadio(store.preferAudio(song), log: log)
+        }
+    }
+
+    private static func startSingleWithRadio(_ song: SongItem, log: AppLogger) {
         NowPlaying.shared.setQueue([song], startIndex: 0)
         Task { @MainActor in
             do {
@@ -89,6 +121,7 @@ enum PlaybackQueue {
                   NowPlaying.shared.videoId == song.videoId else { return }
             NowPlaying.shared.queueSongs = preservingArtists(radio.songs, over: NowPlaying.shared.queueSongs)
             NowPlaying.shared.queueIndex = radio.currentIndex
+            NowPlaying.shared.applyAudioVersions()
         }
     }
 
@@ -104,7 +137,8 @@ enum PlaybackQueue {
 
     private static func preservingArtists(_ songs: [SongItem], over current: [SongItem]) -> [SongItem] {
         guard !current.isEmpty else { return songs }
-        let existingById = Dictionary(uniqueKeysWithValues: current.map { ($0.videoId, $0) })
+        // Con la misma cancion dos veces en la cola, `uniqueKeysWithValues` cerraria la app: se queda con la primera.
+        let existingById = Dictionary(current.map { ($0.videoId, $0) }, uniquingKeysWith: { first, _ in first })
         return songs.map { song in
             guard let old = existingById[song.videoId], old.artists.count > song.artists.count else { return song }
             var merged = song

@@ -137,6 +137,29 @@ final class NowPlaying {
         originalQueue = nil
         isShuffleOn = false
         persistQueueState()
+        applyAudioVersions()
+    }
+
+    /// En lo que queda por sonar, cambia los videos que tienen version de audio por esa version (como hace YouTube Music por
+    /// defecto) y pide la de los que aun no se han mirado; cuando llegue, se vuelve a aplicar. La que suena no se toca.
+    func applyAudioVersions() {
+        guard !queueSongs.isEmpty else { return }
+        let store = AudioCounterpartStore.shared
+        let start = min(queueIndex + 1, queueSongs.count)
+        var songs = queueSongs
+        var changed = false
+        for index in start..<songs.count {
+            let swapped = store.preferAudio(songs[index])
+            if swapped.videoId != songs[index].videoId {
+                songs[index] = swapped
+                changed = true
+            }
+        }
+        store.prefetch(Array(songs[start...]))
+        if changed {
+            queueSongs = songs
+            persistQueueState()
+        }
     }
 
     /// Ensures `queueIndex` points at a valid entry
@@ -429,6 +452,7 @@ final class NowPlaying {
                 self.queueSongs = songs
                 self.queueIndex = 0
                 self.isShuffleOn = false
+                self.applyAudioVersions()
                 let first = songs[0]
                 update(with: first)
                 try await PlaybackManager.shared.resolveAndPlay(videoId: first.videoId)

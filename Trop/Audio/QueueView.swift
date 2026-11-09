@@ -332,7 +332,7 @@ struct QueueSongRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AsyncImageView(url: AudioCounterpartStore.shared.thumbnailURL(for: song))
+            AsyncImageView(url: song.thumbnailUrl)
                 .frame(width: 44, height: 44)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 .opacity(isPlayed ? 0.5 : 1)

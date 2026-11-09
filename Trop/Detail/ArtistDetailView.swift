@@ -580,7 +580,7 @@ struct ArtistDetailView: View {
             ForEach(Array(songs.enumerated()), id: \.offset) { index, song in
                                 Button(action: { playSong(song) }, label: {
                     HStack(spacing: 12) {
-                        AsyncImageView(url: AudioCounterpartStore.shared.thumbnailURL(for: song))
+                        AsyncImageView(url: song.thumbnailUrl)
                             .frame(width: 40, height: 40)
                             .clipShape(RoundedRectangle(cornerRadius: 4))
 
@@ -662,7 +662,7 @@ struct ArtistDetailView: View {
                 let video = videos[i]
                 Button(action: { playVideo(video) }, label: {
                     VStack(alignment: .leading, spacing: 6) {
-                        AsyncImageView(url: video.thumbnailUrl)
+                        AsyncImageView(url: video.thumbnailUrl, keepsVideoFrame: true)
                             .frame(width: 200, height: 112)
                             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                         Text(video.title)

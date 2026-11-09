@@ -11,8 +11,17 @@ import SwiftUI
 struct AsyncImageView: View {
     let url: String?
     var contentMode: ContentMode = .fill
+    /// Videos y episodios a proposito: su miniatura es el fotograma y no se cambia por la caratula del audio.
+    var keepsVideoFrame = false
     @Environment(\.displayScale) private var displayScale
     @State private var loadedImage: UIImage?
+
+    /// La miniatura que se dibuja: si es un fotograma de un video que tiene version de audio, la caratula de esa version
+    /// (se pide en segundo plano y la vista se actualiza sola cuando llega).
+    private var shownURL: String? {
+        guard !keepsVideoFrame else { return url }
+        return AudioCounterpartStore.shared.thumbnailOverride(forFrame: url) ?? url
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -27,14 +36,14 @@ struct AsyncImageView: View {
                     placeholderView
                 }
             }
-            .task(id: url) {
+            .task(id: shownURL) {
                 await loadImage(targetSize: geometry.size)
             }
         }
     }
 
     private func loadImage(targetSize: CGSize) async {
-        guard let urlString = url else {
+        guard let urlString = shownURL else {
             loadedImage = nil
             return
         }

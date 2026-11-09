@@ -89,7 +89,7 @@ struct SongRowView: View {
 
     var body: some View {
         HStack(spacing: DesignTokens.rowSpacing) {
-            AsyncImageView(url: AudioCounterpartStore.shared.thumbnailURL(for: song))
+            AsyncImageView(url: song.thumbnailUrl, keepsVideoFrame: song.isVideo == true)
                 .frame(width: artSize, height: artSize)
                 .clipShape(RoundedRectangle(cornerRadius: artRadius, style: .continuous))
 

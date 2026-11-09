@@ -150,7 +150,7 @@ struct SongMenuSheet: View {
 
     private var headerCard: some View {
         HStack(spacing: 12) {
-            AsyncImageView(url: AudioCounterpartStore.shared.thumbnailURL(for: song))
+            AsyncImageView(url: song.thumbnailUrl)
                 .frame(width: 48, height: 48)
                 .clipShape(RoundedRectangle(cornerRadius: 4))
 
