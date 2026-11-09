@@ -12,8 +12,6 @@ enum AutoMixSource {
     struct Source {
         let url: URL
         let isLocal: Bool
-        /// Sonoridad de la cancion (para la normalizacion de volumen), si se conoce.
-        var loudnessDb: Double?
     }
 
     /// Se puede decodificar una cancion en streaming: hay red y, si no es Wi-Fi, el usuario ha permitido los datos moviles.
@@ -34,7 +32,7 @@ enum AutoMixSource {
         guard streamingAllowed else { return nil }
         guard let result = try? await PlaybackManager.shared.resolve(videoId: videoId),
               let url = URL(string: result.streamUrl) else { return nil }
-        return Source(url: url, isLocal: false, loudnessDb: result.loudnessDb)
+        return Source(url: url, isLocal: false)
     }
 
     nonisolated static let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15" +
