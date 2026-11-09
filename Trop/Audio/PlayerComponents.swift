@@ -13,7 +13,29 @@ struct ProgressBar: View {
     @Binding var progress: Float
     let accentColor: Color
     let isPlaying: Bool
+    /// Forma de onda de la cancion (0...1): si hay, la barra se dibuja como onda.
+    var waveform: [Float]?
+    /// Donde (0...1) empezara la proxima mezcla de AutoMix, si se sabe.
+    var markerFraction: Double?
     let onEditingChanged: (Bool) -> Void
+
+    init(
+        progress: Binding<Float>,
+        accentColor: Color,
+        isPlaying: Bool,
+        waveform: [Float]? = nil,
+        markerFraction: Double? = nil,
+        onEditingChanged: @escaping (Bool) -> Void
+    ) {
+        _progress = progress
+        self.accentColor = accentColor
+        self.isPlaying = isPlaying
+        self.waveform = waveform
+        self.markerFraction = markerFraction
+        self.onEditingChanged = onEditingChanged
+    }
+
+    private var hasWaveform: Bool { !(waveform ?? []).isEmpty }
 
     var body: some View {
         GeometryReader { geo in
@@ -21,15 +43,19 @@ struct ProgressBar: View {
             let elapsedWidth = max(0, min(width, width * CGFloat(progress)))
 
             ZStack(alignment: .leading) {
-                // Remaining track (unwatched)
-                Capsule()
-                    .fill(.white.opacity(0.15))
-                    .frame(height: 6)
+                if hasWaveform, let waveform {
+                    waveformCanvas(waveform)
+                } else {
+                    // Remaining track (unwatched)
+                    Capsule()
+                        .fill(.white.opacity(0.15))
+                        .frame(height: 6)
 
-                // Elapsed track (watched, marked)
-                Capsule()
-                    .fill(.white.opacity(0.8))
-                    .frame(width: elapsedWidth, height: 6)
+                    // Elapsed track (watched, marked)
+                    Capsule()
+                        .fill(.white.opacity(0.8))
+                        .frame(width: elapsedWidth, height: 6)
+                }
             }
             .contentShape(Rectangle())
             .gesture(
@@ -45,7 +71,49 @@ struct ProgressBar: View {
                     }
             )
         }
-        .frame(height: 12)
+        .frame(height: hasWaveform ? 34 : 12)
+    }
+
+    /// La onda: las barras ya sonadas en blanco y las que faltan apagadas; una linea marca dónde está, y un rombo dónde
+    /// empezará la próxima mezcla.
+    private func waveformCanvas(_ levels: [Float]) -> some View {
+        Canvas { context, size in
+            let count = levels.count
+            let slot = size.width / CGFloat(count)
+            let played = CGFloat(progress)
+            for index in 0..<count {
+                let height = max(3, CGFloat(levels[index]) * size.height)
+                let x = CGFloat(index) * slot
+                let rect = CGRect(x: x + slot * 0.2, y: (size.height - height) / 2, width: slot * 0.6, height: height)
+                let isPlayed = (CGFloat(index) + 0.5) / CGFloat(count) <= played
+                context.fill(
+                    Path(roundedRect: rect, cornerRadius: slot * 0.3),
+                    with: .color(isPlayed ? Color.white.opacity(0.95) : Color.white.opacity(0.27))
+                )
+            }
+            // Donde va.
+            let head = size.width * played
+            context.fill(
+                Path(roundedRect: CGRect(x: head - 1, y: 0, width: 2, height: size.height), cornerRadius: 1),
+                with: .color(accentColor)
+            )
+            // Donde empezara la proxima mezcla.
+            if let markerFraction {
+                let x = size.width * CGFloat(markerFraction)
+                var diamond = Path()
+                diamond.move(to: CGPoint(x: x, y: 0))
+                diamond.addLine(to: CGPoint(x: x + 4, y: 4))
+                diamond.addLine(to: CGPoint(x: x, y: 8))
+                diamond.addLine(to: CGPoint(x: x - 4, y: 4))
+                diamond.closeSubpath()
+                context.fill(diamond, with: .color(accentColor))
+                context.fill(
+                    Path(CGRect(x: x - 0.5, y: 8, width: 1, height: size.height - 8)),
+                    with: .color(accentColor.opacity(0.5))
+                )
+            }
+        }
+        .allowsHitTesting(false)
     }
 }
 
@@ -62,6 +130,7 @@ struct PlayerPlayPauseButton: View {
                 .contentTransition(.symbolEffect(.replace))
         }
         .frame(width: 80, height: 80)
+        .glassEffect(.regular.interactive(), in: Circle())
         .accessibilityLabel(isPlaying ? "Pause" : "Play")
     }
 }

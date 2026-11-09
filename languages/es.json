@@ -585,5 +585,7 @@
   "Keep Video Ready": "Dejar el vídeo listo",
   "Keep Video Ready on Mobile Data": "Dejar el vídeo listo con datos móviles",
   "Video": "Vídeo",
-  "Keeps the music video ready behind the cover while the full player is open, so switching to video is instant. It downloads the video even if you never watch it, and uses more battery and data.": "Deja el vídeo del videoclip listo detrás de la carátula mientras el reproductor grande está abierto, para que pasar a vídeo sea instantáneo. Descarga el vídeo aunque nunca lo veas, y gasta más batería y datos."
+  "Keeps the music video ready behind the cover while the full player is open, so switching to video is instant. It downloads the video even if you never watch it, and uses more battery and data.": "Deja el vídeo del videoclip listo detrás de la carátula mientras el reproductor grande está abierto, para que pasar a vídeo sea instantáneo. Descarga el vídeo aunque nunca lo veas, y gasta más batería y datos.",
+  "Animated Background": "Fondo animado",
+  "Waveform Progress Bar": "Barra de progreso con onda"
 }

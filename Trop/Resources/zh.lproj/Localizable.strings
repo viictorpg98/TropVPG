@@ -38,6 +38,7 @@
 "Analysing songs…" = "Analysing songs…";
 "Animated Artwork" = "Animated Artwork";
 "Animated Artwork on Mobile Data" = "Animated Artwork on Mobile Data";
+"Animated Background" = "Animated Background";
 "App volume" = "应用音量";
 "Appearance" = "外观";
 "Applies to buttons, highlights, and selected items." = "应用于按钮、高亮和选中项目。";
@@ -573,6 +574,7 @@
 "Vocal" = "人声";
 "Waiting for login…" = "等待登录…";
 "Watching" = "观看中";
+"Waveform Progress Bar" = "Waveform Progress Bar";
 "When off, searches and playback are not recorded locally." = "关闭后，搜索和播放记录不会保存在本地。";
 "When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on." = "When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on.";
 "Which song?" = "Which song?";

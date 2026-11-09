@@ -38,6 +38,7 @@
 "Analysing songs…" = "Analizando canciones…";
 "Animated Artwork" = "Carátulas animadas";
 "Animated Artwork on Mobile Data" = "Carátulas animadas con datos móviles";
+"Animated Background" = "Fondo animado";
 "App volume" = "Volumen de la app";
 "Appearance" = "Apariencia";
 "Applies to buttons, highlights, and selected items." = "Se aplica a botones, resaltados y elementos seleccionados.";
@@ -573,6 +574,7 @@
 "Vocal" = "Vocal";
 "Waiting for login…" = "Esperando el inicio de sesión…";
 "Watching" = "Viendo";
+"Waveform Progress Bar" = "Barra de progreso con onda";
 "When off, searches and playback are not recorded locally." = "Si está desactivado, las búsquedas y reproducciones no se guardan en el dispositivo.";
 "When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on." = "Cuando queda poco espacio (menos de 3 GB), borra las descargas que llevas 3 meses sin escuchar. Las canciones que te gustan nunca se borran. Necesita tener activado el historial de reproducciones.";
 "Which song?" = "¿Qué canción?";

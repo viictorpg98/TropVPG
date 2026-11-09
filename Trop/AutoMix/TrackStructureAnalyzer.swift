@@ -18,7 +18,7 @@ struct SectionChange: Codable, Equatable {
 /// La forma de una cancion, medida de su propio audio. Todos los tiempos en milisegundos de la propia cancion.
 struct TrackStructure: Codable, Equatable {
     /// Sube cuando cambia el analisis, para volver a medir lo guardado con una version antigua.
-    static let currentVersion = 2
+    static let currentVersion = 3
 
     var version = TrackStructure.currentVersion
     var bpm: Double
@@ -35,6 +35,8 @@ struct TrackStructure: Codable, Equatable {
     var introEndMs: Int64?
     /// Donde acaba el ultimo estribillo, si le sigue una parte mas tranquila de como mucho 30 s.
     var lastChorusEndMs: Int64?
+    /// Forma de onda de toda la cancion (unas 160 barras, de 0 a 1) para la barra de progreso.
+    var waveform: [Float]?
 }
 
 /// Mide tempo, compases, secciones y silencios de una cancion. Entrada: toda la cancion en mono, 16 bits,
@@ -100,8 +102,27 @@ enum TrackStructureAnalyzer {
             lastSoundMs: toMs(last),
             musicEndMs: musicEndMs,
             introEndMs: introEndMs,
-            lastChorusEndMs: lastChorusEndMs
+            lastChorusEndMs: lastChorusEndMs,
+            waveform: waveform(full)
         )
+    }
+
+    /// Volumen de cada trozo de la cancion (raiz de la energia media), de 0 a 1 y realzado para que se vea bien.
+    private static func waveform(_ full: [Double], buckets: Int = 160) -> [Float] {
+        guard full.count >= buckets else { return [] }
+        let per = Double(full.count) / Double(buckets)
+        var levels = [Float](repeating: 0, count: buckets)
+        var peak: Float = 0.0001
+        for bucket in 0..<buckets {
+            let low = Int(Double(bucket) * per)
+            let high = max(low + 1, min(full.count, Int(Double(bucket + 1) * per)))
+            var sum = 0.0
+            for frame in low..<high { sum += full[frame] }
+            let level = Float((sum / Double(high - low)).squareRoot())
+            levels[bucket] = level
+            peak = max(peak, level)
+        }
+        return levels.map { Float(pow(Double($0 / peak), 0.55)) }
     }
 
     // MARK: - Utilidades

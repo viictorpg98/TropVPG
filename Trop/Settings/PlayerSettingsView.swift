@@ -34,6 +34,8 @@ struct PlayerSettingsView: View {
 
             Section {
                 SettingsToggleRow("Full-Width Artwork", icon: "rectangle.portrait.topthird.inset.filled", isOn: $settings.fullWidthArtwork)
+                SettingsToggleRow("Animated Background", icon: "sparkles", isOn: $settings.liveBackground)
+                SettingsToggleRow("Waveform Progress Bar", icon: "waveform", isOn: $settings.waveformProgressBar)
             } header: {
                 Text("Layout")
             } footer: {

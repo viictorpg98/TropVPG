@@ -186,6 +186,8 @@ struct FullPlayerView: View {
             MixAwareArtwork(
                 width: fullSize.width, height: fullSize.height, topExtension: topInset + handle, fullBleed: true, content: artwork
             )
+            .brightness(np.isPlaying ? 0 : -0.14)
+            .animation(.easeInOut(duration: 0.4), value: np.isPlaying)
             .padding(.top, -(topInset + handle))
 
             Spacer(minLength: isCompact ? 4 : 10)
@@ -193,6 +195,8 @@ struct FullPlayerView: View {
             Spacer(minLength: 0)
 
             MixAwareArtwork(width: artSide, height: artSide, fullBleed: false, content: artwork)
+                .scaleEffect(np.isPlaying ? 1 : 0.88)
+                .animation(.spring(response: 0.5, dampingFraction: 0.62), value: np.isPlaying)
 
             Spacer(minLength: isCompact ? 10 : 18)
         }
@@ -238,6 +242,7 @@ struct FullPlayerView: View {
         )
         .scaleEffect(isCompact ? 0.94 : 1)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: np.isPlaying)
+        .sensoryFeedback(.impact(weight: .light), trigger: np.isPlaying)
         .padding(.bottom, isCompact ? 2 : 6)
 
         SecondaryActionsRow(
@@ -481,6 +486,8 @@ struct FullPlayerView: View {
                         .frame(width: geo.size.width, height: geo.size.height)
                         .clipped()
                 }
+                .id(np.thumbnailVersion)
+                .transition(.opacity)
             } else {
                 ZStack {
                     Color.white.opacity(0.1)
@@ -490,6 +497,7 @@ struct FullPlayerView: View {
                 }
             }
         }
+        .animation(.easeInOut(duration: 0.35), value: np.thumbnailVersion)
     }
 
     private func progressSlider(horizontalPadding: CGFloat) -> some View {
@@ -511,6 +519,14 @@ private struct PlayerProgressSection: View {
     private let player = PlayerController.shared
     private let np = NowPlaying.shared
     private let visuals = AutoMixVisuals.shared
+    @State private var waveform: [Float]?
+
+    /// Donde (0...1) empezara la proxima mezcla de la cancion que suena.
+    private var markerFraction: Double? {
+        guard let id = np.videoId, np.duration > 0, let start = AutoMixEngine.shared.plannedMixStart(for: id) else { return nil }
+        let fraction = start / np.duration
+        return (0.02...0.98).contains(fraction) ? fraction : nil
+    }
 
     var body: some View {
         Group {
@@ -531,6 +547,20 @@ private struct PlayerProgressSection: View {
             }
         }
         .padding(.horizontal, horizontalPadding)
+        .task(id: np.videoId) {
+            waveform = nil
+            guard SettingsStore.shared.waveformProgressBar, let id = np.videoId else { return }
+            // La onda sale del analisis de la cancion (el mismo que usa AutoMix): se espera a que este.
+            for _ in 0..<45 {
+                TrackAnalysisStore.shared.request(id)
+                if let wave = TrackAnalysisStore.shared.structure(for: id)?.waveform, !wave.isEmpty {
+                    waveform = wave
+                    return
+                }
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                guard !Task.isCancelled else { return }
+            }
+        }
     }
 
     private var currentBar: some View {
@@ -542,6 +572,8 @@ private struct PlayerProgressSection: View {
                 ),
                 accentColor: np.dominantColors.first ?? .white,
                 isPlaying: np.isPlaying,
+                waveform: SettingsStore.shared.waveformProgressBar ? waveform : nil,
+                markerFraction: markerFraction,
                 onEditingChanged: { editing in
                     if editing {
                         editingProgress = np.progress
@@ -679,7 +711,8 @@ private struct PlayerPillButton: View {
             .foregroundStyle(isActive ? Color.black : Color.white)
             .padding(.horizontal, 16)
             .frame(height: 38)
-            .background(Capsule().fill(isActive ? Color.white : Color.white.opacity(0.14)))
+            .background(Capsule().fill(isActive ? Color.white : Color.clear))
+            .glassEffect(.regular.interactive(), in: Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(LocalizedStringKey(accessibility)))

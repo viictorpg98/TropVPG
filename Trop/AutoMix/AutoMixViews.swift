@@ -244,6 +244,11 @@ struct MixAwareTitle: View {
     private let visuals = AutoMixVisuals.shared
 
     var body: some View {
+        content.animation(.smooth(duration: 0.45), value: videoId)
+    }
+
+    @ViewBuilder
+    private var content: some View {
         if visuals.isMixing, !visuals.incomingTitle.isEmpty {
             let r = reveal(visuals.progress)
             let out = 1 - smooth((r - 0.45) / 0.3)
@@ -259,7 +264,10 @@ struct MixAwareTitle: View {
                     .offset(y: 7 * (1 - incoming))
             }
         } else {
+            // Al cambiar de cancion, el titulo nuevo entra desenfocandose en lugar de saltar.
             block(title: title, artist: artist, videoId: videoId)
+                .id(videoId ?? title)
+                .transition(.blurReplace)
         }
     }
 
@@ -295,7 +303,7 @@ struct AutoMixPill: View {
         .foregroundStyle(.white)
         .padding(.horizontal, 14)
         .padding(.vertical, 7)
-        .background(.white.opacity(0.18), in: Capsule())
+        .glassEffect(.regular, in: Capsule())
         .frame(maxWidth: .infinity, alignment: .center)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("AutoMix")
@@ -412,9 +420,21 @@ struct PlayerGradientBackground: View {
         return [mix(current[0], next[0], e), mix(current[1], next[1], e)]
     }
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         let colors = colors
-        LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
+        Group {
+            if SettingsStore.shared.liveBackground {
+                // Fondo vivo: una malla de colores que se mueve despacio y late con el pulso durante una mezcla.
+                LiveMeshBackground(
+                    top: colors[0], bottom: colors[1],
+                    paused: reduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled
+                )
+            } else {
+                LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
+            }
+        }
             .ignoresSafeArea()
             .animation(visuals.isMixing ? nil : .easeInOut(duration: 0.8), value: colors)
             .overlay(alignment: .top) {
@@ -428,5 +448,58 @@ struct PlayerGradientBackground: View {
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
             }
+    }
+}
+
+/// Malla de 3x3 colores sacados de la carátula, con los puntos interiores moviendose despacio. El borde de arriba y el de
+/// abajo conservan el color de la carátula, asi se sigue fundiendo con ella sin corte.
+private struct LiveMeshBackground: View {
+    let top: Color
+    let bottom: Color
+    let paused: Bool
+
+    private let visuals = AutoMixVisuals.shared
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: paused)) { timeline in
+            let t = paused ? 0 : timeline.date.timeIntervalSinceReferenceDate
+            // El centro se mueve un poco mas con cada pulso durante una mezcla.
+            let beat = (visuals.pulsing && !paused) ? exp(-visuals.beatPhase * 6) : 0
+            MeshGradient(width: 3, height: 3, points: points(t, beat: beat), colors: meshColors, smoothsColors: true)
+        }
+    }
+
+    private func points(_ t: Double, beat: Double) -> [SIMD2<Float>] {
+        func drift(_ speed: Double, _ phase: Double, _ amplitude: Double) -> Float {
+            Float(sin(t * speed + phase) * amplitude)
+        }
+        let centre = 0.10 + 0.05 * beat
+        return [
+            SIMD2(0, 0), SIMD2(0.5 + drift(0.31, 0, 0.08), 0), SIMD2(1, 0),
+            SIMD2(0, 0.5 + drift(0.23, 2, 0.08)), SIMD2(0.5 + drift(0.37, 3, centre), 0.5 + drift(0.29, 4, centre)),
+            SIMD2(1, 0.5 + drift(0.33, 6, 0.08)),
+            SIMD2(0, 1), SIMD2(0.5 + drift(0.25, 7, 0.08), 1), SIMD2(1, 1)
+        ]
+    }
+
+    private var meshColors: [Color] {
+        let accent = shifted(top)
+        let middle = mix(top, bottom, 0.5)
+        return [
+            top, mix(top, accent, 0.45), top,
+            mix(top, bottom, 0.3), mix(accent, middle, 0.5), mix(top, bottom, 0.4),
+            bottom, mix(bottom, accent, 0.25), bottom
+        ]
+    }
+
+    /// El mismo color con el tono un poco corrido y mas vivo, para que la malla tenga matices.
+    private func shifted(_ color: Color) -> Color {
+        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        UIColor(color).getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+        return Color(
+            hue: Double((h + 0.07).truncatingRemainder(dividingBy: 1)),
+            saturation: Double(min(1, s * 1.15 + 0.05)),
+            brightness: Double(min(1, b * 1.2 + 0.04))
+        )
     }
 }

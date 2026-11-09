@@ -528,6 +528,12 @@ final class AutoMixEngine {
     /// Hay una mezcla preparandose, preparada o sonando.
     var isActive: Bool { phase != .idle }
 
+    /// Segundo de `outId` donde empezara la mezcla con la siguiente, si ya esta planificada (para la marca de la barra).
+    func plannedMixStart(for outId: String) -> TimeInterval? {
+        guard SettingsStore.shared.autoMixEnabled, let cached = planCache, cached.outId == outId, let plan = cached.plan else { return nil }
+        return Double(plan.outgoingStartMs) / 1000
+    }
+
     func songChanged() {
         lastSongChange = Date()
         releasePlayingMix()

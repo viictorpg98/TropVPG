@@ -236,6 +236,16 @@ final class SettingsStore {
         didSet { Self.defaults.set(preferAppleCovers, forKey: Keys.preferAppleCovers) }
     }
 
+    /// Barra de progreso con la forma de onda de la cancion (y la marca de donde empezara la proxima mezcla).
+    var waveformProgressBar: Bool {
+        didSet { Self.defaults.set(waveformProgressBar, forKey: Keys.waveformProgressBar) }
+    }
+
+    /// Fondo del reproductor grande en movimiento (se apaga solo con el modo de bajo consumo).
+    var liveBackground: Bool {
+        didSet { Self.defaults.set(liveBackground, forKey: Keys.liveBackground) }
+    }
+
     /// Dejar el video del videoclip listo detras de la caratula mientras el reproductor grande esta abierto, para que pasar a
     /// video sea instantaneo. Descarga el video aunque no se vea.
     var videoPreloadEnabled: Bool {
@@ -412,6 +422,8 @@ final class SettingsStore {
         static let fullWidthArtwork = "settings.fullWidthArtwork"
         static let animatedArtworkEnabled = "settings.animatedArtworkEnabled"
         static let preferAppleCovers = "settings.preferAppleCovers"
+        static let waveformProgressBar = "settings.waveformProgressBar"
+        static let liveBackground = "settings.liveBackground"
         static let videoPreloadEnabled = "settings.videoPreloadEnabled"
         static let videoPreloadUsesMobileData = "settings.videoPreloadUsesMobileData"
         static let animatedArtworkUsesMobileData = "settings.animatedArtworkUsesMobileData"
@@ -490,6 +502,8 @@ final class SettingsStore {
         fullWidthArtwork = Self.load(Keys.fullWidthArtwork, default: true)
         animatedArtworkEnabled = Self.load(Keys.animatedArtworkEnabled, default: true)
         preferAppleCovers = Self.load(Keys.preferAppleCovers, default: true)
+        waveformProgressBar = Self.load(Keys.waveformProgressBar, default: true)
+        liveBackground = Self.load(Keys.liveBackground, default: true)
         videoPreloadEnabled = Self.load(Keys.videoPreloadEnabled, default: true)
         videoPreloadUsesMobileData = Self.load(Keys.videoPreloadUsesMobileData, default: true)
         animatedArtworkUsesMobileData = Self.load(Keys.animatedArtworkUsesMobileData, default: false)

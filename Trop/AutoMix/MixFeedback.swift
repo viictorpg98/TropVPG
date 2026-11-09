@@ -128,7 +128,7 @@ struct MixFeedbackPill: View {
         .foregroundStyle(.white)
         .padding(.horizontal, 14)
         .padding(.vertical, 5)
-        .background(.white.opacity(0.18), in: Capsule())
+        .glassEffect(.regular, in: Capsule())
         .frame(maxWidth: .infinity, alignment: .center)
     }
 }
