@@ -1173,7 +1173,7 @@ extension PlayerController {
             mpv_get_property(mpv, "time-pos", MPV_FORMAT_DOUBLE, &val)
             return val
         } ?? 0
-        let elapsed = livePos > 0 ? livePos + timelineShift : np.currentTime
+        let elapsed = positionOverride ?? (livePos > 0 ? livePos + timelineShift : np.currentTime)
 
         nowPlayingInfo[MPMediaItemPropertyTitle] = np.title
         nowPlayingInfo[MPMediaItemPropertyArtist] = np.artist

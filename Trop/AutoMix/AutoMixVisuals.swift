@@ -36,6 +36,8 @@ final class AutoMixVisuals {
     var incomingVideoId: String?
     /// La barra de progreso de la entrante durante la mezcla (para que entre a la vez que la carátula).
     var incomingProgress = 0.0
+    /// El usuario pidio "mezclar ya" y la mezcla se esta preparando (se enseña un aviso animado hasta que empieza).
+    var preparingManual = false
     var incomingElapsed = 0.0
     var incomingDuration = 0.0
     /// El video en bucle de la cancion que entra (si tiene), ya cargandose para que este listo cuando se revele.
@@ -140,6 +142,7 @@ final class AutoMixVisuals {
         beatPhase = 0
         incomingProgress = 0
         incomingElapsed = 0
+        preparingManual = false
         pulsing = true
         isMixing = true
     }
@@ -148,6 +151,7 @@ final class AutoMixVisuals {
         // El progreso se queda como esta: el resplandor se apaga con un fundido y conserva los colores de la entrante.
         isMixing = false
         pulsing = false
+        preparingManual = false
     }
 
     /// La caratula incrustada en el archivo descargado.

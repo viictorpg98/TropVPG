@@ -51,6 +51,10 @@ final class AutoMixEngine {
     private var beatsPerPulse: Double = 1
     /// La app ya ve la entrante como cancion actual (el relevo se hace al acabar la revelacion de la carátula).
     private var handedOver = false
+    /// Lo que tardo en prepararse la ultima mezcla (para saber con cuanta antelacion pedir una mezcla a mano).
+    private var lastRenderSeconds: Double = 0
+    private var manualMix = false
+    private var manualRetries = 0
     /// Duracion de la cancion que entra (para la barra de progreso durante la mezcla).
     private var incomingSongDuration: TimeInterval = 0
     /// A que punto de la mezcla (0...1) la app pasa a ver la entrante como actual: justo despues de la revelacion.
@@ -182,6 +186,25 @@ final class AutoMixEngine {
                 return
             }
             guard let self else { try? FileManager.default.removeItem(at: rendered.url); return }
+            let spent = Date().timeIntervalSince(began)
+            self.lastRenderSeconds = spent
+            if self.manualMix, PlayerController.shared.currentTime > cutAt - 1.0 {
+                // Una mezcla pedida a mano que ya no llega a su punto de corte: se pide de nuevo con mas margen (una vez).
+                try? FileManager.default.removeItem(at: rendered.url)
+                self.planCache = nil
+                PlaybackReport.record(String(format: "automix: la mezcla pedida a mano llego tarde (%.1f s), se repite con mas margen", spent))
+                if self.manualRetries < 1 {
+                    self.manualRetries += 1
+                    Task {
+                        // Un momento, para que se libere la preparacion actual.
+                        try? await Task.sleep(nanoseconds: 150_000_000)
+                        await self.runManualMix(outId: outId, inId: inId, extraLead: spent + 3)
+                    }
+                } else {
+                    self.abortManual("Can't mix right now.")
+                }
+                return
+            }
             if self.prepared?.key != key, self.phase == .idle {
                 self.prepared = Prepared(
                     key: key, outId: outId, inId: inId, plan: plan, mixURL: rendered.url,
@@ -329,6 +352,9 @@ final class AutoMixEngine {
         controller.currentVideoId = p.inId
         controller.pendingVideoId = nil
         controller.durationOverride = incomingSongDuration > 0 ? incomingSongDuration : nil
+        // La pantalla de bloqueo no recibe "archivo cargado" de la entrante (suena desde el archivo de la mezcla): se le dice aqui.
+        controller.setNowPlayingMetadata()
+        controller.updateNowPlayingArtwork()
         PlaybackReport.record(ok
             ? String(format: "automix: relevo, la app pasa a ver %@ como actual (en %.0f s de su cancion)", p.inId, position)
             : "automix: no se pudo pasar a \(p.inId)")
@@ -359,6 +385,7 @@ final class AutoMixEngine {
         prepared = nil
         planCache = nil
         handedOver = false
+        manualMix = false
         phase = .idle
     }
 
@@ -420,43 +447,77 @@ final class AutoMixEngine {
         return false
     }
 
-    /// El usuario pide mezclar ya: se planifica una mezcla que empieza dentro de unos segundos (lo que tarda en prepararse).
+    /// El usuario pide mezclar ya: el aviso animado sale al instante y la mezcla empieza en cuanto este preparada (unos
+    /// segundos: lo que tardo la ultima vez, con un margen).
     @discardableResult
     func mixNow() -> Bool {
         guard SettingsStore.shared.autoMixEnabled else { return false }
-        guard phase == .idle, prepared == nil, preparingKey == nil else { return false }
+        guard phase == .idle, prepared == nil, preparingKey == nil, !AutoMixVisuals.shared.preparingManual else { return false }
         guard let (outId, inId) = currentPair() else {
             PlaybackNotice.shared.show(NSLocalizedString("Can't mix right now.", comment: ""))
             return false
         }
+        AutoMixVisuals.shared.preparingManual = true
+        manualRetries = 0
+        Task { await runManualMix(outId: outId, inId: inId, extraLead: 0) }
+        return true
+    }
+
+    private func abortManual(_ message: String? = nil) {
+        AutoMixVisuals.shared.preparingManual = false
+        manualMix = false
+        if let message { PlaybackNotice.shared.show(NSLocalizedString(message, comment: "")) }
+    }
+
+    private func stillCurrent(_ outId: String, _ inId: String) -> Bool {
+        let np = NowPlaying.shared
+        return np.videoId == outId && np.queueSongs.indices.contains(np.queueIndex)
+            && np.queueIndex + 1 < np.queueSongs.count && np.queueSongs[np.queueIndex + 1].videoId == inId
+    }
+
+    private func runManualMix(outId: String, inId: String, extraLead: Double) async {
         let store = TrackAnalysisStore.shared
         store.request(outId)
         store.request(inId)
+        VocalMaskStore.shared.request(outId)
+        VocalMaskStore.shared.request(inId)
+        // Hasta unos segundos para que esten analizadas (casi siempre ya lo estan).
+        var waited = 0.0
+        while waited < 12 {
+            if store.structure(for: outId) != nil, store.structure(for: inId) != nil,
+               VocalMaskStore.shared.isSettled(outId), VocalMaskStore.shared.isSettled(inId) { break }
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            waited += 0.4
+            guard AutoMixVisuals.shared.preparingManual, stillCurrent(outId, inId) else { abortManual(); return }
+        }
+        guard AutoMixVisuals.shared.preparingManual, stillCurrent(outId, inId),
+              phase == .idle, prepared == nil, preparingKey == nil else { abortManual(); return }
         guard let out = store.structure(for: outId), let inc = store.structure(for: inId) else {
-            PlaybackNotice.shared.show(NSLocalizedString("Analysing songs…", comment: ""))
-            return false
+            abortManual("Can't mix right now.")
+            return
         }
         let vocals = TransitionPlanner.Vocals(
             outgoing: VocalMaskStore.shared.segments(for: outId), incoming: VocalMaskStore.shared.segments(for: inId)
         )
-        let startMs = Int64((PlayerController.shared.currentTime + 15) * 1000)
+        // Cuanto falta para empezar: lo que tardo en prepararse la ultima vez, con margen (entre 6 y 18 s).
+        let lead = min(max(lastRenderSeconds * 1.4 + 2.5, 6), 18) + extraLead
+        let startMs = Int64((PlayerController.shared.currentTime + lead) * 1000)
         guard let result = TransitionPlanner.plan(outgoing: out, incoming: inc, vocals: vocals, forcedStartMs: startMs) else {
-            PlaybackNotice.shared.show(NSLocalizedString("Not enough of the song is left to mix.", comment: ""))
-            return false
+            abortManual("Not enough of the song is left to mix.")
+            return
         }
         planCache = (outId, inId, result.plan)
         PlaybackReport.record(String(
-            format: "automix: mezcla pedida a mano %@ -> %@: empieza en %.1f s, dura %.0f s, entra desde %.1f s",
-            outId, inId, Double(result.plan.outgoingStartMs) / 1000, Double(result.plan.durationMs) / 1000,
+            format: "automix: mezcla pedida a mano %@ -> %@: empieza en %.1f s (en %.0f s), dura %.0f s, entra desde %.1f s",
+            outId, inId, Double(result.plan.outgoingStartMs) / 1000, lead, Double(result.plan.durationMs) / 1000,
             Double(result.plan.incomingStartMs) / 1000
         ))
         let next = NowPlaying.shared.queueIndex + 1
         if NowPlaying.shared.queueSongs.indices.contains(next) {
             AutoMixVisuals.shared.prepare(song: NowPlaying.shared.queueSongs[next])
         }
+        manualMix = true
         prepare(outId: outId, inId: inId, plan: result.plan)
-        PlaybackNotice.shared.show(NSLocalizedString("Preparing the mix…", comment: ""))
-        return true
     }
 
     /// Para cuando el usuario cambia de cancion a mano o se vacia la cola.
@@ -467,6 +528,8 @@ final class AutoMixEngine {
     func songChanged() {
         lastSongChange = Date()
         releasePlayingMix()
+        AutoMixVisuals.shared.preparingManual = false
+        manualMix = false
         if phase != .idle {
             let controller = PlayerController.shared
             controller.disarmGaplessMix()

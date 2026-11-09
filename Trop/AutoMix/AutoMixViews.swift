@@ -279,6 +279,8 @@ struct MixAwareTitle: View {
 
 /// Ocupa el sitio de la linea de la letra durante una mezcla: una pastilla discreta con unas ondas que laten.
 struct AutoMixPill: View {
+    /// Mientras se prepara una mezcla pedida a mano: el mismo aviso, con otro texto.
+    var preparing = false
     private let visuals = AutoMixVisuals.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -287,7 +289,7 @@ struct AutoMixPill: View {
             Image(systemName: "wand.and.stars")
                 .font(.system(size: 12, weight: .semibold))
             waves
-            Text("AutoMix")
+            Text(LocalizedStringKey(preparing ? "Preparing the mix…" : "AutoMix"))
                 .font(.caption.weight(.semibold))
         }
         .foregroundStyle(.white)

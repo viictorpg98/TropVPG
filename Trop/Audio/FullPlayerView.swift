@@ -206,6 +206,8 @@ struct FullPlayerView: View {
         Group {
             if AutoMixVisuals.shared.isMixing {
                 AutoMixPill()
+            } else if AutoMixVisuals.shared.preparingManual {
+                AutoMixPill(preparing: true)
             } else if MixFeedbackStore.shared.pending != nil {
                 MixFeedbackPill()
             } else {
@@ -298,10 +300,12 @@ struct FullPlayerView: View {
             if settings.autoMixEnabled, np.hasNext, !AutoMixVisuals.shared.isMixing {
                 PlayerPillButton(
                     systemImage: "wand.and.stars",
-                    title: "Mix now",
-                    isActive: false,
-                    accessibility: "Mix now"
+                    title: AutoMixVisuals.shared.preparingManual ? "Preparing…" : "Mix now",
+                    isActive: AutoMixVisuals.shared.preparingManual,
+                    accessibility: "Mix now",
+                    pulses: AutoMixVisuals.shared.preparingManual
                 ) {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     AutoMixEngine.shared.mixNow()
                 }
             }
@@ -640,6 +644,7 @@ private struct PlayerPillButton: View {
     var title: String?
     let isActive: Bool
     let accessibility: String
+    var pulses = false
     let action: () -> Void
 
     init(
@@ -647,12 +652,14 @@ private struct PlayerPillButton: View {
         title: String? = nil,
         isActive: Bool,
         accessibility: String,
+        pulses: Bool = false,
         action: @escaping () -> Void
     ) {
         self.systemImage = systemImage
         self.title = title
         self.isActive = isActive
         self.accessibility = accessibility
+        self.pulses = pulses
         self.action = action
     }
 
@@ -661,6 +668,7 @@ private struct PlayerPillButton: View {
             HStack(spacing: 6) {
                 Image(systemName: systemImage)
                     .font(.system(size: 16, weight: .semibold))
+                    .symbolEffect(.variableColor.iterative, isActive: pulses)
                 if let title {
                     Text(LocalizedStringKey(title))
                         .font(.system(size: 14, weight: .semibold))
