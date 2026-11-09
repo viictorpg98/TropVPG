@@ -57,6 +57,15 @@ final class AudioCounterpartStore {
         song.isVideo == true || song.musicVideoType == "MUSIC_VIDEO_TYPE_OMV" || song.musicVideoType == "MUSIC_VIDEO_TYPE_UGC"
     }
 
+    /// La miniatura de la cancion es mala: es un fotograma de video, o no hay. Solo entonces se busca otra en Apple Music /
+    /// TIDAL; las canciones que ya tienen su caratula de album se quedan con ella (la misma que enseñan las listas), para que
+    /// el reproductor no la cambie por otra distinta al empezar.
+    nonisolated static func hasPoorCover(_ song: SongItem) -> Bool {
+        if isVideoType(song) { return true }
+        guard let url = song.thumbnailUrl, !url.isEmpty else { return true }
+        return frameVideoId(url) != nil
+    }
+
     private var isEnabled: Bool { SettingsStore.shared.preferAppleCovers }
 
     /// Es un video con posible version de audio que aun no se ha mirado (y se puede mirar ahora).

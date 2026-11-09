@@ -57,7 +57,7 @@ final class AutoMixVisuals {
         Task { [weak self] in
             let service = AnimatedArtworkService.shared
             let wantsVideo = service.blockReason == nil
-            let wantsCover = SettingsStore.shared.preferAppleCovers
+            let wantsCover = SettingsStore.shared.preferAppleCovers && AudioCounterpartStore.hasPoorCover(song)
             var info: AnimatedArtworkService.Info?
             if wantsVideo || wantsCover { info = await service.info(for: song) }
             guard let self, self.incomingVideoId == videoId else { return }

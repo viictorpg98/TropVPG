@@ -613,6 +613,8 @@ final class NowPlaying {
         guard SettingsStore.shared.preferAppleCovers else { return nil }
         return Task {
             guard let song = await MainActor.run(body: { self.queueSongs.first { $0.videoId == videoId } }) else { return }
+            // Solo si la que tiene es mala (fotograma de video...): si ya trae su caratula de album, se queda con ella.
+            guard AudioCounterpartStore.hasPoorCover(song) else { return }
             // La oficial de Apple Music / TIDAL; si no hay, y la cancion es un video, la de su version de audio.
             var coverURL = await AnimatedArtworkService.shared.info(for: song)?.cover
             if coverURL == nil, AudioCounterpartStore.isVideoType(song) || song.isVideo == true {
@@ -633,7 +635,9 @@ final class NowPlaying {
         highQualityCoverFor = nil
         let highQuality = fetchHighQualityCover(videoId: videoId)
         // Si la carátula buena ya se conoce (de otra vez), se pinta ella sola: no se ve primero la de YouTube y luego la otra.
+        let queued = queueSongs.first { $0.videoId == videoId }
         let knownHighQuality = SettingsStore.shared.preferAppleCovers
+            && (queued.map(AudioCounterpartStore.hasPoorCover) ?? false)
             && (AnimatedArtworkService.shared.cachedInfo(forVideoId: videoId)?.cover != nil)
         // Safety net: callers that resolve without song metadata pass nil.
         // The queue usually still knows this track's artwork — use it rather
