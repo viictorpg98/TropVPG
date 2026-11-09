@@ -725,7 +725,7 @@ struct AddSongToPlaylistView: View {
                     List {
                         ForEach(filteredSongs, id: \.id) { song in
                             HStack(spacing: 12) {
-                                AsyncImageView(url: song.thumbnailUrl)
+                                AsyncImageView(url: AudioCounterpartStore.shared.thumbnailURL(for: song))
                                     .frame(width: 40, height: 40)
                                     .clipShape(RoundedRectangle(cornerRadius: 4))
 

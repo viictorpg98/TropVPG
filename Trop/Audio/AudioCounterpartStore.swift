@@ -27,8 +27,8 @@ struct AudioVersion: Codable, Sendable, Equatable {
 final class AudioCounterpartStore {
     static let shared = AudioCounterpartStore()
 
-    private static let foundKey = "audioCounterpart.found.v2"
-    private static let noneKey = "audioCounterpart.none.v2"
+    private static let foundKey = "audioCounterpart.found.v3"
+    private static let noneKey = "audioCounterpart.none.v3"
 
     /// Identificador del video -> su version de audio.
     private(set) var found: [String: AudioVersion]
@@ -52,16 +52,16 @@ final class AudioCounterpartStore {
 
     // MARK: - Que elementos son un video
 
-    /// Videoclip oficial o subida de usuario.
+    /// Videoclip oficial, subida de usuario o resultado marcado como "Video".
     nonisolated static func isVideoType(_ song: SongItem) -> Bool {
-        song.musicVideoType == "MUSIC_VIDEO_TYPE_OMV" || song.musicVideoType == "MUSIC_VIDEO_TYPE_UGC"
+        song.isVideo == true || song.musicVideoType == "MUSIC_VIDEO_TYPE_OMV" || song.musicVideoType == "MUSIC_VIDEO_TYPE_UGC"
     }
 
     private var isEnabled: Bool { SettingsStore.shared.preferAppleCovers }
 
     /// Es un video con posible version de audio que aun no se ha mirado (y se puede mirar ahora).
     func needsLookup(_ song: SongItem) -> Bool {
-        guard isEnabled, Self.isVideoType(song), song.isVideo != true else { return false }
+        guard isEnabled, Self.isVideoType(song) else { return false }
         guard found[song.videoId] == nil, !withoutAudio.contains(song.videoId) else { return false }
         guard NetworkMonitor.shared.hasConnection, !DownloadManager.shared.isDownloaded(videoId: song.videoId) else { return false }
         return true
@@ -70,9 +70,9 @@ final class AudioCounterpartStore {
     // MARK: - Cambiar un elemento por su version de audio
 
     /// El mismo elemento con su version de audio, si la tiene ya buscada. Lo descargado se queda como esta (si no, sin conexion
-    /// no sonaria), y los resultados marcados como "Video" (los que se buscan a proposito) tambien.
+    /// no sonaria).
     func preferAudio(_ song: SongItem) -> SongItem {
-        guard isEnabled, Self.isVideoType(song), song.isVideo != true,
+        guard isEnabled, Self.isVideoType(song),
               let version = found[song.videoId],
               !DownloadManager.shared.isDownloaded(videoId: song.videoId) else { return song }
         var swapped = song
@@ -97,6 +97,20 @@ final class AudioCounterpartStore {
     }
 
     // MARK: - Miniaturas
+
+    /// La miniatura que debe enseñar una cancion: la caratula de su version de audio si es un video que la tiene (o la pide en
+    /// segundo plano y la vista se actualiza sola cuando llega); si no, la suya.
+    func thumbnailURL(for song: SongItem) -> String? {
+        guard isEnabled, Self.isVideoType(song) else { return song.thumbnailUrl }
+        if let version = found[song.videoId] { return version.thumbnail }
+        if needsLookup(song) { request(song.videoId) }
+        return song.thumbnailUrl
+    }
+
+    func thumbnailURL(for item: YTItem) -> String? {
+        if case .song(let song) = item { return thumbnailURL(for: song) }
+        return item.thumbnailUrl
+    }
 
     nonisolated(unsafe) private static let frameExpression = try? NSRegularExpression(pattern: #"ytimg\.com/vi(?:_webp)?/([A-Za-z0-9_-]{11})/"#)
 
@@ -176,7 +190,8 @@ final class AudioCounterpartStore {
             PlaybackReport.record("version de audio: \(videoId) -> \(version.videoId)")
             // Lo que queda por sonar de la cola cambia al audio.
             NowPlaying.shared.applyAudioVersions()
-        case .absent:
+        case .absent(let why):
+            PlaybackReport.record("version de audio: \(videoId) -> no hay (\(why))")
             withoutAudio.insert(videoId)
             if withoutAudio.count > 800 { withoutAudio = Set(withoutAudio.suffix(400)) }
             persist()
@@ -194,7 +209,7 @@ final class AudioCounterpartStore {
 
     private enum Outcome {
         case found(AudioVersion)
-        case absent
+        case absent(String)
         case failed
     }
 
@@ -202,12 +217,28 @@ final class AudioCounterpartStore {
         guard let json = try? await InnerTubeClient.tropShared.next(videoId: videoId, playlistId: "RDAMVM\(videoId)") else {
             return .failed
         }
-        if let version = counterpart(in: json, seed: videoId) { return .found(version) }
-        return .absent
+        let parsed = counterpart(in: json, seed: videoId)
+        if let version = parsed.version { return .found(version) }
+        // Segunda via: la cancion buscada por titulo y artista entre las canciones (no videos) de YouTube Music.
+        guard let seed = parsed.seed else { return .absent("next: \(parsed.shape), sin datos del video") }
+        switch await searchAudio(for: seed, videoId: videoId) {
+        case .found(let version): return .found(version)
+        case .failed: return .failed
+        case .absent(let why): return .absent("next: \(parsed.shape); busqueda: \(why)")
+        }
+    }
+
+    /// Datos del video que se busca, tal como los devuelve YouTube Music.
+    private struct SeedInfo {
+        var title: String
+        var artist: String
+        var duration: Int
     }
 
     /// En la lista que devuelve YouTube Music para un video, el elemento trae la version de video y la de audio.
-    nonisolated private static func counterpart(in json: [String: Any], seed: String) -> AudioVersion? {
+    nonisolated private static func counterpart(
+        in json: [String: Any], seed: String
+    ) -> (version: AudioVersion?, seed: SeedInfo?, shape: String) {
         func child(_ value: Any?, _ key: String) -> Any? { (value as? [String: Any])?[key] }
 
         var node: Any? = json
@@ -218,9 +249,25 @@ final class AudioCounterpartStore {
         for key in ["tabRenderer", "content", "musicQueueRenderer", "content", "playlistPanelRenderer"] {
             node = child(node, key)
         }
-        guard let entries = (node as? [String: Any])?["contents"] as? [[String: Any]] else { return nil }
+        guard let entries = (node as? [String: Any])?["contents"] as? [[String: Any]] else { return (nil, nil, "sin lista") }
 
+        func seedInfo(_ renderer: [String: Any]) -> SeedInfo {
+            let runs = InnerTubeJSON.rawRuns(renderer["longBylineText"] as? [String: Any] ?? renderer["shortBylineText"] as? [String: Any])
+            return SeedInfo(
+                title: InnerTubeJSON.runsText(renderer["title"] as? [String: Any]) ?? "",
+                artist: ArtistCredits.parse(runs: runs).map(\.name).joined(separator: ", "),
+                duration: DurationFormat.parseRendererDuration(renderer)
+            )
+        }
+
+        var seedFound: SeedInfo?
+        var shape = "sin el video en la lista"
         for entry in entries.prefix(3) {
+            if let renderer = entry["playlistPanelVideoRenderer"] as? [String: Any], (renderer["videoId"] as? String) == seed {
+                seedFound = seedInfo(renderer)
+                shape = "elemento simple (\(VideoAvailability.rowMusicVideoType(renderer) ?? "?"))"
+                continue
+            }
             guard let wrapper = entry["playlistPanelVideoWrapperRenderer"] as? [String: Any] else { continue }
             var renderers: [[String: Any]] = []
             if let primary = child(child(wrapper, "primaryRenderer"), "playlistPanelVideoRenderer") as? [String: Any] {
@@ -231,20 +278,53 @@ final class AudioCounterpartStore {
                     renderers.append(renderer)
                 }
             }
-            guard renderers.contains(where: { ($0["videoId"] as? String) == seed }) else { continue }
+            guard let seedRenderer = renderers.first(where: { ($0["videoId"] as? String) == seed }) else { continue }
+            seedFound = seedInfo(seedRenderer)
+            shape = "con version de audio y de video"
             for renderer in renderers {
                 guard let audioId = renderer["videoId"] as? String, audioId != seed,
                       VideoAvailability.rowMusicVideoType(renderer) == "MUSIC_VIDEO_TYPE_ATV",
                       let thumbnail = InnerTubeJSON.nestedThumbnailURL(renderer) else { continue }
-                return AudioVersion(
+                let version = AudioVersion(
                     videoId: audioId,
                     thumbnail: ArtworkURLs.highRes(thumbnail) ?? thumbnail,
                     title: InnerTubeJSON.runsText(renderer["title"] as? [String: Any]) ?? "",
                     duration: DurationFormat.parseRendererDuration(renderer)
                 )
+                return (version, seedFound, shape)
+            }
+            shape = "envoltorio sin audio"
+        }
+        return (nil, seedFound, shape)
+    }
+
+    /// Busca "artista titulo" y toma la primera cancion (no video) cuyo titulo y artista coinciden.
+    nonisolated private static func searchAudio(for seed: SeedInfo, videoId: String) async -> Outcome {
+        let titleKeys = AnimatedArtworkService.Matching.titleKeys(seed.title)
+        let artists = AnimatedArtworkService.Matching.artists(seed.artist)
+        guard let queryTitle = titleKeys.max(by: { $0.count < $1.count }), let firstArtist = artists.first else {
+            return .absent("sin titulo o artista")
+        }
+        let wanted = AnimatedArtworkService.Wanted(titles: titleKeys, artists: artists, album: nil)
+        guard let json = try? await InnerTubeClient.tropShared.search(query: "\(firstArtist) \(queryTitle)", params: nil, client: .webRemix) else {
+            return .failed
+        }
+        var songs = 0
+        for section in SearchParser.parseSearchResults(from: json) where section.title == "Songs" {
+            for item in section.items {
+                guard case .song(let song) = item, song.videoId != videoId, !isVideoType(song) else { continue }
+                songs += 1
+                guard wanted.matches(title: song.title, artist: artistDisplayString(from: song.artists)),
+                      let thumbnail = song.thumbnailUrl else { continue }
+                return .found(AudioVersion(
+                    videoId: song.videoId,
+                    thumbnail: ArtworkURLs.highRes(thumbnail) ?? thumbnail,
+                    title: song.title,
+                    duration: song.duration
+                ))
             }
         }
-        return nil
+        return .absent("\(songs) canciones, ninguna coincide")
     }
 }
 
@@ -253,7 +333,6 @@ extension YTItem {
     var keepsVideoFrame: Bool {
         switch self {
         case .episode, .podcast: return true
-        case .song(let song): return song.isVideo == true
         default: return false
         }
     }

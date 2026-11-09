@@ -149,7 +149,7 @@ struct SpeedDialSectionView: View {
             .aspectRatio(1, contentMode: .fit)
             .overlay {
                 VStack(spacing: 6) {
-                    AsyncImageView(url: item.thumbnailUrl, keepsVideoFrame: item.keepsVideoFrame)
+                    AsyncImageView(url: AudioCounterpartStore.shared.thumbnailURL(for: item), keepsVideoFrame: item.keepsVideoFrame)
                         .aspectRatio(1, contentMode: .fit)
                         .clipShape(Circle())
                         .padding(.horizontal, 18)
@@ -168,7 +168,7 @@ struct SpeedDialSectionView: View {
     }
 
     private func imageTile(_ item: YTItem) -> some View {
-        AsyncImageView(url: item.thumbnailUrl, keepsVideoFrame: item.keepsVideoFrame)
+        AsyncImageView(url: AudioCounterpartStore.shared.thumbnailURL(for: item), keepsVideoFrame: item.keepsVideoFrame)
             .frame(maxWidth: .infinity)
             .aspectRatio(1, contentMode: .fit)
             .overlay(alignment: .bottomLeading) {
