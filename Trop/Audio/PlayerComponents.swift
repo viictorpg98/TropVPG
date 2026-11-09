@@ -226,24 +226,42 @@ struct PlayerTransportAirPlayFooter: View {
 }
 
 // MARK: - SecondaryActionsRow
-/// AirPlay, repetir y cola: tres botones iguales, repartidos por igual, sin botones diminutos pegados unos a otros.
+/// AirPlay, aleatorio y cola: botones iguales, repartidos por igual.
 struct SecondaryActionsRow: View {
     @Binding var showQueue: Bool
-    @Binding var isRepeatOn: Bool
+    /// En la pantalla de la cola el aleatorio ya esta arriba: no se repite abajo.
+    var showsShuffle = true
+
+    private let np = NowPlaying.shared
+    @State private var shuffleCount = 0
 
     var body: some View {
         HStack(spacing: 0) {
             PlayerAirPlayControl()
                 .frame(maxWidth: .infinity)
 
-            SecondaryToggleButton(
-                systemImage: isRepeatOn ? "repeat.1" : "repeat",
-                isOn: isRepeatOn,
-                accessibility: isRepeatOn ? "Repeat one" : "Repeat all"
-            ) {
-                isRepeatOn.toggle()
+            if showsShuffle {
+                // Tocar baraja la cola (y vuelve a barajarla cada vez que se toca); manteniendo pulsado se puede apagar.
+                Menu {
+                    if np.isShuffleOn {
+                        Button {
+                            np.disableShuffle()
+                        } label: {
+                            Label("Turn Off Shuffle", systemImage: "shuffle")
+                        }
+                    }
+                } label: {
+                    SecondaryIcon(systemImage: "shuffle", isOn: np.isShuffleOn)
+                        .symbolEffect(.bounce, value: shuffleCount)
+                } primaryAction: {
+                    np.shuffleQueue()
+                    shuffleCount += 1
+                }
+                .buttonStyle(.plain)
+                .sensoryFeedback(.impact(weight: .light), trigger: shuffleCount)
+                .accessibilityLabel(Text("Shuffle"))
+                .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity)
 
             SecondaryToggleButton(
                 systemImage: "list.bullet",
@@ -258,7 +276,23 @@ struct SecondaryActionsRow: View {
     }
 }
 
-/// Boton redondo del pie del reproductor: apagado se ve tenue y encendido se rellena de cristal claro.
+/// El icono redondo del pie del reproductor: apagado se ve tenue y encendido se rellena de cristal claro.
+struct SecondaryIcon: View {
+    let systemImage: String
+    let isOn: Bool
+
+    var body: some View {
+        Image(systemName: systemImage)
+            .font(.system(size: 18, weight: .semibold))
+            .foregroundStyle(isOn ? Color.white : Color.white.opacity(0.7))
+            .contentTransition(.symbolEffect(.replace))
+            .frame(width: 46, height: 46)
+            .background(Circle().fill(isOn ? Color.white.opacity(0.2) : Color.clear))
+            .contentShape(Circle())
+            .animation(.easeInOut(duration: 0.2), value: isOn)
+    }
+}
+
 struct SecondaryToggleButton: View {
     let systemImage: String
     let isOn: Bool
@@ -267,16 +301,9 @@ struct SecondaryToggleButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(isOn ? Color.white : Color.white.opacity(0.7))
-                .contentTransition(.symbolEffect(.replace))
-                .frame(width: 46, height: 46)
-                .background(Circle().fill(isOn ? Color.white.opacity(0.2) : Color.clear))
-                .contentShape(Circle())
+            SecondaryIcon(systemImage: systemImage, isOn: isOn)
         }
         .buttonStyle(.plain)
-        .animation(.easeInOut(duration: 0.2), value: isOn)
         .accessibilityLabel(Text(LocalizedStringKey(accessibility)))
     }
 }

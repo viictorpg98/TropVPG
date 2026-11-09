@@ -245,10 +245,7 @@ struct FullPlayerView: View {
         .sensoryFeedback(.impact(weight: .light), trigger: np.isPlaying)
         .padding(.bottom, isCompact ? 2 : 6)
 
-        SecondaryActionsRow(
-            showQueue: $showQueue,
-            isRepeatOn: $np.isRepeatOn
-        )
+        SecondaryActionsRow(showQueue: $showQueue)
         .scaleEffect(isCompact ? 0.92 : 1)
 
         Color.clear.frame(height: isCompact ? 2 : 6)
@@ -697,7 +694,7 @@ private struct ActiveLyricLine: View {
 
 // MARK: - Boton redondeado (Me gusta / No me gusta / Letra)
 
-private struct PlayerPillButton: View {
+struct PlayerPillButton: View {
     let systemImage: String
     var title: String?
     let isActive: Bool

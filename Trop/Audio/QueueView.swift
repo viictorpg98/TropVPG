@@ -116,9 +116,11 @@ struct QueueView<ProgressSlider: View>: View {
                     onNext: { np.playNext() }
                 )
             } else {
-                VStack(spacing: 16) {
+                // Mismas medidas que en el reproductor grande: al abrir la cola nada se mueve de sitio.
+                VStack(spacing: 0) {
                     progressSlider()
-                        .padding(.top, 16)
+                        .padding(.top, 4)
+                        .padding(.bottom, 12)
 
                     PlaybackControlsRow(
                         isPlaying: np.isPlaying,
@@ -129,13 +131,12 @@ struct QueueView<ProgressSlider: View>: View {
                         onNext: { np.playNext() }
                     )
                     .animation(.spring(response: 0.3, dampingFraction: 0.7), value: np.isPlaying)
+                    .padding(.bottom, 6)
 
-                    SecondaryActionsRow(
-                        showQueue: $showQueue,
-                        isRepeatOn: $isRepeatOn
-                    )
+                    SecondaryActionsRow(showQueue: $showQueue, showsShuffle: false)
+
+                    Color.clear.frame(height: 6)
                 }
-                .padding(.bottom, 16)
             }
         }
     }
@@ -163,7 +164,12 @@ struct QueueView<ProgressSlider: View>: View {
             Spacer()
 
             if let song = np.queueSongs.indices.contains(np.queueIndex) ? np.queueSongs[np.queueIndex] : nil {
-                PlayerLikeButton(isLiked: likeStore.isLiked(videoId: song.videoId)) {
+                let liked = likeStore.isLiked(videoId: song.videoId)
+                PlayerPillButton(
+                    systemImage: liked ? "hand.thumbsup.fill" : "hand.thumbsup",
+                    isActive: liked,
+                    accessibility: "Like"
+                ) {
                     Task { await likeStore.toggle(song: song) }
                 }
                 PlayerOptionsButton(color: .white.opacity(0.6)) {
@@ -190,7 +196,7 @@ struct QueueView<ProgressSlider: View>: View {
     // MARK: - Queue Sub-Views
 
     private var playbackPillsRow: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             pillButton(isOn: $isShuffleOn, icon: "shuffle") {
                 if isShuffleOn {
                     np.shuffleQueue()
@@ -198,27 +204,29 @@ struct QueueView<ProgressSlider: View>: View {
                     np.disableShuffle()
                 }
             }
-            pillButton(isOn: $isRepeatOn, icon: "repeat")
+            pillButton(isOn: $isRepeatOn, icon: isRepeatOn ? "repeat.1" : "repeat")
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 8)
     }
 
+    /// Aleatorio / repetir: misma estetica que los botones del reproductor (cristal; encendido, relleno blanco).
     private func pillButton(isOn: Binding<Bool>, icon: String, action: (() -> Void)? = nil) -> some View {
         Button {
             isOn.wrappedValue.toggle()
             action?()
         } label: {
             Image(systemName: icon)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(isOn.wrappedValue ? Color.black : Color.white)
+                .contentTransition(.symbolEffect(.replace))
                 .frame(maxWidth: .infinity)
-                .frame(height: 34)
-                .background(
-                    Capsule()
-                        .fill(isOn.wrappedValue ? .white.opacity(0.15) : .white.opacity(0.07))
-                )
+                .frame(height: 38)
+                .background(Capsule().fill(isOn.wrappedValue ? Color.white : Color.clear))
+                .glassEffect(.regular.interactive(), in: Capsule())
         }
+        .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.2), value: isOn.wrappedValue)
     }
 
     private var queueListHeaderRow: some View {
