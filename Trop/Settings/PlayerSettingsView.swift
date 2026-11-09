@@ -41,6 +41,14 @@ struct PlayerSettingsView: View {
             }
 
             Section {
+                SettingsToggleRow("Prefer Songs in Radios", icon: "music.note.list", isOn: $settings.preferSongsInRadio)
+            } header: {
+                Text("Radios")
+            } footer: {
+                Text("Radios and automatic queues skip music videos, live recordings and fan uploads, and keep the official audio. What you choose to play yourself is never changed.")
+            }
+
+            Section {
                 SettingsToggleRow("Animated Artwork", icon: "play.rectangle.on.rectangle", isOn: $settings.animatedArtworkEnabled)
                 SettingsToggleRow("High-Quality Covers", icon: "photo.on.rectangle", isOn: $settings.preferAppleCovers)
                 SettingsToggleRow("Animated Artwork on Mobile Data", icon: "antenna.radiowaves.left.and.right", isOn: $settings.animatedArtworkUsesMobileData)

@@ -383,6 +383,7 @@
 "Politics" = "Politics";
 "Pop" = "流行";
 "Power boost" = "Power boost";
+"Prefer Songs in Radios" = "Prefer Songs in Radios";
 "Preferences" = "偏好设置";
 "Presence" = "状态";
 "Preview" = "预览";
@@ -395,6 +396,8 @@
 "Queue is empty" = "队列为空";
 "Quick Picks" = "快捷精选";
 "Quick picks" = "Quick picks";
+"Radios" = "Radios";
+"Radios and automatic queues skip music videos, live recordings and fan uploads, and keep the official audio. What you choose to play yourself is never changed." = "Radios and automatic queues skip music videos, live recordings and fan uploads, and keep the official audio. What you choose to play yourself is never changed.";
 "Rating" = "评分";
 "Re-sync" = "重新同步";
 "Recaps" = "Recaps";

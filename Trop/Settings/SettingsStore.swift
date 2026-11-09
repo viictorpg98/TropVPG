@@ -236,6 +236,11 @@ final class SettingsStore {
         didSet { Self.defaults.set(preferAppleCovers, forKey: Keys.preferAppleCovers) }
     }
 
+    /// En radios y colas automaticas, quitar videoclips, directos y subidas de usuario (se queda el audio oficial).
+    var preferSongsInRadio: Bool {
+        didSet { Self.defaults.set(preferSongsInRadio, forKey: Keys.preferSongsInRadio) }
+    }
+
     var animatedArtworkEnabled: Bool {
         didSet { Self.defaults.set(animatedArtworkEnabled, forKey: Keys.animatedArtworkEnabled) }
     }
@@ -401,6 +406,7 @@ final class SettingsStore {
         static let fullWidthArtwork = "settings.fullWidthArtwork"
         static let animatedArtworkEnabled = "settings.animatedArtworkEnabled"
         static let preferAppleCovers = "settings.preferAppleCovers"
+        static let preferSongsInRadio = "settings.preferSongsInRadio"
         static let animatedArtworkUsesMobileData = "settings.animatedArtworkUsesMobileData"
         static let autoplaySimilar = "settings.autoplaySimilar"
         static let persistQueue = "settings.persistQueue"
@@ -477,6 +483,7 @@ final class SettingsStore {
         fullWidthArtwork = Self.load(Keys.fullWidthArtwork, default: true)
         animatedArtworkEnabled = Self.load(Keys.animatedArtworkEnabled, default: true)
         preferAppleCovers = Self.load(Keys.preferAppleCovers, default: true)
+        preferSongsInRadio = Self.load(Keys.preferSongsInRadio, default: true)
         animatedArtworkUsesMobileData = Self.load(Keys.animatedArtworkUsesMobileData, default: false)
         autoplaySimilar = Self.load(Keys.autoplaySimilar, default: true)
         persistQueue = Self.load(Keys.persistQueue, default: false)

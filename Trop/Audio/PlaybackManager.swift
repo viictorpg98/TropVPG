@@ -229,6 +229,11 @@ actor PlaybackManager {
         // Para el informe: si la direccion lleva el token (&pot=) que pide YouTube a los clientes web.
         PlaybackReport.record("direccion de \(videoId): token pot \(result.streamUrl.contains("pot=") ? "si" : "NO")")
         let queueSong = await queueSong(for: videoId)
+        // Para saber si lo que suena es la cancion o un video (y por que): tipo de YouTube Music y duracion.
+        PlaybackReport.record(
+            "cancion \(videoId): tipo \((queueSong?.musicVideoType ?? "?").replacingOccurrences(of: "MUSIC_VIDEO_TYPE_", with: "")), "
+                + "\(queueSong?.duration ?? 0) s, \"\(queueSong?.title ?? "?")\""
+        )
         await PlayerController.shared.play(
             url: result.streamUrl,
             title: result.title,

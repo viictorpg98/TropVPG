@@ -274,17 +274,26 @@ actor PersonalizationService {
         var songs: [(SongItem, Bool)] = []
         for entry in panel.contents {
             guard songs.count < 50 else { break }
-            if let renderer = entry["playlistPanelVideoRenderer"] as? [String: Any],
-               let song = parsePlaylistPanelVideoRenderer(renderer) {
-                songs.append((song, renderer["selected"] as? Bool ?? false))
-            }
+            if let parsed = panelEntry(entry, seedId: videoId) { songs.append((parsed.song, parsed.selected)) }
         }
         guard !songs.isEmpty else { throw NSError(domain: "fetchRadio", code: 1, userInfo: [:]) }
-        let currentIndex = songs.firstIndex(where: { $0.1 }) ?? 0
+        var currentIndex = songs.firstIndex(where: { $0.1 }) ?? 0
+        let selectedId = songs[currentIndex].0.videoId
         var resultSongs = songs.map(\.0)
-        if let automixItems = await tryResolveAutomix(from: panel) {
+        if let automixItems = await tryResolveAutomix(from: panel, seedId: videoId) {
             let deduped = automixItems.filter { a in !resultSongs.contains(where: { $0.videoId == a.videoId }) }
             resultSongs += deduped
+        }
+        // Solo canciones: fuera videoclips, directos y subidas de fans (suenan con intros, charla...). La cancion de la que
+        // parte la radio se queda siempre.
+        if SettingsStore.shared.preferSongsInRadio {
+            let kept = resultSongs.filter { $0.videoId == videoId || $0.videoId == selectedId || !Self.isVideoType($0.musicVideoType) }
+            let removed = resultSongs.count - kept.count
+            if removed > 0, kept.count >= 2 {
+                PlaybackReport.record("radio de \(videoId): \(kept.count) canciones, \(removed) videos quitados")
+                resultSongs = kept
+                currentIndex = resultSongs.firstIndex(where: { $0.videoId == selectedId }) ?? 0
+            }
         }
         switch options.style {
         case .similar:
@@ -329,7 +338,39 @@ actor PersonalizationService {
         return PlaylistPanel(contents: panelContents)
     }
 
-    private func tryResolveAutomix(from panel: PlaylistPanel) async -> [SongItem]? {
+    /// Videoclip oficial o subida de usuario (directos, entrevistas...): no es la cancion del album.
+    private static func isVideoType(_ type: String?) -> Bool {
+        type == "MUSIC_VIDEO_TYPE_OMV" || type == "MUSIC_VIDEO_TYPE_UGC"
+    }
+
+    /// Un elemento de la lista de reproduccion. Si trae version de audio y de video (elemento "envoltorio"), se elige la de
+    /// audio, como hace YouTube Music por defecto; la cancion de la que parte la radio se conserva tal cual.
+    private func panelEntry(_ entry: [String: Any], seedId: String) -> (song: SongItem, selected: Bool)? {
+        if let renderer = entry["playlistPanelVideoRenderer"] as? [String: Any],
+           let song = parsePlaylistPanelVideoRenderer(renderer) {
+            return (song, renderer["selected"] as? Bool ?? false)
+        }
+        guard let wrapper = entry["playlistPanelVideoWrapperRenderer"] as? [String: Any] else { return nil }
+        var renderers: [[String: Any]] = []
+        if let primary = (wrapper["primaryRenderer"] as? [String: Any])?["playlistPanelVideoRenderer"] as? [String: Any] {
+            renderers.append(primary)
+        }
+        for counterpart in (wrapper["counterpart"] as? [[String: Any]]) ?? [] {
+            if let renderer = (counterpart["counterpartRenderer"] as? [String: Any])?["playlistPanelVideoRenderer"] as? [String: Any] {
+                renderers.append(renderer)
+            }
+        }
+        let parsed = renderers.compactMap { renderer in
+            parsePlaylistPanelVideoRenderer(renderer).map { ($0, renderer["selected"] as? Bool ?? false) }
+        }
+        let chosen = parsed.first(where: { $0.0.videoId == seedId })
+            ?? parsed.first(where: { $0.0.musicVideoType == "MUSIC_VIDEO_TYPE_ATV" })
+            ?? parsed.first
+        guard let chosen else { return nil }
+        return (chosen.0, parsed.contains { $0.1 })
+    }
+
+    private func tryResolveAutomix(from panel: PlaylistPanel, seedId: String) async -> [SongItem]? {
         guard let lastEntry = panel.contents.last,
               let automix = lastEntry["automixPreviewVideoRenderer"] as? [String: Any],
               let content = automix["content"] as? [String: Any],
@@ -343,8 +384,7 @@ actor PersonalizationService {
         var songs: [SongItem] = []
         for entry in autoPanel.contents {
             guard songs.count < 50 else { break }
-            if let renderer = entry["playlistPanelVideoRenderer"] as? [String: Any],
-               let song = parsePlaylistPanelVideoRenderer(renderer) { songs.append(song) }
+            if let parsed = panelEntry(entry, seedId: seedId) { songs.append(parsed.song) }
         }
         return songs.isEmpty ? nil : songs
     }

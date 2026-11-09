@@ -383,6 +383,7 @@
 "Politics" = "Politics";
 "Pop" = "Pop";
 "Power boost" = "Power boost";
+"Prefer Songs in Radios" = "Prefer Songs in Radios";
 "Preferences" = "Preferences";
 "Presence" = "Presence";
 "Preview" = "Preview";
@@ -395,6 +396,8 @@
 "Queue is empty" = "Queue is empty";
 "Quick Picks" = "Quick Picks";
 "Quick picks" = "Quick picks";
+"Radios" = "Radios";
+"Radios and automatic queues skip music videos, live recordings and fan uploads, and keep the official audio. What you choose to play yourself is never changed." = "Radios and automatic queues skip music videos, live recordings and fan uploads, and keep the official audio. What you choose to play yourself is never changed.";
 "Rating" = "Rating";
 "Re-sync" = "Re-sync";
 "Recaps" = "Recaps";
