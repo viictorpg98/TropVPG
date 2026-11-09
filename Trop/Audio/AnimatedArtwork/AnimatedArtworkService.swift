@@ -32,10 +32,24 @@ final class AnimatedArtworkService {
 
     /// Activado en ajustes, y con red adecuada (Wi-Fi, o datos moviles si el usuario lo permite).
     var isAllowed: Bool {
-        let settings = SettingsStore.shared
-        guard settings.animatedArtworkEnabled else { return false }
-        guard NetworkMonitor.shared.hasConnection else { return false }
-        return DownloadManager.shared.isOnWiFiNow || settings.animatedArtworkUsesMobileData
+        SettingsStore.shared.animatedArtworkEnabled && networkBlockReason == nil
+    }
+
+    /// Por que la red no permite buscar ahora (nil si se puede).
+    var networkBlockReason: String? {
+        guard NetworkMonitor.shared.hasConnection else { return "sin conexion" }
+        if !(DownloadManager.shared.isOnWiFiNow || SettingsStore.shared.animatedArtworkUsesMobileData) {
+            return "sin Wi-Fi y los datos moviles no estan permitidos"
+        }
+        return nil
+    }
+
+    private var noted: Set<String> = []
+
+    /// Apunta en el informe (una vez por cancion y texto) lo que pasa con el video de una cancion.
+    func note(_ videoId: String, _ text: String) {
+        guard noted.insert("\(videoId)|\(text)").inserted else { return }
+        PlaybackReport.record("caratula animada: \(videoId) \(text)")
     }
 
     // MARK: - Busqueda
@@ -45,7 +59,11 @@ final class AnimatedArtworkService {
         if let entry = cache[videoId] {
             switch entry {
             case .hit(let url): return url
-            case .miss(let date): if Date().timeIntervalSince(date) < missRetry { return nil }
+            case .miss(let date):
+                if Date().timeIntervalSince(date) < missRetry {
+                    note(videoId, "no se busca (ya se busco hace poco y no habia video)")
+                    return nil
+                }
             }
         }
         guard isAllowed else { return nil }

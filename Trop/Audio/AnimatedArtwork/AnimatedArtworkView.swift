@@ -21,10 +21,16 @@ struct AnimatedArtworkLayer: View {
     @State private var url: URL?
     @State private var isShowing = false
 
-    private var allowed: Bool {
-        settings.animatedArtworkEnabled && !reduceMotion && !ProcessInfo.processInfo.isLowPowerModeEnabled
-            && !np.isVideoMode
+    /// Por que no se busca ni se enseña el video (nil si se puede). Se apunta en el informe.
+    private var blockReason: String? {
+        if !settings.animatedArtworkEnabled { return "ajuste apagado" }
+        if reduceMotion { return "Reducir movimiento activado" }
+        if ProcessInfo.processInfo.isLowPowerModeEnabled { return "modo de bajo consumo" }
+        if np.isVideoMode { return "modo video" }
+        return nil
     }
+
+    private var allowed: Bool { blockReason == nil }
 
     var body: some View {
         ZStack {
@@ -41,11 +47,19 @@ struct AnimatedArtworkLayer: View {
         .task(id: "\(np.videoId ?? "")|\(allowed)|\(settings.animatedArtworkUsesMobileData)") {
             isShowing = false
             url = nil
-            guard allowed, let videoId = np.videoId else { return }
+            guard let videoId = np.videoId else { return }
+            AnimatedArtworkService.shared.note(videoId, "el reproductor grande la pide")
+            if let reason = blockReason ?? AnimatedArtworkService.shared.networkBlockReason {
+                AnimatedArtworkService.shared.note(videoId, "no se busca (\(reason))")
+                return
+            }
             let title = np.title
             let artist = np.displayArtist
             let album = np.albumTitle.isEmpty ? nil : np.albumTitle
-            guard !title.isEmpty, !artist.isEmpty else { return }
+            guard !title.isEmpty, !artist.isEmpty else {
+                AnimatedArtworkService.shared.note(videoId, "no se busca (sin titulo o artista todavia)")
+                return
+            }
             let found = await AnimatedArtworkService.shared.url(videoId: videoId, title: title, artist: artist, album: album)
             // La cancion puede haber cambiado mientras se buscaba.
             if !Task.isCancelled, np.videoId == videoId { url = found }
