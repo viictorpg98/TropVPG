@@ -23,6 +23,7 @@ struct FullPlayerView: View {
     @State private var showQueue = false
     @State private var pendingRoute: DetailRoute?
     @State private var showSongMenu = false
+    @State private var showPlaylistPicker = false
     @State private var artworkEntryOffset: CGFloat = 0
     @State private var currentLyrics: [LyricLine] = []
 
@@ -140,6 +141,11 @@ struct FullPlayerView: View {
             .sheet(isPresented: $showSongMenu) {
                 if let song = currentSong {
                     PlayerMenuSheet(song: song, onCollapseRequest: { onCollapse() })
+                }
+            }
+            .sheet(isPresented: $showPlaylistPicker) {
+                if let song = currentSong {
+                    AddSongToPlaylistSheet(song: song)
                 }
             }
             .background(
@@ -286,6 +292,40 @@ struct FullPlayerView: View {
     /// Me gusta, No me gusta y Letra, como en YouTube Music.
     private var actionPills: some View {
         HStack(spacing: 10) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    pillButtons
+                }
+                .padding(.trailing, 18)
+            }
+            .mask(
+                LinearGradient(
+                    stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.9), .init(color: .clear, location: 1)],
+                    startPoint: .leading, endPoint: .trailing
+                )
+            )
+
+            // Mezclar ya con la siguiente (AutoMix la prepara y empieza en unos segundos). Solo icono y fija a la
+            // derecha: asi la fila nunca se parte en dos lineas; mientras prepara se rellena y pulsa.
+            if settings.autoMixEnabled, np.hasNext, !AutoMixVisuals.shared.isMixing {
+                PlayerPillButton(
+                    systemImage: "wand.and.stars",
+                    isActive: AutoMixVisuals.shared.preparingManual,
+                    accessibility: "Mix now",
+                    pulses: AutoMixVisuals.shared.preparingManual
+                ) {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    AutoMixEngine.shared.mixNow()
+                }
+            }
+        }
+        .frame(height: 38)
+    }
+
+    /// Me gusta, No me gusta, Letra, Guardar y Descargar (la fila se desliza si no caben).
+    @ViewBuilder
+    private var pillButtons: some View {
+        Group {
             PlayerPillButton(
                 systemImage: isLiked ? "hand.thumbsup.fill" : "hand.thumbsup",
                 isActive: isLiked,
@@ -318,20 +358,17 @@ struct FullPlayerView: View {
                 }
             }
 
-            Spacer(minLength: 0)
+            PlayerPillButton(
+                systemImage: "plus.square.on.square",
+                title: "Save",
+                isActive: false,
+                accessibility: "Add to Playlist"
+            ) {
+                showPlaylistPicker = true
+            }
 
-            // Mezclar ya con la siguiente (AutoMix la prepara y empieza en unos segundos). Solo icono, a la derecha:
-            // asi la fila nunca se parte en dos lineas; mientras prepara se rellena y pulsa.
-            if settings.autoMixEnabled, np.hasNext, !AutoMixVisuals.shared.isMixing {
-                PlayerPillButton(
-                    systemImage: "wand.and.stars",
-                    isActive: AutoMixVisuals.shared.preparingManual,
-                    accessibility: "Mix now",
-                    pulses: AutoMixVisuals.shared.preparingManual
-                ) {
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    AutoMixEngine.shared.mixNow()
-                }
+            if let song = currentSong {
+                PlayerDownloadPill(song: song)
             }
         }
     }
@@ -706,6 +743,46 @@ private struct ActiveLyricLine: View {
             .accessibilityLabel("Current lyric: \(text). Open lyrics")
         } else {
             Color.clear
+        }
+    }
+}
+
+// MARK: - Boton de descarga (vista propia: observa el gestor de descargas sin redibujar todo el reproductor)
+
+private struct PlayerDownloadPill: View {
+    let song: SongItem
+    @ObservedObject private var downloads = DownloadManager.shared
+    @State private var confirmRemoval = false
+
+    var body: some View {
+        let state = downloads.state(for: song.videoId)
+        Group {
+            switch state {
+            case .completed:
+                PlayerPillButton(
+                    systemImage: "checkmark.circle.fill", title: "Downloaded", isActive: true, accessibility: "Downloaded"
+                ) {
+                    confirmRemoval = true
+                }
+            case .downloading:
+                PlayerPillButton(
+                    systemImage: "arrow.down.circle", title: "Downloading…", isActive: false,
+                    accessibility: "Downloading…", pulses: true
+                ) {}
+            case .notStarted, .failed:
+                PlayerPillButton(
+                    systemImage: "arrow.down.circle", title: "Download", isActive: false, accessibility: "Download"
+                ) {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    Task { await downloads.download(song: song) }
+                }
+            }
+        }
+        .confirmationDialog("Remove Download", isPresented: $confirmRemoval, titleVisibility: .visible) {
+            Button("Remove Download", role: .destructive) {
+                Task { await downloads.delete(videoId: song.videoId) }
+            }
+            Button("Cancel", role: .cancel) {}
         }
     }
 }
