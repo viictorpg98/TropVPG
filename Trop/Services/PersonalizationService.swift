@@ -277,23 +277,11 @@ actor PersonalizationService {
             if let parsed = panelEntry(entry, seedId: videoId) { songs.append((parsed.song, parsed.selected)) }
         }
         guard !songs.isEmpty else { throw NSError(domain: "fetchRadio", code: 1, userInfo: [:]) }
-        var currentIndex = songs.firstIndex(where: { $0.1 }) ?? 0
-        let selectedId = songs[currentIndex].0.videoId
+        let currentIndex = songs.firstIndex(where: { $0.1 }) ?? 0
         var resultSongs = songs.map(\.0)
         if let automixItems = await tryResolveAutomix(from: panel, seedId: videoId) {
             let deduped = automixItems.filter { a in !resultSongs.contains(where: { $0.videoId == a.videoId }) }
             resultSongs += deduped
-        }
-        // Solo canciones: fuera videoclips, directos y subidas de fans (suenan con intros, charla...). La cancion de la que
-        // parte la radio se queda siempre.
-        if SettingsStore.shared.preferSongsInRadio {
-            let kept = resultSongs.filter { $0.videoId == videoId || $0.videoId == selectedId || !Self.isVideoType($0.musicVideoType) }
-            let removed = resultSongs.count - kept.count
-            if removed > 0, kept.count >= 2 {
-                PlaybackReport.record("radio de \(videoId): \(kept.count) canciones, \(removed) videos quitados")
-                resultSongs = kept
-                currentIndex = resultSongs.firstIndex(where: { $0.videoId == selectedId }) ?? 0
-            }
         }
         switch options.style {
         case .similar:
@@ -336,11 +324,6 @@ actor PersonalizationService {
             throw NSError(domain: "fetchRadio", code: 2, userInfo: [:])
         }
         return PlaylistPanel(contents: panelContents)
-    }
-
-    /// Videoclip oficial o subida de usuario (directos, entrevistas...): no es la cancion del album.
-    private static func isVideoType(_ type: String?) -> Bool {
-        type == "MUSIC_VIDEO_TYPE_OMV" || type == "MUSIC_VIDEO_TYPE_UGC"
     }
 
     /// Un elemento de la lista de reproduccion. Si trae version de audio y de video (elemento "envoltorio"), se elige la de
