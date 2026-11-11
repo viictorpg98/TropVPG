@@ -79,11 +79,12 @@ private struct SonarRefresh: ViewModifier {
                 pull = newValue
             }
             .overlay(alignment: .top) {
-                let progress = refreshing ? 1.0 : min(1.0, Double(pull) / 70)
+                // Continuo: nunca da un salto al empezar o al terminar la recarga (el tiron y el estado se combinan).
+                let progress = max(min(1.0, Double(pull) / 70), refreshing ? 1.0 : 0.0)
                 SonarLoader(size: 32)
                     .opacity(progress)
                     .scaleEffect(0.5 + 0.5 * progress)
-                    .offset(y: refreshing ? 16 : max(0, pull * 0.45 - 6))
+                    .offset(y: max(refreshing ? 16 : 0, pull * 0.45 - 6))
                     .animation(.smooth(duration: 0.25), value: refreshing)
                     .allowsHitTesting(false)
             }

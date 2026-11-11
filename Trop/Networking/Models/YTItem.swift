@@ -444,6 +444,32 @@ struct ArtistItem {
     }
 }
 
+/// Fila de lista (musicResponsiveListItemRenderer) que no es una cancion: los artistas de las Listas de exitos,
+/// por ejemplo. Antes se descartaban y la seccion entera desaparecia.
+enum ResponsiveRowItem {
+    static func parse(_ renderer: [String: Any]) -> YTItem? {
+        guard let browseId = extractTwoRowBrowseId(renderer) else { return nil }
+        let flex = renderer["flexColumns"] as? [[String: Any]] ?? []
+        let title = flexText(flex, index: 0) ?? "Unknown"
+        let thumbnailUrl = extractResponsiveThumbnail(renderer)
+        let pageType = HomePageParser.extractPageType(renderer)
+        if pageType == "MUSIC_PAGE_TYPE_ARTIST" || browseId.hasPrefix("UC") {
+            return .artist(ArtistItem(browseId: browseId, name: title, thumbnailUrl: thumbnailUrl, isSubscribed: false))
+        }
+        if pageType == "MUSIC_PAGE_TYPE_ALBUM" || browseId.hasPrefix("MPRE") {
+            return .album(AlbumItem(
+                browseId: browseId, title: title, artists: [], thumbnailUrl: thumbnailUrl,
+                playlistId: extractPlaylistId(renderer), isExplicit: false
+            ))
+        }
+        if pageType == "MUSIC_PAGE_TYPE_PLAYLIST" || browseId.hasPrefix("VL") {
+            let author = flexTextRuns(flex, index: 1).first?["text"] as? String
+            return .playlist(PlaylistItem(id: browseId, title: title, author: author, thumbnailUrl: thumbnailUrl))
+        }
+        return nil
+    }
+}
+
 struct PlaylistItem {
     var id: String
     var title: String

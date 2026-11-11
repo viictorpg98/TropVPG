@@ -146,7 +146,9 @@ extension HomePageParser {
                 return parseTwoRowItem(twoRow)
             }
             if let responsiveList = itemDict["musicResponsiveListItemRenderer"] as? [String: Any] {
-                return SongItem.from(responsiveList).map { YTItem.song($0) }
+                if let song = SongItem.from(responsiveList) { return YTItem.song(song) }
+                // Artistas, albumes y listas en forma de fila (p. ej. los artistas de las Listas de exitos).
+                return ResponsiveRowItem.parse(responsiveList)
             }
             if let multiRow = itemDict["musicMultiRowListItemRenderer"] as? [String: Any] {
                 return parseMultiRowEpisode(multiRow).map { YTItem.episode($0) }
@@ -249,6 +251,9 @@ extension HomePageParser {
             Log.explore.debug("Explore section[\(index)] keys=\(keys)")
             if let parsed = parseExploreSection(sectionDict, index: index) {
                 output.append(parsed)
+            } else {
+                // Para el informe: que secciones llegan de YouTube y no se saben leer (si falta algo en pantalla).
+                noteUnreadSection(sectionDict)
             }
         }
         Log.explore.debug(
@@ -355,6 +360,7 @@ extension HomePageParser {
             // Shelf dropped: log why the first item didn't parse so the
             // shape can be mapped (pageType / browse prefix / endpoints).
             Log.explore.debug("Explore section[\(index)] dropped: " + describeUnparsed(rawItems.first ?? [:]))
+            PlaybackReport.record("explorar: '\(title)' sin leer (\(describeUnparsed(rawItems.first ?? [:])))")
         }
         guard !items.isEmpty else { return nil }
 

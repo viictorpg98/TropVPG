@@ -106,6 +106,11 @@ struct SongContextMenuModifier: ViewModifier {
         if let song {
             content.contextMenu {
                 Button {
+                    PlaybackQueue.startRadio(for: song)
+                } label: {
+                    Label("Start Radio", systemImage: "dot.radiowaves.left.and.right")
+                }
+                Button {
                     SongActions.playNext(song)
                 } label: {
                     Label("Play Next", systemImage: "text.insert")

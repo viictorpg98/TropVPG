@@ -137,10 +137,6 @@ struct LibraryView: View {
                 guard !isLoading else { return }
                 await ImagePreloader.shared.preload(thumbnailURLsToPreload())
             }
-            .sonarRefreshable {
-                await SyncBridge.forceFullSync()
-                await loadContent()
-            }
             .destructiveConfirm(
                 "Delete Playlist",
                 isPresented: .init(
@@ -208,6 +204,20 @@ struct LibraryView: View {
         }
         .scrollIndicators(.automatic)
         .miniPlayerTracksScroll()
+        // Solo sobre la lista (no sobre toda la pantalla): asi el logo sale debajo de la cabecera y no junto al titulo.
+        .sonarRefreshable {
+            await loadContent()
+            // La sincronizacion completa con YouTube tarda (10 s o mas): sigue en segundo plano y el logo
+            // se quita en cuanto estan los datos guardados.
+            if SyncBridge.beginBackgroundFullSync() {
+                Task {
+                    await SyncBridge.forceFullSync()
+                    SyncBridge.endBackgroundFullSync()
+                    await loadContent()
+                }
+            }
+            try? await Task.sleep(for: .milliseconds(600))
+        }
     }
 
     // MARK: - Playlists (Auto + User)

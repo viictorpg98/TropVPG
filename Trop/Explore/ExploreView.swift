@@ -64,7 +64,7 @@ struct ExploreView: View {
     private var content: some View {
         switch viewModel.phase {
         case .idle, .loading:
-            // Al recargar tirando hacia abajo se sigue viendo lo que hay (si se quitara la lista, la recarga se cancelaria).
+            // Solo la primera vez: al recargar la fase no cambia y la lista no se reconstruye.
             if viewModel.sections.isEmpty {
                 SonarLoadingScreen()
             } else {
@@ -253,11 +253,17 @@ private struct ExploreBrowseView: View {
         Group {
             if let sections {
                 if sections.isEmpty {
-                    ContentUnavailableView(
-                        "Nothing here",
-                        systemImage: "square.grid.2x2",
-                        description: Text("Try again later.")
-                    )
+                    ContentUnavailableView {
+                        Label("Nothing here", systemImage: "square.grid.2x2")
+                    } description: {
+                        Text("Try again later.")
+                    } actions: {
+                        Button("Retry") {
+                            self.sections = nil
+                            Task { await load() }
+                        }
+                        .buttonStyle(.bordered)
+                    }
                 } else {
                     ScrollView {
                         ExploreSectionsList(sections: sections, pendingRoute: $pendingRoute)
@@ -265,6 +271,7 @@ private struct ExploreBrowseView: View {
                     }
                     .scrollIndicators(.automatic)
                     .miniPlayerTracksScroll()
+                    .sonarRefreshable { await load() }
                 }
             } else {
                 SonarLoadingScreen()
@@ -278,9 +285,14 @@ private struct ExploreBrowseView: View {
                 pendingRoute = nil
             }
         }
-        .task {
-            sections = await ExploreViewModel.loadBrowseDetail(browseId: button.browseId, params: button.params)
-        }
+        .task { await load() }
+    }
+
+    private func load() async {
+        let loaded = await ExploreViewModel.loadBrowseDetail(browseId: button.browseId, params: button.params)
+        // Al recargar, si no llega nada se deja lo que habia.
+        if loaded.isEmpty, let current = sections, !current.isEmpty { return }
+        sections = loaded
     }
 }
 
@@ -297,11 +309,17 @@ private struct MoodDetailView: View {
         Group {
             if let sections {
                 if sections.isEmpty {
-                    ContentUnavailableView(
-                        "Nothing here",
-                        systemImage: "square.grid.2x2",
-                        description: Text("Nothing found for \(mood.title).")
-                    )
+                    ContentUnavailableView {
+                        Label("Nothing here", systemImage: "square.grid.2x2")
+                    } description: {
+                        Text("Nothing found for \(mood.title).")
+                    } actions: {
+                        Button("Retry") {
+                            self.sections = nil
+                            Task { await load() }
+                        }
+                        .buttonStyle(.bordered)
+                    }
                 } else {
                     ScrollView {
                         ExploreSectionsList(sections: sections, pendingRoute: $pendingRoute)
@@ -309,6 +327,7 @@ private struct MoodDetailView: View {
                     }
                     .scrollIndicators(.automatic)
                     .miniPlayerTracksScroll()
+                    .sonarRefreshable { await load() }
                 }
             } else {
                 SonarLoadingScreen()
@@ -322,9 +341,13 @@ private struct MoodDetailView: View {
                 pendingRoute = nil
             }
         }
-        .task {
-            sections = await ExploreViewModel.loadMoodDetail(mood)
-        }
+        .task { await load() }
+    }
+
+    private func load() async {
+        let loaded = await ExploreViewModel.loadMoodDetail(mood)
+        if loaded.isEmpty, let current = sections, !current.isEmpty { return }
+        sections = loaded
     }
 }
 

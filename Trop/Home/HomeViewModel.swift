@@ -113,10 +113,19 @@ final class HomeViewModel {
     func refresh() async {
         guard !isRefreshing else { return }
         isRefreshing = true
+        defer { isRefreshing = false }
+        // Con un chip elegido se recarga lo de ese chip (antes salia la portada normal con el chip aun marcado).
+        if let chip = selectedChip {
+            let generation = loadGeneration
+            if let page = await fetchChipPage(chip),
+               !Task.isCancelled, generation == loadGeneration, selectedChip?.title == chip.title {
+                applyChipPage(page, chip: chip)
+            }
+            return
+        }
+        // Las secciones de la cuenta se conservan hasta que lleguen las nuevas (la lista no se encoge mientras tanto).
         cachedLocalSections = []
-        cachedPhase2Sections = []
         await load()
-        isRefreshing = false
     }
 
     func restoreSession() async {
@@ -148,33 +157,41 @@ final class HomeViewModel {
         error = nil
         homeFetchFailure = nil
 
-        async let localTask: Void = storeLocalSections()
-        _ = await localTask
+        await storeLocalSections()
         guard generation == loadGeneration else { return }
-        await personalization.drainEnrichments()
 
-        async let phase2Work: Void = loadPhase2Sections()
+        // Lo lento (completar los datos de las canciones y las secciones de la cuenta) va en segundo plano:
+        // la portada se ensena en cuanto llega, y esto se va anadiendo.
+        let background = Task { await self.finishBackground(generation: generation) }
 
         await fetchHomePage(generation: generation)
-        guard generation == loadGeneration else {
-            await phase2Work
-            return
-        }
-        await ensureQuickPicksAvailable(generation: generation)
-        guard generation == loadGeneration else {
-            await phase2Work
-            return
-        }
-        await phase2Work
-
         guard generation == loadGeneration else { return }
-        // El error solo se enseña si no hay nada que ensenar: ni portada guardada ni secciones propias.
+        await ensureQuickPicksAvailable(generation: generation)
+        guard generation == loadGeneration else { return }
+
+        // Si la portada no llego, se espera a lo demas por si hay algo que ensenar.
+        if homePage == nil, homeFetchFailure != nil {
+            await background.value
+            guard generation == loadGeneration else { return }
+        }
+        // El error solo se ensena si no hay nada que ensenar: ni portada guardada ni secciones propias.
         if homePage == nil, let failure = homeFetchFailure, cachedLocalSections.isEmpty, cachedPhase2Sections.isEmpty {
             error = failure
         }
         homeFetchFailure = nil
         mergeSections()
         isLoading = false
+    }
+
+    /// Completa los datos de las canciones propias y carga las secciones de la cuenta, y lo va poniendo en la lista.
+    private func finishBackground(generation: Int) async {
+        async let phase2: Void = loadPhase2Sections()
+        await personalization.drainEnrichments()
+        if generation == loadGeneration {
+            await storeLocalSections()
+            mergeSections(freshContent: true)
+        }
+        await phase2
     }
 
     private func ensureQuickPicksAvailable(generation: Int) async {
@@ -279,7 +296,7 @@ final class HomeViewModel {
         phase2.append(contentsOf: srResults)
         cachedPhase2Sections = phase2
 
-        mergeSections()
+        mergeSections(freshContent: true)
     }
 
     func toggleChip(_ chip: HomePage.Chip?) {
@@ -302,36 +319,44 @@ final class HomeViewModel {
         // que YouTube devuelve para ese chip (sin las secciones propias de la app).
         isChipLoading = true
         let generation = loadGeneration
+        guard let chip else { return }
         cleanup.chipTask = Task {
-            do {
-                // En el idioma del dispositivo: asi los titulos de podcasts no llegan traducidos al ingles.
-                let json = try await InnerTubeClient.tropShared.browse(
-                    browseId: "FEmusic_home",
-                    params: chip?.params,
-                    locale: .deviceLanguage
-                )
-                guard !Task.isCancelled, generation == loadGeneration else { return }
-                if let page = await Self.parseHome(json, chipMode: true) {
-                    // Para el informe: que secciones trae YouTube para este chip.
-                    let summary = page.sections
-                        .map { "\($0.title.isEmpty ? "-" : $0.title)(\($0.items.count))" }
-                        .joined(separator: ", ")
-                    PlaybackReport.record("chip \(chip?.title ?? "?"): \(summary)")
-                    homePage?.sections = page.sections
-                    // The filtered feed carries its own continuation; reusing
-                    // the unfiltered one would page wrong sections in below.
-                    homePage?.continuation = page.continuation
-                    isChipLoading = false
-                    mergeSections(stable: false)
-                } else {
-                    restoreAfterChipFailure()
-                }
-            } catch {
-                guard !Task.isCancelled else { return }
-                guard generation == loadGeneration else { return }
+            let page = await fetchChipPage(chip)
+            guard !Task.isCancelled, generation == loadGeneration, selectedChip?.title == chip.title else { return }
+            if let page {
+                applyChipPage(page, chip: chip)
+            } else {
                 restoreAfterChipFailure()
             }
         }
+    }
+
+    /// La portada del chip, en el idioma del dispositivo (asi los titulos de podcasts no llegan traducidos al ingles).
+    private func fetchChipPage(_ chip: HomePage.Chip) async -> HomePage? {
+        do {
+            let json = try await InnerTubeClient.tropShared.browse(
+                browseId: "FEmusic_home",
+                params: chip.params,
+                locale: .deviceLanguage
+            )
+            return await Self.parseHome(json, chipMode: true)
+        } catch {
+            return nil
+        }
+    }
+
+    private func applyChipPage(_ page: HomePage, chip: HomePage.Chip) {
+        // Para el informe: que secciones trae YouTube para este chip.
+        let summary = page.sections
+            .map { "\($0.title.isEmpty ? "-" : $0.title)(\($0.items.count))" }
+            .joined(separator: ", ")
+        PlaybackReport.record("chip \(chip.title): \(summary)")
+        homePage?.sections = page.sections
+        // The filtered feed carries its own continuation; reusing
+        // the unfiltered one would page wrong sections in below.
+        homePage?.continuation = page.continuation
+        isChipLoading = false
+        mergeSections(stable: false)
     }
 
     /// Si el chip no se puede cargar, se vuelve a la portada normal.
@@ -387,7 +412,7 @@ final class HomeViewModel {
     /// contenido, y lo que llega despues (secciones de segundo plano, paginas siguientes) se anade al
     /// final. Asi nada salta ni cambia mientras se desliza. Se pone a `false` cuando el cambio es
     /// intencionado (filtros, chips, cerrar sesion).
-    private func mergeSections(stable: Bool = true) {
+    private func mergeSections(stable: Bool = true, freshContent: Bool = false) {
         if selectedChip != nil {
             // Con un chip elegido se muestra lo que YouTube devuelve para ese chip, en su orden y con el mismo aspecto que en
             // la portada normal (sus Selecciones rapidas, su Acceso rapido...), no las secciones propias de la app.
@@ -400,13 +425,19 @@ final class HomeViewModel {
         let serverSections = homePage?.sections.enumerated().map { mapServerSection($1, index: $0) } ?? []
         let all = cachedLocalSections + serverSections + cachedPhase2Sections
         let merged = orderSections(all)
-        homeSections = stable ? stabilized(merged) : merged
+        homeSections = stable ? stabilized(merged, freshContent: freshContent) : merged
     }
 
-    private func stabilized(_ fresh: [HomeSection]) -> [HomeSection] {
+    /// `freshContent`: lo que ya se ve conserva su sitio pero toma el contenido nuevo (tras recargar o al terminar
+    /// la carga en segundo plano). Sin eso, conserva tambien el contenido.
+    private func stabilized(_ fresh: [HomeSection], freshContent: Bool = false) -> [HomeSection] {
         guard !isLoading, !homeSections.isEmpty else { return fresh }
-        let freshIds = Set(fresh.map(\.id))
-        let kept = homeSections.filter { freshIds.contains($0.id) }
+        var freshById: [String: HomeSection] = [:]
+        for section in fresh where freshById[section.id] == nil { freshById[section.id] = section }
+        let kept = homeSections.compactMap { old -> HomeSection? in
+            guard let new = freshById[old.id] else { return nil }
+            return freshContent ? new : old
+        }
         let keptIds = Set(kept.map(\.id))
         return kept + fresh.filter { !keptIds.contains($0.id) }
     }

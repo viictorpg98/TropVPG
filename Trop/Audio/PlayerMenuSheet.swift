@@ -21,6 +21,7 @@ struct PlayerMenuSheet: View {
         case equalizer
         case details
         case similar
+        case more
     }
 
     // Loaded state
@@ -31,13 +32,20 @@ struct PlayerMenuSheet: View {
     @State private var showShareDialog = false
     @State private var isResolvingArtist = false
     @ObservedObject private var downloadManager = DownloadManager.shared
+    @ObservedObject private var likeStore = LikeStore.shared
+    @State private var showRemoveDownload = false
+    /// El color de la carátula, oscurecido, de fondo de la hoja.
+    @State private var tint: Color?
 
     var body: some View {
-        SheetChrome {
+        SheetChrome(tint: tint) {
             Group {
+                headerRow
+                quickActions
                 eqVolumeCard
-                actionGrid
                 MenuCard {
+                    MenuRow(icon: "dot.radiowaves.left.and.right", title: "Start Radio") { startRadio() }
+                    Divider()
                     viewArtistRow
                     if let albumId = song.firstAlbumBrowseId {
                         Divider()
@@ -45,16 +53,6 @@ struct PlayerMenuSheet: View {
                             navigate(.album(browseId: albumId))
                         }
                     }
-                    Divider()
-                    pinRow
-                    Divider()
-                    downloadRow
-                }
-                MenuCard {
-                    NavigationLink(value: Destination.details) {
-                        MenuRowLabel(icon: "info.circle", title: "Details", subtitle: "Metadata & stream information")
-                    }
-                    .buttonStyle(.plain)
                     Divider()
                     NavigationLink(value: Destination.similar) {
                         MenuRowLabel(
@@ -65,11 +63,10 @@ struct PlayerMenuSheet: View {
                     }
                     .buttonStyle(.plain)
                     Divider()
-                    MenuRow(
-                        icon: "slider.horizontal.3",
-                        title: "Customize Radio",
-                        subtitle: "Style, size & explicit filter"
-                    ) { showRadioOptions = true }
+                    NavigationLink(value: Destination.more) {
+                        MenuRowLabel(icon: "ellipsis.circle", title: "More Options")
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .navigationDestination(for: Destination.self) { dest in
@@ -88,15 +85,24 @@ struct PlayerMenuSheet: View {
                             AppRouter.shared.expandPlayer()
                         }
                     )
+                case .more:
+                    moreOptions
                 }
             }
         }
+        .preferredColorScheme(.dark)
         .confirmationDialog("View Artist", isPresented: $showArtistPicker, titleVisibility: .visible) {
             ForEach(song.artists.filter { !$0.name.isEmpty }, id: \.self) { artist in
                 Button(artist.name) {
                     openArtist(artist)
                 }
             }
+        }
+        .confirmationDialog("Remove Download", isPresented: $showRemoveDownload, titleVisibility: .visible) {
+            Button("Remove Download", role: .destructive) {
+                Task { await downloadManager.delete(videoId: song.videoId) }
+            }
+            Button("Cancel", role: .cancel) {}
         }
         .sheet(isPresented: $showPlaylistPicker) {
             AddSongToPlaylistSheet(song: song)
@@ -117,6 +123,36 @@ struct PlayerMenuSheet: View {
             Text(song.title)
         }
         .task { await pin.load(videoId: song.videoId) }
+        .task(id: song.videoId) {
+            tint = await SongTint.color(forThumbnail: AudioCounterpartStore.shared.thumbnailURL(for: song))
+        }
+    }
+
+    // MARK: - Mas opciones
+
+    private var moreOptions: some View {
+        ScrollView {
+            VStack(spacing: 12) {
+                MenuCard {
+                    pinRow
+                    Divider()
+                    NavigationLink(value: Destination.details) {
+                        MenuRowLabel(icon: "info.circle", title: "Details", subtitle: "Metadata & stream information")
+                    }
+                    .buttonStyle(.plain)
+                    Divider()
+                    MenuRow(
+                        icon: "slider.horizontal.3",
+                        title: "Customize Radio",
+                        subtitle: "Style, size & explicit filter"
+                    ) { showRadioOptions = true }
+                }
+            }
+            .padding(16)
+        }
+        .background(tint ?? Color(.systemBackground))
+        .navigationTitle("More Options")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     // MARK: - EQ + App Volume
@@ -154,8 +190,7 @@ struct PlayerMenuSheet: View {
             )
             .accessibilityLabel("App volume")
         }
-        .padding(16)
-        .background(cardBackground)
+        .padding(.vertical, 6)
     }
 
     private var volumeIconName: String {
@@ -167,67 +202,82 @@ struct PlayerMenuSheet: View {
         }
     }
 
-    // MARK: - Quick Actions
+    // MARK: - Cabecera y acciones rapidas
 
-    private var actionGrid: some View {
-        HStack(spacing: 0) {
-            actionButton(icon: "dot.radiowaves.left.and.right", label: "Start Radio") {
-                startRadio()
+    private var headerRow: some View {
+        HStack(spacing: 14) {
+            AsyncImageView(url: AudioCounterpartStore.shared.thumbnailURL(for: song))
+                .frame(width: 60, height: 60)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 3) {
+                MarqueeText(
+                    text: song.title,
+                    font: .headline,
+                    frameHeight: 24,
+                    textColor: .primary
+                )
+                Text(headerSubtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
-            separator
-            actionButton(icon: "music.note.list", label: "Playlist") {
-                showPlaylistPicker = true
-            }
-            separator
-            actionButton(icon: "square.and.arrow.up", label: "Share") {
-                showShareDialog = true
-            }
+
+            Spacer(minLength: 0)
         }
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.bottom, 4)
     }
 
-    private var separator: some View {
-        Color(.separator)
-            .frame(width: 0.5, height: 28)
+    private var headerSubtitle: String {
+        guard song.duration > 0 else { return song.artistNamesDisplay }
+        let time = DurationFormat.playbackTime(TimeInterval(song.duration))
+        return song.artistNamesDisplay.isEmpty ? time : "\(song.artistNamesDisplay) · \(time)"
     }
 
-    private func actionButton(icon: String, label: String, action: @escaping () -> Void) -> some View {
+    private var quickActions: some View {
+        let liked = likeStore.isLiked(videoId: song.videoId)
+        let state = downloadManager.state(for: song.videoId)
+        return HStack(spacing: 6) {
+            quickAction(icon: liked ? "heart.fill" : "heart", label: liked ? "Unlike" : "Like", isOn: liked) {
+                Task { await likeStore.toggle(song: song) }
+            }
+
+            switch state {
+            case .completed:
+                quickAction(icon: "checkmark.circle.fill", label: "Downloaded", isOn: true) {
+                    showRemoveDownload = true
+                }
+            case .downloading:
+                quickAction(icon: "arrow.down.circle", label: "Downloading…") {}
+            case .notStarted, .failed:
+                quickAction(icon: "arrow.down.circle", label: "Download") {
+                    Task { await downloadManager.download(song: song) }
+                }
+            }
+
+            quickAction(icon: "music.note.list", label: "Playlist") { showPlaylistPicker = true }
+            quickAction(icon: "square.and.arrow.up", label: "Share") { showShareDialog = true }
+        }
+        .padding(.bottom, 6)
+    }
+
+    private func quickAction(icon: String, label: String, isOn: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 6) {
                 Image(systemName: icon)
                     .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(settings.accentColor)
+                    .foregroundStyle(isOn ? settings.accentOnColor : Color.white)
+                    .frame(width: 48, height: 48)
+                    .background(Circle().fill(isOn ? settings.accentColor : Color.white.opacity(0.12)))
                 Text(LocalizedStringKey(label))
-                    .font(.caption)
-                    .foregroundStyle(.primary)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.75))
+                    .lineLimit(1)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-    }
-
-    // MARK: - Download Row
-
-    private var downloadRow: some View {
-        let state = downloadManager.state(for: song.videoId)
-        return Group {
-            switch state {
-            case .completed:
-                MenuRow(icon: "checkmark.circle.fill", title: "Remove Download", destructive: true) {
-                    Task { await downloadManager.delete(videoId: song.videoId) }
-                }
-            case .downloading:
-                MenuRow(icon: "arrow.down.circle", title: "Downloading…") {}
-                    .disabled(true)
-            case .notStarted, .failed:
-                MenuRow(icon: "arrow.down.circle", title: "Download") {
-                    Task { await downloadManager.download(song: song) }
-                }
-            }
-        }
     }
 
     // MARK: - Library Rows

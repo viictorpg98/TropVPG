@@ -5,6 +5,8 @@
 //  Created by 686udjie on 09/10/2026.
 //
 
+import Foundation
+
 enum SyncBridge {
     static let store = TropLibraryStore()
     static let librarySync = LibrarySyncService(client: InnerTubeClient.tropShared, store: store)
@@ -33,5 +35,26 @@ enum SyncBridge {
         await incremental.forceFullSync(options: options) {
             await LikeStore.shared.refresh()
         }
+    }
+
+    // MARK: - Sincronizacion completa en segundo plano (Biblioteca, al tirar hacia abajo)
+
+    private static let backgroundGate = NSLock()
+    nonisolated(unsafe) private static var backgroundFullSyncRunning = false
+
+    /// `true` si se puede lanzar una sincronizacion completa en segundo plano (si ya hay una en marcha, `false`).
+    /// Quien la lance debe llamar a `endBackgroundFullSync()` al terminar.
+    static func beginBackgroundFullSync() -> Bool {
+        backgroundGate.lock()
+        defer { backgroundGate.unlock() }
+        if backgroundFullSyncRunning { return false }
+        backgroundFullSyncRunning = true
+        return true
+    }
+
+    static func endBackgroundFullSync() {
+        backgroundGate.lock()
+        backgroundFullSyncRunning = false
+        backgroundGate.unlock()
     }
 }

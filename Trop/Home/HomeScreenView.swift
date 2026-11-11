@@ -142,7 +142,8 @@ struct HomeScreenView: View {
         .sonarRefreshable {
             await viewModel.refresh()
             await reloadSpeedDial()
-            await SyncBridge.checkAndSyncIfStale()
+            // La sincronizacion de la biblioteca sigue en segundo plano: no se espera.
+            Task { await SyncBridge.checkAndSyncIfStale() }
         }
         .onChange(of: settings.hideExplicit) { _, _ in
             viewModel.syncSettings()

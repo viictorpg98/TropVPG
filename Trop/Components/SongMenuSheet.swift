@@ -49,6 +49,8 @@ struct SongMenuSheet: View {
                     Divider()
                     MenuRow(icon: "list.bullet", title: "Add to Queue") { addToQueue() }
                     Divider()
+                    MenuRow(icon: "dot.radiowaves.left.and.right", title: "Start Radio") { startRadio() }
+                    Divider()
                     MenuRow(icon: "music.mic", title: "View Artist", subtitle: song.artistNamesDisplay) { handleViewArtist() }
                     if let albumId = song.firstAlbumBrowseId {
                         Divider()
@@ -131,8 +133,6 @@ struct SongMenuSheet: View {
         ScrollView {
             VStack(spacing: 12) {
                 MenuCard {
-                    MenuRow(icon: "dot.radiowaves.left.and.right", title: "Start Radio") { startRadio() }
-                    Divider()
                     MenuRow(
                         icon: pin.isPinned ? "pin.fill" : "pin",
                         title: pin.isPinned ? "Unpin from Quick Picks" : "Pin to Quick Picks"
