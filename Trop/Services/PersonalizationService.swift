@@ -263,12 +263,17 @@ actor PersonalizationService {
         return await store.isLoggedIn()
     }
 
-    func fetchRadio(videoId: String) async throws -> (songs: [SongItem], currentIndex: Int) {
+    func fetchRadio(videoId: String) async throws -> (songs: [SongItem], currentIndex: Int, chips: [QueueChip]) {
         try await fetchRadio(videoId: videoId, options: .default)
     }
 
-    func fetchRadio(videoId: String, options: RadioOptions) async throws -> (songs: [SongItem], currentIndex: Int) {
-        let playlistId = "RDAMVM\(videoId)"
+    /// `playlistId`: la radio de uno de los botones de la cola (Familiar, Descubrir...); sin el, la radio normal.
+    func fetchRadio(
+        videoId: String,
+        options: RadioOptions,
+        playlistId: String? = nil
+    ) async throws -> (songs: [SongItem], currentIndex: Int, chips: [QueueChip]) {
+        let playlistId = playlistId ?? "RDAMVM\(videoId)"
         let json = try await innerTube.next(videoId: videoId, playlistId: playlistId)
         let panel = try extractPlaylistPanel(from: json)
         var songs: [(SongItem, Bool)] = []
@@ -303,10 +308,13 @@ actor PersonalizationService {
         resultSongs = Array(resultSongs.prefix(max(1, options.limit)))
         guard !resultSongs.isEmpty else { throw NSError(domain: "fetchRadio", code: 1, userInfo: [:]) }
         let clampedIndex = min(currentIndex, resultSongs.count - 1)
-        return (resultSongs, clampedIndex)
+        return (resultSongs, clampedIndex, panel.chips)
     }
 
-    private struct PlaylistPanel { let contents: [[String: Any]] }
+    private struct PlaylistPanel {
+        let contents: [[String: Any]]
+        let chips: [QueueChip]
+    }
 
     private func extractPlaylistPanel(from json: [String: Any]) throws -> PlaylistPanel {
         guard let contents = json["contents"] as? [String: Any],
@@ -323,50 +331,26 @@ actor PersonalizationService {
               let panelContents = playlistPanel["contents"] as? [[String: Any]] else {
             throw NSError(domain: "fetchRadio", code: 2, userInfo: [:])
         }
-        Self.reportQueueChips(in: json)
-        return PlaylistPanel(contents: panelContents)
+        return PlaylistPanel(contents: panelContents, chips: Self.queueChips(in: queueRenderer))
     }
 
-    // MARK: - Botones de la cola (diagnostico)
-
-    nonisolated(unsafe) private static var chipReportCount = 0
-
-    /// Para el Informe: los botones de la cola que YouTube devuelve (Musica conocida, Populares, Musica por descubrir...) y de
-    /// que forma llegan, para poder ponerlos en la cola de la app. Solo las tres primeras veces de cada arranque.
-    private static func reportQueueChips(in json: [String: Any]) {
-        guard chipReportCount < 3 else { return }
-        chipReportCount += 1
-        var found: [String] = []
-        findChips(in: json, path: "", into: &found)
-        PlaybackReport.record(found.isEmpty
-            ? "cola: YouTube no devuelve botones (chips) en esta peticion"
-            : "cola: botones -> " + found.joined(separator: " | "))
-    }
-
-    private static func findChips(in node: Any, path: String, into out: inout [String]) {
-        if let dict = node as? [String: Any] {
-            if let cloud = dict["chipCloudRenderer"] as? [String: Any] {
-                let chips = (cloud["chips"] as? [[String: Any]]) ?? []
-                let titles = chips.map { chip -> String in
-                    let renderer = chip["chipCloudChipRenderer"] as? [String: Any]
-                    return InnerTubeJSON.runsText(renderer?["text"] as? [String: Any]) ?? "?"
-                }
-                let nav = (chips.first?["chipCloudChipRenderer"] as? [String: Any])?["navigationEndpoint"] as? [String: Any]
-                out.append("\(path)/chipCloudRenderer \(titles) nav=\(nav?.keys.sorted() ?? [])")
-                // Lo que manda cada boton (sin el primero, "All"): para saber con que parametros se pide la cola de cada uno.
-                for chip in chips.dropFirst().prefix(3) {
-                    let renderer = chip["chipCloudChipRenderer"] as? [String: Any]
-                    let title = InnerTubeJSON.runsText(renderer?["text"] as? [String: Any]) ?? "?"
-                    if let endpoint = renderer?["navigationEndpoint"] as? [String: Any],
-                       let data = try? JSONSerialization.data(withJSONObject: endpoint),
-                       let text = String(data: data, encoding: .utf8) {
-                        out.append("boton \(title): " + String(text.prefix(800)))
-                    }
-                }
-            }
-            for (key, value) in dict { findChips(in: value, path: path + "/" + key, into: &out) }
-        } else if let array = node as? [Any] {
-            for (index, value) in array.enumerated() { findChips(in: value, path: path + "[\(index)]", into: &out) }
+    /// Los botones de la cola que YouTube manda con la radio: cada uno trae la orden de pedir la radio con otro caracter.
+    private static func queueChips(in queueRenderer: [String: Any]) -> [QueueChip] {
+        guard let subHeader = queueRenderer["subHeaderChipCloud"] as? [String: Any],
+              let cloud = subHeader["chipCloudRenderer"] as? [String: Any],
+              let chips = cloud["chips"] as? [[String: Any]] else { return [] }
+        return chips.compactMap { chip -> QueueChip? in
+            guard let renderer = chip["chipCloudChipRenderer"] as? [String: Any],
+                  let title = InnerTubeJSON.runsText(renderer["text"] as? [String: Any]), !title.isEmpty else { return nil }
+            let endpoint = renderer["navigationEndpoint"] as? [String: Any]
+            let update = endpoint?["queueUpdateCommand"] as? [String: Any]
+            let fetch = update?["fetchContentsCommand"] as? [String: Any]
+            let watch = fetch?["watchEndpoint"] as? [String: Any]
+            return QueueChip(
+                title: title,
+                playlistId: watch?["playlistId"] as? String,
+                params: watch?["params"] as? String
+            )
         }
     }
 

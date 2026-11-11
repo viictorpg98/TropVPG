@@ -137,6 +137,7 @@ final class NowPlaying {
     }
 
     func setQueue(_ songs: [SongItem], startIndex: Int) {
+        QueueChipsStore.shared.clear()
         resetOfflineState()
         queueSongs = songs
         queueIndex = min(max(startIndex, 0), max(songs.count - 1, 0))

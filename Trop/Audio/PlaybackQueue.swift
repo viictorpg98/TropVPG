@@ -88,6 +88,7 @@ enum PlaybackQueue {
             NowPlaying.shared.queueSongs = preservingArtists(radio.songs, over: NowPlaying.shared.queueSongs)
             NowPlaying.shared.queueIndex = radio.currentIndex
             NowPlaying.shared.applyAudioVersions()
+            QueueChipsStore.shared.set(radio.chips)
         }
     }
 
@@ -132,6 +133,7 @@ enum PlaybackQueue {
             NowPlaying.shared.queueSongs = preservingArtists(radio.songs, over: NowPlaying.shared.queueSongs)
             NowPlaying.shared.queueIndex = radio.currentIndex
             NowPlaying.shared.applyAudioVersions()
+            QueueChipsStore.shared.set(radio.chips)
         }
     }
 

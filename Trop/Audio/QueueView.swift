@@ -84,6 +84,8 @@ struct QueueView<ProgressSlider: View>: View {
 
                 queueListHeaderRow
 
+                queueChipsRow
+
                 queueList
 
                 if isVideoMode {
@@ -98,6 +100,36 @@ struct QueueView<ProgressSlider: View>: View {
                     )
                 }
             }
+        }
+    }
+
+    /// Los botones de la cola de YouTube Music (Conocida, Populares, Por descubrir, generos...): cambian lo que viene despues.
+    @ViewBuilder
+    private var queueChipsRow: some View {
+        let store = QueueChipsStore.shared
+        if store.chips.count > 1 {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(store.chips, id: \.title) { chip in
+                        let isOn = store.selected == chip.title
+                        Button {
+                            store.select(chip)
+                        } label: {
+                            Text(chip.displayTitle)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(isOn ? Color.black : Color.white)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 7)
+                                .background(Capsule().fill(isOn ? Color.white : Color.white.opacity(0.14)))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+            .padding(.bottom, 6)
+            .opacity(store.isLoading ? 0.6 : 1)
+            .animation(.easeInOut(duration: 0.2), value: store.selected)
         }
     }
 
