@@ -19,6 +19,7 @@ jobs:
     runs-on: macos-15-intel
     permissions:
       contents: write
+      actions: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6.0.2
@@ -51,11 +52,24 @@ jobs:
           FFMPEG_KIT_TAG: ${{ env.FFMPEG_KIT_TAG }}
           CURRENT_PROJECT_VERSION: ${{ github.run_number }}
 
+      # El IPA que se instala sale de la release "nightly"; el artefacto es solo una copia. Se borran los antiguos (se habia
+      # llenado el espacio de artefactos y la subida fallaba, saltandose la publicacion) y, aunque falle, no impide publicar.
+      - name: Delete old artifacts
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --paginate "repos/${{ github.repository }}/actions/artifacts?per_page=100" --jq '.artifacts[].id' | while read -r id; do
+            gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$id" >/dev/null || true
+          done
+
       - name: Upload iOS IPA artifact
+        continue-on-error: true
         uses: actions/upload-artifact@v7.0.1
         with:
           name: Trop-iOS
           path: build/Trop.ipa
+          retention-days: 1
 
       - name: Publish nightly release
         if: github.ref == 'refs/heads/main'
