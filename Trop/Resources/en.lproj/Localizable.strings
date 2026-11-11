@@ -71,6 +71,7 @@
 "Bitrate" = "Bitrate";
 "Blends one downloaded song into the next like a DJ: they overlap and the tempo is matched. It only works between downloaded songs; everything else plays as usual. The Playback Report shows what it did." = "Blends one downloaded song into the next like a DJ: they overlap and the tempo is matched. It only works between downloaded songs; everything else plays as usual. The Playback Report shows what it did.";
 "Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Downloaded songs always mix; streamed songs mix over Wi-Fi, or also on mobile data if you turn that on (it downloads each song's audio an extra time). The Playback Report shows what it did." = "Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Downloaded songs always mix; streamed songs mix over Wi-Fi, or also on mobile data if you turn that on (it downloads each song's audio an extra time). The Playback Report shows what it did.";
+"Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Streamed songs mix over Wi-Fi unless Mobile Data for Extras is on." = "Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Streamed songs mix over Wi-Fi unless Mobile Data for Extras is on.";
 "Breakups & heartbreak" = "Breakups & heartbreak";
 "Business" = "Business";
 "Button 1" = "Button 1";
@@ -171,6 +172,7 @@
 "Enable Scrobbling" = "Enable Scrobbling";
 "Energize" = "Energize";
 "Energy" = "Energy";
+"Enhanced Covers" = "Enhanced Covers";
 "Episodes" = "Episodes";
 "Episodes for later" = "Episodes for later";
 "Equalizer" = "Equalizer";
@@ -221,6 +223,8 @@
 "High-Quality Covers" = "High-Quality Covers";
 "Hip-Hop" = "Hip-Hop";
 "History" = "History";
+"History off" = "History off";
+"History on" = "History on";
 "Home" = "Home";
 "Home Feed" = "Home Feed";
 "Hopeless romantic" = "Hopeless romantic";
@@ -231,6 +235,8 @@
 "In the gym" = "In the gym";
 "Include explicit" = "Include explicit";
 "Indie & alternative" = "Indie & alternative";
+"Infinite Playback" = "Infinite Playback";
+"Infinite Playback keeps similar songs coming when the queue ends. With Mobile Data for Extras off, animated covers, video preload and AutoMix on streamed songs only use Wi-Fi." = "Infinite Playback keeps similar songs coming when the queue ends. With Mobile Data for Extras off, animated covers, video preload and AutoMix on streamed songs only use Wi-Fi.";
 "Integrations" = "Integrations";
 "January" = "January";
 "Jazz" = "Jazz";
@@ -306,6 +312,7 @@
 "Mix Timing" = "Mix Timing";
 "Mix now" = "Mix now";
 "Mixed for you" = "Mixed for you";
+"Mobile Data for Extras" = "Mobile Data for Extras";
 "Mood & Genres" = "Mood & Genres";
 "Moods & genres" = "Moods & genres";
 "Moods & moments" = "Moods & moments";
@@ -367,6 +374,7 @@
 "Offline Mix" = "Offline Mix";
 "Offline Mix Size" = "Offline Mix Size";
 "Offline: showing what was last saved (%@)" = "Offline: showing what was last saved (%@)";
+"On" = "On";
 "Online" = "Online";
 "Only your downloaded music is available." = "Only your downloaded music is available.";
 "Options" = "Options";
@@ -387,6 +395,7 @@
 "Play a Song" = "Play a Song";
 "Play all" = "Play all";
 "Play episodes from the top" = "Play episodes from the top";
+"Playback" = "Playback";
 "Playback & Offline" = "Playback & Offline";
 "Playback Report" = "Playback Report";
 "Player" = "Player";
@@ -413,6 +422,7 @@
 "Preview" = "Preview";
 "Previous" = "Previous";
 "Privacy" = "Privacy";
+"Privacy & Content" = "Privacy & Content";
 "Profile unavailable" = "Profile unavailable";
 "Provider Order" = "Provider Order";
 "Providers" = "Providers";
@@ -450,6 +460,8 @@
 "Running hits" = "Running hits";
 "Sad" = "Sad";
 "Save" = "Save";
+"Save History" = "Save History";
+"Save History keeps your searches and plays on this device; off, nothing is recorded. Sync Library keeps your artists, playlists, albums, podcasts and liked songs up to date with your YouTube Music account." = "Save History keeps your searches and plays on this device; off, nothing is recorded. Sync Library keeps your artists, playlists, albums, podcasts and liked songs up to date with your YouTube Music account.";
 "Save songs for offline listening from the player menu, or enable auto-download when you like a track." = "Save songs for offline listening from the player menu, or enable auto-download when you like a track.";
 "Save to Library" = "Save to Library";
 "Saved" = "Saved";
@@ -490,6 +502,7 @@
 "Single and EPs" = "Single and EPs";
 "Singles & EPs" = "Singles & EPs";
 "Singles and EPs" = "Singles and EPs";
+"Skip Non-Music Parts" = "Skip Non-Music Parts";
 "Skip Segments" = "Skip Segments";
 "Skips non-music parts of music videos, like talking intros, skits and long outros." = "Skips non-music parts of music videos, like talking intros, skits and long outros.";
 "Sleep" = "Sleep";
@@ -529,6 +542,7 @@
 "Sync" = "Sync";
 "Sync Albums" = "Sync Albums";
 "Sync Artists" = "Sync Artists";
+"Sync Library" = "Sync Library";
 "Sync Liked Songs" = "Sync Liked Songs";
 "Sync Likes to Last.fm" = "Sync Likes to Last.fm";
 "Sync Playlists" = "Sync Playlists";
@@ -541,6 +555,7 @@
 "Technology" = "Technology";
 "Template" = "Template";
 "Thanks!" = "Thanks!";
+"The country controls the region used for YouTube Music requests." = "The country controls the region used for YouTube Music requests.";
 "Theme" = "Theme";
 "Theme Mode" = "Theme Mode";
 "This permanently deletes all offline tracks from your device." = "This permanently deletes all offline tracks from your device.";

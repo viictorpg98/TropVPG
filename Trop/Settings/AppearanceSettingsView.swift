@@ -55,34 +55,21 @@ struct AppearanceSettingsView: View {
             }
 
             Section {
-                SettingsPickerRow("Player Background", icon: "photo", selection: $settings.playerBackgroundStyle)
-            } header: {
-                Text("Player")
-            }
-
-            Section {
                 SettingsPickerRow("Lyrics Alignment", icon: settings.lyricsAlignment.iconName, selection: $settings.lyricsAlignment)
                 Stepper(value: $settings.lyricsFontSize, in: 12...28) {
-                    HStack(spacing: 0) {
-                        Label("Lyrics Font Size", systemImage: "textformat.size")
-                        Text(": \(Int(settings.lyricsFontSize))")
+                    HStack {
+                        SettingsLabel(title: "Lyrics Font Size", icon: "textformat.size")
+                        Spacer(minLength: 8)
+                        Text("\(Int(settings.lyricsFontSize))")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
                 }
             } header: {
                 Text("Lyrics")
             }
-
-            Section {
-                Picker("Default Tab", selection: $settings.defaultTab) {
-                    Text("Home").tag(0)
-                    Text("Library").tag(1)
-                    Text("Explore").tag(2)
-                    Text("Search").tag(3)
-                }
-            } header: {
-                Text("General")
-            }
         }
+        .sonarSettingsList()
         .id(settings.accentName)
         .tint(settings.accentColor)
         .navigationTitle("Appearance")

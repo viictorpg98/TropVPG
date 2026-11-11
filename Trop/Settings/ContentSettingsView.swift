@@ -18,56 +18,31 @@ struct ContentSettingsView: View {
         List {
             Section {
                 SettingsToggleRow("Hide Explicit Content", icon: "eye.slash", isOn: $settings.hideExplicit)
-            } header: {
-                Text("Content Filtering")
-            }
-
-            Section {
-                SettingsToggleRow("Show Quick Picks", icon: "sparkles", isOn: $settings.showQuickPicks)
-                Stepper(value: $settings.topListsLength, in: 4...20, step: 2) {
-                    HStack(spacing: 0) {
-                        Label("Top Lists Length", systemImage: "list.number")
-                        Text(": \(settings.topListsLength)")
-                    }
-                }
-            } header: {
-                Text("Home Feed")
-            }
-
-            Section {
-                Picker("Country", selection: $settings.contentCountry) {
+                Picker(selection: $settings.contentCountry) {
                     ForEach(Self.countries, id: \.self) { code in
                         Text(countryName(for: code)).tag(code)
                     }
+                } label: {
+                    SettingsLabel(title: "Country", icon: "globe")
                 }
+                .tint(settings.accentColor)
             } header: {
-                Text("Region")
+                Text("Content")
             } footer: {
-                Text("Controls the region used for YouTube Music requests.")
+                Text("The country controls the region used for YouTube Music requests.")
             }
 
             Section {
-                SettingsToggleRow("Track Search History", icon: "magnifyingglass", isOn: $settings.trackSearchHistory)
-                SettingsToggleRow("Track Play History", icon: "clock.arrow.circlepath", isOn: $settings.trackPlayHistory)
+                SettingsToggleRow("Save History", icon: "clock.arrow.circlepath", isOn: $settings.saveHistory)
+                SettingsToggleRow("Sync Library", icon: "arrow.triangle.2.circlepath", isOn: $settings.syncLibrary)
             } header: {
                 Text("Privacy")
             } footer: {
-                Text("When off, searches and playback are not recorded locally.")
-            }
-
-            Section {
-                SettingsToggleRow("Sync Artists", icon: "music.mic", isOn: $settings.syncArtists)
-                SettingsToggleRow("Sync Playlists", icon: "music.note.list", isOn: $settings.syncPlaylists)
-                SettingsToggleRow("Sync Albums", icon: "square.stack", isOn: $settings.syncAlbums)
-                SettingsToggleRow("Sync Podcasts", icon: "antenna.radiowaves.left.and.right", isOn: $settings.syncPodcasts)
-                SettingsToggleRow("Sync Liked Songs", icon: "heart.fill", isOn: $settings.syncSongs)
-            } header: {
-                Text("Library Sync")
-            } footer: {
-                Text("Choose which library sections sync from your YouTube Music account.")
+                Text("Save History keeps your searches and plays on this device; off, nothing is recorded. Sync Library keeps your artists, playlists, albums, podcasts and liked songs up to date with your YouTube Music account.")
             }
         }
-        .navigationTitle("Content")
+        .sonarSettingsList()
+        .navigationTitle("Privacy & Content")
         .navigationBarTitleDisplayMode(.inline)
         .miniPlayerTracksScroll()
     }

@@ -71,6 +71,7 @@
 "Bitrate" = "Tasa de bits";
 "Blends one downloaded song into the next like a DJ: they overlap and the tempo is matched. It only works between downloaded songs; everything else plays as usual. The Playback Report shows what it did." = "Mezcla una canción descargada con la siguiente como un DJ: se solapan y se iguala el tempo. Solo funciona entre canciones descargadas; el resto suena como siempre. El Informe de reproducción cuenta qué hizo.";
 "Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Downloaded songs always mix; streamed songs mix over Wi-Fi, or also on mobile data if you turn that on (it downloads each song's audio an extra time). The Playback Report shows what it did." = "Mezcla una canción con la siguiente como un DJ: se solapan, se iguala el tempo y se intercambian los graves. Las descargadas siempre se mezclan; las de streaming, con Wi-Fi o también con datos móviles si lo activas (se descarga el audio de cada canción una vez más). El Informe de reproducción cuenta qué hizo.";
+"Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Streamed songs mix over Wi-Fi unless Mobile Data for Extras is on." = "Une una canción con la siguiente como un DJ: se solapan, se iguala el tempo y se intercambian los graves. Las canciones en streaming se mezclan con Wi-Fi, salvo que \"Datos móviles para extras\" esté activado.";
 "Breakups & heartbreak" = "Rupturas y desamor";
 "Business" = "Negocios";
 "Button 1" = "Botón 1";
@@ -171,6 +172,7 @@
 "Enable Scrobbling" = "Activar scrobbling";
 "Energize" = "Energizar";
 "Energy" = "Energía";
+"Enhanced Covers" = "Carátulas mejoradas";
 "Episodes" = "Episodios";
 "Episodes for later" = "Episodios para más tarde";
 "Equalizer" = "Ecualizador";
@@ -221,6 +223,8 @@
 "High-Quality Covers" = "Carátulas de alta calidad";
 "Hip-Hop" = "Hip hop";
 "History" = "Historial";
+"History off" = "Historial desactivado";
+"History on" = "Historial activado";
 "Home" = "Inicio";
 "Home Feed" = "Pantalla de inicio";
 "Hopeless romantic" = "Romántico empedernido";
@@ -231,6 +235,8 @@
 "In the gym" = "En el gimnasio";
 "Include explicit" = "Incluir contenido explícito";
 "Indie & alternative" = "Indie y alternativa";
+"Infinite Playback" = "Reproducción infinita";
+"Infinite Playback keeps similar songs coming when the queue ends. With Mobile Data for Extras off, animated covers, video preload and AutoMix on streamed songs only use Wi-Fi." = "La reproducción infinita sigue con canciones parecidas cuando acaba la cola. Con \"Datos móviles para extras\" apagado, las carátulas animadas, la precarga de vídeo y AutoMix con canciones en streaming solo usan Wi-Fi.";
 "Integrations" = "Integraciones";
 "January" = "Enero";
 "Jazz" = "Jazz";
@@ -306,6 +312,7 @@
 "Mix Timing" = "Momento de la mezcla";
 "Mix now" = "Mezclar";
 "Mixed for you" = "Mezclado para ti";
+"Mobile Data for Extras" = "Datos móviles para extras";
 "Mood & Genres" = "Estados de ánimo y géneros";
 "Moods & genres" = "Estados de ánimo y géneros";
 "Moods & moments" = "Estados de ánimo y momentos";
@@ -367,6 +374,7 @@
 "Offline Mix" = "Mezcla sin conexión";
 "Offline Mix Size" = "Tamaño de la mezcla";
 "Offline: showing what was last saved (%@)" = "Sin conexión: se muestra lo último guardado (%@)";
+"On" = "Activado";
 "Online" = "En línea";
 "Only your downloaded music is available." = "Solo está disponible la música descargada.";
 "Options" = "Opciones";
@@ -387,6 +395,7 @@
 "Play a Song" = "Poner una canción";
 "Play all" = "Reproducir todo";
 "Play episodes from the top" = "Reproducir episodios desde el principio";
+"Playback" = "Reproducción";
 "Playback & Offline" = "Reproducción y sin conexión";
 "Playback Report" = "Informe de reproducción";
 "Player" = "Reproductor";
@@ -413,6 +422,7 @@
 "Preview" = "Vista previa";
 "Previous" = "Anterior";
 "Privacy" = "Privacidad";
+"Privacy & Content" = "Privacidad y contenido";
 "Profile unavailable" = "Perfil no disponible";
 "Provider Order" = "Orden de los proveedores";
 "Providers" = "Proveedores";
@@ -450,6 +460,8 @@
 "Running hits" = "Éxitos para correr";
 "Sad" = "Tristeza";
 "Save" = "Guardar";
+"Save History" = "Guardar historial";
+"Save History keeps your searches and plays on this device; off, nothing is recorded. Sync Library keeps your artists, playlists, albums, podcasts and liked songs up to date with your YouTube Music account." = "Guardar historial conserva tus búsquedas y reproducciones en este dispositivo; apagado, no se guarda nada. Sincronizar biblioteca mantiene tus artistas, listas, álbumes, podcasts y canciones que te gustan al día con tu cuenta de YouTube Music.";
 "Save songs for offline listening from the player menu, or enable auto-download when you like a track." = "Guarda canciones para escucharlas sin conexión desde el menú del reproductor, o activa la descarga automática al dar Me gusta.";
 "Save to Library" = "Guardar en la biblioteca";
 "Saved" = "Guardado";
@@ -490,6 +502,7 @@
 "Single and EPs" = "Sencillos y EP";
 "Singles & EPs" = "Sencillos y EP";
 "Singles and EPs" = "Sencillos y EP";
+"Skip Non-Music Parts" = "Saltar partes sin música";
 "Skip Segments" = "Saltar segmentos";
 "Skips non-music parts of music videos, like talking intros, skits and long outros." = "Salta las partes sin música de los videoclips, como intros hablados, sketches y finales largos.";
 "Sleep" = "Dormir";
@@ -529,6 +542,7 @@
 "Sync" = "Sincronizar";
 "Sync Albums" = "Sincronizar álbumes";
 "Sync Artists" = "Sincronizar artistas";
+"Sync Library" = "Sincronizar biblioteca";
 "Sync Liked Songs" = "Sincronizar canciones con Me gusta";
 "Sync Likes to Last.fm" = "Sincronizar Me gusta con Last.fm";
 "Sync Playlists" = "Sincronizar listas de reproducción";
@@ -541,6 +555,7 @@
 "Technology" = "Tecnología";
 "Template" = "Plantilla";
 "Thanks!" = "¡Gracias!";
+"The country controls the region used for YouTube Music requests." = "El país controla la región que se usa en las peticiones a YouTube Music.";
 "Theme" = "Tema";
 "Theme Mode" = "Modo del tema";
 "This permanently deletes all offline tracks from your device." = "Esto elimina de forma permanente todas las canciones sin conexión de tu dispositivo.";

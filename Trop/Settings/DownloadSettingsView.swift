@@ -38,15 +38,6 @@ struct DownloadSettingsView: View {
 
             Section {
                 SettingsToggleRow("Keep Mix Offline", icon: "icloud.and.arrow.down", isOn: $settings.offlineMixEnabled)
-                if settings.offlineMixEnabled {
-                    SettingsStepperRow(
-                        "Offline Mix Size",
-                        value: mixSizeBinding,
-                        in: 10...60,
-                        step: 10,
-                        format: { String(Int($0)) }
-                    )
-                }
             } header: {
                 Text("Offline Mix")
             } footer: {
@@ -59,6 +50,7 @@ struct DownloadSettingsView: View {
                 Text("When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on.")
             }
         }
+        .sonarSettingsList()
         .navigationTitle("Download Settings")
         .navigationBarTitleDisplayMode(.inline)
         .miniPlayerTracksScroll()

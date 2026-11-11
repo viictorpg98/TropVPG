@@ -15,9 +15,9 @@ struct SonarLoader: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Altura relativa de cada barra en el logo (simetrico).
-    private static let levels: [Double] = [0.32, 0.54, 0.76, 1.0, 0.76, 0.54, 0.32]
+    static let levels: [Double] = [0.32, 0.54, 0.76, 1.0, 0.76, 0.54, 0.32]
 
-    private static let gradient = LinearGradient(
+    static let gradient = LinearGradient(
         colors: [Color(red: 1.0, green: 0.49, blue: 0.27), Color(red: 1.0, green: 0.27, blue: 0.32)],
         startPoint: .top, endPoint: .bottom
     )
@@ -90,5 +90,24 @@ private struct SonarRefresh: ViewModifier {
 extension View {
     func sonarRefreshable(_ action: @escaping @Sendable () async -> Void) -> some View {
         modifier(SonarRefresh(action: action))
+    }
+}
+
+// MARK: - El logo (barras fijas)
+
+/// Las siete barras del logo, quietas (cabecera de Ajustes...).
+struct SonarLogoMark: View {
+    var size: CGFloat = 40
+
+    var body: some View {
+        HStack(spacing: size * 0.09) {
+            ForEach(0..<SonarLoader.levels.count, id: \.self) { index in
+                Capsule()
+                    .fill(SonarLoader.gradient)
+                    .frame(width: size * 0.115, height: size * SonarLoader.levels[index])
+            }
+        }
+        .frame(height: size)
+        .accessibilityHidden(true)
     }
 }

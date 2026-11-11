@@ -43,6 +43,7 @@ struct AboutSettingsView: View {
                 Text("Based on Trop by SwiftyMedia (GPL-3.0).")
             }
         }
+        .sonarSettingsList()
         .navigationTitle("About")
         .navigationBarTitleDisplayMode(.inline)
         .miniPlayerTracksScroll()

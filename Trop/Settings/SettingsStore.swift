@@ -275,6 +275,47 @@ final class SettingsStore {
         didSet { Self.defaults.set(autoMixLearns, forKey: Keys.autoMixLearns) }
     }
 
+    /// Un solo interruptor para los "extras" que gastan datos: carátulas animadas, video por adelantado y AutoMix con canciones
+    /// en streaming. Apagado (por defecto): solo con Wi-Fi.
+    var extrasUseMobileData: Bool {
+        didSet {
+            Self.defaults.set(extrasUseMobileData, forKey: Keys.extrasUseMobileData)
+            autoMixUsesMobileData = extrasUseMobileData
+            videoPreloadUsesMobileData = extrasUseMobileData
+            animatedArtworkUsesMobileData = extrasUseMobileData
+        }
+    }
+
+    /// Carátulas oficiales y animadas cuando la cancion las tiene (junta "carátulas de alta calidad" y "carátulas animadas").
+    var richCovers: Bool {
+        didSet {
+            Self.defaults.set(richCovers, forKey: Keys.richCovers)
+            animatedArtworkEnabled = richCovers
+            preferAppleCovers = richCovers
+        }
+    }
+
+    /// Guardar el historial (busquedas y reproducciones) en el dispositivo.
+    var saveHistory: Bool {
+        didSet {
+            Self.defaults.set(saveHistory, forKey: Keys.saveHistory)
+            trackSearchHistory = saveHistory
+            trackPlayHistory = saveHistory
+        }
+    }
+
+    /// Sincronizar la biblioteca de la cuenta (artistas, listas, albumes, podcasts y canciones que te gustan).
+    var syncLibrary: Bool {
+        didSet {
+            Self.defaults.set(syncLibrary, forKey: Keys.syncLibrary)
+            syncArtists = syncLibrary
+            syncPlaylists = syncLibrary
+            syncAlbums = syncLibrary
+            syncPodcasts = syncLibrary
+            syncSongs = syncLibrary
+        }
+    }
+
     /// Mezclar tambien canciones en streaming con datos moviles (por defecto solo con Wi-Fi: hay que bajar su audio extra).
     var autoMixUsesMobileData: Bool {
         didSet { Self.defaults.set(autoMixUsesMobileData, forKey: Keys.autoMixUsesMobileData) }
@@ -474,6 +515,10 @@ final class SettingsStore {
         static let autoMixLearns = "settings.autoMixLearns"
         static let autoMixTiming = "settings.autoMixTiming"
         static let neutralAccent = "settings.neutralAccent"
+        static let extrasUseMobileData = "settings.extrasUseMobileData"
+        static let richCovers = "settings.richCovers"
+        static let saveHistory = "settings.saveHistory"
+        static let syncLibrary = "settings.syncLibrary"
         static let fullWidthArtwork = "settings.fullWidthArtwork"
         static let animatedArtworkEnabled = "settings.animatedArtworkEnabled"
         static let preferAppleCovers = "settings.preferAppleCovers"
@@ -534,10 +579,9 @@ final class SettingsStore {
             .color ?? AccentPreset.all[0].color
         neutralAccent = Self.load(Keys.neutralAccent, default: false)
         accentName = d.string(forKey: Keys.accentName) ?? AccentPreset.all[0].name
-        playerBackgroundStyle = Self.loadEnum(Keys.playerBackgroundStyle, default: .dynamic)
+        playerBackgroundStyle = .dynamic
         // Migrated when Explore took index 2 (was Search): stored 2 → 3.
-        let storedTab = Self.load(Keys.defaultTab, default: 0)
-        defaultTab = storedTab == 2 ? 3 : storedTab
+        defaultTab = 0
         lyricsFontSize = Self.load(Keys.lyricsFontSize, default: 17)
         lyricsAlignment = Self.loadEnum(Keys.lyricsAlignment, default: .center)
         lyricsOffsetSeconds = Self.load(Keys.lyricsOffsetSeconds, default: 0)
@@ -551,46 +595,54 @@ final class SettingsStore {
             equalizerGains = EqualizerPresets.all.first?.gains ?? Array(repeating: 0, count: equalizerFrequencies.count)
         }
         audioQuality = Self.loadEnum(Keys.audioQuality, default: .auto)
-        audioNormalization = Self.load(Keys.audioNormalization, default: false)
-        gaplessPlayback = Self.load(Keys.gaplessPlayback, default: true)
+        audioNormalization = false
+        gaplessPlayback = true
         autoMixEnabled = Self.load(Keys.autoMixEnabled, default: false)
-        autoMixUsesMobileData = Self.load(Keys.autoMixUsesMobileData, default: false)
+        let extrasMobile = Self.load(Keys.extrasUseMobileData, default: false)
+        extrasUseMobileData = extrasMobile
+        autoMixUsesMobileData = extrasMobile
         autoMixLearns = Self.load(Keys.autoMixLearns, default: true)
         autoMixTiming = Self.loadEnum(Keys.autoMixTiming, default: .balanced)
-        fullWidthArtwork = Self.load(Keys.fullWidthArtwork, default: true)
-        animatedArtworkEnabled = Self.load(Keys.animatedArtworkEnabled, default: true)
-        preferAppleCovers = Self.load(Keys.preferAppleCovers, default: true)
-        waveformProgressBar = Self.load(Keys.waveformProgressBar, default: true)
-        liveBackground = Self.load(Keys.liveBackground, default: true)
-        videoPreloadEnabled = Self.load(Keys.videoPreloadEnabled, default: true)
-        videoPreloadUsesMobileData = Self.load(Keys.videoPreloadUsesMobileData, default: true)
-        animatedArtworkUsesMobileData = Self.load(Keys.animatedArtworkUsesMobileData, default: false)
+        fullWidthArtwork = true
+        let covers = Self.load(Keys.richCovers, default: true)
+        richCovers = covers
+        animatedArtworkEnabled = covers
+        preferAppleCovers = covers
+        waveformProgressBar = true
+        liveBackground = true
+        videoPreloadEnabled = true
+        videoPreloadUsesMobileData = extrasMobile
+        animatedArtworkUsesMobileData = extrasMobile
         autoplaySimilar = Self.load(Keys.autoplaySimilar, default: true)
-        persistQueue = Self.load(Keys.persistQueue, default: false)
+        persistQueue = true
         lastRadioStyle = Self.loadEnum(Keys.lastRadioStyle, default: .similar)
         lastRadioLimit = Self.load(Keys.lastRadioLimit, default: 25)
         lastRadioAllowExplicit = Self.load(Keys.lastRadioAllowExplicit, default: true)
         playerVolume = Self.load(Keys.playerVolume, default: 1)
-        artworkSwipeNavigation = Self.load(Keys.artworkSwipeNavigation, default: true)
+        artworkSwipeNavigation = true
         hideExplicit = Self.load(Keys.hideExplicit, default: false)
-        showQuickPicks = Self.load(Keys.showQuickPicks, default: true)
-        topListsLength = Self.load(Keys.topListsLength, default: 8)
+        showQuickPicks = true
+        topListsLength = 8
         contentCountry = Self.loadString(Keys.contentCountry, default: Locale.current.region?.identifier ?? "US")
         disabledLyricsProviders = Set(d.stringArray(forKey: Keys.disabledLyricsProviders) ?? [])
-        trackSearchHistory = Self.load(Keys.trackSearchHistory, default: true)
-        trackPlayHistory = Self.load(Keys.trackPlayHistory, default: true)
+        let history = Self.load(Keys.saveHistory, default: Self.load(Keys.trackPlayHistory, default: true))
+        saveHistory = history
+        trackSearchHistory = history
+        trackPlayHistory = history
         downloadQuality = Self.loadEnum(Keys.downloadQuality, default: .auto)
         wifiOnlyDownloads = Self.load(Keys.wifiOnlyDownloads, default: false)
         autoDownloadOnLike = Self.load(Keys.autoDownloadOnLike, default: false)
         autoDownloadNewEpisodes = Self.load(Keys.autoDownloadNewEpisodes, default: false)
         offlineMixEnabled = Self.load(Keys.offlineMixEnabled, default: true)
-        offlineMixSize = Self.load(Keys.offlineMixSize, default: 30)
+        offlineMixSize = 30
         smartCleanupEnabled = Self.load(Keys.smartCleanupEnabled, default: true)
-        syncArtists = Self.load(Keys.syncArtists, default: true)
-        syncPlaylists = Self.load(Keys.syncPlaylists, default: true)
-        syncAlbums = Self.load(Keys.syncAlbums, default: true)
-        syncPodcasts = Self.load(Keys.syncPodcasts, default: true)
-        syncSongs = Self.load(Keys.syncSongs, default: true)
+        let sync = Self.load(Keys.syncLibrary, default: true)
+        syncLibrary = sync
+        syncArtists = sync
+        syncPlaylists = sync
+        syncAlbums = sync
+        syncPodcasts = sync
+        syncSongs = sync
         canvasEnabled = Self.load(Keys.canvasEnabled, default: false)
         canvasOverCellular = Self.load(Keys.canvasOverCellular, default: false)
     }

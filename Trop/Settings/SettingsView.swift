@@ -11,53 +11,32 @@ struct SettingsView: View {
     @Environment(SettingsStore.self) private var settings
     @Bindable private var accountState = AccountSheetState.shared
 
+    private var version: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+    }
+
     var body: some View {
         List {
-            accountSection
+            hero
+                .listRowSeparator(.hidden)
 
-            Section {
-                SettingsNavigationRow("Appearance", icon: "paintpalette") {
-                    AppearanceSettingsView()
-                }
-            } header: {
-                Text("Appearance")
+            SettingsNavigationRow("Playback", icon: "play.circle", value: settings.audioQuality.displayName) {
+                PlayerSettingsView()
             }
-
-            Section {
-                SettingsNavigationRow("Player", icon: "play.circle") {
-                    PlayerSettingsView()
-                }
-                SettingsNavigationRow("Downloads", icon: "arrow.down.circle") {
-                    DownloadSettingsView()
-                }
-            } header: {
-                Text("Playback & Offline")
+            SettingsNavigationRow("Appearance", icon: "paintpalette", value: settings.themeMode.displayName) {
+                AppearanceSettingsView()
             }
-
-            Section {
-                SettingsNavigationRow("Content", icon: "globe") {
-                    ContentSettingsView()
-                }
-            } header: {
-                Text("Content")
+            SettingsNavigationRow("Downloads", icon: "arrow.down.circle", value: settings.downloadQuality.displayName) {
+                DownloadSettingsView()
             }
-
-            Section {
-                SettingsNavigationRow("Integrations", icon: "puzzlepiece.extension") {
-                    IntegrationsSettingsView()
-                }
-            } header: {
-                Text("Integrations")
+            SettingsNavigationRow("Privacy & Content", icon: "lock", value: settings.saveHistory ? "History on" : "History off") {
+                ContentSettingsView()
             }
-
-            Section {
-                SettingsNavigationRow("About", icon: "info.circle") {
-                    AboutSettingsView()
-                }
-            } header: {
-                Text("About")
+            SettingsNavigationRow("About", icon: "info.circle", value: version) {
+                AboutSettingsView()
             }
         }
+        .sonarSettingsList()
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
         .miniPlayerTracksScroll()
@@ -68,37 +47,32 @@ struct SettingsView: View {
         }
     }
 
-    private var accountSection: some View {
-        Section {
-            HStack(spacing: 14) {
-                AccountButtonView(
-                    isLoggedIn: accountState.isLoggedIn,
-                    accountImageUrl: accountState.accountImageUrl,
-                    onTap: {}
-                )
-                .scaleEffect(1.7)
-                .frame(width: 48, height: 48)
+    /// El logo, y la cuenta (o "Invitado") con su boton.
+    private var hero: some View {
+        HStack(spacing: 14) {
+            SonarLogoMark(size: 40)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(accountState.isLoggedIn ? accountState.accountName : "Guest")
-                        .font(.headline)
-                        .lineLimit(1)
-                }
-
-                Spacer(minLength: 8)
-
-                if accountState.isLoggedIn {
-                    Button("Logout", action: accountState.signOut)
-                        .buttonStyle(.bordered)
-                        .tint(settings.accentColor)
-                } else {
-                    Button("Login") { accountState.isLoginSheetPresented = true }
-                        .buttonStyle(.borderedProminent)
-                        .tint(settings.accentColor)
-                }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Sonar")
+                    .font(.title2.weight(.bold))
+                Text(accountState.isLoggedIn ? accountState.accountName : "Guest")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 4)
+
+            Spacer(minLength: 8)
+
+            if accountState.isLoggedIn {
+                Button("Logout", action: accountState.signOut)
+                    .buttonStyle(.bordered)
+                    .tint(settings.accentColor)
+            } else {
+                Button("Login") { accountState.isLoginSheetPresented = true }
+                    .buttonStyle(.borderedProminent)
+                    .tint(settings.accentColor)
+            }
         }
+        .padding(.vertical, 10)
     }
 }

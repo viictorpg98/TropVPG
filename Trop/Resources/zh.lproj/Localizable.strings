@@ -71,6 +71,7 @@
 "Bitrate" = "比特率";
 "Blends one downloaded song into the next like a DJ: they overlap and the tempo is matched. It only works between downloaded songs; everything else plays as usual. The Playback Report shows what it did." = "Blends one downloaded song into the next like a DJ: they overlap and the tempo is matched. It only works between downloaded songs; everything else plays as usual. The Playback Report shows what it did.";
 "Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Downloaded songs always mix; streamed songs mix over Wi-Fi, or also on mobile data if you turn that on (it downloads each song's audio an extra time). The Playback Report shows what it did." = "Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Downloaded songs always mix; streamed songs mix over Wi-Fi, or also on mobile data if you turn that on (it downloads each song's audio an extra time). The Playback Report shows what it did.";
+"Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Streamed songs mix over Wi-Fi unless Mobile Data for Extras is on." = "Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Streamed songs mix over Wi-Fi unless Mobile Data for Extras is on.";
 "Breakups & heartbreak" = "Breakups & heartbreak";
 "Business" = "Business";
 "Button 1" = "按钮 1";
@@ -171,6 +172,7 @@
 "Enable Scrobbling" = "启用音乐记录";
 "Energize" = "活力";
 "Energy" = "活力";
+"Enhanced Covers" = "Enhanced Covers";
 "Episodes" = "剧集";
 "Episodes for later" = "Episodes for later";
 "Equalizer" = "均衡器";
@@ -221,6 +223,8 @@
 "High-Quality Covers" = "High-Quality Covers";
 "Hip-Hop" = "嘻哈";
 "History" = "历史记录";
+"History off" = "History off";
+"History on" = "History on";
 "Home" = "主页";
 "Home Feed" = "主页动态";
 "Hopeless romantic" = "Hopeless romantic";
@@ -231,6 +235,8 @@
 "In the gym" = "In the gym";
 "Include explicit" = "包含成人内容";
 "Indie & alternative" = "独立与另类";
+"Infinite Playback" = "Infinite Playback";
+"Infinite Playback keeps similar songs coming when the queue ends. With Mobile Data for Extras off, animated covers, video preload and AutoMix on streamed songs only use Wi-Fi." = "Infinite Playback keeps similar songs coming when the queue ends. With Mobile Data for Extras off, animated covers, video preload and AutoMix on streamed songs only use Wi-Fi.";
 "Integrations" = "集成";
 "January" = "一月";
 "Jazz" = "爵士";
@@ -306,6 +312,7 @@
 "Mix Timing" = "Mix Timing";
 "Mix now" = "Mix now";
 "Mixed for you" = "为你混配";
+"Mobile Data for Extras" = "Mobile Data for Extras";
 "Mood & Genres" = "心情与流派";
 "Moods & genres" = "心情与流派";
 "Moods & moments" = "Moods & moments";
@@ -367,6 +374,7 @@
 "Offline Mix" = "Offline Mix";
 "Offline Mix Size" = "Offline Mix Size";
 "Offline: showing what was last saved (%@)" = "Offline: showing what was last saved (%@)";
+"On" = "On";
 "Online" = "在线";
 "Only your downloaded music is available." = "Only your downloaded music is available.";
 "Options" = "选项";
@@ -387,6 +395,7 @@
 "Play a Song" = "Play a Song";
 "Play all" = "全部播放";
 "Play episodes from the top" = "从顶部播放剧集";
+"Playback" = "Playback";
 "Playback & Offline" = "播放与离线";
 "Playback Report" = "Playback Report";
 "Player" = "播放器";
@@ -413,6 +422,7 @@
 "Preview" = "预览";
 "Previous" = "上一首";
 "Privacy" = "隐私";
+"Privacy & Content" = "Privacy & Content";
 "Profile unavailable" = "个人资料不可用";
 "Provider Order" = "提供方顺序";
 "Providers" = "提供方";
@@ -450,6 +460,8 @@
 "Running hits" = "Running hits";
 "Sad" = "伤感";
 "Save" = "保存";
+"Save History" = "Save History";
+"Save History keeps your searches and plays on this device; off, nothing is recorded. Sync Library keeps your artists, playlists, albums, podcasts and liked songs up to date with your YouTube Music account." = "Save History keeps your searches and plays on this device; off, nothing is recorded. Sync Library keeps your artists, playlists, albums, podcasts and liked songs up to date with your YouTube Music account.";
 "Save songs for offline listening from the player menu, or enable auto-download when you like a track." = "在播放器菜单中保存歌曲以供离线聆听，或在喜欢歌曲时启用自动下载。";
 "Save to Library" = "保存到资料库";
 "Saved" = "已保存";
@@ -490,6 +502,7 @@
 "Single and EPs" = "单曲与 EP";
 "Singles & EPs" = "单曲与 EP";
 "Singles and EPs" = "单曲与 EP";
+"Skip Non-Music Parts" = "Skip Non-Music Parts";
 "Skip Segments" = "跳过片段";
 "Skips non-music parts of music videos, like talking intros, skits and long outros." = "跳过音乐视频中的非音乐部分，例如聊天式开场、短剧和较长的片尾。";
 "Sleep" = "睡眠";
@@ -529,6 +542,7 @@
 "Sync" = "同步";
 "Sync Albums" = "同步专辑";
 "Sync Artists" = "同步艺人";
+"Sync Library" = "Sync Library";
 "Sync Liked Songs" = "同步喜欢的歌曲";
 "Sync Likes to Last.fm" = "将喜欢同步到 Last.fm";
 "Sync Playlists" = "同步播放列表";
@@ -541,6 +555,7 @@
 "Technology" = "Technology";
 "Template" = "模板";
 "Thanks!" = "Thanks!";
+"The country controls the region used for YouTube Music requests." = "The country controls the region used for YouTube Music requests.";
 "Theme" = "主题";
 "Theme Mode" = "主题模式";
 "This permanently deletes all offline tracks from your device." = "这会永久删除设备上的所有离线歌曲。";

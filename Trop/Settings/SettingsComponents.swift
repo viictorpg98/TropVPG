@@ -4,18 +4,49 @@
 //
 //  Created by 686udjie on 20/08/2026.
 //
+//  Estilo de los Ajustes de Sonar: sin tarjetas, el icono del color de acento, el titulo y, a la derecha, el valor.
+//
 
 import SwiftUI
+
+/// El icono (del color de acento) y el titulo de una fila.
+struct SettingsLabel: View {
+    @Environment(SettingsStore.self) private var settings
+    let title: String
+    let icon: String?
+
+    var body: some View {
+        HStack(spacing: 14) {
+            if let icon {
+                Image(systemName: icon)
+                    .font(.system(size: 19))
+                    .foregroundStyle(settings.accentColor)
+                    .frame(width: 26)
+            }
+            Text(LocalizedStringKey(title))
+        }
+    }
+}
+
+extension View {
+    /// Lista plana, sin tarjetas, con separadores finos.
+    func sonarSettingsList() -> some View {
+        listStyle(.plain)
+            .listRowSeparatorTint(Color.primary.opacity(0.12))
+    }
+}
 
 struct SettingsNavigationRow<Destination: View>: View {
     @Environment(SettingsStore.self) private var settings
     let title: String
     let icon: String
+    var value: String?
     @ViewBuilder var destination: () -> Destination
 
-    init(_ title: String, icon: String, @ViewBuilder destination: @escaping () -> Destination) {
+    init(_ title: String, icon: String, value: String? = nil, @ViewBuilder destination: @escaping () -> Destination) {
         self.title = title
         self.icon = icon
+        self.value = value
         self.destination = destination
     }
 
@@ -23,7 +54,15 @@ struct SettingsNavigationRow<Destination: View>: View {
         NavigationLink {
             destination()
         } label: {
-            Label(LocalizedStringKey(title), systemImage: icon)
+            HStack {
+                SettingsLabel(title: title, icon: icon)
+                Spacer(minLength: 8)
+                if let value {
+                    Text(LocalizedStringKey(value))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .tint(settings.accentColor)
     }
@@ -43,11 +82,7 @@ struct SettingsToggleRow: View {
 
     var body: some View {
         Toggle(isOn: $isOn) {
-            if let icon {
-                Label(LocalizedStringKey(title), systemImage: icon)
-            } else {
-                Text(LocalizedStringKey(title))
-            }
+            SettingsLabel(title: title, icon: icon)
         }
         .tint(settings.accentColor)
     }
@@ -71,11 +106,7 @@ struct SettingsPickerRow<T: SettingsOption>: View {
                 Text(LocalizedStringKey(option.displayName)).tag(option)
             }
         } label: {
-            if let icon {
-                Label(LocalizedStringKey(title), systemImage: icon)
-            } else {
-                Text(LocalizedStringKey(title))
-            }
+            SettingsLabel(title: title, icon: icon)
         }
         .id(settings.accentName)
         .tint(settings.accentColor)
@@ -106,16 +137,12 @@ struct SettingsStepperRow: View {
 
     var body: some View {
         Stepper {
-            if let icon {
-                Label(LocalizedStringKey(title), systemImage: icon)
-                    .overlay(alignment: .trailing) {
-                        Text(": \(format(value))")
-                    }
-            } else {
-                HStack(spacing: 0) {
-                    Text(LocalizedStringKey(title))
-                    Text(": \(format(value))")
-                }
+            HStack {
+                SettingsLabel(title: title, icon: icon)
+                Spacer(minLength: 8)
+                Text(format(value))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
         } onIncrement: {
             value = min(value + step, range.upperBound)
@@ -138,9 +165,7 @@ struct SettingsLinkRow: View {
 
     var body: some View {
         Link(destination: url) {
-            Label(LocalizedStringKey(title), systemImage: icon)
-                .fontWeight(.semibold)
-                .foregroundStyle(.tint)
+            SettingsLabel(title: title, icon: icon)
         }
     }
 }
