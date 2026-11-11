@@ -1,0 +1,44 @@
+Command line invocation:
+    /Applications/Xcode_26.3.app/Contents/Developer/usr/bin/xcodebuild -resolvePackageDependencies -project /Users/runner/work/TropVPG/TropVPG/Trop.xcodeproj -scheme Trop -derivedDataPath /Volumes/TropBuild/DerivedDataApp -clonedSourcePackagesDirPath /Volumes/TropBuild/SourcePackages
+
+Resolve Package Graph
+
+Fetching from https://github.com/686udjie/SwiftyTube.git
+
+Fetching from https://github.com/SwiftUIKit/Marquee.git
+
+Fetching from https://github.com/groue/GRDB.swift.git
+
+Fetching from https://github.com/kean/Nuke.git
+
+Fetching from https://github.com/mpvkit/MPVKit.git
+
+Creating working copy of package ‘SwiftyTube’
+
+Creating working copy of package ‘GRDB.swift’
+
+Creating working copy of package ‘Marquee’
+
+Checking out 0.3.0 of package ‘Marquee’
+
+Checking out 0.0.6 of package ‘SwiftyTube’
+
+Checking out 6.29.3 of package ‘GRDB.swift’
+
+Creating working copy of package ‘MPVKit’
+
+Checking out 1.0.0 of package ‘MPVKit’
+
+Creating working copy of package ‘Nuke’
+
+Checking out 12.9.0 of package ‘Nuke’
+
+
+Resolved source packages:
+  MPVKit: https://github.com/mpvkit/MPVKit.git @ 1.0.0
+  SwiftyTube: https://github.com/686udjie/SwiftyTube.git @ 0.0.6
+  GRDB: https://github.com/groue/GRDB.swift.git @ 6.29.3
+  Nuke: https://github.com/kean/Nuke.git @ 12.9.0
+  Marquee: https://github.com/SwiftUIKit/Marquee.git @ 0.3.0
+
+resolved source packages: MPVKit, SwiftyTube, GRDB, Nuke, Marquee

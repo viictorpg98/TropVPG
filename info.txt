@@ -1,0 +1,6 @@
+runner: macOS ARM64 | rama test-arm64 | commit 56572bb218de54b0c585b8b1792dff6ff21701d2 | ejecucion 140
+ProductName:		macOS
+ProductVersion:		15.8.2
+BuildVersion:		24H232
+Xcode 26.3
+Build version 17C529
