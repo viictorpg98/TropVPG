@@ -34,6 +34,7 @@ struct PlayerMenuSheet: View {
     @ObservedObject private var downloadManager = DownloadManager.shared
     @ObservedObject private var likeStore = LikeStore.shared
     @State private var showRemoveDownload = false
+    @StateObject private var systemVolume = SystemVolume()
     /// El color de la carátula, oscurecido, de fondo de la hoja.
     @State private var tint: Color?
 
@@ -178,23 +179,22 @@ struct PlayerMenuSheet: View {
                 .foregroundStyle(settings.accentColor)
                 .frame(width: 24)
 
+            // El volumen real del dispositivo: sigue a los botones fisicos y al Centro de control.
             VolumeSlider(
                 value: Binding(
-                    get: { settings.playerVolume },
-                    set: { newValue in
-                        settings.playerVolume = newValue.clamped01
-                        PlayerController.shared.applyPlayerVolume()
-                    }
+                    get: { systemVolume.level },
+                    set: { systemVolume.set($0.clamped01) }
                 ),
                 accentColor: settings.accentColor
             )
-            .accessibilityLabel("App volume")
+            .accessibilityLabel("Volume")
         }
         .padding(.vertical, 6)
+        .background(SystemVolumeHost(model: systemVolume).frame(width: 1, height: 1).allowsHitTesting(false))
     }
 
     private var volumeIconName: String {
-        switch settings.playerVolume {
+        switch systemVolume.level {
         case ..<0.01: return "speaker.slash.fill"
         case ..<0.34: return "speaker.wave.1.fill"
         case ..<0.67: return "speaker.wave.2.fill"

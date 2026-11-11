@@ -342,7 +342,8 @@ extension PlayerController {
     }
 
     func applyPlayerVolume() {
-        let vol = SettingsStore.shared.playerVolume * volumeScale
+        // El volumen lo manda el del dispositivo (deslizador del menu del reproductor): el interno queda fijo al 100 %.
+        let vol = volumeScale
         withMpv { mpv in
             var val = Double(vol * 100)
             mpv_set_property(mpv, "volume", MPV_FORMAT_DOUBLE, &val)
