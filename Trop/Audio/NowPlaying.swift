@@ -207,10 +207,79 @@ final class NowPlaying {
         let current = queueSongs[queueIndex]
         var rest = queueIndex + 1 < queueSongs.count ? Array(queueSongs[(queueIndex + 1)...]) : []
         rest.shuffle()
+        let smart = SettingsStore.shared.smartShuffle
+        if smart { rest = Self.spreadArtists(rest, after: current) }
         queueSongs = prefix + [current] + rest
         queueIndex = prefix.count
         isShuffleOn = true
         persistQueueState()
+        if smart { applyShuffleHistory() }
+    }
+
+    /// Aleatorio inteligente: lo que escuchaste en los ultimos dias pasa al final de lo que viene (con tu historial local).
+    private func applyShuffleHistory() {
+        let snapshot = queueSongs.map(\.videoId)
+        Task { @MainActor in
+            let played = await OfflineMix.lastPlayedDates()
+            guard self.isShuffleOn, self.queueSongs.map(\.videoId) == snapshot,
+                  self.queueSongs.indices.contains(self.queueIndex) else { return }
+            let cut = Date().addingTimeInterval(-3 * 86_400)
+            let head = Array(self.queueSongs.prefix(self.queueIndex + 1))
+            let rest = Array(self.queueSongs.dropFirst(self.queueIndex + 1))
+            let fresh = rest.filter { (played[$0.videoId] ?? .distantPast) <= cut }
+            let recent = rest
+                .filter { (played[$0.videoId] ?? .distantPast) > cut }
+                .sorted { (played[$0.videoId] ?? .distantPast) < (played[$1.videoId] ?? .distantPast) }
+            guard !recent.isEmpty else { return }
+            let ordered = Self.spreadArtists(fresh, after: head.last) + Self.spreadArtists(recent, after: fresh.last)
+            self.queueSongs = head + ordered
+            self.persistQueueState()
+        }
+    }
+
+    /// Separa las canciones del mismo artista: ninguna sigue a otra suya si mas adelante hay una de otro artista.
+    static func spreadArtists(_ songs: [SongItem], after previous: SongItem?) -> [SongItem] {
+        func key(_ song: SongItem?) -> String? {
+            guard let artist = song?.artists.first else { return nil }
+            return artist.id ?? artist.name.lowercased()
+        }
+        var result = songs
+        var last = key(previous)
+        for index in result.indices {
+            if let last, key(result[index]) == last,
+               let other = result.indices.dropFirst(index + 1).first(where: { key(result[$0]) != last }) {
+                result.swapAt(index, other)
+            }
+            last = key(result[index])
+        }
+        return result
+    }
+
+    /// Quita lo que viene despues de la que suena.
+    func clearUpcoming() {
+        guard queueSongs.indices.contains(queueIndex) else { return }
+        queueSongs = Array(queueSongs.prefix(queueIndex + 1))
+        persistQueueState()
+    }
+
+    /// Quita las canciones repetidas (se queda la primera; la que suena no se toca). Devuelve cuantas quito.
+    @discardableResult
+    func removeDuplicateSongs() -> Int {
+        var seen = Set<String>()
+        var result: [SongItem] = []
+        var newIndex = queueIndex
+        for (index, song) in queueSongs.enumerated() {
+            if seen.insert(song.videoId).inserted || index == queueIndex {
+                result.append(song)
+            }
+            if index == queueIndex { newIndex = result.count - 1 }
+        }
+        let removed = queueSongs.count - result.count
+        guard removed > 0 else { return 0 }
+        queueSongs = result
+        queueIndex = newIndex
+        persistQueueState()
+        return removed
     }
 
     /// Restore the original (unshuffled) queue order.

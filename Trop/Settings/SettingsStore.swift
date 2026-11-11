@@ -372,6 +372,11 @@ final class SettingsStore {
         didSet { Self.defaults.set(autoplaySimilar, forKey: Keys.autoplaySimilar) }
     }
 
+    /// Aleatorio inteligente: lo escuchado hace poco va al final y no suenan seguidas dos canciones del mismo artista.
+    var smartShuffle: Bool {
+        didSet { Self.defaults.set(smartShuffle, forKey: Keys.smartShuffle) }
+    }
+
     var persistQueue: Bool {
         didSet { Self.defaults.set(persistQueue, forKey: Keys.persistQueue) }
     }
@@ -533,6 +538,7 @@ final class SettingsStore {
         static let videoPreloadUsesMobileData = "settings.videoPreloadUsesMobileData"
         static let animatedArtworkUsesMobileData = "settings.animatedArtworkUsesMobileData"
         static let autoplaySimilar = "settings.autoplaySimilar"
+        static let smartShuffle = "settings.smartShuffle"
         static let persistQueue = "settings.persistQueue"
         static let lastRadioStyle = "settings.lastRadioStyle"
         static let lastRadioLimit = "settings.lastRadioLimit"
@@ -619,6 +625,7 @@ final class SettingsStore {
         videoPreloadUsesMobileData = extrasMobile
         animatedArtworkUsesMobileData = extrasMobile
         autoplaySimilar = Self.load(Keys.autoplaySimilar, default: true)
+        smartShuffle = Self.load(Keys.smartShuffle, default: true)
         persistQueue = true
         lastRadioStyle = Self.loadEnum(Keys.lastRadioStyle, default: .similar)
         lastRadioLimit = Self.load(Keys.lastRadioLimit, default: 25)

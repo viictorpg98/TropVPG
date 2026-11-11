@@ -107,6 +107,11 @@ struct SongRowView: View {
                     if detailed, song.isExplicit {
                         ExplicitBadge()
                     }
+                    if HiddenArtists.shared.isHidden(song) {
+                        Image(systemName: "eye.slash")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                     Text(subtitleText)
                         .font(detailed ? Font.subheadline : Font.caption)
                         .foregroundColor(.secondary)
@@ -131,7 +136,7 @@ struct SongRowView: View {
         .background(DownloadCellProgressView(state: downloadState))
         .padding(.horizontal, detailed ? 0 : DesignTokens.screenHPadding)
         .padding(.vertical, DesignTokens.rowVPadding)
-        .opacity(isUnavailableOffline ? 0.4 : 1)
+        .opacity(isUnavailableOffline || HiddenArtists.shared.isHidden(song) ? 0.4 : 1)
         .pressable(onTap: handleTap, onLongPress: nil, holdsForContextMenu: true)
         .songContextMenu(song) { showSongMenu = true }
         .task { await durations.resolve(videoId: song.videoId, knownDuration: song.duration) }

@@ -27,6 +27,8 @@ struct QueueListView: UIViewRepresentable {
     let onDelete: (Int) -> Void
     let onReorder: ([SongItem]) -> Void
     let onUserScroll: () -> Void
+    /// Con un filtro de busqueda puesto no se reordena (las posiciones no son las de la cola).
+    var allowsReorder = true
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -179,6 +181,7 @@ struct QueueListView: UIViewRepresentable {
 
         func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
             guard gestureRecognizer === reorderGesture, let collectionView else { return true }
+            guard parent.allowsReorder else { return false }
             let point = gestureRecognizer.location(in: collectionView)
             return point.x > collectionView.bounds.width - handleZone && collectionView.indexPathForItem(at: point) != nil
         }

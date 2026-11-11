@@ -33,6 +33,15 @@ struct ContentSettingsView: View {
             }
 
             Section {
+                SettingsNavigationRow(
+                    "Hidden Artists", icon: "eye.slash",
+                    value: HiddenArtists.shared.all.isEmpty ? nil : String(HiddenArtists.shared.all.count)
+                ) {
+                    HiddenArtistsView()
+                }
+            }
+
+            Section {
                 SettingsToggleRow("Save History", icon: "clock.arrow.circlepath", isOn: $settings.saveHistory)
                 SettingsToggleRow("Sync Library", icon: "arrow.triangle.2.circlepath", isOn: $settings.syncLibrary)
             } header: {

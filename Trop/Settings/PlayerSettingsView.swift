@@ -29,13 +29,14 @@ struct PlayerSettingsView: View {
 
             Section {
                 SettingsToggleRow("Infinite Playback", icon: "infinity", isOn: $settings.autoplaySimilar)
+                SettingsToggleRow("Smart Shuffle", icon: "shuffle", isOn: $settings.smartShuffle)
                 SettingsToggleRow("Skip Non-Music Parts", icon: "forward.end", isOn: $skipSegments)
                 SettingsToggleRow("Enhanced Covers", icon: "photo.on.rectangle", isOn: $settings.richCovers)
                 SettingsToggleRow("Mobile Data for Extras", icon: "antenna.radiowaves.left.and.right", isOn: $settings.extrasUseMobileData)
             } header: {
                 Text("Player")
             } footer: {
-                Text("Infinite Playback keeps similar songs coming when the queue ends. With Mobile Data for Extras off, animated covers, video preload and AutoMix on streamed songs only use Wi-Fi.")
+                Text("Infinite Playback keeps similar songs coming when the queue ends. Smart Shuffle puts songs you heard in the last days at the end and keeps two songs by the same artist from playing back to back. With Mobile Data for Extras off, animated covers, video preload and AutoMix on streamed songs only use Wi-Fi.")
             }
         }
         .sonarSettingsList()

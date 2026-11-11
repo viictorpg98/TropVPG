@@ -489,6 +489,7 @@ final class HomeViewModel {
         let disliked = LikeStore.shared.disliked
         let filteredItems = section.items.filter { item in
             if case .song(let s) = item, disliked.contains(s.videoId) { return false }
+            if HiddenArtists.shared.blocks(item) { return false }
             if hideExplicit {
                 switch item {
                 case .song(let s) where s.isExplicit: return false
@@ -506,6 +507,7 @@ final class HomeViewModel {
         case .homePageSection(let sectionData, let index):
             let filteredSectionItems = sectionData.items.filter { item in
                 if case .song(let s) = item, disliked.contains(s.videoId) { return false }
+                if HiddenArtists.shared.blocks(item) { return false }
                 if hideExplicit {
                     switch item {
                     case .song(let s) where s.isExplicit: return false

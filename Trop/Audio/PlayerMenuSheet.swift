@@ -34,6 +34,7 @@ struct PlayerMenuSheet: View {
     @ObservedObject private var downloadManager = DownloadManager.shared
     @ObservedObject private var likeStore = LikeStore.shared
     @State private var showRemoveDownload = false
+    @State private var showHideDialog = false
     /// El color de la carátula, oscurecido, de fondo de la hoja.
     @State private var tint: Color?
 
@@ -130,6 +131,7 @@ struct PlayerMenuSheet: View {
         .task(id: song.videoId) {
             tint = await SongTint.color(forThumbnail: AudioCounterpartStore.shared.thumbnailURL(for: song))
         }
+        .hideArtistDialog(for: song, isPresented: $showHideDialog)
     }
 
     // MARK: - Mas opciones
@@ -150,6 +152,14 @@ struct PlayerMenuSheet: View {
                         title: "Customize Radio",
                         subtitle: "Style, size & explicit filter"
                     ) { showRadioOptions = true }
+                    if !song.artists.isEmpty {
+                        Divider()
+                        MenuRow(
+                            icon: "eye.slash",
+                            title: "Hide Artist",
+                            subtitle: song.artistNamesDisplay
+                        ) { showHideDialog = true }
+                    }
                 }
             }
             .padding(16)

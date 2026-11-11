@@ -15,6 +15,7 @@ struct SongMenuSheet: View {
     @Environment(\.settingsStore) private var settings
     @ObservedObject private var downloadManager = DownloadManager.shared
     @ObservedObject private var likeStore = LikeStore.shared
+    @State private var showHideDialog = false
 
     enum Destination: Hashable {
         case details
@@ -125,6 +126,7 @@ struct SongMenuSheet: View {
         }
         .task { await pin.load(videoId: song.videoId) }
         .task(id: song.videoId) { tint = await SongTint.color(forThumbnail: thumbnailURL) }
+        .hideArtistDialog(for: song, isPresented: $showHideDialog)
     }
 
     // MARK: - Mas opciones
@@ -152,6 +154,14 @@ struct SongMenuSheet: View {
                         title: "Customize Radio",
                         subtitle: "Style, size & explicit filter"
                     ) { showRadioOptions = true }
+                    if !song.artists.isEmpty {
+                        Divider()
+                        MenuRow(
+                            icon: "eye.slash",
+                            title: "Hide Artist",
+                            subtitle: song.artistNamesDisplay
+                        ) { showHideDialog = true }
+                    }
                 }
             }
             .padding(16)

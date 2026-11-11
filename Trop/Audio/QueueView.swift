@@ -28,10 +28,24 @@ struct QueueView<ProgressSlider: View>: View {
     @State private var showSongMenu = false
     /// Cuando se toco por ultima vez la lista (si la estas moviendo, no se desplaza sola).
     @State private var lastListTouch = Date.distantPast
+    @State private var isSearching = false
+    @State private var searchText = ""
+    @State private var showSaveDialog = false
+    @State private var playlistName = ""
 
     var body: some View {
         queueContent
             .simultaneousGesture(backSwipeGesture)
+            .textPrompt(
+                "Save as Playlist",
+                isPresented: $showSaveDialog,
+                placeholder: "Playlist name",
+                text: $playlistName,
+                okTitle: "Save",
+                message: Text("Songs in the queue will be added.")
+            ) {
+                saveQueueAsPlaylist()
+            }
     }
 
     private var backSwipeGesture: some Gesture {
@@ -86,6 +100,10 @@ struct QueueView<ProgressSlider: View>: View {
 
                 queueChipsRow
 
+                if isSearching {
+                    queueSearchRow
+                }
+
                 queueList
 
                 if isVideoMode {
@@ -133,6 +151,111 @@ struct QueueView<ProgressSlider: View>: View {
         }
     }
 
+    /// Las filas de la cola, o solo las que coinciden con lo que se busca.
+    private var visibleEntries: [QueueEntry] {
+        let entries = queueEntries
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return entries }
+        let words = HiddenArtists.normalize(query).split(separator: " ").map(String.init)
+        return entries.filter { entry in
+            let text = HiddenArtists.normalize(entry.song.title + " " + entry.song.artists.map(\.name).joined(separator: " "))
+            return words.allSatisfy { text.contains($0) }
+        }
+    }
+
+    private var queueSearchRow: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.white.opacity(0.6))
+            TextField("Search in queue", text: $searchText)
+                .textFieldStyle(.plain)
+                .foregroundStyle(.white)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+            Button {
+                searchText = ""
+                isSearching = false
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Capsule().fill(Color.white.opacity(0.12)))
+        .padding(.horizontal, 20)
+        .padding(.bottom, 6)
+    }
+
+    // MARK: - Opciones de la cola
+
+    private func saveQueueAsPlaylist() {
+        let title = playlistName.trimmingCharacters(in: .whitespacesAndNewlines)
+        var seen = Set<String>()
+        let ids = np.queueSongs.map(\.videoId).filter { seen.insert($0).inserted }
+        guard !title.isEmpty, !ids.isEmpty else { return }
+        PlaybackNotice.shared.show(NSLocalizedString("Saving the queue…", comment: ""))
+        Task {
+            do {
+                let playlistId = try await SyncBridge.mutations.createPlaylist(title: title)
+                for id in ids {
+                    try await SyncBridge.mutations.addToPlaylist(playlistId: playlistId, songId: id)
+                }
+                await MainActor.run {
+                    PlaybackNotice.shared.show(String(format: NSLocalizedString("Queue saved as “%@”.", comment: ""), title))
+                }
+            } catch {
+                await MainActor.run {
+                    PlaybackNotice.shared.show(NSLocalizedString("Couldn't save the queue.", comment: ""))
+                }
+            }
+        }
+    }
+
+    private func removeDuplicates() {
+        let removed = np.removeDuplicateSongs()
+        let message = removed > 0
+            ? String(format: NSLocalizedString("%d duplicates removed.", comment: ""), removed)
+            : NSLocalizedString("No duplicates in the queue.", comment: "")
+        PlaybackNotice.shared.show(message)
+    }
+
+    private var queueOptionsMenu: some View {
+        Menu {
+            Button {
+                withAnimation { isSearching = true }
+            } label: {
+                Label("Search Queue", systemImage: "magnifyingglass")
+            }
+            Button {
+                playlistName = String(
+                    format: NSLocalizedString("Queue %@", comment: ""),
+                    Date().formatted(date: .abbreviated, time: .omitted)
+                )
+                showSaveDialog = true
+            } label: {
+                Label("Save as Playlist", systemImage: "text.badge.plus")
+            }
+            Button {
+                removeDuplicates()
+            } label: {
+                Label("Remove Duplicates", systemImage: "rectangle.on.rectangle.slash")
+            }
+            Button(role: .destructive) {
+                np.clearUpcoming()
+            } label: {
+                Label("Clear Upcoming", systemImage: "trash")
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.7))
+                .frame(width: 36, height: 28)
+                .contentShape(Rectangle())
+        }
+    }
+
     private var queueList: some View {
         Group {
             if np.queueSongs.isEmpty {
@@ -141,7 +264,7 @@ struct QueueView<ProgressSlider: View>: View {
             } else {
                 // La lista es una UICollectionView (desplazar, quitar deslizando y reordenar con el asa son los del sistema).
                 QueueListView(
-                    items: queueEntries.map {
+                    items: visibleEntries.map {
                         QueueListView.Item(
                             id: $0.id, index: $0.index, song: $0.song,
                             isCurrent: $0.index == np.queueIndex,
@@ -153,7 +276,8 @@ struct QueueView<ProgressSlider: View>: View {
                     onSelect: { playSong(at: $0) },
                     onDelete: { removeSong(at: $0) },
                     onReorder: { np.reorderQueue($0) },
-                    onUserScroll: { lastListTouch = Date() }
+                    onUserScroll: { lastListTouch = Date() },
+                    allowsReorder: searchText.isEmpty
                 )
             }
         }
@@ -283,6 +407,8 @@ struct QueueView<ProgressSlider: View>: View {
             }
 
             Spacer()
+
+            queueOptionsMenu
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 8)

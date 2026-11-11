@@ -374,7 +374,8 @@ enum SonarMix {
         var songs: [SongItem] = []
         for section in sections {
             for item in section.items {
-                if case .song(let song) = item, seen.insert(song.videoId).inserted { songs.append(song) }
+                if case .song(let song) = item, !HiddenArtists.shared.isHidden(song),
+                   seen.insert(song.videoId).inserted { songs.append(song) }
             }
         }
         return songs

@@ -305,6 +305,8 @@ actor PersonalizationService {
         if !options.allowExplicit {
             resultSongs = resultSongs.filter { !$0.isExplicit }
         }
+        // Los artistas ocultos no salen en las radios (salvo la cancion de la que parte).
+        resultSongs = resultSongs.filter { $0.videoId == videoId || !HiddenArtists.shared.isHidden($0) }
         resultSongs = Array(resultSongs.prefix(max(1, options.limit)))
         guard !resultSongs.isEmpty else { throw NSError(domain: "fetchRadio", code: 1, userInfo: [:]) }
         let clampedIndex = min(currentIndex, resultSongs.count - 1)
