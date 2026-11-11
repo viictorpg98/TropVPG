@@ -87,9 +87,6 @@ final class PlayerController {
     var pendingResumeAt: TimeInterval = 0
     /// Multiplicador del volumen de mpv (1 = normal): AutoMix lo baja y sube durante las mezclas.
     var volumeScale: Double = 1
-    /// AutoMix: mete en la cadena de audio un filtro paso bajo con etiqueta `dj` (abierto) que luego se cierra
-    /// con `setDJLowpass`.
-    var djFilterActive = false
     var nowPlayingInfo = [String: Any]()
     private var pendingSeek: (target: TimeInterval, deadline: Date)?
     private var remoteStateCancellable: AnyCancellable?
@@ -350,10 +347,6 @@ extension PlayerController {
         }
     }
 
-    /// Filtro paso bajo de AutoMix. El FFmpeg de MPVKit solo incluye una lista cerrada de filtros (hay `firequalizer`
-    /// y `volume`, pero no `lowpass`), asi que se hace con un ecualizador FIR cuya curva se cambia en caliente.
-    private static let djFilterSpec = "@dj:firequalizer=gain_entry=\"entry(0,0);entry(22000,0)\":delay=0.03:accuracy=10"
-
     func applyPlaybackSettings() {
         let settings = SettingsStore.shared
         let loudness = currentLoudnessDb
@@ -362,7 +355,6 @@ extension PlayerController {
         let gapless = settings.gaplessPlayback
         let norm = settings.audioNormalization
 
-        let djActive = djFilterActive
         let baseFilters: [String] = {
             var filters: [String] = []
             if eqEnabled {
@@ -379,24 +371,12 @@ extension PlayerController {
             }
             return filters
         }()
-        let baseChain = baseFilters.joined(separator: ",")
-        let chain = (baseFilters + (djActive ? [Self.djFilterSpec] : [])).joined(separator: ",")
+        let chain = baseFilters.joined(separator: ",")
 
-        let fellBack: Bool? = withMpv { mpv in
+        withMpv { mpv in
             mpv_set_property_string(mpv, "gapless-audio", gapless ? "yes" : "no")
-            var result = mpv_set_property_string(mpv, "af", chain.isEmpty ? "" : chain)
-            var droppedDJ = false
-            if result < 0, djActive {
-                // Sin el filtro de DJ, para no perder el ecualizador ni la normalizacion.
-                droppedDJ = true
-                result = mpv_set_property_string(mpv, "af", baseChain.isEmpty ? "" : baseChain)
-            }
+            let result = mpv_set_property_string(mpv, "af", chain)
             if result < 0 { Log.player.error("Failed to set af chain '\(chain)': mpv error \(result)") }
-            return droppedDJ
-        }
-        if fellBack == true {
-            djFilterActive = false
-            PlaybackReport.record("automix: mpv rechazo el filtro de DJ, la mezcla sigue sin el")
         }
         applyPlayerVolume()
     }

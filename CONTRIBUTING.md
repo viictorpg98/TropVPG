@@ -12,7 +12,7 @@ The English source is `languages/en.json`. Each additional language uses its loc
 ```text
 languages/
 ├── en.json
-├── zh.json
+├── es.json
 ```
 
 ### Add or Update a Language
