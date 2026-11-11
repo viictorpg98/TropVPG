@@ -21,7 +21,6 @@ struct PlayerMenuSheet: View {
         case equalizer
         case details
         case similar
-        case more
     }
 
     // Loaded state
@@ -47,6 +46,10 @@ struct PlayerMenuSheet: View {
                     MenuRow(icon: "dot.radiowaves.left.and.right", title: "Start Radio") { startRadio() }
                     Divider()
                     viewArtistRow
+                    if !song.artists.isEmpty {
+                        Divider()
+                        MenuRow(icon: "eye.slash", title: "Hide Artist") { showHideDialog = true }
+                    }
                     if let albumId = song.firstAlbumBrowseId {
                         Divider()
                         MenuRow(icon: "record.circle", title: "View Album", subtitle: song.album) {
@@ -68,10 +71,18 @@ struct PlayerMenuSheet: View {
                     }
                     .buttonStyle(.plain)
                     Divider()
-                    NavigationLink(value: Destination.more) {
-                        MenuRowLabel(icon: "ellipsis.circle", title: "More Options")
+                    pinRow
+                    Divider()
+                    NavigationLink(value: Destination.details) {
+                        MenuRowLabel(icon: "info.circle", title: "Details", subtitle: "Metadata & stream information")
                     }
                     .buttonStyle(.plain)
+                    Divider()
+                    MenuRow(
+                        icon: "slider.horizontal.3",
+                        title: "Customize Radio",
+                        subtitle: "Style, size & explicit filter"
+                    ) { showRadioOptions = true }
                 }
             }
             .navigationDestination(for: Destination.self) { dest in
@@ -90,8 +101,6 @@ struct PlayerMenuSheet: View {
                             AppRouter.shared.expandPlayer()
                         }
                     )
-                case .more:
-                    moreOptions
                 }
             }
         }
@@ -132,41 +141,6 @@ struct PlayerMenuSheet: View {
             tint = await SongTint.color(forThumbnail: AudioCounterpartStore.shared.thumbnailURL(for: song))
         }
         .hideArtistDialog(for: song, isPresented: $showHideDialog)
-    }
-
-    // MARK: - Mas opciones
-
-    private var moreOptions: some View {
-        ScrollView {
-            VStack(spacing: 12) {
-                MenuCard {
-                    pinRow
-                    Divider()
-                    NavigationLink(value: Destination.details) {
-                        MenuRowLabel(icon: "info.circle", title: "Details", subtitle: "Metadata & stream information")
-                    }
-                    .buttonStyle(.plain)
-                    Divider()
-                    MenuRow(
-                        icon: "slider.horizontal.3",
-                        title: "Customize Radio",
-                        subtitle: "Style, size & explicit filter"
-                    ) { showRadioOptions = true }
-                    if !song.artists.isEmpty {
-                        Divider()
-                        MenuRow(
-                            icon: "eye.slash",
-                            title: "Hide Artist",
-                            subtitle: song.artistNamesDisplay
-                        ) { showHideDialog = true }
-                    }
-                }
-            }
-            .padding(16)
-        }
-        .background(tint ?? Color(.systemBackground))
-        .navigationTitle("More Options")
-        .navigationBarTitleDisplayMode(.inline)
     }
 
     // MARK: - Cabecera y acciones rapidas

@@ -20,7 +20,6 @@ struct SongMenuSheet: View {
     enum Destination: Hashable {
         case details
         case similar
-        case more
     }
 
     @State private var pin = PinState()
@@ -53,6 +52,10 @@ struct SongMenuSheet: View {
                     MenuRow(icon: "dot.radiowaves.left.and.right", title: "Start Radio") { startRadio() }
                     Divider()
                     MenuRow(icon: "music.mic", title: "View Artist", subtitle: song.artistNamesDisplay) { handleViewArtist() }
+                    if !song.artists.isEmpty {
+                        Divider()
+                        MenuRow(icon: "eye.slash", title: "Hide Artist") { showHideDialog = true }
+                    }
                     if let albumId = song.firstAlbumBrowseId {
                         Divider()
                         MenuRow(icon: "record.circle", title: "View Album", subtitle: song.album) {
@@ -69,10 +72,25 @@ struct SongMenuSheet: View {
                     }
                     .buttonStyle(.plain)
                     Divider()
-                    NavigationLink(value: Destination.more) {
-                        MenuRowLabel(icon: "ellipsis.circle", title: "More Options")
+                    MenuRow(
+                        icon: pin.isPinned ? "pin.fill" : "pin",
+                        title: pin.isPinned ? "Unpin from Quick Picks" : "Pin to Quick Picks"
+                    ) { Task { await pin.toggle(song: song) } }
+                    Divider()
+                    NavigationLink(value: Destination.details) {
+                        MenuRowLabel(
+                            icon: "info.circle",
+                            title: "Details",
+                            subtitle: "Metadata & stream information"
+                        )
                     }
                     .buttonStyle(.plain)
+                    Divider()
+                    MenuRow(
+                        icon: "slider.horizontal.3",
+                        title: "Customize Radio",
+                        subtitle: "Style, size & explicit filter"
+                    ) { showRadioOptions = true }
                 }
             }
             .navigationDestination(for: Destination.self) { dest in
@@ -87,8 +105,6 @@ struct SongMenuSheet: View {
                             playSimilarAndExpand(similar, in: songs)
                         }
                     )
-                case .more:
-                    moreOptions
                 }
             }
         }
@@ -127,48 +143,6 @@ struct SongMenuSheet: View {
         .task { await pin.load(videoId: song.videoId) }
         .task(id: song.videoId) { tint = await SongTint.color(forThumbnail: thumbnailURL) }
         .hideArtistDialog(for: song, isPresented: $showHideDialog)
-    }
-
-    // MARK: - Mas opciones
-
-    private var moreOptions: some View {
-        ScrollView {
-            VStack(spacing: 12) {
-                MenuCard {
-                    MenuRow(
-                        icon: pin.isPinned ? "pin.fill" : "pin",
-                        title: pin.isPinned ? "Unpin from Quick Picks" : "Pin to Quick Picks"
-                    ) { Task { await pin.toggle(song: song) } }
-                    Divider()
-                    NavigationLink(value: Destination.details) {
-                        MenuRowLabel(
-                            icon: "info.circle",
-                            title: "Details",
-                            subtitle: "Metadata & stream information"
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    Divider()
-                    MenuRow(
-                        icon: "slider.horizontal.3",
-                        title: "Customize Radio",
-                        subtitle: "Style, size & explicit filter"
-                    ) { showRadioOptions = true }
-                    if !song.artists.isEmpty {
-                        Divider()
-                        MenuRow(
-                            icon: "eye.slash",
-                            title: "Hide Artist",
-                            subtitle: song.artistNamesDisplay
-                        ) { showHideDialog = true }
-                    }
-                }
-            }
-            .padding(16)
-        }
-        .background(tint ?? Color(.systemBackground))
-        .navigationTitle("More Options")
-        .navigationBarTitleDisplayMode(.inline)
     }
 
     // MARK: - Cabecera y acciones rapidas
