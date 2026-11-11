@@ -26,6 +26,8 @@ struct QueueView<ProgressSlider: View>: View {
     var isVideoMode: Bool = false
 
     @State private var showSongMenu = false
+    /// Cuando se toco por ultima vez la lista (si la estas moviendo, no se desplaza sola).
+    @State private var lastListTouch = Date.distantPast
 
     var body: some View {
         queueContent
@@ -129,6 +131,19 @@ struct QueueView<ProgressSlider: View>: View {
                         proxy.scrollTo(entries[np.queueIndex].id, anchor: .center)
                     }
                 }
+                .onScrollPhaseChange { _, phase in
+                    if phase != .idle { lastListTouch = Date() }
+                }
+                // Al cambiar de cancion (AutoMix, fin de la anterior...) la lista se desplaza a la que suena, salvo que
+                // la estes moviendo.
+                .onChange(of: np.queueIndex) { _, _ in
+                    guard Date().timeIntervalSince(lastListTouch) > 4 else { return }
+                    let current = queueEntries
+                    guard current.indices.contains(np.queueIndex) else { return }
+                    withAnimation(.easeInOut(duration: 0.4)) {
+                        proxy.scrollTo(current[np.queueIndex].id, anchor: .center)
+                    }
+                }
             }
     }
 
@@ -137,8 +152,7 @@ struct QueueView<ProgressSlider: View>: View {
     private var queueHeader: some View {
         HStack(spacing: 12) {
             if let uiImage = np.thumbnailUIImage {
-                let cropped = uiImage.centerCroppedSquare()
-                Image(uiImage: cropped)
+                Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
                     .frame(width: 64, height: 64)

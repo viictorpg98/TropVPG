@@ -21,6 +21,7 @@ final class WaveformStore {
     private var urgentRunning: String?
     private var backgroundRunning: String?
     private var failed: [String: Date] = [:]
+    private var missChecked: [String: Date] = [:]
 
     private let directory: URL = {
         let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
@@ -37,10 +38,13 @@ final class WaveformStore {
     /// La onda si ya esta (memoria, disco o analisis de AutoMix); nunca calcula nada.
     func cached(for videoId: String) -> [Float]? {
         if let wave = memory[videoId] { return wave }
-        if let data = try? Data(contentsOf: fileURL(videoId)), data.count == Self.buckets {
-            let wave = data.map { Float($0) / 255 }
-            memory[videoId] = wave
-            return wave
+        if missChecked[videoId].map({ Date().timeIntervalSince($0) >= 3 }) ?? true {
+            if let data = try? Data(contentsOf: fileURL(videoId)), data.count == Self.buckets {
+                let wave = data.map { Float($0) / 255 }
+                memory[videoId] = wave
+                return wave
+            }
+            missChecked[videoId] = Date()
         }
         if let wave = TrackAnalysisStore.shared.structure(for: videoId)?.waveform, wave.count == Self.buckets {
             store(wave, for: videoId)

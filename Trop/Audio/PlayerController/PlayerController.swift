@@ -129,6 +129,9 @@ final class PlayerController {
 
     var currentTime: TimeInterval {
         if let positionOverride { return positionOverride }
+        // Justo al empezar el archivo de la mezcla, un instante sin posicion fijada: se mantiene la ultima (si no, la barra
+        // saltaria a 0 con el tiempo del archivo).
+        if gaplessStage == 2, timeline == nil { return NowPlaying.shared.currentTime }
         return (withMpv { mpv in
             var val = Double(0)
             mpv_get_property(mpv, "time-pos", MPV_FORMAT_DOUBLE, &val)
@@ -138,6 +141,7 @@ final class PlayerController {
 
     var duration: TimeInterval {
         if let durationOverride { return durationOverride }
+        if gaplessStage == 2, timeline == nil { return NowPlaying.shared.duration }
         return (withMpv { mpv in
             var val = Double(0)
             mpv_get_property(mpv, "duration", MPV_FORMAT_DOUBLE, &val)
@@ -328,6 +332,8 @@ extension PlayerController {
         playState.send(paused ? .paused : .playing)
         NowPlaying.shared.isPlaying = !paused
         if !paused { assertAudioSession() }
+        // El tiempo en pausa no cuenta como escuchado en el historial.
+        Task { await PlaybackStateService.shared.setPlaying(!paused) }
         updateNowPlayingProgress()
     }
 
@@ -873,7 +879,8 @@ extension PlayerController {
     }
 
     func preloadVideoURL() {
-        guard let videoId = NowPlaying.shared.videoId else { return }
+        // La direccion del video solo se pide con el reproductor grande abierto (antes se pedia para cada cancion con video).
+        guard fullPlayerVisible, let videoId = NowPlaying.shared.videoId else { return }
         guard !isVideoPrerendered(videoId: videoId) else { return }
         Task {
             if loadedVideoOnlyURL == nil {
@@ -1215,6 +1222,8 @@ extension PlayerController {
             return (dur, pos)
         }
         guard var props, props.dur > 0 else { return }
+        // Ese mismo instante al empezar la mezcla: no se actualiza con el tiempo del archivo.
+        if gaplessStage == 2, positionOverride == nil, timeline == nil { return }
         // AutoMix: mientras suena su tramo preparado, la posicion es la suya (mpv esta en pausa).
         if let positionOverride { props.pos = positionOverride } else { props.pos += timelineShift }
         if let durationOverride { props.dur = durationOverride } else { props.dur += timelineShift }

@@ -284,6 +284,8 @@ actor PlaybackManager {
     private static let avoidedKey = "playback.avoidedClients"
     /// Que cliente de YouTube dio la direccion con la que suena (o se intento sonar) cada cancion.
     private var clientUsed: [String: String] = [:]
+    /// Cuando fallo la direccion de cada cliente (para no vetarlo por un fallo suelto).
+    private var clientFailures: [String: [Date]] = [:]
 
     private func avoidedClientNames() -> Set<String> {
         let now = Date().timeIntervalSince1970
@@ -304,6 +306,18 @@ actor PlaybackManager {
     /// y se olvidan las direcciones guardadas (pueden ser del mismo cliente).
     func noteStreamFailure(videoId: String) async {
         guard let name = clientUsed[videoId] else { return }
+        // Un fallo suelto (un corte de red...) no veta al cliente: hace falta un segundo fallo suyo en 15 minutos. El primero
+        // solo hace que se vuelva a pedir la direccion de esa cancion.
+        let now = Date()
+        var recent = (clientFailures[name] ?? []).filter { now.timeIntervalSince($0) < 900 }
+        recent.append(now)
+        clientFailures[name] = recent
+        await StreamCache.shared.remove(videoId: videoId)
+        guard recent.count >= 2 else {
+            PlaybackReport.record("cliente \(name): primer fallo de \(videoId), todavia no se descarta")
+            return
+        }
+        clientFailures[name] = []
         var stored = (UserDefaults.standard.dictionary(forKey: Self.avoidedKey) as? [String: Double]) ?? [:]
         stored[name] = Date().timeIntervalSince1970 + 3 * 3600
         UserDefaults.standard.set(stored, forKey: Self.avoidedKey)

@@ -377,7 +377,7 @@ struct LyricsView<ProgressSlider: View>: View {
             // Tocar la foto o el titulo vuelve a la carátula (como en la cola).
             HStack(spacing: 12) {
                 if let uiImage = np.thumbnailUIImage {
-                    Image(uiImage: uiImage.centerCroppedSquare())
+                    Image(uiImage: uiImage)
                         .resizable()
                         .scaledToFill()
                         .frame(width: 64, height: 64)

@@ -448,7 +448,7 @@ struct PlayerGradientBackground: View {
                 // Fondo vivo: una malla de colores que se mueve despacio y late con el pulso durante una mezcla.
                 LiveMeshBackground(
                     top: colors[0], bottom: colors[1],
-                    paused: reduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled
+                    paused: reduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled || !NowPlaying.shared.isPlaying
                 )
             } else {
                 LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)

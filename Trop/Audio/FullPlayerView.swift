@@ -548,9 +548,9 @@ struct FullPlayerView: View {
     private var artworkImage: some View {
         ZStack {
             if let uiImage = np.thumbnailUIImage {
-                let cropped = uiImage.centerCroppedSquare()
+                // La carátula ya llega recortada en cuadrado: no se recorta en cada redibujo.
                 GeometryReader { geo in
-                    Image(uiImage: cropped)
+                    Image(uiImage: uiImage)
                         .resizable()
                         .scaledToFill()
                         .frame(width: geo.size.width, height: geo.size.height)

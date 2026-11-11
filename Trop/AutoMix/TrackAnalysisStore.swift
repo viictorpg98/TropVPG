@@ -15,6 +15,8 @@ final class TrackAnalysisStore {
 
     private var memory: [String: TrackStructure] = [:]
     private var unusable: Set<String> = []
+    /// Cuando se miro por ultima vez el disco sin encontrar su analisis (para no leerlo cuatro veces por segundo).
+    private var missChecked: [String: Date] = [:]
     private var queued: [String] = []
     private var running = false
     /// Canciones en streaming cuyo analisis fallo (red...): no se guardan como "no analizables", se reintentan mas tarde.
@@ -59,7 +61,11 @@ final class TrackAnalysisStore {
     func structure(for videoId: String) -> TrackStructure? {
         if let cached = memory[videoId] { return cached }
         if unusable.contains(videoId) { return nil }
-        guard let data = try? Data(contentsOf: fileURL(videoId)) else { return nil }
+        if let last = missChecked[videoId], Date().timeIntervalSince(last) < 5 { return nil }
+        guard let data = try? Data(contentsOf: fileURL(videoId)) else {
+            missChecked[videoId] = Date()
+            return nil
+        }
         if data.isEmpty {
             unusable.insert(videoId)
             return nil

@@ -23,6 +23,10 @@ struct TropApp: App {
         Log.wireSwiftyTube()
         PlayerController.registerRemoteControlSupport()
         observePlaybackSettings()
+        // El informe de reproduccion se guarda a disco cada segundo; al pasar a segundo plano, de inmediato.
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: nil
+        ) { _ in PlaybackReport.flush() }
         Task { await InnerTubeClient.tropShared.syncTropLocale() }
     }
 

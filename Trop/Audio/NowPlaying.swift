@@ -69,7 +69,9 @@ final class NowPlaying {
     private var timer: Timer?
     private var tickCount = 0
     var lastManualSkipTime: Date?
-    private var isResolvingNext = false
+    /// Cuantas canciones se estan cargando a la vez (si se salta rapido puede haber varias; la ultima es la que cuenta).
+    private var resolvingCount = 0
+    private var isResolvingNext: Bool { resolvingCount > 0 }
     /// Hay una cancion cargandose (AutoMix no empieza mezclas mientras tanto).
     var isBusyResolving: Bool { isResolvingNext }
     /// Timestamps of the last mid-play failure per videoId, to bound retries.
@@ -153,6 +155,10 @@ final class NowPlaying {
         for index in start..<songs.count {
             let swapped = store.preferAudio(songs[index])
             if swapped.videoId != songs[index].videoId {
+                // Tambien en el orden original (si hay aleatorio), para que al quitarlo la cancion se siga encontrando.
+                if let position = originalQueue?.firstIndex(where: { $0.videoId == songs[index].videoId }) {
+                    originalQueue?[position] = swapped
+                }
                 songs[index] = swapped
                 changed = true
             }
@@ -209,11 +215,15 @@ final class NowPlaying {
         guard queueSongs.indices.contains(queueIndex) else { return }
         if let orig = originalQueue {
             let currentVideoId = queueSongs[queueIndex].videoId
-            queueSongs = orig
-            // The shuffled index is meaningless against the original array
-            // (radio appends, deletes and reorders change lengths).
-            let restored = orig.firstIndex(where: { $0.videoId == currentVideoId }) ?? queueIndex
-            queueIndex = min(restored, max(orig.count - 1, 0))
+            // Se concilia el orden original con lo que hay ahora: lo que se quito mientras estaba barajado no vuelve y lo
+            // que se añadio (la cola infinita...) va al final.
+            let currentIds = Set(queueSongs.map(\.videoId))
+            let originalIds = Set(orig.map(\.videoId))
+            let restored = orig.filter { currentIds.contains($0.videoId) }
+                + queueSongs.filter { !originalIds.contains($0.videoId) }
+            queueSongs = restored
+            queueIndex = restored.firstIndex(where: { $0.videoId == currentVideoId })
+                ?? min(queueIndex, max(restored.count - 1, 0))
         }
         originalQueue = nil
         isShuffleOn = false
@@ -236,7 +246,8 @@ final class NowPlaying {
 
     func playNext(automatic: Bool = false) {
         guard hasNext else { return }
-        guard !isResolvingNext else { return }
+        // El paso automatico espera a que termine la carga en curso; los toques del usuario no se ignoran.
+        if automatic, isResolvingNext { return }
         var target = queueIndex + 1
         if !NetworkMonitor.shared.hasConnection {
             // Sin conexion solo se pueden reproducir las descargadas: se salta a la siguiente que lo este y, si
@@ -295,8 +306,14 @@ final class NowPlaying {
     }
 
     func playPrevious() {
+        // Pasados unos segundos, "anterior" vuelve al principio de la cancion (como en Apple Music y YouTube Music).
+        if currentTime > 3, queueSongs.indices.contains(queueIndex) {
+            PlayerController.shared.seek(to: 0)
+            currentTime = 0
+            PlayerController.shared.updateNowPlayingProgress()
+            return
+        }
         guard hasPrevious else { return }
-        guard !isResolvingNext else { return }
         lastManualSkipTime = Date()
         queueIndex -= 1
         playCurrentSong(logContext: "playPrevious")
@@ -314,7 +331,7 @@ final class NowPlaying {
         guard queueSongs.indices.contains(queueIndex) else { return }
         AutoMixEngine.shared.songChanged()
         if manageResolvingFlag {
-            isResolvingNext = true
+            resolvingCount += 1
         }
         let song = queueSongs[queueIndex]
         update(with: song)
@@ -333,7 +350,7 @@ final class NowPlaying {
                 }
             }
             if manageResolvingFlag {
-                isResolvingNext = false
+                resolvingCount = max(0, resolvingCount - 1)
             }
             afterResolve?()
             await self.verifyPlaybackStarted(song.videoId, startAt: startAt, logContext: logContext)
@@ -487,6 +504,12 @@ final class NowPlaying {
                 return
             }
             self.queueSongs += added
+            // Lo ya escuchado mas alla de las ultimas 50 se quita (la cola no crece sin limite; con aleatorio no se toca).
+            if !self.isShuffleOn, self.originalQueue == nil, self.queueIndex > 100 {
+                let drop = self.queueIndex - 50
+                self.queueSongs.removeFirst(drop)
+                self.queueIndex -= drop
+            }
             self.applyAudioVersions()
             self.persistQueueState()
             PlaybackReport.record("cola: ampliada con \(added.count) canciones de la radio de \(current)")

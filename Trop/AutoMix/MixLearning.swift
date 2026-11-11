@@ -87,7 +87,8 @@ final class MixLearning {
         for length in MixStyle.Length.allCases {
             list.append(MixStyle(length: length, matchTempo: true, context: context))
             // Dejar el tempo como esta solo tiene sentido si los tempos son parecidos (si no, ya no se igualan).
-            if context == "near" {
+            // La larga con el tempo sin tocar no se prueba: dos pulsos que se desvian durante 20 s suenan mal.
+            if context == "near", length != .long {
                 list.append(MixStyle(length: length, matchTempo: false, context: context))
             }
         }

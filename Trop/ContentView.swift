@@ -18,19 +18,19 @@ struct ContentView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             Tab("Home", systemImage: "music.note.house.fill", value: 0) {
-                withMiniPlayer { HomeScreenView() }
+                withMiniPlayer(tab: 0) { HomeScreenView() }
             }
 
             Tab("Library", systemImage: "music.note.square.stack", value: 1) {
-                withMiniPlayer { LibraryView() }
+                withMiniPlayer(tab: 1) { LibraryView() }
             }
 
             Tab("Explore", systemImage: "flame", value: 2) {
-                withMiniPlayer { ExploreView() }
+                withMiniPlayer(tab: 2) { ExploreView() }
             }
 
             Tab("Search", systemImage: "magnifyingglass", value: 3) {
-                withMiniPlayer { SearchView() }
+                withMiniPlayer(tab: 3) { SearchView() }
             }
         }
         .tabBarMinimizeBehavior(.never)
@@ -76,22 +76,30 @@ struct ContentView: View {
     }
 
     /// Barra del mini reproductor: rectangular, a ancho completo y justo encima de la barra de pestanas.
-    private func withMiniPlayer<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+    private func withMiniPlayer<Content: View>(tab: Int, @ViewBuilder _ content: () -> Content) -> some View {
         content().safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
                 PlaybackNoticeBar()
                 OfflineBanner()
-                if nowPlaying.isBarPresented {
+                // Solo la pestaña activa lleva el mini (antes habia uno vivo por pestaña, y los ocultos tambien se
+                // redibujaban durante una mezcla).
+                if nowPlaying.isBarPresented, selectedTab == tab {
                     MiniPlayerBarView(onExpand: expandPlayer)
                 }
             }
-            // Altura de lo que hay fijo encima de la barra de pestanas: las listas la usan como margen final.
+            // Altura de lo que hay fijo encima de la barra de pestanas: las listas la usan como margen final. Solo la mide
+            // la pestaña activa (las ocultas no deben pisar el valor).
             .background {
                 GeometryReader { proxy in
                     let height = proxy.size.height
                     Color.clear
-                        .onAppear { scrollState.insetHeight = height }
-                        .onChange(of: height) { _, newValue in scrollState.insetHeight = newValue }
+                        .onAppear { if selectedTab == tab { scrollState.insetHeight = height } }
+                        .onChange(of: height) { _, newValue in
+                            if selectedTab == tab { scrollState.insetHeight = newValue }
+                        }
+                        .onChange(of: selectedTab) { _, newTab in
+                            if newTab == tab { scrollState.insetHeight = height }
+                        }
                 }
             }
         }

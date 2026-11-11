@@ -20,8 +20,31 @@ actor PlaybackStateService {
     private var hasRecordedPlayback = false
     private var periodicCheckTask: Task<Void, Never>?
     private var bankedPlayTimeMs: Int64 = 0
+    /// Tiempo en pausa de la cancion que suena (no cuenta como escuchado).
+    private var pausedSince: Date?
+    private var pausedTotal: TimeInterval = 0
 
     private init() {}
+
+    /// La musica se pausa o se reanuda.
+    func setPlaying(_ playing: Bool) {
+        guard isTracking else { return }
+        if playing {
+            if let since = pausedSince {
+                pausedTotal += Date().timeIntervalSince(since)
+                pausedSince = nil
+            }
+        } else if pausedSince == nil {
+            pausedSince = Date()
+        }
+    }
+
+    /// Segundos sonados desde `start`, sin las pausas.
+    private func playedElapsed(from start: Date) -> TimeInterval {
+        var paused = pausedTotal
+        if let since = pausedSince { paused += Date().timeIntervalSince(since) }
+        return max(0, Date().timeIntervalSince(start) - paused)
+    }
 
     func startTracking(videoId: String) {
         currentVideoId = videoId
@@ -29,6 +52,8 @@ actor PlaybackStateService {
         isTracking = true
         hasRecordedPlayback = false
         bankedPlayTimeMs = 0
+        pausedSince = nil
+        pausedTotal = 0
         Log.playbackState.debug("Started tracking videoId=\(videoId)")
 
         periodicCheckTask?.cancel()
@@ -36,7 +61,7 @@ actor PlaybackStateService {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(5))
                 guard let self, let start = await self.playbackStartTime, await self.isTracking else { return }
-                let elapsed = Date().timeIntervalSince(start)
+                let elapsed = await self.playedElapsed(from: start)
                 let current = await self.currentVideoId ?? ""
                 // Bank every 5s chunk so skipped tracks still count toward Top 100.
                 await self.bankPlayTime(videoId: current, elapsedMs: Int64(elapsed * 1000), minimumMs: 5_000)
@@ -56,7 +81,7 @@ actor PlaybackStateService {
             reset()
             return
         }
-        let elapsed = Date().timeIntervalSince(start)
+        let elapsed = playedElapsed(from: start)
         Log.playbackState.debug("Stopped tracking videoId=\(videoId) totalElapsed=\(String(format: "%.1f", elapsed))s")
         defer { reset() }
 
@@ -182,5 +207,7 @@ actor PlaybackStateService {
         playbackStartTime = nil
         isTracking = false
         bankedPlayTimeMs = 0
+        pausedSince = nil
+        pausedTotal = 0
     }
 }
