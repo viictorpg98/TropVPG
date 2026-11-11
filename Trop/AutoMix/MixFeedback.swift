@@ -208,37 +208,45 @@ struct MixFeedbackPill: View {
     }
 }
 
-/// La version pequena del aviso, para el sitio de los botones del mini reproductor.
+/// La version pequena del aviso, para el sitio de los botones del mini reproductor: con la pregunta, para que se entienda
+/// que es sobre la mezcla que acaba de sonar.
 struct MixFeedbackMiniPill: View {
     private let store = MixFeedbackStore.shared
 
     var body: some View {
-        HStack(spacing: 4) {
+        VStack(spacing: 0) {
+            Text(store.thanks ? "Thanks!" : "How was the mix?")
+                .font(.system(size: 10, weight: .semibold))
+                .lineLimit(1)
+                .fixedSize()
             if store.thanks {
                 Image(systemName: "checkmark")
                     .font(.system(size: 14, weight: .bold))
-                    .frame(width: 64, height: 34)
+                    .frame(height: 28)
             } else {
-                Button { store.rate(1) } label: {
-                    Image(systemName: "hand.thumbsup.fill")
-                        .font(.system(size: 16))
-                        .frame(width: 32, height: 34)
-                        .contentShape(Rectangle())
+                HStack(spacing: 6) {
+                    Button { store.rate(1) } label: {
+                        Image(systemName: "hand.thumbsup.fill")
+                            .font(.system(size: 16))
+                            .frame(width: 42, height: 28)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Good mix")
+                    Button { store.rate(-1) } label: {
+                        Image(systemName: "hand.thumbsdown.fill")
+                            .font(.system(size: 16))
+                            .frame(width: 42, height: 28)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Bad mix")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Good mix")
-                Button { store.rate(-1) } label: {
-                    Image(systemName: "hand.thumbsdown.fill")
-                        .font(.system(size: 16))
-                        .frame(width: 32, height: 34)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Bad mix")
             }
         }
         .foregroundStyle(.white)
-        .padding(.horizontal, 6)
-        .glassEffect(.regular, in: Capsule())
+        .padding(.horizontal, 12)
+        .padding(.vertical, 5)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }

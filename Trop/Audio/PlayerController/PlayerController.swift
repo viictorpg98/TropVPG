@@ -219,7 +219,16 @@ extension PlayerController {
         }
 
         if let videoId, let title, videoId != NowPlaying.shared.videoId {
+            // Una cancion nueva que no ha pasado por `NowPlaying.playCurrentSong` (Siri y los atajos, tocar una cancion en una
+            // lista, radios...): aqui se hace lo mismo que alli al cambiar de cancion. Sin esto la primera cancion no pedia su
+            // onda, AutoMix no se enteraba del cambio (y no esperaba sus segundos de margen antes de analizar en streaming).
+            AutoMixEngine.shared.songChanged()
             NowPlaying.shared.update(title: title, artist: artist, videoId: videoId, artists: artists, thumbnailUrl: thumbnailUrl)
+            let np = NowPlaying.shared
+            WaveformStore.shared.songStarted(
+                current: videoId,
+                upcoming: np.queueSongs.dropFirst(np.queueIndex + 1).map(\.videoId)
+            )
         }
 
         let skipStart = await SponsorBlockIntegration.shared.preloadedStartOffset(for: videoId)
