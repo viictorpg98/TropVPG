@@ -31,6 +31,16 @@ actor PersonalizationService {
         return section
     }
 
+    /// Las mismas canciones de Selecciones rapidas (sin elegir otras al azar), con los datos que se hayan completado despues.
+    func buildQuickPicks(ids: [String]) async -> HomeSection {
+        guard let songs = try? await db.fetchLikedSongs(), !songs.isEmpty else {
+            return .quickPicks(items: [])
+        }
+        let byId = Dictionary(songs.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let ordered = ids.compactMap { byId[$0] }
+        return .quickPicks(items: ordered.toSongItems().map(YTItem.song))
+    }
+
     func buildKeepListening() async -> HomeSection {
         var items: [YTItem] = []
         var recentSongs: [SongEntity] = []

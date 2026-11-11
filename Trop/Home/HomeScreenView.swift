@@ -67,14 +67,13 @@ struct HomeScreenView: View {
             }
             .task {
                 await viewModel.restoreSession()
+                // Leer las cookies de la sesion es local y rapido: se hace antes de pedir la portada.
+                await accountState.restoreSession()
                 // Lo fijado en Selecciones rapidas se lee antes de pintar (es de la base de datos: casi instantaneo).
                 await reloadSpeedDial()
-                // La portada no espera a los datos de la cuenta (una peticion de red mas): empieza ya.
+                // La portada no espera a los datos de la cuenta (nombre y foto: una peticion de red, con reintentos).
                 viewModel.loadHomeData()
-                Task {
-                    await accountState.restoreSession()
-                    await accountState.fetchAccountInfo()
-                }
+                Task { await accountState.fetchAccountInfo() }
                 // Trigger library sync in background
                 Task {
                     await SyncBridge.checkAndSyncIfStale()

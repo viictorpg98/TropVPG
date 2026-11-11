@@ -34,6 +34,7 @@ final class HomeViewModel {
     /// segundo plano (secciones propias y de la cuenta) la publicaba incompleta y, al llegar la portada, se reordenaba entera.
     @ObservationIgnored private var holdMerges = false
     @ObservationIgnored private var lastPublishedIds: [String] = []
+    @ObservationIgnored private var lastPublishedSignature: [String: String] = [:]
     private var isHomeDataLoaded = false
     private var isLoadingMore = false
     private var loadGeneration = 0
@@ -197,7 +198,9 @@ final class HomeViewModel {
         async let phase2: Void = loadPhase2Sections()
         await personalization.drainEnrichments()
         if generation == loadGeneration {
-            await storeLocalSections()
+            // Las mismas canciones de Selecciones rapidas, con sus datos ya completos (si se volvieran a elegir al azar, lo
+            // que se ve cambiaria nada mas pintarse).
+            await storeLocalSectionsKeepingPicks()
             mergeSections(freshContent: true)
         }
         await phase2
@@ -271,6 +274,34 @@ final class HomeViewModel {
         } else {
             homeFetchFailure = failure
         }
+    }
+
+    private func storeLocalSectionsKeepingPicks() async {
+        var pickedIds: [String] = []
+        for section in cachedLocalSections {
+            if case .quickPicks(let items) = section {
+                pickedIds = items.compactMap { item in
+                    if case .song(let song) = item { return song.videoId }
+                    return nil
+                }
+            }
+        }
+        guard !pickedIds.isEmpty else {
+            await storeLocalSections()
+            return
+        }
+        let settings = SettingsStore.shared
+        async let qp: HomeSection = settings.showQuickPicks
+            ? personalization.buildQuickPicks(ids: pickedIds)
+            : .quickPicks(items: [])
+        async let kl: HomeSection = personalization.buildKeepListening()
+        async let ff: HomeSection = personalization.buildForgottenFavorites()
+        let (qpResult, klResult, ffResult) = await (qp, kl, ff)
+        var local: [HomeSection] = []
+        if !qpResult.items.isEmpty { local.append(qpResult) }
+        if !klResult.items.isEmpty { local.append(klResult) }
+        if !ffResult.items.isEmpty { local.append(ffResult) }
+        cachedLocalSections = local
     }
 
     private func storeLocalSections() async {
@@ -440,10 +471,20 @@ final class HomeViewModel {
         let all = cachedLocalSections + serverSections + cachedPhase2Sections
         let merged = orderSections(all)
         homeSections = stable ? stabilized(merged, freshContent: freshContent) : merged
+        // Se apunta cada vez que cambia lo que se ve (orden o contenido de alguna seccion), con cuales cambian.
         let ids = homeSections.map(\.id)
-        if ids != lastPublishedIds {
+        var signature: [String: String] = [:]
+        for section in homeSections where signature[section.id] == nil {
+            let firstIds = section.items.prefix(3).map(\.id)
+            signature[section.id] = "\(section.items.count)|" + firstIds.joined(separator: ",")
+        }
+        if ids != lastPublishedIds || signature != lastPublishedSignature {
+            let changed = signature.filter { lastPublishedSignature[$0.key] != $0.value }.keys.sorted()
             lastPublishedIds = ids
-            PlaybackReport.record("inicio: lista publicada a los \(LaunchClock.ms()) ms (\(ids.count) secciones)")
+            lastPublishedSignature = signature
+            PlaybackReport.record(
+                "inicio: lista publicada a los \(LaunchClock.ms()) ms (\(ids.count) secciones, cambian: \(changed.joined(separator: " ")))"
+            )
         }
     }
 
