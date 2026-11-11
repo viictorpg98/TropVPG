@@ -4,6 +4,19 @@ set -euo pipefail
 cd "$(dirname "$0")"
 WORKING_LOCATION="$(pwd)"
 
+# Tiempos de cada fase: se guardan en build/timing.txt y el flujo los pone en las notas de la release.
+SCRIPT_START=$(date +%s)
+PHASE_START=$SCRIPT_START
+TIMING_FILE="$WORKING_LOCATION/build/timing.txt"
+mkdir -p "$WORKING_LOCATION/build"
+: > "$TIMING_FILE"
+mark_phase() {
+    local now
+    now=$(date +%s)
+    echo "$1: $((now - PHASE_START)) s" >> "$TIMING_FILE"
+    PHASE_START=$now
+}
+
 echo "Generating iOS localization files..."
 python3 "$WORKING_LOCATION/scripts/generate_localizations.py"
 
@@ -194,6 +207,8 @@ if ! grep -q "fk_libavcodec.xcframework" "$local_pbx"; then
         "$local_pbx"
 fi
 
+mark_phase "preparacion (traducciones, ffmpeg-kit, volumen)"
+
 cd "$BUILD_DIR"
 
 XCODEBUILD_ACTION="${XCODEBUILD_ACTION:-build}"
@@ -278,22 +293,41 @@ if [ -n "${MARKETING_VERSION:-}" ]; then
     XCODE_VERSION_ARGS+=("MARKETING_VERSION=$MARKETING_VERSION")
 fi
 
+# Los paquetes se resuelven aparte para poder medir cuanto tarda (si falla aqui, la compilacion lo vuelve a intentar).
+mkdir -p build
+set +e
+xcodebuild -resolvePackageDependencies \
+    -project "$WORKING_LOCATION/$PROJECT_NAME.xcodeproj" \
+    -scheme "$APPLICATION_NAME" \
+    -derivedDataPath "$DERIVED_DATA_PATH" > build/resolve.log 2>&1
+set -e
+mark_phase "paquetes (resolver y descargar)"
+
 # shellcheck disable=SC2086
 # Empty arrays + `set -u` explode on macOS bash 3.2; expand only when populated.
-mkdir -p build
+# DEBUG_INFORMATION_FORMAT=dwarf: sin archivo de simbolos (dSYM), que el IPA no necesita. COMPILER_INDEX_STORE_ENABLE=NO: sin
+# indice para el editor. -showBuildTimingSummary: el resumen de tiempos por tipo de tarea queda en el registro.
 set +e
 xcodebuild -project "$WORKING_LOCATION/$PROJECT_NAME.xcodeproj" \
     -scheme "$APPLICATION_NAME" \
     -configuration Release \
     -derivedDataPath "$DERIVED_DATA_PATH" \
     -destination 'generic/platform=iOS' \
+    -showBuildTimingSummary \
     $XCODEBUILD_ACTION \
     SKIP_SWIFTLINT=YES \
+    DEBUG_INFORMATION_FORMAT=dwarf COMPILER_INDEX_STORE_ENABLE=NO \
     CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO" \
     ${XCODE_LASTFM_ARGS[@]+"${XCODE_LASTFM_ARGS[@]}"} \
     ${XCODE_VERSION_ARGS[@]+"${XCODE_VERSION_ARGS[@]}"} 2>&1 | tee build/xcodebuild.log
 XCODEBUILD_STATUS=${PIPESTATUS[0]}
 set -e
+mark_phase "xcodebuild (compilar y enlazar)"
+# El resumen de tiempos de Xcode (las tareas que mas tardan) se guarda para las notas de la release.
+{
+    echo "--- resumen de Xcode ---"
+    awk '/Build Timing Summary/{found=1} found' build/xcodebuild.log | head -n 22
+} >> "$TIMING_FILE" 2>/dev/null || true
 # Publica los errores del compilador como anotaciones de GitHub (se ven sin abrir el registro).
 if [ "$XCODEBUILD_STATUS" -ne 0 ]; then
     grep -E "error:" build/xcodebuild.log | sort -u | head -10 | while IFS= read -r line; do echo "::error::${line}"; done
@@ -331,4 +365,6 @@ zip -vr "$IPA_PATH" "Payload"
 
 rm -rf "$PAYLOAD_DIR"
 
+mark_phase "empaquetar el IPA"
+echo "total: $(( $(date +%s) - SCRIPT_START )) s" >> "$TIMING_FILE"
 echo "IPA created at $IPA_PATH"

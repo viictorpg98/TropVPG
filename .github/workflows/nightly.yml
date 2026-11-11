@@ -116,4 +116,6 @@ jobs:
             NOTES="Nightly build #${RUN_NUMBER}"
           fi
           # Single-line notes avoid breaking the YAML run block indentation.
-          gh release edit nightly --notes "Latest main build (#${RUN_NUMBER}). ${NOTES} (real)"
+          TIMING="$(cat build/timing.txt 2>/dev/null || true)"
+          BODY="$(printf 'Latest main build (#%s). %s (real)\n\nTiempos de la compilacion:\n%s\n' "$RUN_NUMBER" "$NOTES" "$TIMING")"
+          gh release edit nightly --notes "$BODY"

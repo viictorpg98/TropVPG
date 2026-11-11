@@ -638,8 +638,9 @@ final class SettingsStore {
         animatedArtworkUsesMobileData = extrasMobile
         autoplaySimilar = Self.load(Keys.autoplaySimilar, default: true)
         smartShuffle = Self.load(Keys.smartShuffle, default: true)
-        detailedLog = Self.load(Keys.detailedLog, default: true)
-        DiagLog.isEnabled = detailedLog
+        let detailed = Self.load(Keys.detailedLog, default: true)
+        detailedLog = detailed
+        DiagLog.isEnabled = detailed
         persistQueue = true
         lastRadioStyle = Self.loadEnum(Keys.lastRadioStyle, default: .similar)
         lastRadioLimit = Self.load(Keys.lastRadioLimit, default: 25)
