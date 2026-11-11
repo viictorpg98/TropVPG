@@ -451,7 +451,7 @@ struct SearchLyricsSheet: View {
                     Section {
                         HStack {
                             Spacer()
-                            ProgressView()
+                            SonarLoader(size: 36)
                             Spacer()
                         }
                         .padding(.vertical, 24)

@@ -384,10 +384,10 @@ final class HomeViewModel {
     /// intencionado (filtros, chips, cerrar sesion).
     private func mergeSections(stable: Bool = true) {
         if selectedChip != nil {
-            // Con un chip elegido solo se muestra lo que YouTube devuelve para ese chip, en su orden:
-            // nada de Acceso rapido, Volver a escuchar ni las secciones propias de la app.
+            // Con un chip elegido se muestra lo que YouTube devuelve para ese chip, en su orden y con el mismo aspecto que en
+            // la portada normal (sus Selecciones rapidas, su Acceso rapido...), no las secciones propias de la app.
             homeSections = (homePage?.sections ?? []).enumerated().compactMap { index, section in
-                let filtered = applyFilters(.homePageSection(section, index: index))
+                let filtered = applyFilters(mapServerSection(section, index: index))
                 return filtered.items.isEmpty ? nil : filtered
             }
             return

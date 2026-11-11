@@ -43,17 +43,19 @@ enum TransitionPlanner {
     /// que no se pisen (acortando la mezcla o moviendo los puntos de corte y de entrada); sin ellas, limita la duracion.
     static func plan(
         outgoing: TrackStructure, incoming: TrackStructure, vocals: Vocals? = nil, forcedStartMs: Int64? = nil,
-        style: MixStyle? = nil
+        style: MixStyle? = nil, maxEarlyMs: Int64 = 30_000
     ) -> (plan: TransitionPlan, note: String)? {
         guard var result = planUnstyled(
-            outgoing: outgoing, incoming: incoming, vocals: vocals, forcedStartMs: forcedStartMs, style: style
+            outgoing: outgoing, incoming: incoming, vocals: vocals, forcedStartMs: forcedStartMs, style: style,
+            maxEarlyMs: maxEarlyMs
         ) else { return nil }
         result.plan.styleKey = style?.key
         return result
     }
 
     private static func planUnstyled(
-        outgoing: TrackStructure, incoming: TrackStructure, vocals: Vocals?, forcedStartMs: Int64?, style: MixStyle?
+        outgoing: TrackStructure, incoming: TrackStructure, vocals: Vocals?, forcedStartMs: Int64?, style: MixStyle?,
+        maxEarlyMs: Int64
     ) -> (plan: TransitionPlan, note: String)? {
         guard outgoing.beatMs > 0, outgoing.bpm > 0, incoming.bpm > 0 else { return nil }
         // El cambio de tempo se reparte entre las dos canciones (cada una la raiz de la diferencia), asi ninguna se
@@ -91,7 +93,8 @@ enum TransitionPlanner {
                     guard let candidate = build(
                         outgoing: outgoing, incoming: incoming, durationMs: duration,
                         outgoingRatio: outgoingRatio, incomingRatio: incomingRatio,
-                        cutShiftMs: cutShift, incomingShiftMs: incomingShift, forcedStartMs: forcedStartMs
+                        cutShiftMs: cutShift, incomingShiftMs: incomingShift, forcedStartMs: forcedStartMs,
+                        maxEarlyMs: maxEarlyMs
                     ) else { continue }
                     guard knownVocals, let out = vocals?.outgoing, let inc = vocals?.incoming else {
                         return (candidate, "voces desconocidas, mezcla limitada a \(duration / 1000) s")
@@ -117,7 +120,8 @@ enum TransitionPlanner {
     /// entrante (hacia el principio de su cancion).
     private static func build(
         outgoing: TrackStructure, incoming: TrackStructure, durationMs: Int64,
-        outgoingRatio: Double, incomingRatio: Double, cutShiftMs: Int64, incomingShiftMs: Int64, forcedStartMs: Int64? = nil
+        outgoingRatio: Double, incomingRatio: Double, cutShiftMs: Int64, incomingShiftMs: Int64, forcedStartMs: Int64? = nil,
+        maxEarlyMs: Int64 = 30_000
     ) -> TransitionPlan? {
         // La saliente recorre mas (o menos) de su propia linea de tiempo de lo que dura la mezcla, porque
         // cambia de velocidad: media a mitad de rampa y luego la mantiene.
@@ -130,7 +134,9 @@ enum TransitionPlanner {
             end = start + Int64(advance)
             if end > outgoing.musicEndMs + 4_000 { return nil }
         } else {
-            let naturalEnd = outgoing.lastChorusEndMs ?? outgoing.musicEndMs
+            // El final del ultimo estribillo, pero sin acabar la mezcla mas pronto de lo que permite el ajuste "Momento de la
+            // mezcla" respecto al final de la musica.
+            let naturalEnd = max(outgoing.lastChorusEndMs ?? outgoing.musicEndMs, outgoing.musicEndMs - maxEarlyMs)
             end = min(naturalEnd + cutShiftMs, max(outgoing.musicEndMs, naturalEnd))
             start = Int64(Double(end) - advance)
             if start <= outgoing.firstSoundMs { return nil }

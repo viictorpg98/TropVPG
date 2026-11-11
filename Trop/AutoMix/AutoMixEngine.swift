@@ -142,7 +142,10 @@ final class AutoMixEngine {
             outgoing: VocalMaskStore.shared.segments(for: outId), incoming: VocalMaskStore.shared.segments(for: inId)
         )
         let style = MixLearning.shared.style(outId: outId, inId: inId, outBpm: out.bpm, inBpm: inc.bpm)
-        let result = TransitionPlanner.plan(outgoing: out, incoming: inc, vocals: vocals, style: style)
+        let result = TransitionPlanner.plan(
+            outgoing: out, incoming: inc, vocals: vocals, style: style,
+            maxEarlyMs: SettingsStore.shared.autoMixTiming.maxEarlyMs
+        )
         let plan = result?.plan
         planCache = (outId, inId, plan)
         PlaybackReport.record(result.map {

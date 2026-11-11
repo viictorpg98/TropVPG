@@ -351,7 +351,7 @@ struct AddSongToPlaylistSheet: View {
         NavigationStack {
             Group {
                 if isLoading {
-                    ProgressView()
+                    SonarLoader(size: 44)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if playlists.isEmpty {
                     ContentUnavailableView(

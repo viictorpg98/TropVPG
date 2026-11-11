@@ -41,6 +41,32 @@ enum PlayerBackgroundStyle: String, CaseIterable, Identifiable, SettingsOption {
     }
 }
 
+/// En que punto de la cancion que suena acaba la mezcla de AutoMix.
+enum AutoMixTiming: String, CaseIterable, Identifiable, SettingsOption {
+    case early
+    case balanced
+    case late
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .early: return "Early"
+        case .balanced: return "Balanced"
+        case .late: return "Late"
+        }
+    }
+
+    /// Lo mas que puede quedar de musica despues de que acabe la mezcla (ms).
+    var maxEarlyMs: Int64 {
+        switch self {
+        case .early: return 30_000
+        case .balanced: return 15_000
+        case .late: return 0
+        }
+    }
+}
+
 enum LyricsAlignment: String, CaseIterable, Identifiable, SettingsOption {
     case left
     case center
@@ -237,6 +263,11 @@ final class SettingsStore {
     /// Mezcla las canciones descargadas una con otra como un DJ (solapadas y con el tempo igualado).
     var autoMixEnabled: Bool {
         didSet { Self.defaults.set(autoMixEnabled, forKey: Keys.autoMixEnabled) }
+    }
+
+    /// Cuando acaba la mezcla respecto al final de la musica de la cancion que suena.
+    var autoMixTiming: AutoMixTiming {
+        didSet { Self.defaults.set(autoMixTiming.rawValue, forKey: Keys.autoMixTiming) }
     }
 
     /// AutoMix aprende de las valoraciones de las mezclas (duracion y tempo) y las ajusta a lo que te gusta.
@@ -441,6 +472,7 @@ final class SettingsStore {
         static let autoMixEnabled = "settings.autoMixEnabled"
         static let autoMixUsesMobileData = "settings.autoMixUsesMobileData"
         static let autoMixLearns = "settings.autoMixLearns"
+        static let autoMixTiming = "settings.autoMixTiming"
         static let neutralAccent = "settings.neutralAccent"
         static let fullWidthArtwork = "settings.fullWidthArtwork"
         static let animatedArtworkEnabled = "settings.animatedArtworkEnabled"
@@ -524,6 +556,7 @@ final class SettingsStore {
         autoMixEnabled = Self.load(Keys.autoMixEnabled, default: false)
         autoMixUsesMobileData = Self.load(Keys.autoMixUsesMobileData, default: false)
         autoMixLearns = Self.load(Keys.autoMixLearns, default: true)
+        autoMixTiming = Self.loadEnum(Keys.autoMixTiming, default: .balanced)
         fullWidthArtwork = Self.load(Keys.fullWidthArtwork, default: true)
         animatedArtworkEnabled = Self.load(Keys.animatedArtworkEnabled, default: true)
         preferAppleCovers = Self.load(Keys.preferAppleCovers, default: true)

@@ -713,8 +713,13 @@ struct AddSongToPlaylistView: View {
         NavigationStack {
             Group {
                 if isLoading {
-                    ProgressView(LocalizedStringKey("Loading songs..."))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    VStack(spacing: 14) {
+                        SonarLoader(size: 48)
+                        Text(LocalizedStringKey("Loading songs..."))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if songs.isEmpty {
                     ContentUnavailableView(
                         "No songs found",

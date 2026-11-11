@@ -63,6 +63,7 @@
 "Autoplay Similar" = "自动播放相似歌曲";
 "Back" = "Back";
 "Bad mix" = "Bad mix";
+"Balanced" = "Balanced";
 "Based on Trop by SwiftyMedia (GPL-3.0)." = "Based on Trop by SwiftyMedia (GPL-3.0).";
 "Bass Boost" = "增强低音";
 "Bass Reducer" = "降低低音";
@@ -160,6 +161,7 @@
 "Duration" = "时长";
 "EQ" = "均衡器";
 "Each mix you rate teaches AutoMix which kinds of mixes you like: how long they last and whether the tempo is matched, depending on how close the two songs are. It still tries other styles now and then, and a pair of songs you rated badly is not mixed the same way again." = "Each mix you rate teaches AutoMix which kinds of mixes you like: how long they last and whether the tempo is matched, depending on how close the two songs are. It still tries other styles now and then, and a pair of songs you rated badly is not mixed the same way again.";
+"Early" = "Early";
 "Edit" = "编辑";
 "Edit playlist" = "编辑播放列表";
 "Education" = "Education";
@@ -248,6 +250,7 @@
 "Last.fm" = "Last.fm";
 "Last.fm Login" = "Last.fm 登录";
 "LastWave (AutoMix and animated artwork)" = "LastWave (AutoMix and animated artwork)";
+"Late" = "Late";
 "Latin party" = "Latin party";
 "Layout" = "Layout";
 "Left" = "左对齐";
@@ -277,6 +280,7 @@
 "Loading podcast…" = "正在加载播客…";
 "Loading songs..." = "正在加载歌曲...";
 "Loading songs…" = "正在加载歌曲…";
+"Loading…" = "Loading…";
 "Login" = "登录";
 "Logout" = "退出登录";
 "Long listens" = "长时间聆听";
@@ -299,6 +303,7 @@
 "Minimum Duration" = "最短时长";
 "Minimum Track Duration" = "最短歌曲时长";
 "Mix Streamed Songs on Mobile Data" = "Mix Streamed Songs on Mobile Data";
+"Mix Timing" = "Mix Timing";
 "Mix now" = "Mix now";
 "Mixed for you" = "为你混配";
 "Mood & Genres" = "心情与流派";
@@ -589,6 +594,7 @@
 "What AutoMix Learned" = "What AutoMix Learned";
 "When off, searches and playback are not recorded locally." = "关闭后，搜索和播放记录不会保存在本地。";
 "When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on." = "When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on.";
+"When the mix ends. Early: right after the last chorus (up to 30 s before the end). Balanced: never earlier than 15 s before the end of the music. Late: at the very end of the song. The intro of the next song is always skipped." = "When the mix ends. Early: right after the last chorus (up to 30 s before the end). Balanced: never earlier than 15 s before the end of the music. Late: at the very end of the song. The intro of the next song is always skipped.";
 "Which song?" = "Which song?";
 "Wi-Fi Only" = "仅 Wi‑Fi";
 "Wider mix around this song" = "围绕此歌曲的更广泛混合";

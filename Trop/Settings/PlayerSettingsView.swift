@@ -77,6 +77,12 @@ struct PlayerSettingsView: View {
             }
 
             Section {
+                SettingsPickerRow("Mix Timing", icon: "timer", selection: $settings.autoMixTiming)
+            } footer: {
+                Text("When the mix ends. Early: right after the last chorus (up to 30 s before the end). Balanced: never earlier than 15 s before the end of the music. Late: at the very end of the song. The intro of the next song is always skipped.")
+            }
+
+            Section {
                 if learnedLines.isEmpty {
                     Text("No ratings yet. Rate the mixes with the thumbs that appear after each one.")
                         .foregroundStyle(.secondary)

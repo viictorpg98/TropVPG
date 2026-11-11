@@ -1319,18 +1319,9 @@ extension PlayerController {
             return .success
         }
 
-        // Me gusta desde la pantalla de bloqueo, los auriculares o CarPlay.
-        center.likeCommand.isEnabled = true
-        center.likeCommand.localizedTitle = NSLocalizedString("Like", comment: "")
-        center.likeCommand.addTarget { _ in
-            Task { @MainActor in
-                let np = NowPlaying.shared
-                guard let id = np.videoId,
-                      let song = np.queueSongs.first(where: { $0.videoId == id }) else { return }
-                await LikeStore.shared.toggle(song: song)
-            }
-            return .success
-        }
+        // Sin boton de Me gusta en la pantalla de bloqueo (iOS lo pintaba como una estrella): el Me gusta se da en la app.
+        center.likeCommand.isEnabled = false
+        center.likeCommand.removeTarget(nil)
 
         // Adelantar y atrasar 15 s: solo se activan con podcasts (ver `refreshRemoteCommandState`).
         center.skipForwardCommand.preferredIntervals = [15]

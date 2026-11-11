@@ -95,9 +95,9 @@ struct SimilarSongsView: View {
     var body: some View {
         Group {
             if isLoading {
-                VStack(spacing: 12) {
-                    ProgressView()
-                                Text(LocalizedStringKey("Finding similar tracks…"))
+                VStack(spacing: 14) {
+                    SonarLoader(size: 48)
+                    Text(LocalizedStringKey("Finding similar tracks…"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }

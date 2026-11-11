@@ -16,9 +16,9 @@ struct LoadingStateView: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 18) {
             Spacer()
-            ProgressView()
+            SonarLoader(size: 56)
             Text(LocalizedStringKey(message))
                 .font(.subheadline)
                 .foregroundColor(.secondary)

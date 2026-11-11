@@ -63,6 +63,7 @@
 "Autoplay Similar" = "Reproducción automática de similares";
 "Back" = "Atrás";
 "Bad mix" = "Mala mezcla";
+"Balanced" = "Equilibrado";
 "Based on Trop by SwiftyMedia (GPL-3.0)." = "Basada en Trop, de SwiftyMedia (GPL-3.0).";
 "Bass Boost" = "Realce de graves";
 "Bass Reducer" = "Reducción de graves";
@@ -160,6 +161,7 @@
 "Duration" = "Duración";
 "EQ" = "EQ";
 "Each mix you rate teaches AutoMix which kinds of mixes you like: how long they last and whether the tempo is matched, depending on how close the two songs are. It still tries other styles now and then, and a pair of songs you rated badly is not mixed the same way again." = "Cada mezcla que valoras le enseña a AutoMix que tipo de mezclas te gustan: cuanto duran y si se iguala el tempo, segun lo parecidas que sean las dos canciones. De vez en cuando prueba otros estilos, y una pareja de canciones que valoraste mal no se mezcla igual otra vez.";
+"Early" = "Pronto";
 "Edit" = "Editar";
 "Edit playlist" = "Editar lista de reproducción";
 "Education" = "Educación";
@@ -248,6 +250,7 @@
 "Last.fm" = "Last.fm";
 "Last.fm Login" = "Iniciar sesión en Last.fm";
 "LastWave (AutoMix and animated artwork)" = "LastWave (AutoMix y carátulas animadas)";
+"Late" = "Tarde";
 "Latin party" = "Fiesta latina";
 "Layout" = "Disposición";
 "Left" = "Izquierda";
@@ -277,6 +280,7 @@
 "Loading podcast…" = "Cargando pódcast…";
 "Loading songs..." = "Cargando canciones...";
 "Loading songs…" = "Cargando canciones…";
+"Loading…" = "Cargando…";
 "Login" = "Iniciar sesión";
 "Logout" = "Cerrar sesión";
 "Long listens" = "Escuchas largas";
@@ -299,6 +303,7 @@
 "Minimum Duration" = "Duración mínima";
 "Minimum Track Duration" = "Duración mínima de la canción";
 "Mix Streamed Songs on Mobile Data" = "Mezclar canciones en streaming con datos móviles";
+"Mix Timing" = "Momento de la mezcla";
 "Mix now" = "Mezclar";
 "Mixed for you" = "Mezclado para ti";
 "Mood & Genres" = "Estados de ánimo y géneros";
@@ -589,6 +594,7 @@
 "What AutoMix Learned" = "Lo que AutoMix ha aprendido";
 "When off, searches and playback are not recorded locally." = "Si está desactivado, las búsquedas y reproducciones no se guardan en el dispositivo.";
 "When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on." = "Cuando queda poco espacio (menos de 3 GB), borra las descargas que llevas 3 meses sin escuchar. Las canciones que te gustan nunca se borran. Necesita tener activado el historial de reproducciones.";
+"When the mix ends. Early: right after the last chorus (up to 30 s before the end). Balanced: never earlier than 15 s before the end of the music. Late: at the very end of the song. The intro of the next song is always skipped." = "Cuándo acaba la mezcla. Pronto: justo tras el último estribillo (hasta 30 s antes del final). Equilibrado: nunca antes de los últimos 15 s de la música. Tarde: en el final de la canción. La intro de la siguiente canción siempre se salta.";
 "Which song?" = "¿Qué canción?";
 "Wi-Fi Only" = "Solo Wi-Fi";
 "Wider mix around this song" = "Mezcla más amplia en torno a esta canción";
