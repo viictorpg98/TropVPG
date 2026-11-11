@@ -19,8 +19,9 @@ env:
 jobs:
   build-ios:
     name: Build iOS IPA
-    # main compila en el Mac Intel (el que ha funcionado siempre); la rama de pruebas, en el Mac con chip Apple.
-    runs-on: ${{ github.ref_name == 'main' && 'macos-15-intel' || 'macos-15' }}
+    # Mac con chip Apple: la prueba compilo el mismo codigo en 6 min frente a 12 del Mac Intel. Si GitHub no tuviera ejecutores
+    # libres y la compilacion se quedara en cola, volver a 'macos-15-intel'.
+    runs-on: macos-15
     permissions:
       contents: write
       actions: write
