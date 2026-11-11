@@ -260,10 +260,7 @@ struct FullPlayerView: View {
             .padding(.bottom, 6)
 
         Group {
-            if AutoMixVisuals.shared.isMixing || AutoMixVisuals.shared.preparingManual {
-                // El estado de la mezcla lo muestra el propio boton de Mezclar (sin otro aviso encima de la onda).
-                Color.clear
-            } else if MixFeedbackStore.shared.pending != nil {
+            if MixFeedbackStore.shared.pending != nil {
                 MixFeedbackPill()
             } else {
                 ActiveLyricLine(lines: currentLyrics) {
@@ -644,8 +641,10 @@ private struct PlayerProgressSection: View {
     }
 
     private func loadWave(_ id: String, assign: ([Float]) -> Void) async {
-        WaveformStore.shared.request(id, urgent: true)
         for _ in 0..<120 {
+            // Se pide en cada vuelta (es barato): si el reproductor aun no estaba marcado como abierto, o llega la red, se
+            // calcula en cuanto se pueda.
+            WaveformStore.shared.request(id, urgent: true)
             try? await Task.sleep(nanoseconds: 500_000_000)
             guard !Task.isCancelled else { return }
             if let wave = WaveformStore.shared.cached(for: id) {

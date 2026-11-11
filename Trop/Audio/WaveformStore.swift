@@ -66,6 +66,17 @@ final class WaveformStore {
     func request(_ videoId: String, urgent: Bool) {
         guard cached(for: videoId) == nil else { return }
         if let later = failed[videoId], later > Date() { return }
+        // Una cancion en streaming cuesta datos (hay que bajarla entera para sacar su onda):
+        if !DownloadManager.shared.isDownloaded(videoId: videoId) {
+            // Con AutoMix, el analisis de la cancion (que ya la baja) saca tambien la onda: no se baja dos veces.
+            if SettingsStore.shared.autoMixEnabled, AutoMixSource.isAvailable(videoId: videoId) {
+                TrackAnalysisStore.shared.request(videoId)
+                return
+            }
+            // Sin AutoMix, solo con el reproductor grande abierto (es lo unico que la enseña) y con Wi-Fi o con los datos
+            // moviles permitidos.
+            guard PlayerController.shared.fullPlayerVisible, AutoMixSourceGate.allowsPrefetch else { return }
+        }
         if urgent {
             guard !urgentQueue.contains(videoId), urgentRunning != videoId else { return }
             queued.removeAll { $0 == videoId }
@@ -112,7 +123,7 @@ final class WaveformStore {
         }
     }
 
-    private func store(_ wave: [Float], for videoId: String) {
+    func store(_ wave: [Float], for videoId: String) {
         memory[videoId] = wave
         let data = Data(wave.map { UInt8(max(0, min(255, ($0 * 255).rounded()))) })
         try? data.write(to: fileURL(videoId), options: .atomic)
@@ -155,7 +166,7 @@ final class WaveformStore {
     }
 
     /// Volumen (raiz de la energia media) de cada trozo, de 0 a 1 y realzado para que se vea bien.
-    nonisolated private static func envelope(_ pcm: [Int16]) -> [Float] {
+    nonisolated static func envelope(_ pcm: [Int16]) -> [Float] {
         let per = Double(pcm.count) / Double(buckets)
         var levels = [Float](repeating: 0, count: buckets)
         var peak: Float = 0.0001

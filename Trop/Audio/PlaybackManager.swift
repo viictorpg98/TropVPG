@@ -77,7 +77,8 @@ actor PlaybackManager {
                 duration: cached.duration.flatMap { $0 > 0 ? TimeInterval($0) : nil },
                 artists: queueSong?.artists ?? [],
                 loudnessDb: cached.loudnessDb,
-                thumbnailUrl: queueSong?.thumbnailUrl
+                thumbnailUrl: queueSong?.thumbnailUrl,
+                startAt: startAt
             )
             await publishVideoAvailability(result: cached, videoId: videoId, rowType: queueSong?.musicVideoType)
             return cached
@@ -90,13 +91,13 @@ actor PlaybackManager {
                 // La resolucion en curso solo pedia la direccion (onda, analisis de AutoMix...) y no reproduce: antes se
                 // devolvia sin mas y la cancion elegida no sonaba. Se reproduce aqui el resultado.
                 PlaybackReport.record("reproducir \(videoId): se unio a una resolucion que no reproducia, se reproduce ahora")
-                await playNetworkResult(result, videoId: videoId)
+                await playNetworkResult(result, videoId: videoId, startAt: startAt)
             }
             return result
         }
 
         let task = Task { [self] in
-            try await resolveAndPlayFromNetwork(videoId: videoId)
+            try await resolveAndPlayFromNetwork(videoId: videoId, startAt: startAt)
         }
         inflightResolutions[videoId] = task
         playingResolutions.insert(videoId)
@@ -133,7 +134,7 @@ actor PlaybackManager {
 
     /// Runs the client fallback chain for playback. Only called once per
     /// videoId by `resolveAndPlay`, which owns the in-flight dedup entry.
-    private func resolveAndPlayFromNetwork(videoId: String) async throws -> PlaybackResult {
+    private func resolveAndPlayFromNetwork(videoId: String, startAt: TimeInterval = 0) async throws -> PlaybackResult {
         var request = StreamResolveRequest.playback(videoId: videoId)
         request.options.audioQuality = SettingsStore.shared.audioQuality
         let started = Date()
@@ -171,7 +172,7 @@ actor PlaybackManager {
         PlaybackReport.record("direccion de \(videoId): cliente \(result.clientName) en \(Int(Date().timeIntervalSince(started) * 1000)) ms, \(result.mimeType)")
         // Lo que funciona para un podcast no dice nada de la musica: no se recuerda.
         if !isLong { UserDefaults.standard.set(result.clientName, forKey: Self.lastClientKey) }
-        await playNetworkResult(result, videoId: videoId)
+        await playNetworkResult(result, videoId: videoId, startAt: startAt)
         return result
     }
 
@@ -254,7 +255,7 @@ actor PlaybackManager {
         await StreamCache.shared.remove(videoId: videoId)
     }
 
-    private func playNetworkResult(_ result: PlaybackResult, videoId: String) async {
+    private func playNetworkResult(_ result: PlaybackResult, videoId: String, startAt: TimeInterval = 0) async {
         clientUsed[videoId] = result.clientName
         // Para el informe: si la direccion lleva el token (&pot=) que pide YouTube a los clientes web.
         PlaybackReport.record("direccion de \(videoId): token pot \(result.streamUrl.contains("pot=") ? "si" : "NO")")
@@ -272,7 +273,8 @@ actor PlaybackManager {
             duration: result.duration.flatMap { $0 > 0 ? TimeInterval($0) : nil },
             artists: queueSong?.artists ?? [],
             loudnessDb: result.loudnessDb,
-            thumbnailUrl: queueSong?.thumbnailUrl
+            thumbnailUrl: queueSong?.thumbnailUrl,
+            startAt: startAt
         )
         await publishVideoAvailability(result: result, videoId: videoId, rowType: queueSong?.musicVideoType)
     }

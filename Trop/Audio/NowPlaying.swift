@@ -631,6 +631,8 @@ final class NowPlaying {
             return
         }
         lastFailureAt[videoId] = Date()
+        // Si el fallo fue a mitad de la cancion, se retoma por donde iba (con un segundo de margen).
+        let resumeAt = currentTime > 5 ? currentTime - 1 : 0
         PlaybackReport.record("reproductor: \(videoId) no cargo, se pide de nuevo comprobando todas las direcciones")
         isPlaying = false
         Log.nowPlaying.notice("Stream failed mid-play, re-resolving \(videoId)")
@@ -642,7 +644,7 @@ final class NowPlaying {
             // (si no, podia repetir la misma direccion mala del mismo cliente).
             await PlaybackManager.shared.requireValidatedChain(for: videoId)
             do {
-                try await PlaybackManager.shared.resolveAndPlay(videoId: videoId)
+                try await PlaybackManager.shared.resolveAndPlay(videoId: videoId, startAt: resumeAt)
                 // Success – allow future retries for this video
                 _ = await MainActor.run { self.lastFailureAt.removeValue(forKey: videoId) }
             } catch {

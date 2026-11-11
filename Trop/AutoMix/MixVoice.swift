@@ -229,7 +229,7 @@ enum MixRenderer {
             "-t", String(format: "%.6f", seconds),
             "-i", input,
             "-vn", "-ac", "2", "-ar", String(Int(rate)),
-            "-acodec", "pcm_f32le", "-f", "wav",
+            "-acodec", "pcm_s16le", "-f", "wav",
             temporary.path
         ]
         let session = FFmpegKit.execute(withArguments: arguments)
@@ -242,7 +242,8 @@ enum MixRenderer {
         return temporary
     }
 
-    /// Escribe la mezcla como WAV de 32 bits en coma flotante (sin recodificar, para no alterar nada) y, detras, el contenido de
+    /// Escribe la mezcla como WAV de 16 bits (la mitad de espacio y de escritura que en coma flotante; para escuchar es igual)
+    /// y, detras, el contenido de
     /// `restURL` (copiado por trozos para no llenar la memoria).
     nonisolated private static func write(_ channels: [[Float]], followedBy restURL: URL, rate: Double) -> URL? {
         guard let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: rate, channels: 2, interleaved: false),
@@ -257,8 +258,8 @@ enum MixRenderer {
             AVFormatIDKey: kAudioFormatLinearPCM,
             AVSampleRateKey: rate,
             AVNumberOfChannelsKey: 2,
-            AVLinearPCMBitDepthKey: 32,
-            AVLinearPCMIsFloatKey: true,
+            AVLinearPCMBitDepthKey: 16,
+            AVLinearPCMIsFloatKey: false,
             AVLinearPCMIsBigEndianKey: false,
             AVLinearPCMIsNonInterleaved: false
         ]

@@ -20,6 +20,29 @@ final class TrackAnalysisStore {
     /// Canciones en streaming cuyo analisis fallo (red...): no se guardan como "no analizables", se reintentan mas tarde.
     private var retryAfter: [String: Date] = [:]
 
+    private init() {
+        removeEmptyResultsOnce()
+    }
+
+    /// Hasta ahora, una cancion en streaming cuya direccion no se pudo pedir (o cuyo analisis fallo) quedaba como "no
+    /// analizable" para siempre (un archivo vacio). Una sola vez se borran esos archivos para que se vuelvan a analizar.
+    private func removeEmptyResultsOnce() {
+        let flag = "automix.emptyResultsCleaned.v2"
+        guard !UserDefaults.standard.bool(forKey: flag) else { return }
+        UserDefaults.standard.set(true, forKey: flag)
+        let files = (try? FileManager.default.contentsOfDirectory(
+            at: directory, includingPropertiesForKeys: [.fileSizeKey]
+        )) ?? []
+        var removed = 0
+        for url in files where url.pathExtension == "json" {
+            if (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) == 0 {
+                try? FileManager.default.removeItem(at: url)
+                removed += 1
+            }
+        }
+        if removed > 0 { PlaybackReport.record("automix: \(removed) analisis vacios borrados para volver a analizarlos") }
+    }
+
     private let directory: URL = {
         let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
@@ -64,7 +87,9 @@ final class TrackAnalysisStore {
         // segundos siguientes a un cambio (varias peticiones a la vez dejaban sin direccion valida a la que se quiere oir).
         if !DownloadManager.shared.isDownloaded(videoId: videoId) {
             if NowPlaying.shared.isBusyResolving { return }
-            if Date().timeIntervalSince(AutoMixEngine.shared.lastSongChange) < 12 { return }
+            // La direccion de la que suena ya esta en la cache (no cuesta otra peticion a YouTube): se puede analizar antes.
+            let wait: TimeInterval = NowPlaying.shared.videoId == videoId ? 3 : 12
+            if Date().timeIntervalSince(AutoMixEngine.shared.lastSongChange) < wait { return }
         }
         queued.append(videoId)
         drain()
@@ -76,21 +101,26 @@ final class TrackAnalysisStore {
         let videoId = queued.removeFirst()
         Task { [weak self] in
             let started = Date()
-            var result: TrackStructure?
+            var analysis: Analysis?
             var isLocal = true
             if let source = await AutoMixSource.source(for: videoId) {
                 isLocal = source.isLocal
                 let url = source.url
                 let local = source.isLocal
-                result = await Task.detached(priority: .utility) { await Self.analyze(url, isLocal: local) }.value
+                analysis = await Task.detached(priority: .utility) { await Self.analyze(url, isLocal: local) }.value
             }
             guard let self else { return }
-            self.finish(videoId, result: result, seconds: Date().timeIntervalSince(started), permanent: isLocal)
+            self.finish(videoId, analysis: analysis, isLocal: isLocal, seconds: Date().timeIntervalSince(started))
         }
     }
 
-    private func finish(_ videoId: String, result: TrackStructure?, seconds: TimeInterval, permanent: Bool) {
-        if let result {
+    /// Lo que sale de leer una cancion: si se pudo decodificar, su onda y, si tiene compas claro, su estructura.
+    private typealias Analysis = (structure: TrackStructure?, wave: [Float]?, decoded: Bool)
+
+    private func finish(_ videoId: String, analysis: Analysis?, isLocal: Bool, seconds: TimeInterval) {
+        // La onda de la barra sale del mismo audio: asi no se baja la cancion otra vez para ella.
+        if let wave = analysis?.wave { WaveformStore.shared.store(wave, for: videoId) }
+        if let result = analysis?.structure {
             memory[videoId] = result
             if let data = try? JSONEncoder().encode(result) {
                 try? data.write(to: fileURL(videoId), options: .atomic)
@@ -102,14 +132,19 @@ final class TrackAnalysisStore {
                 result.lastChorusEndMs.map { "\($0 / 1000)s" } ?? "-",
                 seconds
             ))
-        } else if permanent {
+        } else if analysis == nil {
+            // No hubo direccion (sin red, permiso de datos...): es pasajero, se reintenta; no se marca como imposible.
+            retryAfter[videoId] = Date().addingTimeInterval(90)
+            PlaybackReport.record("automix: \(videoId) sin direccion para analizar, se reintentara")
+        } else if analysis?.decoded == false, !isLocal {
+            // En streaming el fallo puede ser pasajero (sin red, direccion caducada): se reintenta en un rato.
+            retryAfter[videoId] = Date().addingTimeInterval(90)
+            PlaybackReport.record("automix: \(videoId) no se pudo leer en streaming, se reintentara")
+        } else {
+            // Se leyo bien pero no tiene un compas que analizar (o el archivo local no se puede leer): no se vuelve a intentar.
             unusable.insert(videoId)
             try? Data().write(to: fileURL(videoId), options: .atomic)
             PlaybackReport.record("automix: \(videoId) no se pudo analizar")
-        } else {
-            // En streaming el fallo puede ser pasajero (sin red, direccion caducada): se reintenta en un rato.
-            retryAfter[videoId] = Date().addingTimeInterval(90)
-            PlaybackReport.record("automix: \(videoId) no se pudo analizar en streaming, se reintentara")
         }
         running = false
         drain()
@@ -117,16 +152,17 @@ final class TrackAnalysisStore {
 
     // MARK: - Lectura del audio y analisis (fuera del hilo principal)
 
-    /// Decodifica la cancion (archivo o direccion de streaming) a mono, 16 bits, 8 kHz y la analiza.
-    nonisolated private static func analyze(_ url: URL, isLocal: Bool) async -> TrackStructure? {
+    /// Decodifica la cancion (archivo o direccion de streaming) a mono, 16 bits, 8 kHz, saca su onda y la analiza.
+    nonisolated private static func analyze(_ url: URL, isLocal: Bool) async -> Analysis {
         let pcm: [Int16]?
         if isLocal {
             pcm = await decode(url)
         } else {
             pcm = decodeRemote(url)
         }
-        guard let pcm, !pcm.isEmpty else { return nil }
-        return TrackStructureAnalyzer.analyze(pcm)
+        guard let pcm, !pcm.isEmpty else { return (nil, nil, false) }
+        let wave: [Float]? = pcm.count > WaveformStore.buckets * 4 ? WaveformStore.envelope(pcm) : nil
+        return (TrackStructureAnalyzer.analyze(pcm), wave, true)
     }
 
     /// Una cancion en streaming: FFmpeg la lee de internet y la decodifica a PCM crudo en un archivo temporal.

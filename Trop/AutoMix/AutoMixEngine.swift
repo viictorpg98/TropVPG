@@ -55,6 +55,8 @@ final class AutoMixEngine {
     private var lastRenderSeconds: Double = 0
     private var manualMix = false
     private var manualRetries = 0
+    /// El temporizador que apaga el aviso de "Mezclar" cuando la mezcla ya estaba en camino (se cancela al empezar otra cosa).
+    private var holdPillTask: Task<Void, Never>?
     /// Duracion de la cancion que entra (para la barra de progreso durante la mezcla).
     private var incomingSongDuration: TimeInterval = 0
     /// A que punto de la mezcla (0...1) la app pasa a ver la entrante como actual: justo despues de la revelacion.
@@ -293,6 +295,7 @@ final class AutoMixEngine {
         if controller.gaplessStage == 2 {
             // mpv ya paso al archivo de la mezcla (el de la mezcla anterior, si lo habia, ya no se usa).
             phase = .mixing
+            holdPillTask?.cancel()
             controller.clearTimeline()
             releasePlayingMix()
             controller.durationOverride = outgoingDuration
@@ -464,6 +467,7 @@ final class AutoMixEngine {
             PlaybackNotice.shared.show(NSLocalizedString("Can't mix right now.", comment: ""))
             return false
         }
+        holdPillTask?.cancel()
         AutoMixVisuals.shared.preparingManual = true
         manualRetries = 0
         Task { await runManualMix(outId: outId, inId: inId, extraLead: 0) }
@@ -475,8 +479,10 @@ final class AutoMixEngine {
     private func holdPillUntilMixStarts() {
         PlaybackReport.record("automix: \"Mezclar\" pedido con una mezcla ya en camino (fase \(phase)), se espera a que empiece")
         AutoMixVisuals.shared.preparingManual = true
-        Task { @MainActor in
+        holdPillTask?.cancel()
+        holdPillTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 45_000_000_000)
+            guard !Task.isCancelled else { return }
             if !AutoMixVisuals.shared.isMixing { AutoMixVisuals.shared.preparingManual = false }
         }
     }
@@ -562,6 +568,7 @@ final class AutoMixEngine {
     func songChanged() {
         lastSongChange = Date()
         releasePlayingMix()
+        holdPillTask?.cancel()
         AutoMixVisuals.shared.preparingManual = false
         manualMix = false
         if phase != .idle {

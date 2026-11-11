@@ -39,6 +39,8 @@ struct TropApp: App {
             } onChange: {
                 Task { @MainActor in
                     PlayerController.shared.applyPlaybackSettings()
+                    // La observacion salta una sola vez: se vuelve a registrar para el siguiente cambio.
+                    register()
                 }
             }
         }
