@@ -421,6 +421,7 @@ final class HomeViewModel {
             return .quickPicks(items: section.items)
         }
         if title.contains("listen again") || title.contains("keep listening") || title.contains("volver a escuchar")
+            || title.contains("vuelve a escuchar")
             || title.contains("acceso rapido") || title.contains("speed dial") || title.contains("quick access") {
             return .keepListening(items: section.items)
         }

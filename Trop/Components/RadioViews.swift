@@ -41,6 +41,7 @@ struct RadioOptionsSheet: View {
                         }
                     }
                     Toggle("Include explicit", isOn: $options.allowExplicit)
+                        .tint(SettingsStore.shared.toggleTint)
                 } header: {
                     Text("Queue")
                 }

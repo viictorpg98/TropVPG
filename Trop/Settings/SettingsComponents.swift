@@ -84,7 +84,7 @@ struct SettingsToggleRow: View {
         Toggle(isOn: $isOn) {
             SettingsLabel(title: title, icon: icon)
         }
-        .tint(settings.accentColor)
+        .tint(settings.toggleTint)
     }
 }
 

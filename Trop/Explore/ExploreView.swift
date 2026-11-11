@@ -64,7 +64,12 @@ struct ExploreView: View {
     private var content: some View {
         switch viewModel.phase {
         case .idle, .loading:
-            SonarLoadingScreen()
+            // Al recargar tirando hacia abajo se sigue viendo lo que hay (si se quitara la lista, la recarga se cancelaria).
+            if viewModel.sections.isEmpty {
+                SonarLoadingScreen()
+            } else {
+                sectionsList
+            }
         case .loaded:
             sectionsList
         case .empty:

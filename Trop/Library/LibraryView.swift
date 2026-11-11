@@ -575,7 +575,7 @@ struct CreatePlaylistDialog: View {
 
                 Toggle("", isOn: $syncWithYouTube)
                     .labelsHidden()
-                    .tint(settings.accentColor)
+                    .tint(settings.toggleTint)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 20)

@@ -29,7 +29,9 @@ struct HomeScreenView: View {
                     onAccount: { router.homePath.append(DetailRoute.settings) }
                 )
 
-                if viewModel.isLoading {
+                // El logo solo la primera vez: al recargar tirando hacia abajo la lista se queda (si se quitara, la recarga se
+                // cancelaria y saldria "sin conexion").
+                if viewModel.isLoading, viewModel.homeSections.isEmpty {
                     Spacer()
                     SonarLoader(size: 64)
                     Spacer()

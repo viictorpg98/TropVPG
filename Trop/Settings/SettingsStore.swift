@@ -179,6 +179,11 @@ final class SettingsStore {
         neutralAccent ? Color.primary : presetAccent
     }
 
+    /// El color de los interruptores encendidos: el acento, o un gris con el acento neutro (blanco sobre blanco no se ve).
+    var toggleTint: Color {
+        neutralAccent ? Color(uiColor: .systemGray) : accentColor
+    }
+
     /// El color de lo que va encima de algo relleno con el acento (texto o icono): blanco, o el inverso con el acento neutro.
     var accentOnColor: Color {
         neutralAccent ? Color(uiColor: .systemBackground) : Color.white

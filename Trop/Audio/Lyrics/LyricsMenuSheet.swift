@@ -43,7 +43,7 @@ struct LyricsMenuSheet: View {
                                 }
                             }
                         }
-                        .tint(settings.accentColor)
+                        .tint(settings.toggleTint)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
 
@@ -60,7 +60,7 @@ struct LyricsMenuSheet: View {
                                     .foregroundStyle(.primary)
                             }
                         }
-                        .tint(settings.accentColor)
+                        .tint(settings.toggleTint)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
                 }

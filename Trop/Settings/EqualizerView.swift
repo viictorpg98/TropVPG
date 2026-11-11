@@ -41,6 +41,7 @@ struct EqualizerView: View {
                 Spacer()
                 Toggle("", isOn: $settings.equalizerEnabled)
                     .labelsHidden()
+                    .tint(settings.toggleTint)
             }
 
             EqualizerGraph(
