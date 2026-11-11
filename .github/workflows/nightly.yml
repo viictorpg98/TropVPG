@@ -6,8 +6,10 @@ on:
       - main
   workflow_dispatch:
 
+# Grupo nuevo: la ejecucion #130 se quedo colgada en GitHub (aparece "en curso" pero no se puede cancelar) y bloqueaba al
+# grupo anterior (trop-build).
 concurrency:
-  group: trop-build
+  group: trop-build-2
   cancel-in-progress: true
 
 env:
