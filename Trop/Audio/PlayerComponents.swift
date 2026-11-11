@@ -50,7 +50,8 @@ struct ProgressBar: View {
                 if hasWaveform, let waveform {
                     Group {
                         if waveformIsPlaceholder {
-                            TimelineView(.animation(minimumInterval: 1.0 / 20)) { timeline in
+                            // El destello de la onda de relleno solo se mueve si suena algo (y a 15 fps basta).
+                            TimelineView(.animation(minimumInterval: 1.0 / 15, paused: !NowPlaying.shared.isPlaying)) { timeline in
                                 waveformCanvas(waveform, shimmer: timeline.date.timeIntervalSinceReferenceDate)
                             }
                         } else {

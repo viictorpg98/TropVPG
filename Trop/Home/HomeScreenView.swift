@@ -67,10 +67,14 @@ struct HomeScreenView: View {
             }
             .task {
                 await viewModel.restoreSession()
-                await accountState.restoreSession()
-                await accountState.fetchAccountInfo()
-                viewModel.loadHomeData()
+                // Lo fijado en Selecciones rapidas se lee antes de pintar (es de la base de datos: casi instantaneo).
                 await reloadSpeedDial()
+                // La portada no espera a los datos de la cuenta (una peticion de red mas): empieza ya.
+                viewModel.loadHomeData()
+                Task {
+                    await accountState.restoreSession()
+                    await accountState.fetchAccountInfo()
+                }
                 // Trigger library sync in background
                 Task {
                     await SyncBridge.checkAndSyncIfStale()
@@ -117,7 +121,8 @@ struct HomeScreenView: View {
                 } else {
                     // Se recorre una copia de las secciones (no se indexa el array en vivo): si la lista
                     // cambia de tamano mientras se pintan las filas no se sale de rango.
-                    ForEach(Array(viewModel.homeSections.enumerated()), id: \.offset) { _, section in
+                    // Cada fila lleva el id de su seccion: si cambia el orden, las filas se mueven en vez de cambiar de contenido.
+                    ForEach(viewModel.homeSections) { section in
                         sectionView(for: section)
                     }
                 }

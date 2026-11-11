@@ -62,3 +62,12 @@ enum PlaybackReport {
         UserDefaults.standard.removeObject(forKey: key)
     }
 }
+
+/// Milisegundos desde que arranco la app (se anota en el Informe para ver cuanto tarda cada paso del inicio).
+enum LaunchClock {
+    static let start = Date()
+
+    static func ms() -> Int {
+        Int(Date().timeIntervalSince(start) * 1000)
+    }
+}

@@ -22,7 +22,7 @@ actor ImagePreloader {
     private static let maxSeen = 1000
     private var lastPreloadAt: Date = .distantPast
     private static let minPreloadInterval: TimeInterval = 0.4
-    private static let maxPreloadBatch = 60
+    private static let maxPreloadBatch = 30
 
     nonisolated static let shared = ImagePreloader()
 

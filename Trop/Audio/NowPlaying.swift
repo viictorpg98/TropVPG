@@ -21,7 +21,12 @@ final class NowPlaying {
     var albumTitle = ""
     var videoId: String?
     var artists: [YTArtist] = []
-    var isPlaying = false
+    var isPlaying = false {
+        didSet {
+            // Al volver a sonar, el temporizador vuelve al ritmo normal sin esperar a su siguiente aviso.
+            if isPlaying, !oldValue, timer != nil, timerInterval > 0.25 { startTimer(interval: 0.25) }
+        }
+    }
     var currentTime: TimeInterval = 0
     var duration: TimeInterval = 0
     var progress: Float {
@@ -69,6 +74,7 @@ final class NowPlaying {
     }
 
     private var timer: Timer?
+    private var timerInterval: TimeInterval = 0.25
     private var tickCount = 0
     var lastManualSkipTime: Date?
     /// Cuantas canciones se estan cargando a la vez (si se salta rapido puede haber varias; la ultima es la que cuenta).
@@ -947,15 +953,16 @@ final class NowPlaying {
         }
     }
 
-    private func startTimer() {
+    private func startTimer(interval: TimeInterval = 0.25) {
         stopTimer()
+        timerInterval = interval
         // Add to `.common` so progress keeps updating while the user scrolls
         // or drags the slider (the default mode pauses the timer).
-        let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.timerTick()
-            }
+        let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
+            // El temporizador ya corre en el hilo principal: no hace falta crear una tarea en cada aviso.
+            MainActor.assumeIsolated { self?.timerTick() }
         }
+        timer.tolerance = interval * 0.2
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
     }
@@ -963,12 +970,20 @@ final class NowPlaying {
     @MainActor
     private func timerTick() {
         // Solo se asigna si cambia: cada asignacion avisa a las vistas que leen estos valores.
+        // En pausa o con la app en segundo plano no hace falta mirar cuatro veces por segundo (menos despertares, menos bateria).
+        // AutoMix no lo necesita: prepara la mezcla con mas de 7 s de margen y la ejecuta con su propio temporizador.
+        let wanted: TimeInterval = !isPlaying ? 1.0 : (UIApplication.shared.applicationState == .active ? 0.25 : 0.5)
+        if wanted != timerInterval {
+            // Los contadores de abajo cuentan "cuartos de segundo": se alinean al cambiar de ritmo.
+            tickCount = (tickCount + 3) & ~3
+            startTimer(interval: wanted)
+        }
         let position = PlayerController.shared.currentTime
         AutoMixEngine.shared.tick(position: position)
         if position != currentTime { currentTime = position }
         let length = PlayerController.shared.duration
         if length != duration { duration = length }
-        tickCount &+= 1
+        tickCount &+= max(1, Int((timerInterval / 0.25).rounded()))
         // El sistema extrapola la posicion con la velocidad: basta con avisarle una vez por segundo.
         PlayerController.shared.updateNowPlayingProgress(publishToSystem: tickCount % 4 == 0)
         SponsorBlockIntegration.shared.tick()

@@ -25,10 +25,30 @@ enum SyncBridge {
         )
     }
 
+    private static let staleGate = NSLock()
+    nonisolated(unsafe) private static var staleCheckRunning = false
+
+    private static func beginStaleCheck() -> Bool {
+        staleGate.lock()
+        defer { staleGate.unlock() }
+        if staleCheckRunning { return false }
+        staleCheckRunning = true
+        return true
+    }
+
+    private static func endStaleCheck() {
+        staleGate.lock()
+        staleCheckRunning = false
+        staleGate.unlock()
+    }
+
+    /// Inicio y Biblioteca la piden al abrirse: si ya hay una comprobacion en marcha, no se lanza otra.
     static func checkAndSyncIfStale() async {
+        guard beginStaleCheck() else { return }
         await incremental.checkAndSyncIfStale(options: options) {
             await LikeStore.shared.refresh()
         }
+        endStaleCheck()
     }
 
     static func forceFullSync() async {

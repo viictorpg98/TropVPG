@@ -27,9 +27,25 @@ final class AccountSheetState {
 
     private init() {}
 
+    private var restoreTask: Task<Void, Never>?
+    private var lastRestore = Date.distantPast
+
+    /// Inicio, Biblioteca y Explorar piden restaurar la sesion al abrirse: si ya hay una en marcha se espera a esa, y si
+    /// acaba de hacerse no se repite.
     func restoreSession() async {
-        hasAttemptedTokenRefresh = false
-        await loginModel.restoreSessionIfPresent()
+        if let restoreTask {
+            await restoreTask.value
+            return
+        }
+        guard Date().timeIntervalSince(lastRestore) > 60 else { return }
+        let task = Task { @MainActor in
+            hasAttemptedTokenRefresh = false
+            await loginModel.restoreSessionIfPresent()
+        }
+        restoreTask = task
+        await task.value
+        restoreTask = nil
+        lastRestore = Date()
     }
 
     func fetchAccountInfo() async {

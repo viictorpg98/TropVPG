@@ -30,6 +30,10 @@ final class HomeViewModel {
         didSet { mergeSections(stable: false) }
     }
 
+    /// Mientras carga (primera vez o al recargar) la lista no se toca: se publica una sola vez, al terminar. Antes, lo de
+    /// segundo plano (secciones propias y de la cuenta) la publicaba incompleta y, al llegar la portada, se reordenaba entera.
+    @ObservationIgnored private var holdMerges = false
+    @ObservationIgnored private var lastPublishedIds: [String] = []
     private var isHomeDataLoaded = false
     private var isLoadingMore = false
     private var loadGeneration = 0
@@ -107,6 +111,7 @@ final class HomeViewModel {
     func loadHomeData() {
         guard !isHomeDataLoaded else { return }
         isHomeDataLoaded = true
+        PlaybackReport.record("inicio: empieza la carga a los \(LaunchClock.ms()) ms")
         Task { await load() }
     }
 
@@ -136,6 +141,8 @@ final class HomeViewModel {
     }
 
     func handleSessionChange(loggedIn: Bool) {
+        // Si ya se sabia (al arrancar, la pantalla restaura la sesion y avisa del mismo valor), no se repite el trabajo.
+        guard loggedIn != isLoggedIn else { return }
         isLoggedIn = loggedIn
         if loggedIn {
             Task {
@@ -154,6 +161,7 @@ final class HomeViewModel {
         loadGeneration += 1
         let generation = loadGeneration
         isLoading = true
+        holdMerges = true
         error = nil
         homeFetchFailure = nil
 
@@ -179,6 +187,7 @@ final class HomeViewModel {
             error = failure
         }
         homeFetchFailure = nil
+        holdMerges = false
         mergeSections()
         isLoading = false
     }
@@ -244,6 +253,7 @@ final class HomeViewModel {
             isShowingCachedHome = false
             cachedHomeDate = nil
             homePage = page
+            PlaybackReport.record("inicio: portada del servidor a los \(LaunchClock.ms()) ms (\(page.sections.count) secciones)")
         } catch {
             await useCachedHome(orFail: error, generation: generation)
         }
@@ -416,16 +426,25 @@ final class HomeViewModel {
         if selectedChip != nil {
             // Con un chip elegido se muestra lo que YouTube devuelve para ese chip, en su orden y con el mismo aspecto que en
             // la portada normal (sus Selecciones rapidas, su Acceso rapido...), no las secciones propias de la app.
+            var seenIds = Set<String>()
             homeSections = (homePage?.sections ?? []).enumerated().compactMap { index, section in
                 let filtered = applyFilters(mapServerSection(section, index: index))
-                return filtered.items.isEmpty ? nil : filtered
+                // Dos secciones del servidor pueden caer en la misma (p. ej. dos "Acceso rapido"): una sola.
+                guard !filtered.items.isEmpty, seenIds.insert(filtered.id).inserted else { return nil }
+                return filtered
             }
             return
         }
+        if holdMerges { return }
         let serverSections = homePage?.sections.enumerated().map { mapServerSection($1, index: $0) } ?? []
         let all = cachedLocalSections + serverSections + cachedPhase2Sections
         let merged = orderSections(all)
         homeSections = stable ? stabilized(merged, freshContent: freshContent) : merged
+        let ids = homeSections.map(\.id)
+        if ids != lastPublishedIds {
+            lastPublishedIds = ids
+            PlaybackReport.record("inicio: lista publicada a los \(LaunchClock.ms()) ms (\(ids.count) secciones)")
+        }
     }
 
     /// `freshContent`: lo que ya se ve conserva su sitio pero toma el contenido nuevo (tras recargar o al terminar
