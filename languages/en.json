@@ -672,5 +672,9 @@
   "Couldn't save the queue.": "Couldn't save the queue.",
   "%d duplicates removed.": "%d duplicates removed.",
   "No duplicates in the queue.": "No duplicates in the queue.",
-  "Infinite Playback keeps similar songs coming when the queue ends. Smart Shuffle puts songs you heard in the last days at the end and keeps two songs by the same artist from playing back to back. With Mobile Data for Extras off, animated covers, video preload and AutoMix on streamed songs only use Wi-Fi.": "Infinite Playback keeps similar songs coming when the queue ends. Smart Shuffle puts songs you heard in the last days at the end and keeps two songs by the same artist from playing back to back. With Mobile Data for Extras off, animated covers, video preload and AutoMix on streamed songs only use Wi-Fi."
+  "Infinite Playback keeps similar songs coming when the queue ends. Smart Shuffle puts songs you heard in the last days at the end and keeps two songs by the same artist from playing back to back. With Mobile Data for Extras off, animated covers, video preload and AutoMix on streamed songs only use Wi-Fi.": "Infinite Playback keeps similar songs coming when the queue ends. Smart Shuffle puts songs you heard in the last days at the end and keeps two songs by the same artist from playing back to back. With Mobile Data for Extras off, animated covers, video preload and AutoMix on streamed songs only use Wi-Fi.",
+  "Detailed Log": "Detailed Log",
+  "Records screens, network requests, freezes, CPU, memory and battery while you use the app, and sums it up in the report. It uses a little extra battery: turn it off when you don't need it.": "Records screens, network requests, freezes, CPU, memory and battery while you use the app, and sums it up in the report. It uses a little extra battery: turn it off when you don't need it.",
+  "Copy Previous Session": "Copy Previous Session",
+  "The summary of this session (screens, network, freezes, CPU, memory, battery) and the latest events. Pull down to refresh.": "The summary of this session (screens, network, freezes, CPU, memory, battery) and the latest events. Pull down to refresh."
 }

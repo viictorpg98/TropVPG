@@ -41,6 +41,7 @@ struct SettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .miniPlayerTracksScroll()
         .loginSheet(state: accountState)
+        .diagScreen("Ajustes")
         .task {
             await accountState.restoreSession()
             await accountState.fetchAccountInfo()

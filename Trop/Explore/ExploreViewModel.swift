@@ -43,6 +43,8 @@ final class ExploreViewModel {
         // Al recargar (ya hay secciones) la fase no cambia: si cambiara, la pantalla se reconstruiria y se cortaria
         // la animacion de tirar hacia abajo.
         let isRefresh = !sections.isEmpty
+        let started = Date()
+        defer { DiagLog.event("carga", "explorar: \(isRefresh ? "recarga" : "primera carga") en \(Int(Date().timeIntervalSince(started) * 1000)) ms", important: true) }
         if !isRefresh { phase = .loading }
         error = nil
         let region = SettingsStore.shared.contentCountry

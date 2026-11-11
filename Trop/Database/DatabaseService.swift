@@ -142,19 +142,25 @@ extension DatabaseService {
     }
 
     func fetchAll<T: FetchableRecord & TableRecord & Sendable>(_ type: T.Type, sql: String, arguments: StatementArguments = []) async throws -> [T] {
-        try await dbPool.read { db -> [T] in
+        let started = Date()
+        defer { DiagLog.slowDB("consulta \(String(sql.prefix(50)))", since: started) }
+        return try await dbPool.read { db -> [T] in
             try type.fetchAll(db, sql: sql, arguments: arguments)
         }
     }
 
     func write(_ block: @escaping @Sendable (Database) throws -> Void) async throws {
+        let started = Date()
+        defer { DiagLog.slowDB("escritura", since: started) }
         try await dbPool.write { db in
             try block(db)
         }
     }
 
     func read<T: Sendable>(_ block: @escaping @Sendable (Database) throws -> T) async throws -> T {
-        try await dbPool.read { db in
+        let started = Date()
+        defer { DiagLog.slowDB("lectura", since: started) }
+        return try await dbPool.read { db in
             try block(db)
         }
     }

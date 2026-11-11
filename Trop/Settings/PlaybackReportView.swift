@@ -8,6 +8,7 @@ import SwiftUI
 /// Pantalla con el registro de reproduccion, para copiarlo y mandarlo cuando algo no suena.
 struct PlaybackReportView: View {
     @State private var report = PlaybackReport.text
+    @State private var previous = DiagLog.shared.previousSessionReport
 
     var body: some View {
         List {
@@ -21,13 +22,18 @@ struct PlaybackReportView: View {
                         .textSelection(.enabled)
                 }
             } footer: {
-                Text("Shows the latest steps when playing something: which client got the stream and what the player said.")
+                Text("The summary of this session (screens, network, freezes, CPU, memory, battery) and the latest events. Pull down to refresh.")
             }
 
             if !report.isEmpty {
                 Section {
                     Button("Copy") {
                         UIPasteboard.general.string = report
+                    }
+                    if let previous, !previous.isEmpty {
+                        Button("Copy Previous Session") {
+                            UIPasteboard.general.string = previous
+                        }
                     }
                     Button("Clear", role: .destructive) {
                         PlaybackReport.clear()

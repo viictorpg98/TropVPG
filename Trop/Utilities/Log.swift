@@ -66,6 +66,9 @@ struct AppLogger {
 
     private func emit(_ level: String, _ message: String) {
         guard writesToDisk else { return }
+        if level == "WARNING" || level == "ERROR" || level == "FAULT" {
+            DiagLog.issue(level, category, message)
+        }
         FileLog.shared.append(category, level, message)
     }
 
@@ -134,6 +137,7 @@ enum Log {
             category: "SwiftyTube"
         )
         SwiftyTubeLog.handler = { message, level in
+            DiagLog.swiftyTube(message, isError: level == .error)
             switch level {
             case .debug:
                 logger.debug("\(message, privacy: .private)")

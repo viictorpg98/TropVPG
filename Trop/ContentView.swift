@@ -52,7 +52,11 @@ struct ContentView: View {
             AppRouter.shared.selectedTabIndex = selectedTab
             UserActivity.shared.install()
         }
+        .onChange(of: isExpanded) { _, expanded in
+            DiagLog.event("nav", expanded ? "abre el reproductor grande" : "cierra el reproductor grande")
+        }
         .onChange(of: selectedTab) { oldValue, newValue in
+            DiagLog.event("nav", "pestana: \(["Inicio", "Biblioteca", "Explorar", "Buscar"][min(max(newValue, 0), 3)])", important: true)
             MixFeedbackStore.shared.dismissForActivity()
             AppRouter.shared.selectedTabIndex = newValue
             if newValue == 3 { AppRouter.shared.previousTabIndex = oldValue }

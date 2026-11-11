@@ -29,6 +29,7 @@ enum PlaybackReport {
 
     /// Se puede llamar desde cualquier hilo.
     static func record(_ text: String) {
+        DiagLog.event("rep", text, important: true)
         lock.lock()
         defer { lock.unlock() }
         var lines = loadLocked()
@@ -48,7 +49,9 @@ enum PlaybackReport {
         if let buffer { UserDefaults.standard.set(buffer, forKey: key) }
     }
 
+    /// Con el registro detallado activo (Ajustes > Acerca de), el informe es el resumen de la sesion con todos los eventos.
     static var text: String {
+        if DiagLog.isEnabled { return DiagLog.shared.report() }
         lock.lock()
         defer { lock.unlock() }
         let lines = loadLocked()
@@ -56,6 +59,7 @@ enum PlaybackReport {
     }
 
     static func clear() {
+        DiagLog.shared.reset()
         lock.lock()
         defer { lock.unlock() }
         buffer = []

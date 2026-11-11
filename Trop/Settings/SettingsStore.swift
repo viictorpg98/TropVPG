@@ -377,6 +377,17 @@ final class SettingsStore {
         didSet { Self.defaults.set(smartShuffle, forKey: Keys.smartShuffle) }
     }
 
+    /// Registro detallado de la sesion (pantallas, red, tirones, CPU, memoria, bateria) para el informe. Gasta algo de bateria.
+    var detailedLog: Bool {
+        didSet {
+            Self.defaults.set(detailedLog, forKey: Keys.detailedLog)
+            DiagLog.isEnabled = detailedLog
+            Task { @MainActor in
+                if detailedLog { DiagLog.shared.start() } else { DiagLog.shared.stop() }
+            }
+        }
+    }
+
     var persistQueue: Bool {
         didSet { Self.defaults.set(persistQueue, forKey: Keys.persistQueue) }
     }
@@ -539,6 +550,7 @@ final class SettingsStore {
         static let animatedArtworkUsesMobileData = "settings.animatedArtworkUsesMobileData"
         static let autoplaySimilar = "settings.autoplaySimilar"
         static let smartShuffle = "settings.smartShuffle"
+        static let detailedLog = "settings.detailedLog"
         static let persistQueue = "settings.persistQueue"
         static let lastRadioStyle = "settings.lastRadioStyle"
         static let lastRadioLimit = "settings.lastRadioLimit"
@@ -626,6 +638,8 @@ final class SettingsStore {
         animatedArtworkUsesMobileData = extrasMobile
         autoplaySimilar = Self.load(Keys.autoplaySimilar, default: true)
         smartShuffle = Self.load(Keys.smartShuffle, default: true)
+        detailedLog = Self.load(Keys.detailedLog, default: true)
+        DiagLog.isEnabled = detailedLog
         persistQueue = true
         lastRadioStyle = Self.loadEnum(Keys.lastRadioStyle, default: .similar)
         lastRadioLimit = Self.load(Keys.lastRadioLimit, default: 25)

@@ -17,8 +17,11 @@ struct TropApp: App {
         // La base de datos se abre en segundo plano al arrancar, no la primera vez que una pantalla la pide en el hilo principal.
         Task.detached(priority: .userInitiated) { _ = DatabaseService.shared }
         // El informe de reproduccion empieza de cero en cada arranque de la app.
+        // La sesion anterior queda guardada ("Copiar sesion anterior"): sirve si la app se cerro sola o fallo.
+        DiagLog.shared.archivePreviousSession()
         PlaybackReport.clear()
         PlaybackReport.record("app iniciada")
+        Task { @MainActor in DiagLog.shared.start() }
         configureNuke()
         // El circulo del sistema al recargar tirando hacia abajo se deja transparente: lo sustituye el logo (`sonarRefreshable`).
         UIRefreshControl.appearance().tintColor = .clear

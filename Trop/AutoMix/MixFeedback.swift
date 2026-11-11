@@ -37,7 +37,10 @@ final class UserActivity {
     private var installed = false
     private let spyDelegate = TouchSpyDelegate()
 
-    func touch() { lastTouch = Date() }
+    func touch() {
+        lastTouch = Date()
+        DiagLog.touch()
+    }
 
     var secondsSinceTouch: TimeInterval { Date().timeIntervalSince(lastTouch) }
 

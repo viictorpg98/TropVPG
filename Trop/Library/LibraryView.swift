@@ -89,6 +89,7 @@ struct LibraryView: View {
             .frame(maxHeight: .infinity, alignment: .top)
             .toolbar(.hidden, for: .navigationBar)
             .detailRouteDestinations()
+            .diagScreen("Biblioteca")
             .overlay(alignment: .bottomTrailing) {
                                 Button(action: { showCreateDialog = true }, label: {
                     Image(systemName: "plus")
@@ -483,6 +484,8 @@ struct LibraryView: View {
     // MARK: - Data Loading
 
     private func loadContent() async {
+        let started = Date()
+        defer { DiagLog.event("carga", "biblioteca: datos locales en \(Int(Date().timeIntervalSince(started) * 1000)) ms", important: true) }
         do {
             async let artistsFetch = DatabaseService.shared.fetchAll(
                 ArtistEntity.self,

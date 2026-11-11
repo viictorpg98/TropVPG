@@ -44,6 +44,7 @@ struct HomeScreenView: View {
             .frame(maxHeight: .infinity, alignment: .top)
             .toolbar(.hidden, for: .navigationBar)
             .detailRouteDestinations()
+            .diagScreen("Inicio")
             .onChange(of: pendingRoute) { _, route in
                 if let route {
                     router.homePath.append(route)

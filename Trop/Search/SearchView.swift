@@ -26,6 +26,7 @@ struct SearchView: View {
             .frame(maxHeight: .infinity, alignment: .top)
             .toolbar(.hidden, for: .navigationBar)
             .detailRouteDestinations()
+            .diagScreen("Buscar")
             .onChange(of: pendingRoute) { _, route in
                 if let route {
                     router.searchPath.append(route)

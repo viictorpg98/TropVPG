@@ -39,6 +39,12 @@ struct DetailRouteDestinationView: View {
     let route: DetailRoute
 
     var body: some View {
+        screen
+            .diagScreen("detalle: " + String(String(describing: route).prefix { $0 != "(" }))
+    }
+
+    @ViewBuilder
+    private var screen: some View {
         switch route {
         case .album(let browseId):
             AlbumDetailView(browseId: browseId)

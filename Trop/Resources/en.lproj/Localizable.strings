@@ -113,6 +113,7 @@
 "Controls the region used for YouTube Music requests." = "Controls the region used for YouTube Music requests.";
 "Copy" = "Copy";
 "Copy Link" = "Copy Link";
+"Copy Previous Session" = "Copy Previous Session";
 "Could not parse album details" = "Could not parse album details";
 "Could not parse artist details" = "Could not parse artist details";
 "Could not parse playlist details" = "Could not parse playlist details";
@@ -145,6 +146,7 @@
 "Delete" = "Delete";
 "Delete all offline tracks" = "Delete all offline tracks";
 "Deselect All" = "Deselect All";
+"Detailed Log" = "Detailed Log";
 "Details" = "Details";
 "Details Template" = "Details Template";
 "Different tempos" = "Different tempos";
@@ -468,6 +470,7 @@
 "Recaps" = "Recaps";
 "Recently Played" = "Recently Played";
 "Recently searched" = "Recently searched";
+"Records screens, network requests, freezes, CPU, memory and battery while you use the app, and sums it up in the report. It uses a little extra battery: turn it off when you don't need it." = "Records screens, network requests, freezes, CPU, memory and battery while you use the app, and sums it up in the report. It uses a little extra battery: turn it off when you don't need it.";
 "Refetch" = "Refetch";
 "Region" = "Region";
 "Relax" = "Relax";
@@ -600,6 +603,7 @@
 "Thanks!" = "Thanks!";
 "The country controls the region used for YouTube Music requests." = "The country controls the region used for YouTube Music requests.";
 "The music will stop in %d minutes." = "The music will stop in %d minutes.";
+"The summary of this session (screens, network, freezes, CPU, memory, battery) and the latest events. Pull down to refresh." = "The summary of this session (screens, network, freezes, CPU, memory, battery) and the latest events. Pull down to refresh.";
 "Theme" = "Theme";
 "Theme Mode" = "Theme Mode";
 "This permanently deletes all offline tracks from your device." = "This permanently deletes all offline tracks from your device.";

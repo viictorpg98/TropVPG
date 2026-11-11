@@ -8,7 +8,11 @@
 import SwiftUI
 
 struct AboutSettingsView: View {
+    @Environment(\.settingsStore) private var settings
+
     var body: some View {
+        @Bindable var settings = settings
+
         List {
             Section {
                 if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
@@ -25,6 +29,9 @@ struct AboutSettingsView: View {
                 NavigationLink("Playback Report") {
                     PlaybackReportView()
                 }
+                SettingsToggleRow("Detailed Log", icon: "waveform.path.ecg", isOn: $settings.detailedLog)
+            } footer: {
+                Text("Records screens, network requests, freezes, CPU, memory and battery while you use the app, and sums it up in the report. It uses a little extra battery: turn it off when you don't need it.")
             }
 
             Section {

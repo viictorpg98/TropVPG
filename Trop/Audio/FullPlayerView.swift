@@ -159,8 +159,10 @@ struct FullPlayerView: View {
                 np.preloadNeighborArtwork()
             }
             .onChange(of: showQueue) { _, newValue in
+                DiagLog.event("nav", newValue ? "abre la cola" : "cierra la cola")
                 if newValue { np.preloadNeighborArtwork() }
             }
+            .diagScreen("Reproductor grande")
             .onAppear { PlayerController.shared.setFullPlayerVisible(true) }
             .onDisappear { PlayerController.shared.setFullPlayerVisible(false) }
             .task {

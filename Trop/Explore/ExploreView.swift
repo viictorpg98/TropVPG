@@ -31,6 +31,7 @@ struct ExploreView: View {
             .frame(maxHeight: .infinity, alignment: .top)
             .toolbar(.hidden, for: .navigationBar)
             .detailRouteDestinations()
+            .diagScreen("Explorar")
             .navigationDestination(for: MoodItem.self) { mood in
                 MoodDetailView(mood: mood)
             }

@@ -14,6 +14,12 @@ extension View {
         modifier(MiniPlayerInlineOnScrollModifier())
     }
 
+    /// Apunta en el informe cuando esta pantalla se abre y se cierra (y cuanto tiempo se pasa en ella).
+    func diagScreen(_ name: String) -> some View {
+        onAppear { DiagLog.screenAppeared(name) }
+            .onDisappear { DiagLog.screenDisappeared(name) }
+    }
+
     /// Registers standard DetailRoute navigation
     func detailRouteDestinations() -> some View {
         self.navigationDestination(for: DetailRoute.self) { route in
