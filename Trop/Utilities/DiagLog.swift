@@ -558,6 +558,13 @@ final class DiagLog: @unchecked Sendable {
 
     /// La sesion anterior pasa a "anterior" (si la app se cerro o fallo, su informe sigue ahi).
     func archivePreviousSession() {
+        let size = (try? FileManager.default.attributesOfItem(atPath: reportURL.path)[.size] as? Int) ?? 0
+        // Si la sesion que acaba de cerrarse apenas llego a apuntar nada (por ejemplo, un arranque seguido de otro), no se pisa
+        // la anterior, que es la que tiene datos.
+        guard size > 2_000 else {
+            try? FileManager.default.removeItem(at: reportURL)
+            return
+        }
         try? FileManager.default.removeItem(at: previousURL)
         try? FileManager.default.moveItem(at: reportURL, to: previousURL)
     }
