@@ -34,7 +34,6 @@ struct PlayerMenuSheet: View {
     @ObservedObject private var downloadManager = DownloadManager.shared
     @ObservedObject private var likeStore = LikeStore.shared
     @State private var showRemoveDownload = false
-    @StateObject private var systemVolume = SystemVolume()
     /// El color de la carátula, oscurecido, de fondo de la hoja.
     @State private var tint: Color?
 
@@ -43,7 +42,6 @@ struct PlayerMenuSheet: View {
             Group {
                 headerRow
                 quickActions
-                eqVolumeCard
                 MenuCard {
                     MenuRow(icon: "dot.radiowaves.left.and.right", title: "Start Radio") { startRadio() }
                     Divider()
@@ -61,6 +59,11 @@ struct PlayerMenuSheet: View {
                             title: "Similar to this song",
                             subtitle: String(format: NSLocalizedString("More like “%@”", comment: "Similar songs subtitle"), song.title)
                         )
+                    }
+                    .buttonStyle(.plain)
+                    Divider()
+                    NavigationLink(value: Destination.equalizer) {
+                        MenuRowLabel(icon: "slider.horizontal.3", title: "Equalizer")
                     }
                     .buttonStyle(.plain)
                     Divider()
@@ -154,52 +157,6 @@ struct PlayerMenuSheet: View {
         .background(tint ?? Color(.systemBackground))
         .navigationTitle("More Options")
         .navigationBarTitleDisplayMode(.inline)
-    }
-
-    // MARK: - EQ + App Volume
-
-    private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .fill(Color(.secondarySystemGroupedBackground))
-    }
-
-    private var eqVolumeCard: some View {
-        HStack(spacing: 12) {
-            NavigationLink(value: Destination.equalizer) {
-                Label("EQ", systemImage: "slider.horizontal.3")
-                    .font(.subheadline.weight(.semibold))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 9)
-                    .background(Capsule().fill(settings.accentColor.opacity(0.15)))
-                    .foregroundStyle(settings.accentColor)
-            }
-
-            Image(systemName: volumeIconName)
-                .font(.callout)
-                .foregroundStyle(settings.accentColor)
-                .frame(width: 24)
-
-            // El volumen real del dispositivo: sigue a los botones fisicos y al Centro de control.
-            VolumeSlider(
-                value: Binding(
-                    get: { systemVolume.level },
-                    set: { systemVolume.set($0.clamped01) }
-                ),
-                accentColor: settings.accentColor
-            )
-            .accessibilityLabel("Volume")
-        }
-        .padding(.vertical, 6)
-        .background(SystemVolumeHost(model: systemVolume).frame(width: 1, height: 1).allowsHitTesting(false))
-    }
-
-    private var volumeIconName: String {
-        switch systemVolume.level {
-        case ..<0.01: return "speaker.slash.fill"
-        case ..<0.34: return "speaker.wave.1.fill"
-        case ..<0.67: return "speaker.wave.2.fill"
-        default: return "speaker.wave.3.fill"
-        }
     }
 
     // MARK: - Cabecera y acciones rapidas
@@ -623,39 +580,5 @@ struct SongDetailsView: View {
         } else {
             viewCountText = "Unavailable"
         }
-    }
-}
-
-// MARK: - Volume Slider 
-
-/// Thick capsule slider with a round thumb
-private struct VolumeSlider: View {
-    @Binding var value: Double
-    let accentColor: Color
-
-    var body: some View {
-        GeometryReader { geo in
-            let width = max(0, geo.size.width)
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(Color(.tertiarySystemFill))
-                Capsule()
-                    .fill(accentColor)
-                    .frame(width: max(16, width * value))
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: 15, height: 15)
-                    .shadow(color: .black.opacity(0.25), radius: 2.5, x: 0, y: 1)
-                    .offset(x: min(width - 15, max(0, width * value - 7.5)))
-            }
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { gesture in
-                        value = (gesture.location.x / width).clamped01
-                    }
-            )
-        }
-        .frame(height: 28)
     }
 }
