@@ -127,6 +127,10 @@ fi
 
 BUILD_DIR="$WORKING_LOCATION/build"
 DERIVED_DATA_PATH="$CASE_SENSITIVE_MOUNT/DerivedDataApp"
+# Los paquetes de Swift (MPVKit, GRDB...) se descargan a una carpeta fija del volumen: el flujo la guarda en cache entre
+# compilaciones (sin cache, resolverlos tardaba unos 2 minutos cada vez).
+SPM_DIR="$CASE_SENSITIVE_MOUNT/SourcePackages"
+mkdir -p "$SPM_DIR"
 # Assemble the .app and IPA on the case-sensitive volume so the distinct
 # libavcodec.framework (FFmpegKit) and Libavcodec.framework (MPVKit) directories
 # never collapse into one, and so the capitalized installer copies stay separate
@@ -299,7 +303,8 @@ set +e
 xcodebuild -resolvePackageDependencies \
     -project "$WORKING_LOCATION/$PROJECT_NAME.xcodeproj" \
     -scheme "$APPLICATION_NAME" \
-    -derivedDataPath "$DERIVED_DATA_PATH" > build/resolve.log 2>&1
+    -derivedDataPath "$DERIVED_DATA_PATH" \
+    -clonedSourcePackagesDirPath "$SPM_DIR" > build/resolve.log 2>&1
 set -e
 mark_phase "paquetes (resolver y descargar)"
 
@@ -312,6 +317,7 @@ xcodebuild -project "$WORKING_LOCATION/$PROJECT_NAME.xcodeproj" \
     -scheme "$APPLICATION_NAME" \
     -configuration Release \
     -derivedDataPath "$DERIVED_DATA_PATH" \
+    -clonedSourcePackagesDirPath "$SPM_DIR" \
     -destination 'generic/platform=iOS' \
     -showBuildTimingSummary \
     $XCODEBUILD_ACTION \

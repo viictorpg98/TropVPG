@@ -4,12 +4,13 @@ on:
   push:
     branches:
       - main
+      - test-arm64
   workflow_dispatch:
 
-# Grupo nuevo: la ejecucion #130 se quedo colgada en GitHub (aparece "en curso" pero no se puede cancelar) y bloqueaba al
-# grupo anterior (trop-build).
+# Un grupo por rama: la rama de pruebas no cancela ni espera a la compilacion de main. (Grupo nuevo: la ejecucion #130 se quedo
+# colgada en GitHub y bloqueaba a los grupos anteriores.)
 concurrency:
-  group: trop-build-2
+  group: trop-build-${{ github.ref_name }}
   cancel-in-progress: true
 
 env:
@@ -18,7 +19,8 @@ env:
 jobs:
   build-ios:
     name: Build iOS IPA
-    runs-on: macos-15-intel
+    # main compila en el Mac Intel (el que ha funcionado siempre); la rama de pruebas, en el Mac con chip Apple.
+    runs-on: ${{ github.ref_name == 'main' && 'macos-15-intel' || 'macos-15' }}
     permissions:
       contents: write
       actions: write
@@ -37,13 +39,26 @@ jobs:
           path: build/ffmpeg-kit-xcframeworks
           key: ffmpeg-kit-${{ env.FFMPEG_KIT_TAG }}-arm64+sim-openssl-${{ runner.os }}
 
-      - name: Cache DerivedData
+      # El volumen donde se compila se monta antes: asi se puede restaurar en el la cache de paquetes de Swift.
+      - name: Prepare case-sensitive build volume
+        run: |
+          VOL="$HOME/Library/Caches/TropBuild.sparseimage"
+          MNT="/Volumes/TropBuild"
+          if [ ! -f "$VOL" ]; then
+            hdiutil create -size 20g -type SPARSE -fs 'Case-sensitive APFS' -volname TropBuild "$VOL"
+          fi
+          if ! mount | grep -q " $MNT "; then
+            hdiutil attach "$VOL" -mountpoint "$MNT" -nobrowse >/dev/null
+          fi
+          mkdir -p "$MNT/SourcePackages"
+
+      - name: Cache Swift packages
         uses: actions/cache@v4
         with:
-          path: build/DerivedDataApp
-          key: trop-dd-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Trop.xcodeproj/**', '**/Package.resolved', 'Trop/**/*.swift') }}
+          path: /Volumes/TropBuild/SourcePackages
+          key: spm-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
           restore-keys: |
-            trop-dd-${{ runner.os }}-${{ runner.arch }}-
+            spm-${{ runner.os }}-
 
       - name: Make build script executable
         run: chmod +x ./build_ipa.sh
@@ -119,3 +134,34 @@ jobs:
           TIMING="$(cat build/timing.txt 2>/dev/null || true)"
           BODY="$(printf 'Latest main build (#%s). %s (real)\n\nTiempos de la compilacion:\n%s\n' "$RUN_NUMBER" "$NOTES" "$TIMING")"
           gh release edit nightly --notes "$BODY"
+
+      # Deja el final de los registros en la rama "run-logs-<rama>" (archivos de texto): asi se puede ver por que falla una
+      # compilacion sin abrir GitHub.
+      - name: Save the logs of this run
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          mkdir -p runlogs
+          cp build/timing.txt runlogs/timing.txt 2>/dev/null || true
+          RESOLVE_LOG="$(find build -name resolve.log 2>/dev/null | head -n 1)"
+          if [ -n "$RESOLVE_LOG" ]; then tail -n 80 "$RESOLVE_LOG" > runlogs/resolve-tail.txt; fi
+          BUILD_LOG="$(find build -name xcodebuild.log 2>/dev/null | head -n 1)"
+          if [ -n "$BUILD_LOG" ]; then tail -n 150 "$BUILD_LOG" > runlogs/xcodebuild-tail.txt; fi
+          {
+            echo "runner: ${{ runner.os }} ${{ runner.arch }} | rama ${{ github.ref_name }} | commit ${{ github.sha }} | ejecucion ${{ github.run_number }}"
+            sw_vers
+            xcodebuild -version
+          } > runlogs/info.txt 2>&1 || true
+          WORK="$(mktemp -d)"
+          cp runlogs/* "$WORK/"
+          cd "$WORK"
+          git init -q
+          git checkout -q -b "run-logs-$BRANCH"
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add .
+          git commit -q -m "Registros de la ejecucion ${{ github.run_number }}"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" "run-logs-$BRANCH"
