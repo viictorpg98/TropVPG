@@ -42,3 +42,53 @@ struct SonarLoader: View {
         .accessibilityLabel(Text("Loading…"))
     }
 }
+
+// MARK: - Pantalla de carga (la primera vez que se abre una pestaña)
+
+/// Pantalla limpia con el logo animado en el centro, en lugar de bloques grises con brillo.
+struct SonarLoadingScreen: View {
+    var body: some View {
+        SonarLoader(size: 64)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.bottom, 90)
+    }
+}
+
+// MARK: - Recargar tirando hacia abajo
+
+/// Como `.refreshable`, pero con el logo animado en lugar del circulo del sistema: aparece y crece segun se tira, y sigue
+/// animado mientras se recarga. (El circulo del sistema se deja transparente en `TropApp`.)
+private struct SonarRefresh: ViewModifier {
+    let action: @Sendable () async -> Void
+    @State private var pull: CGFloat = 0
+    @State private var refreshing = false
+
+    func body(content: Content) -> some View {
+        content
+            .refreshable {
+                refreshing = true
+                await action()
+                refreshing = false
+            }
+            .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                max(0, -(geometry.contentOffset.y + geometry.contentInsets.top))
+            } action: { _, newValue in
+                pull = newValue
+            }
+            .overlay(alignment: .top) {
+                let progress = refreshing ? 1.0 : min(1.0, Double(pull) / 70)
+                SonarLoader(size: 32)
+                    .opacity(progress)
+                    .scaleEffect(0.5 + 0.5 * progress)
+                    .offset(y: refreshing ? 16 : max(0, pull * 0.45 - 6))
+                    .animation(.smooth(duration: 0.25), value: refreshing)
+                    .allowsHitTesting(false)
+            }
+    }
+}
+
+extension View {
+    func sonarRefreshable(_ action: @escaping @Sendable () async -> Void) -> some View {
+        modifier(SonarRefresh(action: action))
+    }
+}

@@ -64,7 +64,7 @@ struct ExploreView: View {
     private var content: some View {
         switch viewModel.phase {
         case .idle, .loading:
-            ExploreSkeletonView()
+            SonarLoadingScreen()
         case .loaded:
             sectionsList
         case .empty:
@@ -97,7 +97,7 @@ struct ExploreView: View {
         }
         .scrollIndicators(.automatic)
         .miniPlayerTracksScroll()
-        .refreshable { await viewModel.refresh() }
+        .sonarRefreshable { await viewModel.refresh() }
     }
 }
 
@@ -262,7 +262,7 @@ private struct ExploreBrowseView: View {
                     .miniPlayerTracksScroll()
                 }
             } else {
-                MoodDetailSkeletonView()
+                SonarLoadingScreen()
             }
         }
         .navigationTitle(LocalizedStringKey(button.title))
@@ -306,7 +306,7 @@ private struct MoodDetailView: View {
                     .miniPlayerTracksScroll()
                 }
             } else {
-                MoodDetailSkeletonView()
+                SonarLoadingScreen()
             }
         }
         .navigationTitle(mood.title)

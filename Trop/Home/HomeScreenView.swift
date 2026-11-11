@@ -31,7 +31,7 @@ struct HomeScreenView: View {
 
                 if viewModel.isLoading {
                     Spacer()
-                    ShimmerLoadingView()
+                    SonarLoader(size: 64)
                     Spacer()
                 } else if let error = viewModel.error {
                     errorView(error)
@@ -137,7 +137,7 @@ struct HomeScreenView: View {
         }
         .scrollIndicators(.automatic)
         .miniPlayerTracksScroll()
-        .refreshable {
+        .sonarRefreshable {
             await viewModel.refresh()
             await reloadSpeedDial()
             await SyncBridge.checkAndSyncIfStale()
@@ -157,20 +157,12 @@ struct HomeScreenView: View {
         }
     }
 
-    /// Esqueleto mientras llega la portada del chip.
+    /// Mientras llega la portada del chip: el logo animado, sin esqueletos.
     private var chipLoadingPlaceholder: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ForEach(0..<3, id: \.self) { _ in
-                ShimmerSectionTitle()
-                    .padding(.top, 8)
-                HStack(spacing: 12) {
-                    ForEach(0..<5, id: \.self) { _ in ShimmerCard(showsSubtitle: false) }
-                }
-                .padding(.horizontal, DesignTokens.screenHPadding)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .clipped()
-            }
-        }
+        SonarLoader(size: 56)
+            .frame(maxWidth: .infinity)
+            .padding(.top, 90)
+            .padding(.bottom, 220)
     }
 
     @ViewBuilder

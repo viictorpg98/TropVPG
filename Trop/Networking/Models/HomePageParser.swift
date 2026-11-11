@@ -8,13 +8,15 @@
 import Foundation
 
 enum HomePageParser {
-    static func parseHomePage(from json: [String: Any]) -> HomePage? {
+    /// `chipMode`: la portada de un chip (Dormir, Relax...): ahi tambien se aceptan carruseles sin titulo y listas de
+    /// canciones (el Acceso rapido del chip puede venir asi), y se apunta en el informe lo que no se sabe leer.
+    static func parseHomePage(from json: [String: Any], chipMode: Bool = false) -> HomePage? {
         guard let sectionList = BrowseLens.sectionList(json) else {
             return nil
         }
 
         let chips = parseChips(from: sectionList)
-        let sections = parseSections(from: sectionList)
+        let sections = parseSections(from: sectionList, chipMode: chipMode)
         let continuation = extractContinuation(from: sectionList)
 
         return HomePage(chips: chips, sections: sections, continuation: continuation)
@@ -54,31 +56,33 @@ extension HomePageParser {
 // MARK: - Sections
 
 extension HomePageParser {
-    static func parseSections(from sectionList: [String: Any]) -> [HomePage.Section] {
+    static func parseSections(from sectionList: [String: Any], chipMode: Bool = false) -> [HomePage.Section] {
         guard let contents = sectionList["contents"] as? [[String: Any]] else { return [] }
         return contents.compactMap { dict -> HomePage.Section? in
-            if let section = parseSection(from: dict) { return section }
-            noteUnreadSection(dict)
+            if let section = parseSection(from: dict, chipMode: chipMode) { return section }
+            noteUnreadSection(dict, always: chipMode)
             return nil
         }
     }
 
-    static func parseSection(from contentDict: [String: Any]) -> HomePage.Section? {
+    static func parseSection(from contentDict: [String: Any], chipMode: Bool = false) -> HomePage.Section? {
         if let carousel = contentDict["musicCarouselShelfRenderer"] as? [String: Any] {
-            return parseCarouselSection(from: carousel)
+            return parseCarouselSection(from: carousel, chipMode: chipMode)
         }
         if let shelf = contentDict["musicShelfRenderer"] as? [String: Any] {
-            return parseShelfSection(from: shelf)
+            return parseShelfSection(from: shelf, chipMode: chipMode)
         }
         return nil
     }
 
     /// Lista vertical (musicShelfRenderer): solo se acepta si trae episodios, como "Tus nuevos episodios" en el
     /// chip Podcasts. Las demas listas de este tipo no se enseñaban y se siguen sin enseñar.
-    static func parseShelfSection(from shelf: [String: Any]) -> HomePage.Section? {
+    static func parseShelfSection(from shelf: [String: Any], chipMode: Bool = false) -> HomePage.Section? {
         let items = parseItems(from: shelf["contents"] as? [[String: Any]] ?? [])
-        guard items.contains(where: { if case .episode = $0 { return true } else { return false } }) else { return nil }
-        let title = InnerTubeJSON.runsText(shelf["title"] as? [String: Any]) ?? "Episodes"
+        let hasEpisodes = items.contains(where: { if case .episode = $0 { return true } else { return false } })
+        // Con un chip elegido se aceptan tambien las listas de canciones (antes solo las de episodios).
+        guard hasEpisodes || (chipMode && !items.isEmpty) else { return nil }
+        let title = InnerTubeJSON.runsText(shelf["title"] as? [String: Any]) ?? (chipMode && !hasEpisodes ? "" : "Episodes")
         return HomePage.Section(title: title, items: items, moreBrowseId: extractShelfMoreBrowseId(shelf))
     }
 
@@ -87,30 +91,34 @@ extension HomePageParser {
 
     /// Apunta (una vez por tipo y por arranque) las secciones que no se saben leer, para poder ver que llega
     /// en el Informe de reproduccion si falta algo en la portada.
-    private static func noteUnreadSection(_ dict: [String: Any]) {
+    private static func noteUnreadSection(_ dict: [String: Any], always: Bool = false) {
         let kinds = dict.keys.filter { $0 != "continuationItemRenderer" }.sorted().joined(separator: ",")
         guard !kinds.isEmpty else { return }
+        if always {
+            // En la portada de un chip se apunta cada vez (para ver que llega).
+            PlaybackReport.record("chip: seccion sin leer (\(kinds))")
+            return
+        }
         unreadLock.lock()
         let isNew = unreadKinds.insert(kinds).inserted
         unreadLock.unlock()
         if isNew { PlaybackReport.record("portada: seccion sin leer (\(kinds))") }
     }
 
-    static func parseCarouselSection(from carousel: [String: Any]) -> HomePage.Section? {
-        guard let header = carousel["header"] as? [String: Any],
-              let basicHeader = header["musicCarouselShelfBasicHeaderRenderer"] as? [String: Any],
-              let title = InnerTubeJSON.runsText(basicHeader["title"] as? [String: Any]) else {
-            return nil
-        }
+    static func parseCarouselSection(from carousel: [String: Any], chipMode: Bool = false) -> HomePage.Section? {
+        let basicHeader = (carousel["header"] as? [String: Any])?["musicCarouselShelfBasicHeaderRenderer"] as? [String: Any]
+        let title = InnerTubeJSON.runsText(basicHeader?["title"] as? [String: Any])
+        // Sin titulo solo se acepta con un chip elegido (en la portada normal siguen sin enseñarse).
+        guard title != nil || chipMode else { return nil }
 
         let items = parseItems(from: carousel["contents"] as? [[String: Any]] ?? [])
 
         guard !items.isEmpty else { return nil }
 
         return HomePage.Section(
-            title: title,
+            title: title ?? "",
             items: items,
-            moreBrowseId: extractMoreBrowseId(in: basicHeader)
+            moreBrowseId: basicHeader.flatMap { extractMoreBrowseId(in: $0) }
         )
     }
 

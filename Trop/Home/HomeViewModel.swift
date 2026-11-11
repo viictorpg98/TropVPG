@@ -311,7 +311,12 @@ final class HomeViewModel {
                     locale: .deviceLanguage
                 )
                 guard !Task.isCancelled, generation == loadGeneration else { return }
-                if let page = await Self.parseHome(json) {
+                if let page = await Self.parseHome(json, chipMode: true) {
+                    // Para el informe: que secciones trae YouTube para este chip.
+                    let summary = page.sections
+                        .map { "\($0.title.isEmpty ? "-" : $0.title)(\($0.items.count))" }
+                        .joined(separator: ", ")
+                    PlaybackReport.record("chip \(chip?.title ?? "?"): \(summary)")
                     homePage?.sections = page.sections
                     // The filtered feed carries its own continuation; reusing
                     // the unfiltered one would page wrong sections in below.
@@ -362,9 +367,9 @@ final class HomeViewModel {
     }
 
     // El JSON de la portada es grande: se interpreta fuera del hilo principal para no frenar el desplazamiento.
-    nonisolated private static func parseHome(_ json: [String: Any]) async -> HomePage? {
+    nonisolated private static func parseHome(_ json: [String: Any], chipMode: Bool = false) async -> HomePage? {
         await Task.detached(priority: .userInitiated) {
-            HomePageParser.parseHomePage(from: json)
+            HomePageParser.parseHomePage(from: json, chipMode: chipMode)
         }.value
     }
 
@@ -407,17 +412,19 @@ final class HomeViewModel {
     }
 
     private func mapServerSection(_ section: HomePage.Section, index: Int) -> HomeSection {
-        let title = section.title.lowercased()
-        if title == "quick picks" || title.contains("quick pick") {
+        // Sin mayusculas ni acentos, y en español o en ingles (con un chip YouTube manda los titulos en el idioma del movil).
+        let title = section.title.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+        if title.contains("quick pick") || title.contains("selecciones rapidas") {
             if !SettingsStore.shared.showQuickPicks {
                 return .quickPicks(items: [])
             }
             return .quickPicks(items: section.items)
         }
-        if title.contains("listen again") || title.contains("keep listening") {
+        if title.contains("listen again") || title.contains("keep listening") || title.contains("volver a escuchar")
+            || title.contains("acceso rapido") || title.contains("speed dial") || title.contains("quick access") {
             return .keepListening(items: section.items)
         }
-        if title.contains("forgotten") || title.contains("favorite") {
+        if title.contains("forgotten") || title.contains("favorite") || title.contains("favoritos olvidados") {
             return .forgottenFavorites(items: section.items)
         }
         return .homePageSection(section, index: index)

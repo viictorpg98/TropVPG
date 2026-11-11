@@ -80,7 +80,7 @@ struct LibraryView: View {
 
                 Group {
                     if isLoading {
-                        librarySkeleton
+                        SonarLoadingScreen()
                     } else {
                         feedContent
                     }
@@ -137,7 +137,7 @@ struct LibraryView: View {
                 guard !isLoading else { return }
                 await ImagePreloader.shared.preload(thumbnailURLsToPreload())
             }
-            .refreshable {
+            .sonarRefreshable {
                 await SyncBridge.forceFullSync()
                 await loadContent()
             }

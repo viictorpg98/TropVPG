@@ -19,6 +19,8 @@ struct TropApp: App {
         PlaybackReport.clear()
         PlaybackReport.record("app iniciada")
         configureNuke()
+        // El circulo del sistema al recargar tirando hacia abajo se deja transparente: lo sustituye el logo (`sonarRefreshable`).
+        UIRefreshControl.appearance().tintColor = .clear
         ensureDirectories()
         Log.wireSwiftyTube()
         PlayerController.registerRemoteControlSupport()

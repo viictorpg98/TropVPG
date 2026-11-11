@@ -32,7 +32,7 @@ struct DownloadsView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Downloads")
         .navigationBarTitleDisplayMode(.inline)
-        .refreshable { await downloadManager.reload() }
+        .sonarRefreshable { await downloadManager.reload() }
         .task {
             if !downloadManager.isLoaded {
                 await downloadManager.reload()

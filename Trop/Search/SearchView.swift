@@ -159,7 +159,7 @@ struct SearchView: View {
     private var loadingView: some View {
         VStack {
             Spacer()
-            ShimmerLoadingView()
+            SonarLoader(size: 64)
             Spacer()
         }
     }
