@@ -93,6 +93,22 @@ struct ContentView: View {
                 // Solo la pestaña activa lleva el mini (antes habia uno vivo por pestaña, y los ocultos tambien se
                 // redibujaban durante una mezcla).
                 if nowPlaying.isBarPresented, selectedTab == tab {
+                    // Tras una mezcla (solo si no te estabas moviendo por la app) la pregunta sale justo encima del mini, centrada.
+                    // Es un elemento sin alto: no mueve nada, y el aviso se dibuja hacia arriba desde el borde del mini.
+                    Color.clear
+                        .frame(height: 0)
+                        .overlay(alignment: .bottom) {
+                            if MixFeedbackStore.shared.showInMini, MixFeedbackStore.shared.pending != nil {
+                                MixFeedbackPill()
+                                    .padding(.bottom, 8)
+                                    .transition(.scale(scale: 0.8, anchor: .bottom).combined(with: .opacity))
+                            }
+                        }
+                        .zIndex(1)
+                        .animation(
+                            .spring(response: 0.35, dampingFraction: 0.85),
+                            value: MixFeedbackStore.shared.showInMini && MixFeedbackStore.shared.pending != nil
+                        )
                     MiniPlayerBarView(onExpand: expandPlayer)
                 }
             }

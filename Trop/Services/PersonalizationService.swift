@@ -353,6 +353,16 @@ actor PersonalizationService {
                 }
                 let nav = (chips.first?["chipCloudChipRenderer"] as? [String: Any])?["navigationEndpoint"] as? [String: Any]
                 out.append("\(path)/chipCloudRenderer \(titles) nav=\(nav?.keys.sorted() ?? [])")
+                // Lo que manda cada boton (sin el primero, "All"): para saber con que parametros se pide la cola de cada uno.
+                for chip in chips.dropFirst().prefix(3) {
+                    let renderer = chip["chipCloudChipRenderer"] as? [String: Any]
+                    let title = InnerTubeJSON.runsText(renderer?["text"] as? [String: Any]) ?? "?"
+                    if let endpoint = renderer?["navigationEndpoint"] as? [String: Any],
+                       let data = try? JSONSerialization.data(withJSONObject: endpoint),
+                       let text = String(data: data, encoding: .utf8) {
+                        out.append("boton \(title): " + String(text.prefix(800)))
+                    }
+                }
             }
             for (key, value) in dict { findChips(in: value, path: path + "/" + key, into: &out) }
         } else if let array = node as? [Any] {

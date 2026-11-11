@@ -38,10 +38,6 @@ struct MiniPlayerBarView: View {
         false
     }
 
-    private var feedbackInMini: Bool {
-        MixFeedbackStore.shared.showInMini && MixFeedbackStore.shared.pending != nil
-    }
-
     private var barHeight: CGFloat {
         58
     }
@@ -85,16 +81,6 @@ struct MiniPlayerBarView: View {
         .padding(.horizontal, 8)
         .padding(.top, 4)
         .padding(.bottom, 4)
-        // Tras una mezcla (solo si no te estabas moviendo por la app) la pregunta sale justo encima del mini, centrada, como
-        // si saliera de el; los botones de pausa y siguiente no se tocan.
-        .overlay(alignment: .top) {
-            if feedbackInMini {
-                MixFeedbackPill()
-                    .alignmentGuide(.top) { $0[.bottom] + 2 }
-                    .transition(.scale(scale: 0.8, anchor: .bottom).combined(with: .opacity))
-            }
-        }
-        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: feedbackInMini)
         .onChange(of: np.videoId) { _, _ in
             dragOffset = 0
             preloadLyrics()

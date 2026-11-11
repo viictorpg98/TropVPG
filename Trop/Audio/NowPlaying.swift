@@ -43,6 +43,8 @@ final class NowPlaying {
     var queueIndex = 0
     /// Cuando se cambio de cancion por si sola (AutoMix o paso automatico a la siguiente), para no cerrar la cola ni la letra.
     var lastAutomaticChange = Date.distantPast
+    /// Cuando se toco por ultima vez una cancion de la cola (el reproductor no cierra la cola por ese cambio).
+    var lastQueueTap = Date.distantPast
 
     var isShuffleOn = false
     var isRepeatOn = false
@@ -233,6 +235,14 @@ final class NowPlaying {
     func moveQueueSongs(from source: IndexSet, to destination: Int) {
         guard !source.isEmpty, queueSongs.indices.contains(source.first ?? -1) else { return }
         queueSongs.move(fromOffsets: source, toOffset: destination)
+        repairQueueIndex()
+        persistQueueState()
+    }
+
+    /// La cola con otro orden (arrastrando el asa de una fila). Las canciones son las mismas.
+    func reorderQueue(_ songs: [SongItem]) {
+        guard songs.count == queueSongs.count else { return }
+        queueSongs = songs
         repairQueueIndex()
         persistQueueState()
     }

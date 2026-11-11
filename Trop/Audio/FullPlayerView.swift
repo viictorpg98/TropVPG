@@ -144,7 +144,8 @@ struct FullPlayerView: View {
                 np.isVideoMode = false
                 // Si el cambio lo hizo AutoMix o el paso automatico a la siguiente, te quedas donde estabas (cola, letra...);
                 // solo si lo has pedido tu se vuelve a la carátula.
-                if Date().timeIntervalSince(np.lastAutomaticChange) > 8 {
+                if Date().timeIntervalSince(np.lastAutomaticChange) > 8,
+                   Date().timeIntervalSince(np.lastQueueTap) > 3 {
                     showLyrics = false
                     showQueue = false
                 }
