@@ -70,6 +70,11 @@ final class DiagLog: @unchecked Sendable {
     private var memoryWarnings = 0
     private var appActive = true
     private var started = false
+    // Lineas iguales seguidas: se apunta la primera y luego solo cuantas veces mas se repitio.
+    private var lastKey = ""
+    private var lastCategory = ""
+    private var lastImportant = false
+    private var repeatCount = 0
 
     private let maxEntries = 5000
     private let formatter: DateFormatter = {
@@ -93,8 +98,22 @@ final class DiagLog: @unchecked Sendable {
     }
 
     private func add(_ category: String, _ text: String, important: Bool) {
-        let entry = Entry(ms: LaunchClock.ms(), category: category, text: text, important: important)
+        let now = LaunchClock.ms()
+        let entry = Entry(ms: now, category: category, text: text, important: important)
+        let key = category + "|" + text
         lock.lock()
+        if key == lastKey {
+            repeatCount += 1
+            lock.unlock()
+            return
+        }
+        if repeatCount > 0 {
+            entries.append(Entry(ms: now, category: lastCategory, text: "(la misma linea, \(repeatCount) veces mas)", important: lastImportant))
+        }
+        lastKey = key
+        lastCategory = category
+        lastImportant = important
+        repeatCount = 0
         entries.append(entry)
         if entries.count > maxEntries { entries.removeFirst(entries.count - maxEntries) }
         lock.unlock()
@@ -343,8 +362,15 @@ final class DiagLog: @unchecked Sendable {
         worstHitches.append((ms, screen, now))
         worstHitches.sort { $0.ms > $1.ms }
         if worstHitches.count > 8 { worstHitches.removeLast(worstHitches.count - 8) }
+        // Lo que paso justo antes (hasta 6 eventos de los ultimos 3 s): ayuda a ver que provoco el tiron.
+        var context = ""
+        if ms >= 250 {
+            let recent = entries.suffix(12).filter { $0.ms >= now - 3000 && $0.category != "bloqueo" && $0.category != "recursos" }
+            context = recent.suffix(6).map { "\($0.category) \($0.text.prefix(70))" }.joined(separator: " | ")
+        }
         lock.unlock()
-        add("bloqueo", "pantalla parada \(ms) ms en \(screen)", important: ms >= 250)
+        let suffix = context.isEmpty ? "" : " | justo antes: \(context)"
+        add("bloqueo", "pantalla parada \(ms) ms en \(screen)\(suffix)", important: ms >= 250)
     }
 
     // MARK: - Recursos (cada 10 s)

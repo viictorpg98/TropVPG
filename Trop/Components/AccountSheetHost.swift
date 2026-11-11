@@ -22,6 +22,7 @@ final class AccountSheetState {
     private let cookieStore = CookieStore()
     private var hasAttemptedTokenRefresh = false
     private var isFetchingAccountInfo = false
+    private var lastAccountInfoFetch = Date.distantPast
 
     var isLoggedIn: Bool { loginModel.isLoggedIn }
 
@@ -50,6 +51,8 @@ final class AccountSheetState {
 
     func fetchAccountInfo() async {
         guard loginModel.isLoggedIn, !isFetchingAccountInfo else { return }
+        // Inicio, Explorar, Biblioteca y Ajustes lo piden al abrirse: si ya se tienen el nombre y la foto, no se repite.
+        if accountName != "Guest", accountImageUrl != nil, Date().timeIntervalSince(lastAccountInfoFetch) < 600 { return }
         isFetchingAccountInfo = true
         defer { isFetchingAccountInfo = false }
         for attempt in 1...3 {
@@ -77,6 +80,7 @@ final class AccountSheetState {
                 return
             }
             accountName = info.name
+            lastAccountInfoFetch = Date()
             if let url = info.thumbnailUrl {
                 accountImageUrl = url
                 return

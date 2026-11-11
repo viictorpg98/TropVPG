@@ -14,6 +14,13 @@ actor PersonalizationService {
 
     private var enrichmentTasks: [Task<Void, Never>] = []
 
+    // Lo que se vuelve a pedir a YouTube sin necesidad: una radio (1,6 MB cada una) y las secciones de Inicio que dependen de
+    // ellas. Se guardan un rato (10 min las radios, 30 las secciones).
+    private typealias RadioResult = (songs: [SongItem], currentIndex: Int, chips: [QueueChip])
+    private var radioCache: [String: (date: Date, value: RadioResult)] = [:]
+    private var dailyDiscoverCache: (date: Date, section: HomeSection)?
+    private var similarCache: (date: Date, sections: [HomeSection])?
+
     // MARK: - Phase 1: Local sections (fast, load immediately)
 
     func buildQuickPicks(limit: Int = 12) async -> HomeSection {
@@ -136,6 +143,7 @@ actor PersonalizationService {
     }
 
     func buildDailyDiscover() async -> HomeSection {
+        if let cached = dailyDiscoverCache, Date().timeIntervalSince(cached.date) < 1800 { return cached.section }
         guard await isLoggedIn() else { return .dailyDiscover(items: []) }
         guard let likedSongs = try? await db.fetchLikedSongs(), !likedSongs.isEmpty else {
             return .dailyDiscover(items: [])
@@ -159,10 +167,13 @@ actor PersonalizationService {
             }
         }
 
-        return .dailyDiscover(items: discovered)
+        let section = HomeSection.dailyDiscover(items: discovered)
+        if !discovered.isEmpty { dailyDiscoverCache = (Date(), section) }
+        return section
     }
 
     func buildSimilarRecommendations() async -> [HomeSection] {
+        if let cached = similarCache, Date().timeIntervalSince(cached.date) < 1800 { return cached.sections }
         guard await isLoggedIn() else { return [] }
         guard let topArtists = try? await db.fetchArtists(limit: 3), !topArtists.isEmpty else {
             return []
@@ -179,6 +190,7 @@ actor PersonalizationService {
             )
             sections.append(.similarRecommendation(items: items, title: title))
         }
+        if !sections.isEmpty { similarCache = (Date(), sections) }
         return sections
     }
 
@@ -284,6 +296,8 @@ actor PersonalizationService {
         playlistId: String? = nil
     ) async throws -> (songs: [SongItem], currentIndex: Int, chips: [QueueChip]) {
         let playlistId = playlistId ?? "RDAMVM\(videoId)"
+        let cacheKey = "\(videoId)|\(playlistId)|\(options.style.rawValue)|\(options.limit)|\(options.allowExplicit)|\(HiddenArtists.shared.all.count)"
+        if let cached = radioCache[cacheKey], Date().timeIntervalSince(cached.date) < 600 { return cached.value }
         let json = try await innerTube.next(videoId: videoId, playlistId: playlistId)
         let panel = try extractPlaylistPanel(from: json)
         var songs: [(SongItem, Bool)] = []
@@ -320,7 +334,13 @@ actor PersonalizationService {
         resultSongs = Array(resultSongs.prefix(max(1, options.limit)))
         guard !resultSongs.isEmpty else { throw NSError(domain: "fetchRadio", code: 1, userInfo: [:]) }
         let clampedIndex = min(currentIndex, resultSongs.count - 1)
-        return (resultSongs, clampedIndex, panel.chips)
+        let result: RadioResult = (resultSongs, clampedIndex, panel.chips)
+        radioCache[cacheKey] = (Date(), result)
+        if radioCache.count > 24 {
+            let oldest = radioCache.sorted { $0.value.date < $1.value.date }.prefix(radioCache.count - 24).map { $0.key }
+            for key in oldest { radioCache.removeValue(forKey: key) }
+        }
+        return result
     }
 
     private struct PlaylistPanel {

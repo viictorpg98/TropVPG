@@ -345,12 +345,11 @@ actor PlaybackManager {
     /// (resolve responses often omit it); unknown rows fall back to an
     /// authoritative lookup inside the shared availability check.
     private func publishVideoAvailability(result: PlaybackResult, videoId: String, rowType: String?) async {
+        // En Sonar no se ven los videos de las canciones (solo caratulas y caratulas en movimiento): ya no se consulta si la
+        // cancion tiene video (era una peticion mas por cancion) ni se prepara por adelantado (gastaba CPU, datos y bateria).
         let type = result.musicVideoType ?? rowType
-        let hasVideo = await VideoAvailability.shared.hasVideo(
-            videoId: videoId, rowType: rowType, result: result, using: InnerTubeClient.tropShared
-        )
         await MainActor.run {
-            NowPlaying.shared.updateVideoAvailability(musicVideoType: type, hasVideo: hasVideo)
+            NowPlaying.shared.updateVideoAvailability(musicVideoType: type, hasVideo: false)
         }
     }
 

@@ -524,6 +524,9 @@ extension PlayerController {
         mpv_destroy(mpv)
     }
 
+    nonisolated(unsafe) private static var lastMpvLine = ""
+    nonisolated(unsafe) private static var lastMpvLineAt = Date.distantPast
+
     nonisolated private func handleLogMessage(_ event: UnsafeMutablePointer<mpv_event>) {
         if let prop = event.pointee.data?.load(as: mpv_event_log_message.self),
            let textPtr = prop.text {
@@ -533,6 +536,10 @@ extension PlayerController {
             let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty {
                 if trimmed.range(of: "primitive restart", options: .caseInsensitive) != nil { return }
+                // La misma linea seguida (p. ej. un error que se repite 100 veces por segundo) solo se apunta la primera vez.
+                if trimmed == Self.lastMpvLine, Date().timeIntervalSince(Self.lastMpvLineAt) < 5 { return }
+                Self.lastMpvLine = trimmed
+                Self.lastMpvLineAt = Date()
                 Log.mpv.debug("[\(prefix)] [\(level)] \(trimmed)")
                 PlaybackReport.record("mpv [\(prefix)] \(trimmed.prefix(160))")
                 if let crop = detectedCrop(from: trimmed) {
@@ -870,7 +877,7 @@ extension PlayerController {
 
     func preloadVideoURL() {
         // La direccion del video solo se pide con el reproductor grande abierto (antes se pedia para cada cancion con video).
-        guard fullPlayerVisible, let videoId = NowPlaying.shared.videoId else { return }
+        guard NowPlaying.shared.hasVideo, fullPlayerVisible, let videoId = NowPlaying.shared.videoId else { return }
         guard !isVideoPrerendered(videoId: videoId) else { return }
         Task {
             if loadedVideoOnlyURL == nil {

@@ -102,7 +102,8 @@ final class AudioCounterpartStore {
 
     /// Pide la version de audio de los videos que quedan por sonar (en segundo plano).
     func prefetch(_ songs: [SongItem]) {
-        for song in songs.prefix(20) where needsLookup(song) { request(song.videoId) }
+        // Solo las proximas (antes, 20 a la vez: cada busqueda pesa ~0,5 MB).
+        for song in songs.prefix(5) where needsLookup(song) { request(song.videoId) }
     }
 
     // MARK: - Miniaturas
