@@ -9,6 +9,8 @@
 import Foundation
 import Observation
 import SwiftUI
+import UIKit
+import UIKit.UIGestureRecognizerSubclass
 
 struct MixRecord: Codable, Identifiable {
     var id = UUID()
@@ -26,6 +28,59 @@ struct MixRecord: Codable, Identifiable {
     var arm: String?
 }
 
+/// Cuando fue la ultima vez que se toco la pantalla (para no ofrecer valorar una mezcla a quien esta usando la app).
+/// Un reconocedor de gestos en la ventana que solo anota el toque y no estorba a nada.
+@MainActor
+final class UserActivity {
+    static let shared = UserActivity()
+    private var lastTouch = Date.distantPast
+    private var installed = false
+    private let spyDelegate = TouchSpyDelegate()
+
+    func touch() { lastTouch = Date() }
+
+    var secondsSinceTouch: TimeInterval { Date().timeIntervalSince(lastTouch) }
+
+    func install() {
+        guard !installed,
+              let window = UIApplication.shared.connectedScenes
+                  .compactMap({ $0 as? UIWindowScene })
+                  .flatMap({ $0.windows })
+                  .first(where: { $0.isKeyWindow }) else { return }
+        installed = true
+        let spy = TouchSpy { [weak self] in
+            Task { @MainActor in self?.touch() }
+        }
+        spy.cancelsTouchesInView = false
+        spy.delaysTouchesBegan = false
+        spy.delaysTouchesEnded = false
+        spy.delegate = spyDelegate
+        window.addGestureRecognizer(spy)
+    }
+}
+
+private final class TouchSpyDelegate: NSObject, UIGestureRecognizerDelegate {
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool { true }
+}
+
+private final class TouchSpy: UIGestureRecognizer {
+    private let onTouch: () -> Void
+
+    init(onTouch: @escaping () -> Void) {
+        self.onTouch = onTouch
+        super.init(target: nil, action: nil)
+    }
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        onTouch()
+        // Falla al momento: asi no retiene ni cancela los toques de nadie.
+        state = .failed
+    }
+}
+
 @MainActor
 @Observable
 final class MixFeedbackStore {
@@ -35,6 +90,9 @@ final class MixFeedbackStore {
     private(set) var pending: MixRecord?
     /// Se acaba de valorar: se enseña un "gracias" un momento.
     private(set) var thanks = false
+    /// El aviso tambien se ve dentro del mini reproductor: solo si al acabar la mezcla llevabas unos segundos sin tocar la
+    /// pantalla (si estas moviendote por la app, no se te ofrece).
+    private(set) var showInMini = false
 
     @ObservationIgnored private var records: [MixRecord] = []
     @ObservationIgnored private var hideTask: Task<Void, Never>?
@@ -63,7 +121,16 @@ final class MixFeedbackStore {
         persist()
         thanks = false
         pending = record
-        schedule(after: 10)
+        showInMini = UserActivity.shared.secondsSinceTouch >= 3
+        schedule(after: showInMini ? 8 : 10)
+    }
+
+    /// El usuario se ha puesto a moverse por la app (deslizar, cambiar de pestana...): el aviso se quita.
+    func dismissForActivity() {
+        guard pending != nil, !thanks else { return }
+        hideTask?.cancel()
+        pending = nil
+        showInMini = false
     }
 
     func rate(_ value: Int) {
@@ -92,6 +159,7 @@ final class MixFeedbackStore {
             guard !Task.isCancelled else { return }
             self?.pending = nil
             self?.thanks = false
+            self?.showInMini = false
         }
     }
 
@@ -137,5 +205,40 @@ struct MixFeedbackPill: View {
         .padding(.vertical, 5)
         .glassEffect(.regular, in: Capsule())
         .frame(maxWidth: .infinity, alignment: .center)
+    }
+}
+
+/// La version pequena del aviso, para el sitio de los botones del mini reproductor.
+struct MixFeedbackMiniPill: View {
+    private let store = MixFeedbackStore.shared
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if store.thanks {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 14, weight: .bold))
+                    .frame(width: 64, height: 34)
+            } else {
+                Button { store.rate(1) } label: {
+                    Image(systemName: "hand.thumbsup.fill")
+                        .font(.system(size: 16))
+                        .frame(width: 32, height: 34)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Good mix")
+                Button { store.rate(-1) } label: {
+                    Image(systemName: "hand.thumbsdown.fill")
+                        .font(.system(size: 16))
+                        .frame(width: 32, height: 34)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Bad mix")
+            }
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 6)
+        .glassEffect(.regular, in: Capsule())
     }
 }

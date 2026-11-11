@@ -388,6 +388,90 @@ enum SonarMix {
         return true
     }
 
+    // MARK: - Pedir por voz: artista, Me gusta, selecciones rapidas y categorias
+
+    private static func folded(_ text: String) -> String {
+        text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil).lowercased()
+    }
+
+    /// "Pon [artista]": sus canciones mas conocidas (las de la busqueda de YouTube Music) y, si salen pocas, la radio
+    /// de la primera. Devuelve el nombre del artista, o `nil` si no encuentra nada.
+    static func playArtist(named query: String) async -> String? {
+        let words = searchWords(query)
+        guard !words.isEmpty else { return nil }
+        await prepareSession()
+        trace("artista pedido: \(query)")
+        guard NetworkMonitor.shared.hasConnection,
+              let raw = try? await SearchService.shared.search(query: query) else { return nil }
+        let sections = SearchParser.parseSearchResults(from: raw)
+        var seen = Set<String>()
+        var byArtist: [SongItem] = []
+        var others: [SongItem] = []
+        for section in sections {
+            for item in section.items {
+                guard case .song(let song) = item, seen.insert(song.videoId).inserted else { continue }
+                let artists = searchWords(song.artists.map(\.name).joined(separator: " ")).joined(separator: " ")
+                if words.allSatisfy({ artists.contains($0) }) {
+                    byArtist.append(song)
+                } else {
+                    others.append(song)
+                }
+            }
+        }
+        guard let first = byArtist.first ?? others.first else { return nil }
+        let name = first.artists.first?.name ?? query
+        if byArtist.count >= 4 {
+            guard await play(Array(byArtist.prefix(25)), context: "artista") else { return nil }
+        } else {
+            PlaybackQueue.playSingleWithRadio(first, log: Log.nowPlaying)
+            _ = await waitForAudio(seconds: 8)
+        }
+        return name
+    }
+
+    /// "Pon mis Me gusta": las canciones que te gustan, guardadas en el dispositivo (vale sin red).
+    static func playLiked() async -> Bool {
+        await prepareSession()
+        return await playLikedSongs()
+    }
+
+    /// "Pon mis selecciones rapidas": la seccion de ese nombre del inicio de YouTube Music.
+    static func playQuickPicks() async -> Bool {
+        await prepareSession()
+        let sections = await withTimeout(seconds: 10) { await loadHomeSections(deep: false) }
+        guard let sections else { return false }
+        let quick = sections.first {
+            let title = folded($0.title)
+            return title.contains("quick pick") || title.contains("selecciones rapidas")
+        }
+        let songs = homeSongs(in: quick.map { [$0] } ?? sections)
+        guard songs.count >= 3 else { return false }
+        return await play(Array(songs.prefix(40)), context: "selecciones rapidas")
+    }
+
+    /// "Pon Entrenamiento / Dormir...": la portada del boton de ese nombre del inicio de YouTube Music.
+    /// Devuelve el nombre del boton, o `nil` si no lo hay o no trae canciones.
+    static func playCategory(keywords: [String]) async -> String? {
+        await prepareSession()
+        guard NetworkMonitor.shared.hasConnection,
+              let json = try? await InnerTubeClient.tropShared.browse(browseId: "FEmusic_home"),
+              let page = HomePageParser.parseHomePage(from: json) else { return nil }
+        let chip = page.chips.first { chip in
+            let title = folded(chip.title)
+            return keywords.contains { title.contains($0) }
+        }
+        guard let chip, let params = chip.params,
+              let chipJson = try? await InnerTubeClient.tropShared.browse(
+                  browseId: "FEmusic_home", params: params, locale: .deviceLanguage
+              ),
+              let chipPage = HomePageParser.parseHomePage(from: chipJson, chipMode: true) else { return nil }
+        let songs = homeSongs(in: chipPage.sections)
+        trace("categoria \(chip.title): \(songs.count) canciones")
+        guard songs.count >= 3 else { return nil }
+        guard await play(Array(songs.prefix(40)), context: "categoria \(chip.title)") else { return nil }
+        return chip.title
+    }
+
     // MARK: - Sin red
 
     private static func playLikedSongs() async -> Bool {

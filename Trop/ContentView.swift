@@ -48,8 +48,12 @@ struct ContentView: View {
                 }
             }
             .environment(scrollState)
-        .onAppear { AppRouter.shared.selectedTabIndex = selectedTab }
+        .onAppear {
+            AppRouter.shared.selectedTabIndex = selectedTab
+            UserActivity.shared.install()
+        }
         .onChange(of: selectedTab) { oldValue, newValue in
+            MixFeedbackStore.shared.dismissForActivity()
             AppRouter.shared.selectedTabIndex = newValue
             if newValue == 3 { AppRouter.shared.previousTabIndex = oldValue }
         }
@@ -73,6 +77,11 @@ struct ContentView: View {
             }
         }
         .simultaneousGesture(backSwipeGesture)
+        // Deslizar por la app quita el aviso de valorar la mezcla del mini.
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 12)
+                .onChanged { _ in MixFeedbackStore.shared.dismissForActivity() }
+        )
     }
 
     /// Barra del mini reproductor: rectangular, a ancho completo y justo encima de la barra de pestanas.

@@ -38,6 +38,10 @@ struct MiniPlayerBarView: View {
         false
     }
 
+    private var feedbackInMini: Bool {
+        MixFeedbackStore.shared.showInMini && MixFeedbackStore.shared.pending != nil
+    }
+
     private var barHeight: CGFloat {
         58
     }
@@ -68,8 +72,18 @@ struct MiniPlayerBarView: View {
         HStack(spacing: 0) {
             pagingArea
                 .mask(textFadeMask)
-            transportControls
-                .padding(.trailing, 6)
+            // Tras una mezcla (solo si no te estabas moviendo por la app) los pulgares ocupan un momento el sitio de los botones.
+            Group {
+                if feedbackInMini {
+                    MixFeedbackMiniPill()
+                        .transition(.opacity)
+                } else {
+                    transportControls
+                        .transition(.opacity)
+                }
+            }
+            .animation(.easeInOut(duration: 0.25), value: feedbackInMini)
+            .padding(.trailing, 6)
         }
         .frame(height: barHeight)
         .frame(maxWidth: .infinity)

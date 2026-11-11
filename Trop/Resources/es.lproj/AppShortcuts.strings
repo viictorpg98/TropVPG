@@ -6,3 +6,10 @@
 "Report of ${applicationName}" = "Informe de ${applicationName}";
 "Song on ${applicationName}" = "Canción en ${applicationName}";
 "Find a song on ${applicationName}" = "Busca una canción en ${applicationName}";
+"Artist on ${applicationName}" = "Artista en ${applicationName}";
+"Play an artist on ${applicationName}" = "Pon un artista en ${applicationName}";
+"My likes on ${applicationName}" = "Mis Me gusta en ${applicationName}";
+"Quick picks on ${applicationName}" = "Selecciones rápidas en ${applicationName}";
+"Play ${category} on ${applicationName}" = "Pon ${category} en ${applicationName}";
+"${category} on ${applicationName}" = "${category} en ${applicationName}";
+"Sleep timer on ${applicationName}" = "Temporizador en ${applicationName}";
