@@ -67,7 +67,10 @@ private struct SonarRefresh: ViewModifier {
         content
             .refreshable {
                 refreshing = true
-                await action()
+                // El trabajo va en una tarea aparte: SwiftUI cancela la tarea de la recarga si la vista se redibuja mientras
+                // tanto, y eso cancelaba la peticion de red (salia "sin conexion" o un error). Una tarea nueva no hereda la
+                // cancelacion.
+                await Task { await action() }.value
                 refreshing = false
             }
             .onScrollGeometryChange(for: CGFloat.self) { geometry in
