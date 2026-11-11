@@ -13,20 +13,24 @@ import SwiftUI
 /// carrying that modifier (it must live inside the NavigationStack).
 struct SheetChrome<Content: View>: View {
     let content: Content
+    /// Color de fondo (el de la carátula, oscurecido, en el menu de una cancion); sin el, el fondo normal.
+    var tint: Color?
 
-    init(@ViewBuilder content: () -> Content) {
+    init(tint: Color? = nil, @ViewBuilder content: () -> Content) {
+        self.tint = tint
         self.content = content()
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 16) {
+                VStack(spacing: 12) {
                     content
                 }
                 .padding(16)
             }
-            .background(Color(.systemGroupedBackground))
+            .background(tint ?? Color(.systemBackground))
+            .animation(.easeInOut(duration: 0.4), value: tint)
             .navigationBarTitleDisplayMode(.inline)
         }
         .presentationDetents([.medium, .large])
@@ -34,7 +38,7 @@ struct SheetChrome<Content: View>: View {
     }
 }
 
-/// Rounded grouped-background card stacking menu rows with no spacing.
+/// Grupo de filas del menu: planas, sin tarjeta, separadas por lineas finas (el estilo de Sonar).
 struct MenuCard<Content: View>: View {
     let content: Content
 
@@ -46,10 +50,6 @@ struct MenuCard<Content: View>: View {
         VStack(spacing: 0) {
             content
         }
-        .background(
-            RoundedRectangle(cornerRadius: DesignTokens.sheetRadius, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
     }
 }
 

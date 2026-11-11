@@ -132,7 +132,8 @@ struct SongRowView: View {
         .padding(.horizontal, detailed ? 0 : DesignTokens.screenHPadding)
         .padding(.vertical, DesignTokens.rowVPadding)
         .opacity(isUnavailableOffline ? 0.4 : 1)
-        .pressable(onTap: handleTap, onLongPress: { showSongMenu = true })
+        .pressable(onTap: handleTap, onLongPress: nil, holdsForContextMenu: true)
+        .songContextMenu(song) { showSongMenu = true }
         .task { await durations.resolve(videoId: song.videoId, knownDuration: song.duration) }
         .task(id: song.videoId) {
             guard detailed, song.viewCount == nil else { return }

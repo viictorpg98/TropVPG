@@ -19,6 +19,7 @@ struct SongMenuSheet: View {
     enum Destination: Hashable {
         case details
         case similar
+        case more
     }
 
     @State private var pin = PinState()
@@ -27,65 +28,34 @@ struct SongMenuSheet: View {
     @State private var showRadioOptions = false
     @State private var showShareDialog = false
     @State private var isResolvingArtist = false
+    @State private var showRemoveDownload = false
+    /// El color de la carátula, oscurecido, de fondo de la hoja.
+    @State private var tint: Color?
 
     private var isLiked: Bool {
         likeStore.isLiked(videoId: song.videoId)
     }
+    private var thumbnailURL: String? {
+        AudioCounterpartStore.shared.thumbnailURL(for: song)
+    }
+
     var body: some View {
-        SheetChrome {
+        SheetChrome(tint: tint) {
             Group {
-                headerCard
-                actionGrid
+                headerRow
+                quickActions
                 MenuCard {
-                    MenuRow(
-                        icon: isLiked ? "heart.slash" : "heart",
-                        title: isLiked ? "Unlike" : "Like"
-                    ) {
-                        Task { await likeStore.toggle(song: song) }
-                    }
+                    MenuRow(icon: "text.insert", title: "Play Next") { playNext() }
                     Divider()
-                    downloadRow
-                }
-                MenuCard {
-                    MenuRow(
-                        icon: "text.insert",
-                        title: "Play Next",
-                        subtitle: "Add to the queue, next in line"
-                    ) { playNext() }
+                    MenuRow(icon: "list.bullet", title: "Add to Queue") { addToQueue() }
                     Divider()
-                    MenuRow(
-                        icon: "list.bullet",
-                        title: "Add to Queue",
-                        subtitle: "Add to the end of the queue"
-                    ) { addToQueue() }
-                    Divider()
-                    MenuRow(
-                        icon: pin.isPinned ? "pin.fill" : "pin",
-                        title: pin.isPinned ? "Unpin from Quick Picks" : "Pin to Quick Picks"
-                    ) { Task { await pin.toggle(song: song) } }
-                    MenuRow(
-                        icon: "music.mic",
-                        title: "View Artist",
-                        subtitle: song.artistNamesDisplay
-                    ) { handleViewArtist() }
+                    MenuRow(icon: "music.mic", title: "View Artist", subtitle: song.artistNamesDisplay) { handleViewArtist() }
                     if let albumId = song.firstAlbumBrowseId {
                         Divider()
-                        MenuRow(
-                            icon: "record.circle",
-                            title: "View Album",
-                            subtitle: song.album
-                        ) { navigate(.album(browseId: albumId)) }
+                        MenuRow(icon: "record.circle", title: "View Album", subtitle: song.album) {
+                            navigate(.album(browseId: albumId))
+                        }
                     }
-                }
-                MenuCard {
-                    NavigationLink(value: Destination.details) {
-                        MenuRowLabel(
-                            icon: "info.circle",
-                            title: "Details",
-                            subtitle: "Metadata & stream information"
-                        )
-                    }
-                    .buttonStyle(.plain)
                     Divider()
                     NavigationLink(value: Destination.similar) {
                         MenuRowLabel(
@@ -96,11 +66,10 @@ struct SongMenuSheet: View {
                     }
                     .buttonStyle(.plain)
                     Divider()
-                    MenuRow(
-                        icon: "slider.horizontal.3",
-                        title: "Customize Radio",
-                        subtitle: "Style, size & explicit filter"
-                    ) { showRadioOptions = true }
+                    NavigationLink(value: Destination.more) {
+                        MenuRowLabel(icon: "ellipsis.circle", title: "More Options")
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .navigationDestination(for: Destination.self) { dest in
@@ -115,15 +84,24 @@ struct SongMenuSheet: View {
                             playSimilarAndExpand(similar, in: songs)
                         }
                     )
+                case .more:
+                    moreOptions
                 }
             }
         }
+        .preferredColorScheme(.dark)
         .confirmationDialog("View Artist", isPresented: $showArtistPicker, titleVisibility: .visible) {
             ForEach(song.artists.filter { !$0.name.isEmpty }, id: \.self) { artist in
                 Button(artist.name) {
                     openArtist(artist)
                 }
             }
+        }
+        .confirmationDialog("Remove Download", isPresented: $showRemoveDownload, titleVisibility: .visible) {
+            Button("Remove Download", role: .destructive) {
+                Task { await downloadManager.delete(videoId: song.videoId) }
+            }
+            Button("Cancel", role: .cancel) {}
         }
         .sheet(isPresented: $showPlaylistPicker) {
             AddSongToPlaylistSheet(song: song)
@@ -144,94 +122,121 @@ struct SongMenuSheet: View {
             Text(song.title)
         }
         .task { await pin.load(videoId: song.videoId) }
+        .task(id: song.videoId) { tint = await SongTint.color(forThumbnail: thumbnailURL) }
     }
 
-    // MARK: - Header
+    // MARK: - Mas opciones
 
-    private var headerCard: some View {
-        HStack(spacing: 12) {
-            AsyncImageView(url: AudioCounterpartStore.shared.thumbnailURL(for: song))
-                .frame(width: 48, height: 48)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+    private var moreOptions: some View {
+        ScrollView {
+            VStack(spacing: 12) {
+                MenuCard {
+                    MenuRow(icon: "dot.radiowaves.left.and.right", title: "Start Radio") { startRadio() }
+                    Divider()
+                    MenuRow(
+                        icon: pin.isPinned ? "pin.fill" : "pin",
+                        title: pin.isPinned ? "Unpin from Quick Picks" : "Pin to Quick Picks"
+                    ) { Task { await pin.toggle(song: song) } }
+                    Divider()
+                    NavigationLink(value: Destination.details) {
+                        MenuRowLabel(
+                            icon: "info.circle",
+                            title: "Details",
+                            subtitle: "Metadata & stream information"
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    Divider()
+                    MenuRow(
+                        icon: "slider.horizontal.3",
+                        title: "Customize Radio",
+                        subtitle: "Style, size & explicit filter"
+                    ) { showRadioOptions = true }
+                }
+            }
+            .padding(16)
+        }
+        .background(tint ?? Color(.systemBackground))
+        .navigationTitle("More Options")
+        .navigationBarTitleDisplayMode(.inline)
+    }
 
-            VStack(alignment: .leading, spacing: 2) {
+    // MARK: - Cabecera y acciones rapidas
+
+    private var headerRow: some View {
+        HStack(spacing: 14) {
+            AsyncImageView(url: thumbnailURL)
+                .frame(width: 60, height: 60)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 3) {
                 MarqueeText(
                     text: song.title,
                     font: .headline,
                     frameHeight: 24,
                     textColor: .primary
                 )
-                Text(song.artistNamesDisplay)
+                Text(headerSubtitle)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
 
-            Spacer()
+            Spacer(minLength: 0)
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
+        .padding(.bottom, 4)
     }
 
-    // MARK: - Action Grid
-
-    private var actionGrid: some View {
-        HStack(spacing: 0) {
-            actionButton(icon: "dot.radiowaves.left.and.right", label: "Start Radio") {
-                startRadio()
-            }
-            separator
-            actionButton(icon: "music.note.list", label: "Playlist") {
-                showPlaylistPicker = true
-            }
-            separator
-            actionButton(icon: "square.and.arrow.up", label: "Share") {
-                showShareDialog = true
-            }
-        }
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    private var headerSubtitle: String {
+        guard song.duration > 0 else { return song.artistNamesDisplay }
+        let time = DurationFormat.playbackTime(TimeInterval(song.duration))
+        return song.artistNamesDisplay.isEmpty ? time : "\(song.artistNamesDisplay) · \(time)"
     }
 
-    private var separator: some View {
-        Color(.separator)
-            .frame(width: 0.5, height: 28)
-    }
-
-    private var downloadRow: some View {
+    private var quickActions: some View {
         let state = downloadManager.state(for: song.videoId)
-        return Group {
+        return HStack(spacing: 6) {
+            quickAction(
+                icon: isLiked ? "heart.fill" : "heart",
+                label: isLiked ? "Unlike" : "Like",
+                isOn: isLiked
+            ) {
+                Task { await likeStore.toggle(song: song) }
+            }
+
             switch state {
             case .completed:
-                MenuRow(icon: "checkmark.circle.fill", title: "Remove Download", destructive: true) {
-                    Task { await downloadManager.delete(videoId: song.videoId) }
+                quickAction(icon: "checkmark.circle.fill", label: "Downloaded", isOn: true) {
+                    showRemoveDownload = true
                 }
             case .downloading:
-                MenuRow(icon: "arrow.down.circle", title: "Downloading…") {}
-                    .disabled(true)
+                quickAction(icon: "arrow.down.circle", label: "Downloading…") {}
             case .notStarted, .failed:
-                MenuRow(icon: "arrow.down.circle", title: "Download") {
+                quickAction(icon: "arrow.down.circle", label: "Download") {
                     Task { await downloadManager.download(song: song) }
                 }
             }
+
+            quickAction(icon: "music.note.list", label: "Playlist") { showPlaylistPicker = true }
+            quickAction(icon: "square.and.arrow.up", label: "Share") { showShareDialog = true }
         }
+        .padding(.bottom, 6)
     }
 
-    private func actionButton(icon: String, label: String, action: @escaping () -> Void) -> some View {
+    private func quickAction(icon: String, label: String, isOn: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 6) {
                 Image(systemName: icon)
                     .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(settings.accentColor)
+                    .foregroundStyle(isOn ? settings.accentOnColor : Color.white)
+                    .frame(width: 48, height: 48)
+                    .background(Circle().fill(isOn ? settings.accentColor : Color.white.opacity(0.12)))
                 Text(LocalizedStringKey(label))
-                    .font(.caption)
-                    .foregroundStyle(.primary)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.75))
+                    .lineLimit(1)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -247,18 +252,12 @@ struct SongMenuSheet: View {
     }
 
     private func playNext() {
-        let np = NowPlaying.shared
-        let insertIndex = min(np.queueIndex + 1, np.queueSongs.count)
-        np.queueSongs.insert(song, at: insertIndex)
-        np.repairQueueIndex()
-        np.persistQueueState()
+        SongActions.playNext(song)
         dismiss()
     }
 
     private func addToQueue() {
-        let np = NowPlaying.shared
-        np.queueSongs.append(song)
-        np.persistQueueState()
+        SongActions.addToQueue(song)
         dismiss()
     }
 
