@@ -323,7 +323,41 @@ actor PersonalizationService {
               let panelContents = playlistPanel["contents"] as? [[String: Any]] else {
             throw NSError(domain: "fetchRadio", code: 2, userInfo: [:])
         }
+        Self.reportQueueChips(in: json)
         return PlaylistPanel(contents: panelContents)
+    }
+
+    // MARK: - Botones de la cola (diagnostico)
+
+    nonisolated(unsafe) private static var chipReportCount = 0
+
+    /// Para el Informe: los botones de la cola que YouTube devuelve (Musica conocida, Populares, Musica por descubrir...) y de
+    /// que forma llegan, para poder ponerlos en la cola de la app. Solo las tres primeras veces de cada arranque.
+    private static func reportQueueChips(in json: [String: Any]) {
+        guard chipReportCount < 3 else { return }
+        chipReportCount += 1
+        var found: [String] = []
+        findChips(in: json, path: "", into: &found)
+        PlaybackReport.record(found.isEmpty
+            ? "cola: YouTube no devuelve botones (chips) en esta peticion"
+            : "cola: botones -> " + found.joined(separator: " | "))
+    }
+
+    private static func findChips(in node: Any, path: String, into out: inout [String]) {
+        if let dict = node as? [String: Any] {
+            if let cloud = dict["chipCloudRenderer"] as? [String: Any] {
+                let chips = (cloud["chips"] as? [[String: Any]]) ?? []
+                let titles = chips.map { chip -> String in
+                    let renderer = chip["chipCloudChipRenderer"] as? [String: Any]
+                    return InnerTubeJSON.runsText(renderer?["text"] as? [String: Any]) ?? "?"
+                }
+                let nav = (chips.first?["chipCloudChipRenderer"] as? [String: Any])?["navigationEndpoint"] as? [String: Any]
+                out.append("\(path)/chipCloudRenderer \(titles) nav=\(nav?.keys.sorted() ?? [])")
+            }
+            for (key, value) in dict { findChips(in: value, path: path + "/" + key, into: &out) }
+        } else if let array = node as? [Any] {
+            for (index, value) in array.enumerated() { findChips(in: value, path: path + "[\(index)]", into: &out) }
+        }
     }
 
     /// Un elemento de la lista de reproduccion. Si trae version de audio y de video (elemento "envoltorio"), se elige la de

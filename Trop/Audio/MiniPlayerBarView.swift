@@ -72,18 +72,8 @@ struct MiniPlayerBarView: View {
         HStack(spacing: 0) {
             pagingArea
                 .mask(textFadeMask)
-            // Tras una mezcla (solo si no te estabas moviendo por la app) los pulgares ocupan un momento el sitio de los botones.
-            Group {
-                if feedbackInMini {
-                    MixFeedbackMiniPill()
-                        .transition(.opacity)
-                } else {
-                    transportControls
-                        .transition(.opacity)
-                }
-            }
-            .animation(.easeInOut(duration: 0.25), value: feedbackInMini)
-            .padding(.trailing, 6)
+            transportControls
+                .padding(.trailing, 6)
         }
         .frame(height: barHeight)
         .frame(maxWidth: .infinity)
@@ -95,6 +85,16 @@ struct MiniPlayerBarView: View {
         .padding(.horizontal, 8)
         .padding(.top, 4)
         .padding(.bottom, 4)
+        // Tras una mezcla (solo si no te estabas moviendo por la app) la pregunta sale justo encima del mini, centrada, como
+        // si saliera de el; los botones de pausa y siguiente no se tocan.
+        .overlay(alignment: .top) {
+            if feedbackInMini {
+                MixFeedbackPill()
+                    .alignmentGuide(.top) { $0[.bottom] + 2 }
+                    .transition(.scale(scale: 0.8, anchor: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: feedbackInMini)
         .onChange(of: np.videoId) { _, _ in
             dragOffset = 0
             preloadLyrics()
