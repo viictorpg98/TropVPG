@@ -182,7 +182,11 @@ final class WaveformStore {
             guard let length, length > TrackAnalysisStore.longSeconds else { return nil }
             let started = Date()
             PlaybackReport.record(String(format: "onda de %@ por muestras (%.0f min): empieza", videoId, length / 60))
-            let wave = await sampledEnvelope(url, isLocal: isLocal, duration: length, videoId: videoId, isCurrent: isCurrent)
+            // Fuera del hilo principal: una funcion `nonisolated async` llamada desde aqui se ejecutaba en el principal y sus
+            // 80 lecturas de FFmpeg (que esperan) dejaban la app parada varios segundos.
+            let wave = await Task.detached(priority: .utility) {
+                await Self.sampledEnvelope(url, isLocal: isLocal, duration: length, videoId: videoId, isCurrent: isCurrent)
+            }.value
             PlaybackReport.record(String(
                 format: "onda de %@ por muestras: %@ (%.0f s)", videoId, wave == nil ? "cortada o sin datos" : "lista",
                 Date().timeIntervalSince(started)
