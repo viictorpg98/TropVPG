@@ -59,6 +59,9 @@ final class TrackAnalysisStore {
     private var longDurations: [String: TimeInterval] = [:]
     /// Largas cuya duracion exacta no se conoce (la lectura llego al tope de tiempo de audio).
     private var unknownLong: Set<String> = []
+    /// Canciones largas cuyo trozo para "mezclar ahora" no se pudo leer (o no tenia ritmo): un rato no se vuelve a intentar,
+    /// para que el reintento de una mezcla que llego tarde no repita la espera.
+    private var windowRetryAfter: [String: Date] = [:]
 
     private init() {
         removeEmptyResultsOnce()
@@ -354,19 +357,26 @@ final class TrackAnalysisStore {
     /// La estructura de la parte de una cancion larga que empieza en `position` (para "mezclar ahora" a mitad de una larga).
     /// No se guarda: solo vale para esa mezcla. `nil` si no se pudo.
     func structureAround(_ videoId: String, position: TimeInterval) async -> TrackStructure? {
+        if let until = windowRetryAfter[videoId], until > Date() {
+            PlaybackReport.record("automix: ventana de \(videoId) para mezclar ahora: se salta (fallo reciente), fundido simple")
+            return nil
+        }
         guard let source = await AutoMixSource.source(for: videoId) else { return nil }
         let url = source.url
         let local = source.isLocal
         let start = max(0, position - 5)
-        let length = Self.windowSeconds + 20
+        // 72 s = 6 pedazos de 12 s, que se leen todos a la vez (con mas pedazos habria una segunda ronda y se pasaria el tiempo).
+        let length: TimeInterval = 72
         // Es un trozo del medio: no se sabe donde acaba la musica de verdad (un tramo tranquilo no es el final), asi que
         // se da por buena toda la cancion hasta su final.
         let total = source.duration ?? knownDuration(videoId) ?? (start + length + 3600)
         let outcome = await Task.detached(priority: .userInitiated) { () -> (structure: TrackStructure?, read: Bool) in
-            guard let pcm = Self.decodePCM(url, isLocal: local, start: start, length: length, timeout: 25) else { return (nil, false) }
+            // A trozos cortos y a la vez, con 8 s en total: si la lectura es lenta, mejor un fundido simple enseguida.
+            guard let pcm = Self.decodePCMChunked(url, isLocal: local, start: start, length: length, timeout: 8) else { return (nil, false) }
             guard let raw = TrackStructureAnalyzer.analyze(pcm) else { return (nil, true) }
             return (raw.asMiddleWindow(offsetMs: Int64(start * 1000), totalMs: Int64(total * 1000)), true)
         }.value
+        if outcome.structure == nil { windowRetryAfter[videoId] = Date().addingTimeInterval(outcome.read ? 180 : 600) }
         let state = outcome.structure != nil ? "ok" : (outcome.read ? "sin compas" : "no se pudo leer")
         PlaybackReport.record("automix: ventana de \(videoId) desde \(Int(start)) s para mezclar ahora: \(state)")
         return outcome.structure
@@ -405,8 +415,9 @@ final class TrackAnalysisStore {
         // Entera no se analiza: su onda sale por muestras.
         guard role != .whole else { return Analysis(structure: nil, wave: nil, decoded: true, longSeconds: duration) }
         let start = role == .outgoing ? max(0, duration - windowSeconds - 5) : 0
-        let length: TimeInterval? = role == .outgoing ? nil : windowSeconds
-        guard let pcm = decodePCM(url, isLocal: isLocal, start: start, length: length, timeout: 60) else {
+        // La ventana se lee a trozos cortos y a la vez (una lectura larga seguida se queda a medias en algunos videos).
+        let length = role == .outgoing ? duration - start + 1 : windowSeconds
+        guard let pcm = decodePCMChunked(url, isLocal: isLocal, start: start, length: length, timeout: 60) else {
             return Analysis(structure: nil, wave: nil, decoded: false, longSeconds: duration, windowed: true)
         }
         guard let raw = TrackStructureAnalyzer.analyze(pcm) else {
@@ -463,6 +474,45 @@ final class TrackAnalysisStore {
         var samples = [Int16](repeating: 0, count: data.count / 2)
         samples.withUnsafeMutableBufferPointer { buffer in _ = data.copyBytes(to: buffer) }
         return samples
+    }
+
+    /// Como `decodePCM`, pero el trozo se lee en pedazos de `chunk` s, hasta 6 a la vez, y se pegan en orden. Cada pedazo sale de
+    /// una conexion nueva (como las muestras de la onda, que van rapido) en vez de una lectura larga seguida. Cada pedazo se
+    /// ajusta a su largo exacto para que los tiempos del analisis no se desplacen. Si falla alguno (o se acaba `timeout`), `nil`.
+    nonisolated static func decodePCMChunked(
+        _ url: URL, isLocal: Bool, start: TimeInterval, length: TimeInterval, chunk: TimeInterval = 12, timeout: TimeInterval
+    ) -> [Int16]? {
+        let rate = TrackStructureAnalyzer.sampleRate
+        let count = max(1, Int((length / chunk).rounded(.up)))
+        let box = ChunkBox(count: count)
+        let deadline = Date().addingTimeInterval(timeout)
+        DispatchQueue.concurrentPerform(iterations: count) { index in
+            let remaining = deadline.timeIntervalSinceNow
+            guard remaining > 1 else { return }
+            let begin = start + Double(index) * chunk
+            let span = min(chunk, start + length - begin)
+            guard span > 0.5,
+                  var pcm = decodePCM(url, isLocal: isLocal, start: begin, length: span, timeout: min(remaining, 15)) else { return }
+            let expected = Int((span * Double(rate)).rounded())
+            if pcm.count > expected {
+                pcm.removeLast(pcm.count - expected)
+            } else if pcm.count < expected {
+                // Un pedazo que no es el ultimo no puede quedarse corto (se descuadrarian los tiempos); el ultimo si, si la
+                // cancion acaba antes de lo previsto. Faltas minimas se rellenan con silencio.
+                let missing = expected - pcm.count
+                if index < count - 1 {
+                    guard missing <= rate / 10 else { return }
+                    pcm.append(contentsOf: [Int16](repeating: 0, count: missing))
+                }
+            }
+            box.set(index, pcm)
+        }
+        var joined: [Int16] = []
+        for index in 0..<count {
+            guard let part = box.get(index) else { return nil }
+            joined.append(contentsOf: part)
+        }
+        return joined.count > 2 ? joined : nil
     }
 
     /// Una cancion en streaming entera (la usa la onda de las normales).
@@ -545,5 +595,25 @@ extension TrackStructure {
             shifted.lastChorusEndMs = lastChorusEndMs.map { $0 + offsetMs }
         }
         return shifted
+    }
+}
+
+/// Los pedazos de una ventana, que se rellenan desde varios hilos a la vez.
+private final class ChunkBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var parts: [[Int16]?]
+
+    init(count: Int) { parts = Array(repeating: nil, count: count) }
+
+    func set(_ index: Int, _ value: [Int16]) {
+        lock.lock()
+        parts[index] = value
+        lock.unlock()
+    }
+
+    func get(_ index: Int) -> [Int16]? {
+        lock.lock()
+        defer { lock.unlock() }
+        return parts[index]
     }
 }

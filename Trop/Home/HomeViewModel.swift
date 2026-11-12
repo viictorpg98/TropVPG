@@ -40,6 +40,9 @@ final class HomeViewModel {
     /// Cuando se busco sin exito la seccion Quick Picks del servidor (hasta 3 paginas extra, ~2 MB cada una): no se repite
     /// en cada carga; se usan las locales.
     private var quickPicksSearchFailedAt: Date?
+    /// Las Quick Picks del servidor, ya preparadas, de la ultima vez que se encontraron (estan en la 2.a o 3.a pagina de la
+    /// portada: pedirlas en cada visita eran 2-3 peticiones de ~2 MB). Se guardan 30 minutos.
+    private var serverQuickPicks: (date: Date, section: HomeSection)?
     private var loadGeneration = 0
     private var previousHomePage: HomePage?
     private let cookieStore = CookieStore()
@@ -211,6 +214,10 @@ final class HomeViewModel {
 
     private func ensureQuickPicksAvailable(generation: Int) async {
         guard SettingsStore.shared.showQuickPicks else { return }
+        if let cached = serverQuickPicks, Date().timeIntervalSince(cached.date) < 1800 {
+            mergeSections()
+            return
+        }
         if let failed = quickPicksSearchFailedAt, Date().timeIntervalSince(failed) < 1800 { return }
         var attempts = 0
         while attempts < 3,
@@ -237,6 +244,13 @@ final class HomeViewModel {
         }
         if hasQuickPicksServerSection() {
             quickPicksSearchFailedAt = nil
+            for (index, section) in (homePage?.sections ?? []).enumerated() {
+                let mapped = mapServerSection(section, index: index)
+                if case .quickPicks = mapped, !mapped.items.isEmpty {
+                    serverQuickPicks = (Date(), mapped)
+                    break
+                }
+            }
         } else if attempts >= 3 {
             quickPicksSearchFailedAt = Date()
         }
@@ -477,7 +491,14 @@ final class HomeViewModel {
         }
         if holdMerges { return }
         let serverSections = homePage?.sections.enumerated().map { mapServerSection($1, index: $0) } ?? []
-        let all = cachedLocalSections + serverSections + cachedPhase2Sections
+        // Si la portada de ahora no trae las Quick Picks del servidor, se usan las guardadas (la seccion repetida se resuelve
+        // sola: de dos con el mismo id queda la que tiene mas canciones).
+        var savedQuickPicks: [HomeSection] = []
+        if let cached = serverQuickPicks, Date().timeIntervalSince(cached.date) < 1800,
+           SettingsStore.shared.showQuickPicks, !hasQuickPicksServerSection() {
+            savedQuickPicks = [cached.section]
+        }
+        let all = cachedLocalSections + serverSections + savedQuickPicks + cachedPhase2Sections
         let merged = orderSections(all)
         homeSections = stable ? stabilized(merged, freshContent: freshContent) : merged
         // Se apunta cada vez que cambia lo que se ve (orden o contenido de alguna seccion), con cuales cambian.

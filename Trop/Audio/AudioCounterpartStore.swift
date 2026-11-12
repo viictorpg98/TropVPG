@@ -121,8 +121,9 @@ final class AudioCounterpartStore {
     /// segundo plano y la vista se actualiza sola cuando llega); si no, la suya.
     func thumbnailURL(for song: SongItem) -> String? {
         guard isEnabled, Self.isVideoType(song) else { return song.thumbnailUrl }
+        // Solo se usa lo ya buscado: la busqueda (~2 MB cada una) se hace al reproducir o al encolar, no por cada fila que
+        // aparece en pantalla (en una sesion de 2 minutos salian 118 MB).
         if let version = found[song.videoId] { return version.thumbnail }
-        if needsLookup(song) { request(song.videoId) }
         return song.thumbnailUrl
     }
 
@@ -146,7 +147,6 @@ final class AudioCounterpartStore {
     func thumbnailOverride(forFrame url: String?) -> String? {
         guard isEnabled, let url, let id = Self.frameVideoId(url) else { return nil }
         if let version = found[id] { return version.thumbnail }
-        if !withoutAudio.contains(id), NetworkMonitor.shared.hasConnection { request(id) }
         return nil
     }
 

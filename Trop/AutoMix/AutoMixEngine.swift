@@ -547,7 +547,10 @@ final class AutoMixEngine {
         }
         let incStructure = store.structure(for: inId, role: .incoming)
         // Cuanto falta para empezar: lo que tardo en prepararse la ultima vez, con margen (entre 6 y 18 s).
-        let lead = min(max(lastRenderSeconds * 1.4 + 2.5, 6), 18) + extraLead
+        // En una cancion larga en streaming, leer 8 s a mitad de ella tarda (6-10 s): el margen minimo sube a 12 s, o casi
+        // siempre llegaria tarde y habria que repetir.
+        let minimumLead: Double = (outIsLong && !DownloadManager.shared.isDownloaded(videoId: outId)) ? 12 : 6
+        let lead = min(max(lastRenderSeconds * 1.4 + 2.5, minimumLead), 18) + extraLead
         let startMs = Int64((PlayerController.shared.currentTime + lead) * 1000)
         let plan: TransitionPlan
         if let out = outStructure, let inc = incStructure {
