@@ -173,7 +173,11 @@ final class AutoMixEngine {
         Task { [weak self] in
             defer { self?.preparingKey = nil }
             guard let outSource = await AutoMixSource.source(for: outId),
-                  let inSource = await AutoMixSource.source(for: inId) else { return }
+                  let inSource = await AutoMixSource.source(for: inId) else {
+                // Sin direccion de alguna de las dos: una mezcla pedida a mano no se queda "preparando" para siempre.
+                if self?.manualMix == true { self?.abortManual("Can't mix right now.") }
+                return
+            }
             let outURL = outSource.url
             let inURL = inSource.url
             let began = Date()
@@ -192,6 +196,7 @@ final class AutoMixEngine {
             guard let rendered else {
                 PlaybackReport.record("automix: no se pudo preparar la mezcla \(outId) -> \(inId)")
                 self?.planCache = (outId, inId, nil)
+                if self?.manualMix == true { self?.abortManual("Can't mix right now.") }
                 return
             }
             guard let self else { try? FileManager.default.removeItem(at: rendered.url); return }
@@ -516,7 +521,8 @@ final class AutoMixEngine {
         // Hasta unos segundos para que esten analizadas (casi siempre ya lo estan).
         var waited = 0.0
         while waited < 12 {
-            if outIsLong || store.structure(for: outId, role: .outgoing) != nil, store.structure(for: inId, role: .incoming) != nil,
+            // "Resuelta" incluye las que no tienen ritmo que medir: no hace falta esperar a lo que no va a llegar.
+            if outIsLong || store.isSettled(outId, role: .outgoing), store.isSettled(inId, role: .incoming),
                VocalMaskStore.shared.isSettled(outId), VocalMaskStore.shared.isSettled(inId) { break }
             try? await Task.sleep(nanoseconds: 400_000_000)
             waited += 0.4
@@ -539,35 +545,50 @@ final class AutoMixEngine {
         } else {
             outStructure = store.structure(for: outId, role: .outgoing)
         }
-        guard let out = outStructure, let inc = store.structure(for: inId, role: .incoming) else {
-            abortManual("Can't mix right now.")
-            return
-        }
-        let vocals = TransitionPlanner.Vocals(
-            outgoing: VocalMaskStore.shared.segments(for: outId), incoming: VocalMaskStore.shared.segments(for: inId)
-        )
+        let incStructure = store.structure(for: inId, role: .incoming)
         // Cuanto falta para empezar: lo que tardo en prepararse la ultima vez, con margen (entre 6 y 18 s).
         let lead = min(max(lastRenderSeconds * 1.4 + 2.5, 6), 18) + extraLead
         let startMs = Int64((PlayerController.shared.currentTime + lead) * 1000)
-        let style = MixLearning.shared.style(outId: outId, inId: inId, outBpm: out.bpm, inBpm: inc.bpm)
-        guard let result = TransitionPlanner.plan(
-            outgoing: out, incoming: inc, vocals: vocals, forcedStartMs: startMs, style: style
-        ) else {
-            abortManual("Not enough of the song is left to mix.")
-            return
+        let plan: TransitionPlan
+        if let out = outStructure, let inc = incStructure {
+            let vocals = TransitionPlanner.Vocals(
+                outgoing: VocalMaskStore.shared.segments(for: outId), incoming: VocalMaskStore.shared.segments(for: inId)
+            )
+            let style = MixLearning.shared.style(outId: outId, inId: inId, outBpm: out.bpm, inBpm: inc.bpm)
+            guard let result = TransitionPlanner.plan(
+                outgoing: out, incoming: inc, vocals: vocals, forcedStartMs: startMs, style: style
+            ) else {
+                abortManual("Not enough of the song is left to mix.")
+                return
+            }
+            plan = result.plan
+        } else {
+            // Alguna de las dos no tiene un ritmo que medir (ambient, mezclas largas, no se pudo leer un trozo): se hace un
+            // fundido simple de 8 s, sin ajustar tempos ni compases, en vez de quedarse esperando.
+            let fadeMs: Int64 = 8_000
+            let length = NowPlaying.shared.duration
+            if length > 0, Double(startMs + fadeMs) / 1000 > length {
+                abortManual("Not enough of the song is left to mix.")
+                return
+            }
+            plan = TransitionPlan(
+                outgoingStartMs: startMs, outgoingEndMs: startMs + fadeMs, durationMs: fadeMs,
+                incomingStartMs: incStructure?.firstSoundMs ?? 0, outgoingSpeedRatio: 1, incomingSpeedRatio: 1, styleKey: nil
+            )
+            PlaybackReport.record("automix: sin ritmo medible (\(outStructure == nil ? "saliente" : "entrante")): fundido simple")
         }
-        planCache = (outId, inId, result.plan)
+        planCache = (outId, inId, plan)
         PlaybackReport.record(String(
             format: "automix: mezcla pedida a mano %@ -> %@: empieza en %.1f s (en %.0f s), dura %.0f s, entra desde %.1f s",
-            outId, inId, Double(result.plan.outgoingStartMs) / 1000, lead, Double(result.plan.durationMs) / 1000,
-            Double(result.plan.incomingStartMs) / 1000
+            outId, inId, Double(plan.outgoingStartMs) / 1000, lead, Double(plan.durationMs) / 1000,
+            Double(plan.incomingStartMs) / 1000
         ))
         let next = NowPlaying.shared.queueIndex + 1
         if NowPlaying.shared.queueSongs.indices.contains(next) {
             AutoMixVisuals.shared.prepare(song: NowPlaying.shared.queueSongs[next])
         }
         manualMix = true
-        prepare(outId: outId, inId: inId, plan: result.plan)
+        prepare(outId: outId, inId: inId, plan: plan)
     }
 
     /// Para cuando el usuario cambia de cancion a mano o se vacia la cola.

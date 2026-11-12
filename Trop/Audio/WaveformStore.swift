@@ -205,33 +205,58 @@ final class WaveformStore {
         }.value
     }
 
-    /// La onda de una cancion larga: 80 trozos de 1,5 s repartidos por ella (unos pocos MB en total, en vez de bajarla entera),
-    /// estirados a las 160 barras. Si la cancion deja de ser la que suena, se corta.
+    /// La onda de una cancion larga: 40 trozos de 1,5 s repartidos por ella (unos pocos MB en total, en vez de bajarla entera),
+    /// leidos de 6 en 6 a la vez y estirados a las 160 barras. Si cambias de cancion antes de llegar a la mitad se corta; si
+    /// ya la pasaste, termina igualmente (queda guardada para otra vez).
     nonisolated private static func sampledEnvelope(
         _ url: URL, isLocal: Bool, duration: TimeInterval, videoId: String, isCurrent: Bool
     ) async -> [Float]? {
-        let count = 80
-        var levels: [Float] = []
-        var misses = 0
-        for index in 0..<count {
-            if isCurrent {
+        let count = 40
+        let batchSize = 6
+        let box = LevelBox(count: count)
+        var start = 0
+        while start < count {
+            if isCurrent, start < count / 2 {
                 let wanted = await MainActor.run { NowPlaying.shared.videoId == videoId }
                 guard wanted else { return nil }
             }
-            let center = duration * (Double(index) + 0.5) / Double(count)
-            if let pcm = TrackAnalysisStore.decodePCM(
-                url, isLocal: isLocal, start: max(0, center - 0.75), length: 1.5, timeout: 15
-            ), pcm.count > 400 {
+            let end = min(start + batchSize, count)
+            let first = start
+            DispatchQueue.concurrentPerform(iterations: end - first) { slot in
+                let index = first + slot
+                let center = duration * (Double(index) + 0.5) / Double(count)
+                guard let pcm = TrackAnalysisStore.decodePCM(
+                    url, isLocal: isLocal, start: max(0, center - 0.75), length: 1.5, timeout: 15
+                ), pcm.count > 400 else { return }
                 var sum = 0.0
                 for value in pcm {
                     let x = Double(value) / 32768
                     sum += x * x
                 }
-                levels.append(Float((sum / Double(pcm.count)).squareRoot()))
-            } else {
-                misses += 1
-                if misses > 12 { return nil }
-                levels.append(levels.last ?? 0)
+                box.set(index, Float((sum / Double(pcm.count)).squareRoot()))
+            }
+            start = end
+        }
+        // Las muestras que no se pudieron leer toman el valor de la conocida mas cercana; si faltan mas de la mitad, sin onda.
+        let known = box.all
+        guard known.compactMap({ $0 }).count >= count / 2 else { return nil }
+        var levels = [Float](repeating: 0, count: count)
+        for index in 0..<count {
+            if let value = known[index] {
+                levels[index] = value
+                continue
+            }
+            var offset = 1
+            while offset < count {
+                if index - offset >= 0, let value = known[index - offset] {
+                    levels[index] = value
+                    break
+                }
+                if index + offset < count, let value = known[index + offset] {
+                    levels[index] = value
+                    break
+                }
+                offset += 1
             }
         }
         let peak = max(levels.max() ?? 0, 0.0001)
@@ -271,5 +296,25 @@ final class WaveformStore {
 private enum AutoMixSourceGate {
     static var allowsPrefetch: Bool {
         DownloadManager.shared.isOnWiFiNow || SettingsStore.shared.autoMixUsesMobileData
+    }
+}
+
+/// Los niveles de las muestras de una onda, que se rellenan desde varios hilos a la vez.
+private final class LevelBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [Float?]
+
+    init(count: Int) { values = Array(repeating: nil, count: count) }
+
+    func set(_ index: Int, _ value: Float) {
+        lock.lock()
+        values[index] = value
+        lock.unlock()
+    }
+
+    var all: [Float?] {
+        lock.lock()
+        defer { lock.unlock() }
+        return values
     }
 }

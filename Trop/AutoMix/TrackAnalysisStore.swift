@@ -362,13 +362,14 @@ final class TrackAnalysisStore {
         // Es un trozo del medio: no se sabe donde acaba la musica de verdad (un tramo tranquilo no es el final), asi que
         // se da por buena toda la cancion hasta su final.
         let total = source.duration ?? knownDuration(videoId) ?? (start + length + 3600)
-        let result: TrackStructure? = await Task.detached(priority: .userInitiated) { () -> TrackStructure? in
-            guard let pcm = Self.decodePCM(url, isLocal: local, start: start, length: length, timeout: 40),
-                  let raw = TrackStructureAnalyzer.analyze(pcm) else { return nil }
-            return raw.asMiddleWindow(offsetMs: Int64(start * 1000), totalMs: Int64(total * 1000))
+        let outcome = await Task.detached(priority: .userInitiated) { () -> (structure: TrackStructure?, read: Bool) in
+            guard let pcm = Self.decodePCM(url, isLocal: local, start: start, length: length, timeout: 25) else { return (nil, false) }
+            guard let raw = TrackStructureAnalyzer.analyze(pcm) else { return (nil, true) }
+            return (raw.asMiddleWindow(offsetMs: Int64(start * 1000), totalMs: Int64(total * 1000)), true)
         }.value
-        PlaybackReport.record("automix: ventana de \(videoId) desde \(Int(start)) s para mezclar ahora: \(result == nil ? "sin compas" : "ok")")
-        return result
+        let state = outcome.structure != nil ? "ok" : (outcome.read ? "sin compas" : "no se pudo leer")
+        PlaybackReport.record("automix: ventana de \(videoId) desde \(Int(start)) s para mezclar ahora: \(state)")
+        return outcome.structure
     }
 
     // MARK: - Lectura del audio y analisis (fuera del hilo principal)
