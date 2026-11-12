@@ -88,10 +88,13 @@ struct MatchPlaylistView: View {
                     Group {
                         if isPreparing {
                             ProgressView()
+                                .tint(settings.accentOnColor)
                         } else {
                             Label("Play", systemImage: "play.fill")
                         }
                     }
+                    // Con el acento neutro el boton es blanco (en oscuro): el texto va del color contrario.
+                    .foregroundStyle(settings.accentOnColor)
                     .frame(maxWidth: .infinity, minHeight: 28)
                 }
                 .buttonStyle(.borderedProminent)

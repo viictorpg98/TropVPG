@@ -35,7 +35,8 @@ struct PlaybackControlsView: View {
             Button(action: onPlay) {
                 Image(systemName: "play.fill")
                     .font(.title2)
-                    .foregroundStyle(.white)
+                    // Blanco, o el color contrario con el acento neutro (si no, el icono desaparece sobre el circulo blanco).
+                    .foregroundStyle(SettingsStore.shared.accentOnColor)
                     .frame(width: 64, height: 64)
                     .background(Circle().fill(accent))
                     .shadow(color: accent.opacity(0.4), radius: 10, y: 4)

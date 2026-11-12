@@ -41,7 +41,9 @@ struct LibraryView: View {
             AutoPlaylistInfo(id: "downloads", title: "Downloads", icon: "arrow.down.circle.fill",
                              subtitle: downloadsSubtitle, route: nil, detailRoute: .downloads),
             AutoPlaylistInfo(id: "top100", title: "My Top 100", icon: "trophy.fill", subtitle: "Top 100", route: .topSongs(limit: 100)),
-            AutoPlaylistInfo(id: "match", title: "Match Playlist", icon: "sportscourt.fill", subtitle: nil,
+            // Con subtitulo, como las demas: sin el la tarjeta sale mas ancha (el cuadrado se estira a la altura de la fila).
+            AutoPlaylistInfo(id: "match", title: "Match Playlist", icon: "sportscourt.fill",
+                             subtitle: MatchPlaylist.cachedCount > 0 ? CountText.songs(MatchPlaylist.cachedCount) : "Team playlist",
                              route: nil, detailRoute: .matchPlaylist)
         ]
     }

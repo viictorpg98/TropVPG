@@ -68,6 +68,10 @@ enum MatchPlaylist {
     // Clave publica (la misma que lleva la web): solo permite lo que las funciones RPC dejan hacer a cualquiera.
     private static let apiKey = "sb_publishable_F7UMII_HrF_ml7QJ9flo6g_IBlcGCHa"
     private static let cacheKey = "matchPlaylist.cache.v1"
+    private static let countKey = "matchPlaylist.count.v1"
+
+    /// Cuantas canciones tenia la ultima lista leida (para el subtitulo de la tarjeta de Biblioteca).
+    static var cachedCount: Int { UserDefaults.standard.integer(forKey: countKey) }
 
     /// Lee la lista (solo lectura). Con `p_device` nulo no se marca ningun voto como propio.
     static func fetch() async throws -> [MatchEntry] {
@@ -93,6 +97,7 @@ enum MatchPlaylist {
     static func saveCache(_ entries: [MatchEntry]) {
         guard let data = try? JSONEncoder().encode(entries) else { return }
         UserDefaults.standard.set(data, forKey: cacheKey)
+        UserDefaults.standard.set(entries.count, forKey: countKey)
     }
 
     /// La clasificacion: puntos (me gusta - no me gusta) de mayor a menor, a igualdad mas me gusta y, si sigue el empate,
