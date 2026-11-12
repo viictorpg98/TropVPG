@@ -454,8 +454,7 @@ final class TrackAnalysisStore {
         guard ReturnCode.isSuccess(session?.getReturnCode()),
               let data = try? Data(contentsOf: temporary), data.count > 2 else {
             // Para saber por que falla (direccion caducada, 403, formato...): el final de lo que dijo FFmpeg.
-            let output = (session?.getOutput() ?? "").split(separator: "
-").suffix(3).joined(separator: " | ")
+            let output = (session?.getOutput() ?? "").split(separator: "\n").suffix(3).joined(separator: " | ")
             PlaybackReport.record(String(format: "%@: fallo en %.1f s (%@)", what, elapsed, String(output.prefix(240))))
             return nil
         }
