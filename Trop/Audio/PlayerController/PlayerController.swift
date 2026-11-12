@@ -44,6 +44,8 @@ final class PlayerController {
     nonisolated(unsafe) var gaplessMixLoaded = false
     /// Tras el archivo de la mezcla viene la entrante en streaming (es larga y no cabe entera en el archivo).
     nonisolated(unsafe) var gaplessTail = false
+    /// Cuando se pidio el ultimo salto de posicion (para apuntar cuanto tardo el audio en volver).
+    nonisolated(unsafe) var seekRequestedAt: Date?
     private var lastDetectedCrop: String?
     private var detectedCropRepeatCount = 0
     var currentLoudnessDb: Double?
@@ -304,6 +306,11 @@ extension PlayerController {
     }
 
     func seek(to time: TimeInterval) {
+        if Date().timeIntervalSince(PlaybackActivity.lastSeekAt) > 1 {
+            PlaybackReport.record(String(format: "reproductor: salto a %.0f s", time))
+        }
+        PlaybackActivity.lastSeekAt = Date()
+        seekRequestedAt = Date()
         // Con una mezcla encadenada preparada o sonando, la posicion que se pide es de la saliente: AutoMix la deshace
         // primero (y, si ya sonaba el archivo de la mezcla, vuelve a cargar la saliente en ese punto).
         if gaplessStage == 1 || gaplessStage == 2, AutoMixEngine.shared.userSeek(to: time) { return }
@@ -656,6 +663,14 @@ extension PlayerController {
     }
 
     nonisolated private func handlePlaybackRestart() {
+        if let requested = seekRequestedAt {
+            seekRequestedAt = nil
+            // (Un salto de hace mucho que nunca llego a reiniciar el audio no se apunta: seria un dato falso.)
+            let elapsed = Date().timeIntervalSince(requested)
+            if elapsed < 30 {
+                PlaybackReport.record(String(format: "reproductor: tras el salto, el audio volvio a sonar a los %.1f s", elapsed))
+            }
+        }
         let flipPending = self.videoFlipAwaitingRestart
         Task { @MainActor in
             guard flipPending else { return }

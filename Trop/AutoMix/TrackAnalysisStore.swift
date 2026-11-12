@@ -29,6 +29,9 @@ final class TrackAnalysisStore {
         var key: String { role == .whole ? videoId : "\(videoId).\(role.rawValue)" }
     }
 
+    /// Lecturas de fondo (analisis, onda) a la vez como mucho.
+    nonisolated static let readSlots = DispatchSemaphore(value: 4)
+
     /// Mas de esto (segundos) es una cancion larga.
     nonisolated static let longSeconds: TimeInterval = 600
     /// Lo que se analiza de una larga: el principio o el final.
@@ -435,6 +438,15 @@ final class TrackAnalysisStore {
     nonisolated static func decodePCM(
         _ url: URL, isLocal: Bool, start: TimeInterval, length: TimeInterval?, timeout: TimeInterval
     ) -> [Int16]? {
+        // Las lecturas de fondo ceden ante la reproduccion: ninguna justo despues de un salto del usuario (el audio abre su
+        // propia conexion y las de fondo la frenaban) y como mucho 4 a la vez.
+        var waited = 0.0
+        while Date().timeIntervalSince(PlaybackActivity.lastSeekAt) < 12, waited < 20 {
+            Thread.sleep(forTimeInterval: 0.5)
+            waited += 0.5
+        }
+        guard readSlots.wait(timeout: .now() + max(timeout - waited, 1)) == .success else { return nil }
+        defer { readSlots.signal() }
         let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("automix-\(UUID().uuidString).pcm")
         defer { try? FileManager.default.removeItem(at: temporary) }
         var arguments = ["-y", "-v", "error"] + AutoMixSource.inputOptions(for: url)
@@ -616,4 +628,10 @@ private final class ChunkBox: @unchecked Sendable {
         defer { lock.unlock() }
         return parts[index]
     }
+}
+
+/// Lo que esta haciendo la reproduccion y las lecturas de fondo deben respetar.
+enum PlaybackActivity {
+    /// Cuando fue el ultimo salto de posicion: justo despues, el audio necesita su conexion libre.
+    nonisolated(unsafe) static var lastSeekAt = Date.distantPast
 }

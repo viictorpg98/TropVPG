@@ -65,14 +65,27 @@ enum MixRenderer {
         let outSeconds = Double(outPad) / rate + advanceOut + margin
         let inStart = incomingStart - Double(inPad) / rate
         let inSeconds = Double(inPad) / rate + advanceIn + margin + 0.2
+        // Con una entrante larga solo se guardan unos segundos detras de la mezcla (leer 8 minutos de una cancion de 22 era lo que
+        // dejaba la preparacion colgada, y al final fallaba por ser demasiado larga).
+        let tailSeconds = 15.0
+        // Si la entrante no se estira, donde acaba la mezcla se sabe de antemano y su cola se lee a la vez que lo demas.
+        let preReadsTail = tailStream && !stretchIn
+        let predictedEnd = incomingStart + Double(frames) / rate
         let reads = ReadBox()
-        DispatchQueue.concurrentPerform(iterations: 2) { which in
-            if which == 0 {
+        DispatchQueue.concurrentPerform(iterations: preReadsTail ? 3 : 2) { which in
+            switch which {
+            case 0:
                 reads.setOutgoing(decode(url: outgoingURL, start: outStart, seconds: outSeconds, rate: rate, label: "saliente"))
-            } else {
+            case 1:
                 reads.setIncoming(decode(url: incomingURL, start: inStart, seconds: inSeconds, rate: rate, label: "entrante"))
+            default:
+                reads.setRest(decodeToFile(
+                    url: incomingURL, start: predictedEnd, seconds: tailSeconds, rate: rate,
+                    wholeOnly: false, label: "resto de la entrante"
+                ))
             }
         }
+        defer { if let pre = reads.rest { try? FileManager.default.removeItem(at: pre.url) } }
         guard let outputSource = reads.outgoing, let incomingSource = reads.incoming else { return nil }
 
         // Saliente en el tiempo de la mezcla.
@@ -117,6 +130,14 @@ enum MixRenderer {
             var inSplit = Biquad()   // separa los graves de la entrante
             outSplit.setLowPass(cutoff: bassCrossover, rate: rate)
             inSplit.setLowPass(cutoff: bassCrossover, rate: rate)
+            // Pre-rodaje: los filtros arrancaban en cero justo en el primer instante de la mezcla, con la cancion ya sonando, y
+            // eso es un escalon (un "pop" seco al empezar). Se les pasa antes el trozo de la saliente anterior al corte (el
+            // colchon de `outPad`) para que empiecen ya en marcha.
+            lowpass.setLowPass(cutoff: exponential(20_000, 200, sweepCurve(0)), rate: rate)
+            for k in 0..<min(outPad, outputSource[channel].count) {
+                let warmed = lowpass.process(Double(outputSource[channel][k]))
+                _ = outSplit.process(warmed)
+            }
             for i in 0..<frames {
                 let progress = Double(i) / Double(frames)
                 if i % 64 == 0 {
@@ -144,6 +165,20 @@ enum MixRenderer {
             }
         }
 
+        // Para el informe: el salto entre la ultima muestra de la saliente antes del corte y la primera de la mezcla, frente a lo
+        // que cambia de una muestra a otra de forma natural (si el salto es mucho mayor, se oye un "pop" en el empalme).
+        if outPad >= 8, outPad < outputSource[0].count {
+            let before = outputSource[0][outPad - 1]
+            let natural = abs(outputSource[0][outPad] - before)
+            var typical: Float = 0
+            for k in (outPad - 8)..<(outPad - 1) { typical += abs(outputSource[0][k + 1] - outputSource[0][k]) }
+            typical /= 7
+            PlaybackReport.record(String(
+                format: "mezcla: empalme con la saliente: salto %.4f (natural %.4f, habitual %.4f)",
+                abs(mixed[0][0] - before), natural, typical
+            ))
+        }
+
         // Empalme suave entre lo mezclado y lo que sigue (la mezcla ya acaba casi igual que la cancion).
         guard tailStart <= incomingSource[0].count else { return nil }
         let blend = min(Int(0.003 * rate), frames, tailStart)
@@ -160,13 +195,17 @@ enum MixRenderer {
         // Detras de la mezcla va el resto de la entrante tal cual, hasta el final de su cancion, en el MISMO archivo: asi mpv no
         // tiene que cambiar de archivo al acabar la mezcla (ese cambio era lo que dejaba el microcorte). Si la cancion es
         // demasiado larga para guardarla entera, no se mezcla.
-        // Con una entrante larga solo se guardan unos segundos (leer 8 minutos de una cancion de 22 era lo que dejaba la
-        // preparacion colgada, y al final fallaba por ser demasiado larga).
-        let tailSeconds = 25.0
-        guard let rest = decodeToFile(
-            url: incomingURL, start: mixEndsAt, seconds: tailStream ? tailSeconds : maxRestSeconds, rate: rate,
-            wholeOnly: !tailStream, label: "resto de la entrante"
-        ) else { return nil }
+        let rest: (url: URL, seconds: Double)
+        if preReadsTail {
+            guard let pre = reads.rest else { return nil }
+            rest = pre
+        } else {
+            guard let read = decodeToFile(
+                url: incomingURL, start: mixEndsAt, seconds: tailStream ? tailSeconds : maxRestSeconds, rate: rate,
+                wholeOnly: !tailStream, label: "resto de la entrante"
+            ) else { return nil }
+            rest = read
+        }
         defer { try? FileManager.default.removeItem(at: rest.url) }
         guard let url = write(mixed, followedBy: rest.url, rate: rate) else { return nil }
         // Si la cancion acaba antes de esos segundos, el archivo ya la lleva entera y no hace falta seguir con internet.
@@ -532,6 +571,19 @@ private final class ReadBox: @unchecked Sendable {
     private let lock = NSLock()
     private var outgoingValue: [[Float]]?
     private var incomingValue: [[Float]]?
+    private var restValue: (url: URL, seconds: Double)?
+
+    func setRest(_ value: (url: URL, seconds: Double)?) {
+        lock.lock()
+        restValue = value
+        lock.unlock()
+    }
+
+    var rest: (url: URL, seconds: Double)? {
+        lock.lock()
+        defer { lock.unlock() }
+        return restValue
+    }
 
     func setOutgoing(_ value: [[Float]]?) {
         lock.lock()

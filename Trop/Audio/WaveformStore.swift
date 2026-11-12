@@ -68,7 +68,9 @@ final class WaveformStore {
     }
 
     /// Pide la onda de una cancion. La de la que suena tiene su propio carril: no espera a las que solo se adelantan.
-    func request(_ videoId: String, urgent: Bool) {
+    func request(_ videoId: String, urgent wantsUrgent: Bool) {
+        // Solo la que suena tiene el carril urgente (la entrante de una mezcla lo pedia cada 0,5 s y se cortaba al instante).
+        let urgent = wantsUrgent && NowPlaying.shared.videoId == videoId
         guard cached(for: videoId) == nil else { return }
         if let later = failed[videoId], later > Date() { return }
         // Una cancion larga (mezclas, directos de horas) no se baja entera: su onda sale de unas 80 muestras repartidas por
@@ -129,9 +131,10 @@ final class WaveformStore {
             guard let self else { return }
             if let wave {
                 self.store(wave, for: videoId)
-            } else if !isCurrent || NowPlaying.shared.videoId == videoId {
-                // (Si se corto porque la cancion ya no es la actual no es un fallo: no se espera un minuto para volver a pedirla.)
-                self.failed[videoId] = Date().addingTimeInterval(60)
+            } else {
+                // Si se corto porque la cancion ya no es la actual, no es un fallo: solo se espera un poco para no repetirlo sin parar.
+                let stillWanted = !isCurrent || NowPlaying.shared.videoId == videoId
+                self.failed[videoId] = Date().addingTimeInterval(stillWanted ? 60 : 10)
             }
             if isCurrent { self.urgentRunning = nil } else { self.backgroundRunning = nil }
             self.drain()
@@ -213,7 +216,7 @@ final class WaveformStore {
         _ url: URL, isLocal: Bool, duration: TimeInterval, videoId: String, isCurrent: Bool
     ) async -> [Float]? {
         let count = 40
-        let batchSize = 6
+        let batchSize = 4
         let box = LevelBox(count: count)
         var start = 0
         while start < count {
