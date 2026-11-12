@@ -24,6 +24,7 @@
 "Activity Type" = "Activity Type";
 "Add" = "Add";
 "Add Songs" = "Add Songs";
+"Add songs from the team's playlist page and they will show up here." = "Add songs from the team's playlist page and they will show up here.";
 "Add to Playlist" = "Add to Playlist";
 "Add to Queue" = "Add to Queue";
 "Add to the end of the queue" = "Add to the end of the queue";
@@ -51,6 +52,7 @@
 "Artists" = "Artists";
 "Artists you hide stop appearing on Home, in radios and in the queue. They still show up when you search for them." = "Artists you hide stop appearing on Home, in radios and in the queue. They still show up when you search for them.";
 "Arts" = "Arts";
+"At Risk" = "At Risk";
 "Audio" = "Audio";
 "Audio Normalization" = "Audio Normalization";
 "Audio Quality" = "Audio Quality";
@@ -88,6 +90,7 @@
 "Category" = "Category";
 "Center" = "Center";
 "Charts" = "Charts";
+"Check your connection and try again." = "Check your connection and try again.";
 "Chilled" = "Chilled";
 "Choose how the app follows your device appearance." = "Choose how the app follows your device appearance.";
 "Choose which library sections sync from your YouTube Music account." = "Choose which library sections sync from your YouTube Music account.";
@@ -118,13 +121,16 @@
 "Could not parse artist details" = "Could not parse artist details";
 "Could not parse playlist details" = "Could not parse playlist details";
 "Could not parse podcast details" = "Could not parse podcast details";
+"Couldn't find these songs on YouTube Music." = "Couldn't find these songs on YouTube Music.";
 "Couldn't load Explore. Pull to retry." = "Couldn't load Explore. Pull to retry.";
 "Couldn't load album" = "Couldn't load album";
 "Couldn't load artist" = "Couldn't load artist";
 "Couldn't load history" = "Couldn't load history";
 "Couldn't load playlist" = "Couldn't load playlist";
 "Couldn't load podcast" = "Couldn't load podcast";
+"Couldn't load the list" = "Couldn't load the list";
 "Couldn't load your homescreen" = "Couldn't load your homescreen";
+"Couldn't play this song. Skipping to the next one." = "Couldn't play this song. Skipping to the next one.";
 "Couldn't play this. Try again." = "Couldn't play this. Try again.";
 "Couldn't save the queue." = "Couldn't save the queue.";
 "Country" = "Country";
@@ -193,6 +199,7 @@
 "Explore failed" = "Explore failed";
 "Fades the music out and stops it after the minutes you say. Say 0 to cancel." = "Fades the music out and stops it after the minutes you say. Say 0 to cancel.";
 "Fans Also Like" = "Fans Also Like";
+"Favorites" = "Favorites";
 "Featured" = "Featured";
 "Featured playlists" = "Featured playlists";
 "Featured playlists for you" = "Featured playlists for you";
@@ -315,6 +322,7 @@
 "Lyrics Providers" = "Lyrics Providers";
 "Lyrics not found" = "Lyrics not found";
 "March" = "March";
+"Match Playlist" = "Match Playlist";
 "Maximum delay before scrobbling (30–360s)." = "Maximum delay before scrobbling (30–360s).";
 "May" = "May";
 "Meditative sleep" = "Meditative sleep";
@@ -382,6 +390,7 @@
 "No ratings yet. Rate the mixes with the thumbs that appear after each one." = "No ratings yet. Rate the mixes with the thumbs that appear after each one.";
 "No similar tracks" = "No similar tracks";
 "No songs found" = "No songs found";
+"No songs yet" = "No songs yet";
 "Not enough of the song is left to mix." = "Not enough of the song is left to mix.";
 "Not logged in" = "Not logged in";
 "Nothing here" = "Nothing here";
@@ -626,6 +635,7 @@
 "Trending 20 %@" = "Trending 20 %@";
 "Trending songs for you" = "Trending songs for you";
 "True Crime" = "True Crime";
+"Try Again" = "Try Again";
 "Try again later." = "Try again later.";
 "Try something chilled" = "Try something chilled";
 "Turn Off Shuffle" = "Turn Off Shuffle";

@@ -677,5 +677,14 @@
   "Records screens, network requests, freezes, CPU, memory and battery while you use the app, and sums it up in the report. It uses a little extra battery: turn it off when you don't need it.": "Records screens, network requests, freezes, CPU, memory and battery while you use the app, and sums it up in the report. It uses a little extra battery: turn it off when you don't need it.",
   "Copy Previous Session": "Copy Previous Session",
   "The summary of this session (screens, network, freezes, CPU, memory, battery) and the latest events. Pull down to refresh.": "The summary of this session (screens, network, freezes, CPU, memory, battery) and the latest events. Pull down to refresh.",
-  "Couldn't play this song. Skipping to the next one.": "Couldn't play this song. Skipping to the next one."
+  "Couldn't play this song. Skipping to the next one.": "Couldn't play this song. Skipping to the next one.",
+  "Match Playlist": "Match Playlist",
+  "Favorites": "Favorites",
+  "At Risk": "At Risk",
+  "Couldn't load the list": "Couldn't load the list",
+  "Check your connection and try again.": "Check your connection and try again.",
+  "No songs yet": "No songs yet",
+  "Add songs from the team's playlist page and they will show up here.": "Add songs from the team's playlist page and they will show up here.",
+  "Try Again": "Try Again",
+  "Couldn't find these songs on YouTube Music.": "Couldn't find these songs on YouTube Music."
 }

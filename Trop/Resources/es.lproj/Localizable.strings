@@ -24,6 +24,7 @@
 "Activity Type" = "Tipo de actividad";
 "Add" = "Añadir";
 "Add Songs" = "Añadir canciones";
+"Add songs from the team's playlist page and they will show up here." = "Añade canciones desde la página de la lista del equipo y aparecerán aquí.";
 "Add to Playlist" = "Añadir a una lista de reproducción";
 "Add to Queue" = "Añadir a la cola";
 "Add to the end of the queue" = "Añadir al final de la cola";
@@ -51,6 +52,7 @@
 "Artists" = "Artistas";
 "Artists you hide stop appearing on Home, in radios and in the queue. They still show up when you search for them." = "Los artistas que ocultas dejan de salir en Inicio, en las radios y en la cola. Siguen saliendo si los buscas.";
 "Arts" = "Arte";
+"At Risk" = "En peligro";
 "Audio" = "Audio";
 "Audio Normalization" = "Normalización de audio";
 "Audio Quality" = "Calidad de audio";
@@ -88,6 +90,7 @@
 "Category" = "Categoría";
 "Center" = "Centro";
 "Charts" = "Listas de éxitos";
+"Check your connection and try again." = "Revisa tu conexión e inténtalo de nuevo.";
 "Chilled" = "Tranquilo";
 "Choose how the app follows your device appearance." = "Elige cómo sigue la app la apariencia de tu dispositivo.";
 "Choose which library sections sync from your YouTube Music account." = "Elige qué secciones de la biblioteca se sincronizan desde tu cuenta de YouTube Music.";
@@ -118,13 +121,16 @@
 "Could not parse artist details" = "No se pudieron interpretar los detalles del artista";
 "Could not parse playlist details" = "No se pudieron interpretar los detalles de la lista de reproducción";
 "Could not parse podcast details" = "No se pudieron interpretar los detalles del pódcast";
+"Couldn't find these songs on YouTube Music." = "No se han encontrado estas canciones en YouTube Music.";
 "Couldn't load Explore. Pull to retry." = "No se pudo cargar Explorar. Desliza hacia abajo para reintentar.";
 "Couldn't load album" = "No se pudo cargar el álbum";
 "Couldn't load artist" = "No se pudo cargar el artista";
 "Couldn't load history" = "No se pudo cargar el historial";
 "Couldn't load playlist" = "No se pudo cargar la lista de reproducción";
 "Couldn't load podcast" = "No se pudo cargar el pódcast";
+"Couldn't load the list" = "No se ha podido cargar la lista";
 "Couldn't load your homescreen" = "No se pudo cargar tu pantalla de inicio";
+"Couldn't play this song. Skipping to the next one." = "No se ha podido reproducir esta canción. Paso a la siguiente.";
 "Couldn't play this. Try again." = "No se ha podido reproducir. Inténtalo de nuevo.";
 "Couldn't save the queue." = "No se ha podido guardar la cola.";
 "Country" = "País";
@@ -193,6 +199,7 @@
 "Explore failed" = "Error al explorar";
 "Fades the music out and stops it after the minutes you say. Say 0 to cancel." = "Baja el volumen poco a poco y para la música pasados los minutos que digas. Di 0 para cancelarlo.";
 "Fans Also Like" = "A los fans también les gusta";
+"Favorites" = "Favoritas";
 "Featured" = "Destacado";
 "Featured playlists" = "Listas destacadas";
 "Featured playlists for you" = "Listas destacadas para ti";
@@ -315,6 +322,7 @@
 "Lyrics Providers" = "Proveedores de letras";
 "Lyrics not found" = "Letra no encontrada";
 "March" = "Marzo";
+"Match Playlist" = "Lista del partido";
 "Maximum delay before scrobbling (30–360s)." = "Retraso máximo antes del scrobbling (30–360 s).";
 "May" = "Mayo";
 "Meditative sleep" = "Sueño meditativo";
@@ -382,6 +390,7 @@
 "No ratings yet. Rate the mixes with the thumbs that appear after each one." = "Aun no hay valoraciones. Valora las mezclas con los pulgares que salen tras cada una.";
 "No similar tracks" = "No hay canciones similares";
 "No songs found" = "No se encontraron canciones";
+"No songs yet" = "Todavía no hay canciones";
 "Not enough of the song is left to mix." = "Queda muy poco de la canción para mezclar.";
 "Not logged in" = "Sesión no iniciada";
 "Nothing here" = "No hay nada aquí";
@@ -626,6 +635,7 @@
 "Trending 20 %@" = "Tendencias 20 %@";
 "Trending songs for you" = "Canciones del momento para ti";
 "True Crime" = "Crimen real";
+"Try Again" = "Reintentar";
 "Try again later." = "Inténtalo de nuevo más tarde.";
 "Try something chilled" = "Prueba algo tranquilo";
 "Turn Off Shuffle" = "Desactivar aleatorio";

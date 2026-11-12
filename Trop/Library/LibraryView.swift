@@ -40,7 +40,9 @@ struct LibraryView: View {
             AutoPlaylistInfo(id: "liked", title: "Liked Songs", icon: "heart.fill", subtitle: CountText.songs(likedSongCount), route: .likedSongs),
             AutoPlaylistInfo(id: "downloads", title: "Downloads", icon: "arrow.down.circle.fill",
                              subtitle: downloadsSubtitle, route: nil, detailRoute: .downloads),
-            AutoPlaylistInfo(id: "top100", title: "My Top 100", icon: "trophy.fill", subtitle: "Top 100", route: .topSongs(limit: 100))
+            AutoPlaylistInfo(id: "top100", title: "My Top 100", icon: "trophy.fill", subtitle: "Top 100", route: .topSongs(limit: 100)),
+            AutoPlaylistInfo(id: "match", title: "Match Playlist", icon: "sportscourt.fill", subtitle: nil,
+                             route: nil, detailRoute: .matchPlaylist)
         ]
     }
 
@@ -229,7 +231,8 @@ struct LibraryView: View {
                 autoPlaylistCell(info: info)
                     .pressable(
                         onTap: { openAutoPlaylist(info) },
-                        onLongPress: { autoMenu = info }
+                        // La lista del partido no tiene menu: el de las otras tarjetas trabaja con las canciones guardadas en el movil.
+                        onLongPress: { if info.id != "match" { autoMenu = info } }
                     )
             }
 

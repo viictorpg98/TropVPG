@@ -21,6 +21,7 @@ enum DetailRoute: Hashable, Identifiable {
         case .history: return "history"
         case .settings: return "settings"
         case .downloads: return "downloads"
+        case .matchPlaylist: return "matchPlaylist"
         }
     }
 
@@ -32,6 +33,8 @@ enum DetailRoute: Hashable, Identifiable {
     case history
     case settings
     case downloads
+    /// "Lista del partido": la lista de canciones del equipo (se llena desde la web de Franciscans).
+    case matchPlaylist
 }
 
 /// Shared view resolving a `DetailRoute` to its target destination view.
@@ -67,6 +70,8 @@ struct DetailRouteDestinationView: View {
             SettingsView()
         case .downloads:
             DownloadsView()
+        case .matchPlaylist:
+            MatchPlaylistView()
         }
     }
 }

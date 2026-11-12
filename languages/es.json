@@ -677,5 +677,14 @@
   "Records screens, network requests, freezes, CPU, memory and battery while you use the app, and sums it up in the report. It uses a little extra battery: turn it off when you don't need it.": "Apunta pantallas, peticiones de red, tirones, CPU, memoria y batería mientras usas la app, y lo resume en el informe. Gasta algo más de batería: apágalo cuando no lo necesites.",
   "Copy Previous Session": "Copiar la sesión anterior",
   "The summary of this session (screens, network, freezes, CPU, memory, battery) and the latest events. Pull down to refresh.": "El resumen de esta sesión (pantallas, red, tirones, CPU, memoria, batería) y los últimos eventos. Desliza hacia abajo para actualizar.",
-  "Couldn't play this song. Skipping to the next one.": "No se ha podido reproducir esta canción. Paso a la siguiente."
+  "Couldn't play this song. Skipping to the next one.": "No se ha podido reproducir esta canción. Paso a la siguiente.",
+  "Match Playlist": "Lista del partido",
+  "Favorites": "Favoritas",
+  "At Risk": "En peligro",
+  "Couldn't load the list": "No se ha podido cargar la lista",
+  "Check your connection and try again.": "Revisa tu conexión e inténtalo de nuevo.",
+  "No songs yet": "Todavía no hay canciones",
+  "Add songs from the team's playlist page and they will show up here.": "Añade canciones desde la página de la lista del equipo y aparecerán aquí.",
+  "Try Again": "Reintentar",
+  "Couldn't find these songs on YouTube Music.": "No se han encontrado estas canciones en YouTube Music."
 }
