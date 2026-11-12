@@ -99,8 +99,9 @@ final class AutoMixEngine {
         guard let (outId, inId) = currentPair() else { dropPrepared(); return }
 
         // Siempre se pide analizar la actual y la siguiente (si ya estan hechas no cuesta nada).
-        TrackAnalysisStore.shared.request(outId)
-        TrackAnalysisStore.shared.request(inId)
+        // La saliente (su final) y la entrante (su principio): en una cancion larga solo se mira esa parte.
+        TrackAnalysisStore.shared.request(outId, role: .outgoing)
+        TrackAnalysisStore.shared.request(inId, role: .incoming)
         // Y la letra de las dos (para saber cuando cantan y que las voces no se pisen en la mezcla).
         VocalMaskStore.shared.request(outId)
         VocalMaskStore.shared.request(inId)
@@ -137,7 +138,9 @@ final class AutoMixEngine {
     private func plan(outId: String, inId: String) -> TransitionPlan? {
         if let cached = planCache, cached.outId == outId, cached.inId == inId { return cached.plan }
         let store = TrackAnalysisStore.shared
-        guard let out = store.structure(for: outId), let inc = store.structure(for: inId) else { return nil }
+        guard let out = store.structure(for: outId, role: .outgoing), let inc = store.structure(for: inId, role: .incoming) else {
+            return nil
+        }
         let vocals = TransitionPlanner.Vocals(
             outgoing: VocalMaskStore.shared.segments(for: outId), incoming: VocalMaskStore.shared.segments(for: inId)
         )
@@ -252,7 +255,7 @@ final class AutoMixEngine {
         let next = NowPlaying.shared.queueIndex + 1
         incomingSongDuration = NowPlaying.shared.queueSongs.indices.contains(next)
             ? TimeInterval(NowPlaying.shared.queueSongs[next].duration) : 0
-        if let structure = TrackAnalysisStore.shared.structure(for: p.outId) {
+        if let structure = TrackAnalysisStore.shared.structure(for: p.outId, role: .outgoing) {
             beatMs = structure.beatMs
             // Por encima de 140 BPM el latido seria nervioso: se hace cada dos pulsos.
             beatsPerPulse = structure.bpm > 140 ? 2 : 1
@@ -504,14 +507,16 @@ final class AutoMixEngine {
 
     private func runManualMix(outId: String, inId: String, extraLead: Double) async {
         let store = TrackAnalysisStore.shared
-        store.request(outId)
-        store.request(inId)
+        // En una cancion larga, "mezclar ahora" mide un trozo desde donde va (no su final, que puede estar a horas).
+        let outIsLong = store.isLong(outId)
+        store.request(outId, role: .outgoing)
+        store.request(inId, role: .incoming)
         VocalMaskStore.shared.request(outId)
         VocalMaskStore.shared.request(inId)
         // Hasta unos segundos para que esten analizadas (casi siempre ya lo estan).
         var waited = 0.0
         while waited < 12 {
-            if store.structure(for: outId) != nil, store.structure(for: inId) != nil,
+            if outIsLong || store.structure(for: outId, role: .outgoing) != nil, store.structure(for: inId, role: .incoming) != nil,
                VocalMaskStore.shared.isSettled(outId), VocalMaskStore.shared.isSettled(inId) { break }
             try? await Task.sleep(nanoseconds: 400_000_000)
             waited += 0.4
@@ -523,7 +528,18 @@ final class AutoMixEngine {
             holdPillUntilMixStarts()
             return
         }
-        guard let out = store.structure(for: outId), let inc = store.structure(for: inId) else {
+        var outStructure: TrackStructure?
+        if outIsLong {
+            outStructure = await store.structureAround(outId, position: PlayerController.shared.currentTime)
+            guard AutoMixVisuals.shared.preparingManual, stillCurrent(outId, inId) else { abortManual(); return }
+            guard phase == .idle, prepared == nil, preparingKey == nil else {
+                holdPillUntilMixStarts()
+                return
+            }
+        } else {
+            outStructure = store.structure(for: outId, role: .outgoing)
+        }
+        guard let out = outStructure, let inc = store.structure(for: inId, role: .incoming) else {
             abortManual("Can't mix right now.")
             return
         }

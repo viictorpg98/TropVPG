@@ -114,8 +114,8 @@ final class MixFeedbackStore {
         let record = MixRecord(
             outId: outId, inId: inId,
             durationSeconds: Double(plan.durationMs) / 1000,
-            outgoingBpm: store.structure(for: outId)?.bpm ?? 0,
-            incomingBpm: store.structure(for: inId)?.bpm ?? 0,
+            outgoingBpm: store.structure(for: outId, role: .outgoing)?.bpm ?? 0,
+            incomingBpm: store.structure(for: inId, role: .incoming)?.bpm ?? 0,
             outgoingRatio: plan.outgoingSpeedRatio, incomingRatio: plan.incomingSpeedRatio,
             arm: plan.styleKey
         )

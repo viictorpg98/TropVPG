@@ -10,6 +10,23 @@
 import SwiftUI
 import UIKit
 
+/// La lista de la cola, que avisa cada vez que se coloca (para centrar la cancion que suena cuando ya tiene tamano).
+final class QueueCollectionView: UICollectionView {
+    var onLayout: (() -> Void)?
+    var onAttach: (() -> Void)?
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        onLayout?()
+    }
+
+    /// Cada vez que la lista entra en pantalla (tambien si se reutiliza al reabrir la cola).
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil { onAttach?() }
+    }
+}
+
 struct QueueListView: UIViewRepresentable {
     struct Item {
         let id: String
@@ -43,7 +60,9 @@ struct QueueListView: UIViewRepresentable {
             coordinator.swipeActions(at: indexPath)
         }
         let layout = UICollectionViewCompositionalLayout.list(using: configuration)
-        let collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
+        let collectionView = QueueCollectionView(frame: .zero, collectionViewLayout: layout)
+        collectionView.onLayout = { [weak coordinator] in coordinator?.viewDidLayout() }
+        collectionView.onAttach = { [weak coordinator] in coordinator?.viewDidAttach() }
         collectionView.backgroundColor = .clear
         collectionView.overrideUserInterfaceStyle = .dark
         collectionView.contentInsetAdjustmentBehavior = .never
@@ -67,6 +86,10 @@ struct QueueListView: UIViewRepresentable {
         private var itemsByID: [String: Item] = [:]
         private var hasApplied = false
         private var lastCurrentIndex: Int?
+        /// Posicion (en la lista) a la que centrar al abrir, pendiente de que la lista tenga tamano y alturas reales.
+        private var pendingInitialScroll: Int?
+        private var userDragged = false
+        private var currentPosition = 0
 
         // Reordenar
         private var reorderGesture: UILongPressGestureRecognizer?
@@ -130,12 +153,17 @@ struct QueueListView: UIViewRepresentable {
                 return
             }
             apply(items, animated: hasApplied)
+            // La posicion de la que suena DENTRO de la lista (con un filtro de busqueda no es el indice de la cola).
+            let position = items.firstIndex(where: \.isCurrent) ?? currentIndex
+            currentPosition = position
             if !hasApplied {
                 hasApplied = true
-                collectionView?.layoutIfNeeded()
-                scrollToCurrent(currentIndex, animated: false)
+                // Al abrir, la lista aun no tiene tamano ni alturas reales (las filas se miden al pintarse): centrar ahora
+                // fallaba sobre todo con canciones lejanas. Se centra cuando ya esta puesta, y otra vez un momento despues.
+                pendingInitialScroll = position
+                collectionView?.setNeedsLayout()
             } else if lastCurrentIndex != currentIndex, parent.shouldFollow() {
-                scrollToCurrent(currentIndex, animated: true)
+                scrollToCurrent(position, animated: true)
             }
             lastCurrentIndex = currentIndex
         }
@@ -148,6 +176,36 @@ struct QueueListView: UIViewRepresentable {
             snapshot.appendItems(ids)
             snapshot.reconfigureItems(ids)
             dataSource?.apply(snapshot, animatingDifferences: animated)
+        }
+
+        /// La lista entra en pantalla: se centra la cancion que suena (y vuelve a valer el centrado automatico).
+        func viewDidAttach() {
+            guard hasApplied else { return }
+            userDragged = false
+            pendingInitialScroll = currentPosition
+            collectionView?.setNeedsLayout()
+        }
+
+        /// Lo llama la lista cada vez que se coloca: la primera vez que ya tiene tamano, centra la cancion que suena.
+        func viewDidLayout() {
+            guard let index = pendingInitialScroll, let collectionView, collectionView.bounds.height > 0 else { return }
+            pendingInitialScroll = nil
+            DispatchQueue.main.async { [weak self] in
+                self?.centerOnOpen(index)
+                // Con las alturas ya medidas, una segunda vez deja la fila bien en el centro (salvo que ya hayas movido la lista).
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+                    guard let self, !self.userDragged else { return }
+                    self.centerOnOpen(index)
+                }
+            }
+        }
+
+        private func centerOnOpen(_ index: Int) {
+            guard let collectionView, !userDragged else { return }
+            collectionView.layoutIfNeeded()
+            scrollToCurrent(index, animated: false)
+            collectionView.layoutIfNeeded()
+            scrollToCurrent(index, animated: false)
         }
 
         private func scrollToCurrent(_ index: Int, animated: Bool) {
@@ -164,6 +222,7 @@ struct QueueListView: UIViewRepresentable {
         }
 
         func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+            userDragged = true
             parent.onUserScroll()
         }
 

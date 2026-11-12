@@ -3,6 +3,7 @@
 //  Trop
 //
 
+import AVFoundation
 import Foundation
 
 /// De donde sale el audio de una cancion para AutoMix: el archivo descargado o, si no lo esta (y hay Wi-Fi), su
@@ -12,6 +13,8 @@ enum AutoMixSource {
     struct Source {
         let url: URL
         let isLocal: Bool
+        /// Cuanto dura, en segundos, si se sabe (la respuesta de YouTube o el propio archivo).
+        var duration: TimeInterval?
     }
 
     /// Se puede decodificar una cancion en streaming: hay red y, si no es Wi-Fi, el usuario ha permitido los datos moviles.
@@ -27,12 +30,13 @@ enum AutoMixSource {
 
     static func source(for videoId: String) async -> Source? {
         if let local = await DownloadManager.shared.localURL(for: videoId) {
-            return Source(url: local, isLocal: true)
+            let seconds = (try? await AVURLAsset(url: local).load(.duration))?.seconds
+            return Source(url: local, isLocal: true, duration: seconds.flatMap { $0.isFinite && $0 > 0 ? $0 : nil })
         }
         guard streamingAllowed else { return nil }
         guard let result = try? await PlaybackManager.shared.resolve(videoId: videoId),
               let url = URL(string: result.streamUrl) else { return nil }
-        return Source(url: url, isLocal: false)
+        return Source(url: url, isLocal: false, duration: result.duration.flatMap { $0 > 0 ? TimeInterval($0) : nil })
     }
 
     nonisolated static let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15" +

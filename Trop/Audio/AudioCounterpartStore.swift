@@ -39,6 +39,7 @@ final class AudioCounterpartStore {
     @ObservationIgnored private var queued: Set<String> = []
     @ObservationIgnored private var failedAt: [String: Date] = [:]
     @ObservationIgnored private var running = 0
+    @ObservationIgnored private var prefetchTask: Task<Void, Never>?
 
     private init() {
         if let data = UserDefaults.standard.data(forKey: Self.foundKey),
@@ -102,8 +103,16 @@ final class AudioCounterpartStore {
 
     /// Pide la version de audio de los videos que quedan por sonar (en segundo plano).
     func prefetch(_ songs: [SongItem]) {
-        // Solo las proximas (antes, 20 a la vez: cada busqueda pesa ~0,5 MB).
-        for song in songs.prefix(5) where needsLookup(song) { request(song.videoId) }
+        // Solo las proximas (antes, 20 a la vez: cada busqueda pesa ~0,5 MB) y pasados 10 s sin cambios: saltando de cancion
+        // en cancion cada salto lanzaba 5 busquedas (47 MB en 4 minutos). La de la que suena no espera (la piden la caratula
+        // y `resolve`).
+        let upcoming = Array(songs.prefix(5))
+        prefetchTask?.cancel()
+        prefetchTask = Task { @MainActor [weak self] in
+            do { try await Task.sleep(nanoseconds: 10_000_000_000) } catch { return }
+            guard let self else { return }
+            for song in upcoming where self.needsLookup(song) { self.request(song.videoId) }
+        }
     }
 
     // MARK: - Miniaturas

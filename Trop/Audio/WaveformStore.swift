@@ -7,6 +7,7 @@
 //  adelantado para la que suena y las siguientes, de modo que al abrir el reproductor ya esta.
 //
 
+import AVFoundation
 import Foundation
 
 @MainActor
@@ -70,10 +71,16 @@ final class WaveformStore {
     func request(_ videoId: String, urgent: Bool) {
         guard cached(for: videoId) == nil else { return }
         if let later = failed[videoId], later > Date() { return }
+        // Una cancion larga (mezclas, directos de horas) no se baja entera: su onda sale de unas 80 muestras repartidas por
+        // ella. Solo la de la que suena, y en streaming solo con el reproductor grande abierto (es lo unico que la enseña).
+        let long = TrackAnalysisStore.shared.isLong(videoId)
+        if long && !urgent { return }
         // Una cancion en streaming cuesta datos (hay que bajarla entera para sacar su onda):
         if !DownloadManager.shared.isDownloaded(videoId: videoId) {
+            if long {
+                guard PlayerController.shared.fullPlayerVisible, AutoMixSourceGate.allowsPrefetch else { return }
             // Con AutoMix, el analisis de la cancion (que ya la baja) saca tambien la onda: no se baja dos veces.
-            if SettingsStore.shared.autoMixEnabled, AutoMixSource.isAvailable(videoId: videoId) {
+            } else if SettingsStore.shared.autoMixEnabled, AutoMixSource.isAvailable(videoId: videoId) {
                 TrackAnalysisStore.shared.request(videoId)
                 // Salvo que la cola de analisis lleve un rato atascada con otra cancion: la que suena saca su onda por su
                 // propio carril, sin esperar detras.
@@ -141,9 +148,11 @@ final class WaveformStore {
     private static func compute(_ videoId: String, isCurrent: Bool) async -> [Float]? {
         var url: URL?
         var local = false
+        var knownLength: TimeInterval?
         if let file = await DownloadManager.shared.localURL(for: videoId) {
             url = file
             local = true
+            knownLength = (try? await AVURLAsset(url: file).load(.duration))?.seconds
         } else {
             guard NetworkMonitor.shared.hasConnection else { return nil }
             // En streaming hace falta la direccion de YouTube: la de la que suena ya esta pedida (no se pide otra vez); las
@@ -161,15 +170,75 @@ final class WaveformStore {
             }
             if let resolved = try? await PlaybackManager.shared.resolve(videoId: videoId) {
                 url = URL(string: resolved.streamUrl)
+                knownLength = resolved.duration.flatMap { $0 > 0 ? TimeInterval($0) : nil }
             }
         }
         guard let url else { return nil }
         let isLocal = local
+        let analysis = TrackAnalysisStore.shared
+        let length = knownLength.flatMap { $0.isFinite && $0 > 0 ? $0 : nil } ?? analysis.knownDuration(videoId)
+        if analysis.isLong(videoId) || (length ?? 0) > TrackAnalysisStore.longSeconds {
+            // Larga: por muestras. Si no se sabe cuanto dura aun, se intentara mas tarde (el reproductor la sabra).
+            guard let length, length > TrackAnalysisStore.longSeconds else { return nil }
+            let started = Date()
+            PlaybackReport.record(String(format: "onda de %@ por muestras (%.0f min): empieza", videoId, length / 60))
+            let wave = await sampledEnvelope(url, isLocal: isLocal, duration: length, videoId: videoId, isCurrent: isCurrent)
+            PlaybackReport.record(String(
+                format: "onda de %@ por muestras: %@ (%.0f s)", videoId, wave == nil ? "cortada o sin datos" : "lista",
+                Date().timeIntervalSince(started)
+            ))
+            return wave
+        }
+        let unknownLength = length == nil
         return await Task.detached(priority: isCurrent ? .userInitiated : .utility) {
             let pcm = isLocal ? await TrackAnalysisStore.decode(url) : TrackAnalysisStore.decodeRemote(url)
             guard let pcm, pcm.count > buckets * 4 else { return nil }
+            // Sin saber cuanto dura y con la lectura en su tope: es larga y esto no seria su onda.
+            if unknownLength, Double(pcm.count) / Double(TrackStructureAnalyzer.sampleRate) >= TrackAnalysisStore.longSeconds + 15 {
+                return nil
+            }
             return Self.envelope(pcm)
         }.value
+    }
+
+    /// La onda de una cancion larga: 80 trozos de 1,5 s repartidos por ella (unos pocos MB en total, en vez de bajarla entera),
+    /// estirados a las 160 barras. Si la cancion deja de ser la que suena, se corta.
+    nonisolated private static func sampledEnvelope(
+        _ url: URL, isLocal: Bool, duration: TimeInterval, videoId: String, isCurrent: Bool
+    ) async -> [Float]? {
+        let count = 80
+        var levels: [Float] = []
+        var misses = 0
+        for index in 0..<count {
+            if isCurrent {
+                let wanted = await MainActor.run { NowPlaying.shared.videoId == videoId }
+                guard wanted else { return nil }
+            }
+            let center = duration * (Double(index) + 0.5) / Double(count)
+            if let pcm = TrackAnalysisStore.decodePCM(
+                url, isLocal: isLocal, start: max(0, center - 0.75), length: 1.5, timeout: 15
+            ), pcm.count > 400 {
+                var sum = 0.0
+                for value in pcm {
+                    let x = Double(value) / 32768
+                    sum += x * x
+                }
+                levels.append(Float((sum / Double(pcm.count)).squareRoot()))
+            } else {
+                misses += 1
+                if misses > 12 { return nil }
+                levels.append(levels.last ?? 0)
+            }
+        }
+        let peak = max(levels.max() ?? 0, 0.0001)
+        return (0..<buckets).map { bucket in
+            let position = (Double(bucket) + 0.5) / Double(buckets) * Double(count) - 0.5
+            let low = min(max(Int(position.rounded(.down)), 0), count - 1)
+            let high = min(low + 1, count - 1)
+            let fraction = Float(min(max(position - Double(low), 0), 1))
+            let level = levels[low] * (1 - fraction) + levels[high] * fraction
+            return Float(pow(Double(level / peak), 0.55))
+        }
     }
 
     /// Volumen (raiz de la energia media) de cada trozo, de 0 a 1 y realzado para que se vea bien.
