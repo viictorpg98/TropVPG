@@ -433,6 +433,9 @@ final class TrackAnalysisStore {
             "-vn", "-ac", "1", "-ar", String(TrackStructureAnalyzer.sampleRate),
             "-f", "s16le", temporary.path
         ]
+        let began = Date()
+        let what = String(format: "ffmpeg %@ desde %.0f s%@", url.isFileURL ? "archivo" : "internet", start,
+                          length.map { String(format: ", %.0f s", $0) } ?? " hasta el final")
         let done = DispatchSemaphore(value: 0)
         let session = FFmpegKit.execute(
             withArgumentsAsync: arguments,
@@ -443,10 +446,20 @@ final class TrackAnalysisStore {
         if done.wait(timeout: .now() + timeout) == .timedOut {
             session?.cancel()
             _ = done.wait(timeout: .now() + 10)
+            PlaybackReport.record(String(format: "%@: cortado a los %.0f s sin terminar", what, Date().timeIntervalSince(began)))
             return nil
         }
+        let elapsed = Date().timeIntervalSince(began)
         guard ReturnCode.isSuccess(session?.getReturnCode()),
-              let data = try? Data(contentsOf: temporary), data.count > 2 else { return nil }
+              let data = try? Data(contentsOf: temporary), data.count > 2 else {
+            // Para saber por que falla (direccion caducada, 403, formato...): el final de lo que dijo FFmpeg.
+            let output = (session?.getOutput() ?? "").split(separator: "
+").suffix(3).joined(separator: " | ")
+            PlaybackReport.record(String(format: "%@: fallo en %.1f s (%@)", what, elapsed, String(output.prefix(240))))
+            return nil
+        }
+        // Una lectura lenta (direccion estrangulada) se apunta aunque termine bien.
+        if elapsed > 8 { PlaybackReport.record(String(format: "%@: tardo %.0f s", what, elapsed)) }
         var samples = [Int16](repeating: 0, count: data.count / 2)
         samples.withUnsafeMutableBufferPointer { buffer in _ = data.copyBytes(to: buffer) }
         return samples
