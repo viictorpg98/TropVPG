@@ -480,7 +480,9 @@ private struct LiveMeshBackground: View {
     private let visuals = AutoMixVisuals.shared
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: paused)) { timeline in
+        // Los puntos se mueven muy despacio: 10 fotogramas por segundo bastan (20 gastaban el doble de CPU); durante el pulso
+        // de una mezcla se sube para que el latido no se vea a saltos.
+        TimelineView(.animation(minimumInterval: visuals.pulsing ? 1.0 / 20.0 : 1.0 / 10.0, paused: paused)) { timeline in
             let t = paused ? 0 : timeline.date.timeIntervalSinceReferenceDate
             // El centro se mueve un poco mas con cada pulso durante una mezcla.
             let beat = (visuals.pulsing && !paused) ? exp(-visuals.beatPhase * 6) : 0

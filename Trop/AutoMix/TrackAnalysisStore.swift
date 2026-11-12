@@ -21,6 +21,30 @@ final class TrackAnalysisStore {
     private var running = false
     /// Canciones en streaming cuyo analisis fallo (red...): no se guardan como "no analizables", se reintentan mas tarde.
     private var retryAfter: [String: Date] = [:]
+    /// Cada tanda de la cola lleva un numero. Si una cancion tarda demasiado (red lenta, direccion estrangulada...) se da por
+    /// perdida y la cola sigue con las demas; si su resultado llega tarde se guarda igual, pero ya no toca la cola.
+    private var runID = 0
+    private var runStarted: Date?
+    private var watchdog: Task<Void, Never>?
+    /// Fallos seguidos por cancion: los reintentos se van espaciando (1,5 min, 3, 6... hasta 30).
+    private var failures: [String: Int] = [:]
+
+    /// La cancion que se esta analizando ahora y las que el vigilante dio por perdidas pero cuya lectura sigue viva (no se
+    /// vuelven a pedir hasta que termine, para no bajar el mismo audio dos veces a la vez).
+    private var runningVideoId: String?
+    private var abandoned: Set<String> = []
+
+    /// La cola lleva un buen rato con OTRA cancion: esta puede sacar su onda por su propio carril sin esperar detras.
+    func shouldBypassQueue(for videoId: String) -> Bool {
+        running && runningVideoId != videoId && !abandoned.contains(videoId)
+            && (runStarted.map { Date().timeIntervalSince($0) > 25 } ?? false)
+    }
+
+    private func nextRetryDelay(_ videoId: String) -> TimeInterval {
+        let count = (failures[videoId] ?? 0) + 1
+        failures[videoId] = count
+        return min(1800, 90 * pow(2, Double(count - 1)))
+    }
 
     private init() {
         removeEmptyResultsOnce()
@@ -87,7 +111,9 @@ final class TrackAnalysisStore {
 
     /// Pide analizar una cancion descargada; no hace nada si ya esta hecha o en cola.
     func request(_ videoId: String) {
-        guard !isSettled(videoId), !queued.contains(videoId) else { return }
+        guard !isSettled(videoId), !queued.contains(videoId), videoId != runningVideoId, !abandoned.contains(videoId) else {
+            return
+        }
         if let later = retryAfter[videoId], later > Date() { return }
         // En streaming hay que pedir su direccion a YouTube: no se hace mientras se resuelve una cancion ni en los
         // segundos siguientes a un cambio (varias peticiones a la vez dejaban sin direccion valida a la que se quiere oir).
@@ -97,14 +123,25 @@ final class TrackAnalysisStore {
             let wait: TimeInterval = NowPlaying.shared.videoId == videoId ? 3 : 12
             if Date().timeIntervalSince(AutoMixEngine.shared.lastSongChange) < wait { return }
         }
-        queued.append(videoId)
+        // La que suena va la primera: de ella dependen la onda de la barra y la mezcla que viene.
+        if NowPlaying.shared.videoId == videoId { queued.insert(videoId, at: 0) } else { queued.append(videoId) }
         drain()
     }
 
     private func drain() {
-        guard !running, !queued.isEmpty else { return }
+        guard !running else { return }
+        // Se descartan las que ya no hacen falta: resueltas, con la lectura anterior aun viva o con un reintento pendiente.
+        while let candidate = queued.first,
+              isSettled(candidate) || abandoned.contains(candidate) || (retryAfter[candidate].map { $0 > Date() } ?? false) {
+            queued.removeFirst()
+        }
+        guard !queued.isEmpty else { return }
         running = true
+        runID += 1
+        let id = runID
+        runStarted = Date()
         let videoId = queued.removeFirst()
+        runningVideoId = videoId
         Task { [weak self] in
             let started = Date()
             var analysis: Analysis?
@@ -116,17 +153,41 @@ final class TrackAnalysisStore {
                 analysis = await Task.detached(priority: .utility) { await Self.analyze(url, isLocal: local) }.value
             }
             guard let self else { return }
-            self.finish(videoId, analysis: analysis, isLocal: isLocal, seconds: Date().timeIntervalSince(started))
+            self.finish(videoId, analysis: analysis, isLocal: isLocal, seconds: Date().timeIntervalSince(started), run: id)
+        }
+        // Vigilante: una cancion no puede tener parada la cola mas de 4 minutos (antes, una tardo 27 y las siguientes se
+        // quedaron sin onda ni mezcla).
+        watchdog?.cancel()
+        watchdog = Task { [weak self] in
+            do { try await Task.sleep(nanoseconds: 240_000_000_000) } catch { return }
+            guard let self, self.running, self.runID == id else { return }
+            let delay = self.nextRetryDelay(videoId)
+            self.retryAfter[videoId] = Date().addingTimeInterval(delay)
+            PlaybackReport.record(String(
+                format: "automix: el analisis de %@ lleva mas de 4 min, la cola sigue con las demas (se reintentara en %.0f min)",
+                videoId, delay / 60
+            ))
+            self.abandoned.insert(videoId)
+            self.runID += 1
+            self.running = false
+            self.runStarted = nil
+            self.runningVideoId = nil
+            self.drain()
         }
     }
 
     /// Lo que sale de leer una cancion: si se pudo decodificar, su onda y, si tiene compas claro, su estructura.
     private typealias Analysis = (structure: TrackStructure?, wave: [Float]?, decoded: Bool)
 
-    private func finish(_ videoId: String, analysis: Analysis?, isLocal: Bool, seconds: TimeInterval) {
+    private func finish(_ videoId: String, analysis: Analysis?, isLocal: Bool, seconds: TimeInterval, run: Int) {
+        // Si el vigilante ya dio esta cancion por perdida, su resultado se guarda pero no se toca la cola.
+        let stale = run != runID
+        abandoned.remove(videoId)
         // La onda de la barra sale del mismo audio: asi no se baja la cancion otra vez para ella.
         if let wave = analysis?.wave { WaveformStore.shared.store(wave, for: videoId) }
         if let result = analysis?.structure {
+            failures.removeValue(forKey: videoId)
+            retryAfter.removeValue(forKey: videoId)
             memory[videoId] = result
             if let data = try? JSONEncoder().encode(result) {
                 try? data.write(to: fileURL(videoId), options: .atomic)
@@ -138,22 +199,32 @@ final class TrackAnalysisStore {
                 result.lastChorusEndMs.map { "\($0 / 1000)s" } ?? "-",
                 seconds
             ))
+        } else if stale {
+            // Llego tarde y sin nada util: el vigilante ya dejo apuntado el reintento.
         } else if analysis == nil {
-            // No hubo direccion (sin red, permiso de datos...): es pasajero, se reintenta; no se marca como imposible.
-            retryAfter[videoId] = Date().addingTimeInterval(90)
-            PlaybackReport.record("automix: \(videoId) sin direccion para analizar, se reintentara")
+            // No hubo direccion (sin red, permiso de datos, todos los clientes de YouTube fallan...): es pasajero, se reintenta
+            // cada vez mas tarde; no se marca como imposible.
+            let delay = nextRetryDelay(videoId)
+            retryAfter[videoId] = Date().addingTimeInterval(delay)
+            PlaybackReport.record(String(format: "automix: %@ sin direccion para analizar, se reintentara en %.0f min", videoId, delay / 60))
         } else if analysis?.decoded == false, !isLocal {
-            // En streaming el fallo puede ser pasajero (sin red, direccion caducada): se reintenta en un rato.
-            retryAfter[videoId] = Date().addingTimeInterval(90)
-            PlaybackReport.record("automix: \(videoId) no se pudo leer en streaming, se reintentara")
+            // En streaming el fallo puede ser pasajero (sin red, direccion caducada, lectura demasiado lenta): se reintenta.
+            let delay = nextRetryDelay(videoId)
+            retryAfter[videoId] = Date().addingTimeInterval(delay)
+            PlaybackReport.record(String(format: "automix: %@ no se pudo leer en streaming, se reintentara en %.0f min", videoId, delay / 60))
         } else {
             // Se leyo bien pero no tiene un compas que analizar (o el archivo local no se puede leer): no se vuelve a intentar.
             unusable.insert(videoId)
             try? Data().write(to: fileURL(videoId), options: .atomic)
             PlaybackReport.record("automix: \(videoId) no se pudo analizar")
         }
-        running = false
-        drain()
+        if !stale {
+            watchdog?.cancel()
+            running = false
+            runStarted = nil
+            runningVideoId = nil
+            drain()
+        }
     }
 
     // MARK: - Lectura del audio y analisis (fuera del hilo principal)
@@ -172,7 +243,8 @@ final class TrackAnalysisStore {
     }
 
     /// Una cancion en streaming: FFmpeg la lee de internet y la decodifica a PCM crudo en un archivo temporal.
-    nonisolated static func decodeRemote(_ url: URL) -> [Int16]? {
+    /// `timeout`: si la lectura no ha terminado a tiempo (direccion estrangulada, red muy lenta) se corta y se da por fallida.
+    nonisolated static func decodeRemote(_ url: URL, timeout: TimeInterval = 900) -> [Int16]? {
         let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("automix-\(UUID().uuidString).pcm")
         defer { try? FileManager.default.removeItem(at: temporary) }
         let arguments = ["-y", "-v", "error"] + AutoMixSource.inputOptions(for: url) + [
@@ -180,7 +252,18 @@ final class TrackAnalysisStore {
             "-vn", "-ac", "1", "-ar", String(TrackStructureAnalyzer.sampleRate),
             "-f", "s16le", temporary.path
         ]
-        let session = FFmpegKit.execute(withArguments: arguments)
+        let done = DispatchSemaphore(value: 0)
+        let session = FFmpegKit.execute(
+            withArgumentsAsync: arguments,
+            withCompleteCallback: { _ in done.signal() },
+            withLogCallback: nil,
+            withStatisticsCallback: nil
+        )
+        if done.wait(timeout: .now() + timeout) == .timedOut {
+            session?.cancel()
+            _ = done.wait(timeout: .now() + 10)
+            return nil
+        }
         guard ReturnCode.isSuccess(session?.getReturnCode()),
               let data = try? Data(contentsOf: temporary), data.count > 2 else { return nil }
         var samples = [Int16](repeating: 0, count: data.count / 2)

@@ -75,11 +75,14 @@ final class WaveformStore {
             // Con AutoMix, el analisis de la cancion (que ya la baja) saca tambien la onda: no se baja dos veces.
             if SettingsStore.shared.autoMixEnabled, AutoMixSource.isAvailable(videoId: videoId) {
                 TrackAnalysisStore.shared.request(videoId)
-                return
+                // Salvo que la cola de analisis lleve un rato atascada con otra cancion: la que suena saca su onda por su
+                // propio carril, sin esperar detras.
+                guard urgent, TrackAnalysisStore.shared.shouldBypassQueue(for: videoId), AutoMixSourceGate.allowsPrefetch else { return }
+            } else {
+                // Sin AutoMix, solo con el reproductor grande abierto (es lo unico que la enseña) y con Wi-Fi o con los datos
+                // moviles permitidos.
+                guard PlayerController.shared.fullPlayerVisible, AutoMixSourceGate.allowsPrefetch else { return }
             }
-            // Sin AutoMix, solo con el reproductor grande abierto (es lo unico que la enseña) y con Wi-Fi o con los datos
-            // moviles permitidos.
-            guard PlayerController.shared.fullPlayerVisible, AutoMixSourceGate.allowsPrefetch else { return }
         }
         if urgent {
             guard !urgentQueue.contains(videoId), urgentRunning != videoId else { return }

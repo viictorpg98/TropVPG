@@ -676,5 +676,6 @@
   "Detailed Log": "Detailed Log",
   "Records screens, network requests, freezes, CPU, memory and battery while you use the app, and sums it up in the report. It uses a little extra battery: turn it off when you don't need it.": "Records screens, network requests, freezes, CPU, memory and battery while you use the app, and sums it up in the report. It uses a little extra battery: turn it off when you don't need it.",
   "Copy Previous Session": "Copy Previous Session",
-  "The summary of this session (screens, network, freezes, CPU, memory, battery) and the latest events. Pull down to refresh.": "The summary of this session (screens, network, freezes, CPU, memory, battery) and the latest events. Pull down to refresh."
+  "The summary of this session (screens, network, freezes, CPU, memory, battery) and the latest events. Pull down to refresh.": "The summary of this session (screens, network, freezes, CPU, memory, battery) and the latest events. Pull down to refresh.",
+  "Couldn't play this song. Skipping to the next one.": "Couldn't play this song. Skipping to the next one."
 }

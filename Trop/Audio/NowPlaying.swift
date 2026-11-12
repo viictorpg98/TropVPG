@@ -84,6 +84,9 @@ final class NowPlaying {
     var isBusyResolving: Bool { isResolvingNext }
     /// Timestamps of the last mid-play failure per videoId, to bound retries.
     private var lastFailureAt: [String: Date] = [:]
+    /// Canciones seguidas que se han saltado por no poder reproducirse (se para a las 3 para no recorrer toda la cola).
+    private var unplayableSkips = 0
+    private var lastUnplayableSkip = Date.distantPast
 
     private static let queueKey = "nowPlaying.queue"
     private static let queueIndexKey = "nowPlaying.queueIndex"
@@ -427,20 +430,39 @@ final class NowPlaying {
             upcoming: queueSongs.dropFirst(queueIndex + 1).map(\.videoId)
         )
         Task {
+            var failedToPlay = false
             do {
                 try await PlaybackManager.shared.resolveAndPlay(videoId: song.videoId, startAt: startAt)
             } catch {
                 Log.nowPlaying.error("\(logContext) failed: \(error)")
                 if self.videoId == song.videoId {
                     isPlaying = false
+                    failedToPlay = !(error is CancellationError) && logContext == "playNext"
                 }
             }
             if manageResolvingFlag {
                 resolvingCount = max(0, resolvingCount - 1)
             }
             afterResolve?()
+            if failedToPlay {
+                self.skipUnplayable(song.videoId)
+                return
+            }
             await self.verifyPlaybackStarted(song.videoId, startAt: startAt, logContext: logContext)
         }
+    }
+
+    /// Una cancion que no se ha podido abrir con ningun cliente de YouTube: pasa a la siguiente en vez de quedarse parada
+    /// (hasta 3 seguidas; sin conexion no se salta nada).
+    private func skipUnplayable(_ videoId: String) {
+        guard self.videoId == videoId, hasNext, NetworkMonitor.shared.hasConnection else { return }
+        if Date().timeIntervalSince(lastUnplayableSkip) > 90 { unplayableSkips = 0 }
+        guard unplayableSkips < 3 else { return }
+        unplayableSkips += 1
+        lastUnplayableSkip = Date()
+        PlaybackReport.record("reproductor: \(videoId) no se pudo reproducir, se pasa a la siguiente")
+        PlaybackNotice.shared.show(NSLocalizedString("Couldn't play this song. Skipping to the next one.", comment: ""))
+        playNext(automatic: true)
     }
 
     /// Red de seguridad: si tras pedir una cancion el reproductor ni la ha cargado ni la tiene en camino (seguia sonando
@@ -737,6 +759,7 @@ final class NowPlaying {
         if let last = lastFailureAt[videoId], Date().timeIntervalSince(last) < 30 {
             PlaybackReport.record("reproductor: \(videoId) fallo otra vez en menos de 30 s, no se reintenta")
             isPlaying = false
+            skipUnplayable(videoId)
             return
         }
         lastFailureAt[videoId] = Date()
@@ -760,6 +783,7 @@ final class NowPlaying {
                 Log.nowPlaying.error("Mid-play recovery failed: \(error)")
                 if self.videoId == videoId {
                     isPlaying = false
+                    if !(error is CancellationError) { self.skipUnplayable(videoId) }
                 }
             }
         }

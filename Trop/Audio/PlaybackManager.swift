@@ -16,6 +16,9 @@ actor PlaybackManager {
     /// Canciones cuya resolucion en curso SI va a reproducirse al terminar (la lanzo `resolveAndPlay`). Las otras
     /// (`resolve`: onda de la barra, analisis de AutoMix...) solo piden la direccion y no reproducen nada.
     private var playingResolutions: Set<String> = []
+    /// Canciones cuya direccion no se pudo pedir con ningun cliente (muchas UGC dan 403): quienes la piden solo para analizar
+    /// o sacar la onda no vuelven a intentarlo hasta pasado un tiempo que crece con cada fallo (2, 4, 8... hasta 30 min).
+    private var resolveFailures: [String: (count: Int, until: Date)] = [:]
     private static let lastClientKey = "playback.lastWorkingClient"
     /// Desde esta duracion un contenido se trata como "largo" (podcasts, directos grabados...).
     private static let longContentSeconds = 20 * 60
@@ -257,6 +260,7 @@ actor PlaybackManager {
 
     private func playNetworkResult(_ result: PlaybackResult, videoId: String, startAt: TimeInterval = 0) async {
         clientUsed[videoId] = result.clientName
+        resolveFailures.removeValue(forKey: videoId)
         // Para el informe: si la direccion lleva el token (&pot=) que pide YouTube a los clientes web.
         PlaybackReport.record("direccion de \(videoId): token pot \(result.streamUrl.contains("pot=") ? "si" : "NO")")
         let queueSong = await queueSong(for: videoId)
@@ -306,6 +310,13 @@ actor PlaybackManager {
     /// y se olvidan las direcciones guardadas (pueden ser del mismo cliente).
     func noteStreamFailure(videoId: String) async {
         guard let name = clientUsed[videoId] else { return }
+        // Los videos subidos por usuarios (UGC) dan 403 por ser ellos, no por el cliente: no cuentan para vetarlo (si no,
+        // una sola cancion UGC dejaba sin WEB_REMIX a todas las demas durante 3 horas).
+        if await queueSong(for: videoId)?.musicVideoType == "MUSIC_VIDEO_TYPE_UGC" {
+            await StreamCache.shared.remove(videoId: videoId)
+            PlaybackReport.record("cliente \(name): fallo de \(videoId) (UGC), no cuenta para descartar al cliente")
+            return
+        }
         // Un fallo suelto (un corte de red...) no veta al cliente: hace falta un segundo fallo suyo en 15 minutos. El primero
         // solo hace que se vuelva a pedir la direccion de esa cancion.
         let now = Date()
@@ -411,6 +422,10 @@ actor PlaybackManager {
             return cached
         }
 
+        if !forDownload, let blocked = resolveFailures[videoId], blocked.until > Date() {
+            throw StreamError.allClientsFailed
+        }
+
         let key = resolutionKey(videoId: videoId, forDownload: forDownload)
         if let existing = inflightResolutions[key] {
             return try await existing.value
@@ -421,7 +436,22 @@ actor PlaybackManager {
         }
         inflightResolutions[key] = task
         defer { clearInflight(key: key) }
-        return try await task.value
+        do {
+            let result = try await task.value
+            resolveFailures.removeValue(forKey: videoId)
+            return result
+        } catch {
+            if !forDownload, !(error is CancellationError) {
+                let count = (resolveFailures[videoId]?.count ?? 0) + 1
+                let wait = min(1800, 120 * pow(2, Double(count - 1)))
+                resolveFailures[videoId] = (count, Date().addingTimeInterval(wait))
+                PlaybackReport.record(String(
+                    format: "direccion de %@ no disponible: no se vuelve a pedir (analisis, onda) en %.0f min",
+                    videoId, wait / 60
+                ))
+            }
+            throw error
+        }
     }
 
     private func resolveFromNetwork(videoId: String, preferredFormat: Format?, forDownload: Bool) async throws -> PlaybackResult {

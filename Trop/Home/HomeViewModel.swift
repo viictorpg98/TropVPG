@@ -37,6 +37,9 @@ final class HomeViewModel {
     @ObservationIgnored private var lastPublishedSignature: [String: String] = [:]
     private var isHomeDataLoaded = false
     private var isLoadingMore = false
+    /// Cuando se busco sin exito la seccion Quick Picks del servidor (hasta 3 paginas extra, ~2 MB cada una): no se repite
+    /// en cada carga; se usan las locales.
+    private var quickPicksSearchFailedAt: Date?
     private var loadGeneration = 0
     private var previousHomePage: HomePage?
     private let cookieStore = CookieStore()
@@ -208,6 +211,7 @@ final class HomeViewModel {
 
     private func ensureQuickPicksAvailable(generation: Int) async {
         guard SettingsStore.shared.showQuickPicks else { return }
+        if let failed = quickPicksSearchFailedAt, Date().timeIntervalSince(failed) < 1800 { return }
         var attempts = 0
         while attempts < 3,
               generation == loadGeneration,
@@ -230,6 +234,11 @@ final class HomeViewModel {
                 isLoadingMore = false
                 break
             }
+        }
+        if hasQuickPicksServerSection() {
+            quickPicksSearchFailedAt = nil
+        } else if attempts >= 3 {
+            quickPicksSearchFailedAt = Date()
         }
     }
 
