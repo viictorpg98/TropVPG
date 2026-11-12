@@ -230,7 +230,7 @@ final class WaveformStore {
                 let index = first + slot
                 let center = duration * (Double(index) + 0.5) / Double(count)
                 guard let pcm = TrackAnalysisStore.decodePCM(
-                    url, isLocal: isLocal, start: max(0, center - 0.75), length: 1.5, timeout: 15
+                    url, isLocal: isLocal, start: max(0, center - 0.75), length: 1.5, timeout: 15, isWave: true
                 ), pcm.count > 400 else { return }
                 var sum = 0.0
                 for value in pcm {

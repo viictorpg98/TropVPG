@@ -44,6 +44,8 @@ final class PlayerController {
     nonisolated(unsafe) var gaplessMixLoaded = false
     /// Tras el archivo de la mezcla viene la entrante en streaming (es larga y no cabe entera en el archivo).
     nonisolated(unsafe) var gaplessTail = false
+    /// Segundo de la entrante (larga) donde acaba lo que lleva el archivo de la mezcla y mpv sigue con su direccion de internet.
+    nonisolated(unsafe) var gaplessTailResume: TimeInterval = 0
     /// Cuando se pidio el ultimo salto de posicion (para apuntar cuanto tardo el audio en volver).
     nonisolated(unsafe) var seekRequestedAt: Date?
     private var lastDetectedCrop: String?
@@ -319,6 +321,13 @@ extension PlayerController {
         var target = time
         if let timeline {
             target = time - timeline.shift
+            // Mientras suena el trozo de la entrante larga que lleva el archivo de la mezcla, un salto mas alla de lo que
+            // lleva (el archivo dura unos 23 s) se perdia: mpv llegaba al final del archivo y seguia desde el punto previsto,
+            // no desde el pedido. Se carga la cancion normal en el punto pedido.
+            if gaplessTail, gaplessStage == 2, time >= gaplessTailResume, let id = currentVideoId {
+                Task { _ = try? await PlaybackManager.shared.resolveAndPlay(videoId: id, startAt: time) }
+                return
+            }
             if target < timeline.mixEnd, let id = currentVideoId {
                 Task { _ = try? await PlaybackManager.shared.resolveAndPlay(videoId: id, startAt: time) }
                 return
@@ -1485,6 +1494,7 @@ extension PlayerController {
             gaplessIncomingId = incomingId
             gaplessMixLoaded = false
             gaplessTail = incoming != nil
+            gaplessTailResume = incomingStart
             gaplessStage = 1
         }
         return armed

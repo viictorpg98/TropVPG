@@ -31,6 +31,8 @@ final class TrackAnalysisStore {
 
     /// Lecturas de fondo (analisis, onda) a la vez como mucho.
     nonisolated static let readSlots = DispatchSemaphore(value: 4)
+    /// De esas 4, como mucho 2 las usan los analisis: las otras 2 quedan siempre para la onda de la cancion que suena.
+    nonisolated static let analysisSlots = DispatchSemaphore(value: 2)
 
     /// Mas de esto (segundos) es una cancion larga.
     nonisolated static let longSeconds: TimeInterval = 600
@@ -261,16 +263,16 @@ final class TrackAnalysisStore {
             guard let self else { return }
             self.finish(job, analysis: analysis, isLocal: isLocal, seconds: Date().timeIntervalSince(started), run: id)
         }
-        // Vigilante: una cancion no puede tener parada la cola mas de 90 segundos (antes, una tardo 27 minutos y las
+        // Vigilante: una cancion no puede tener parada la cola mas de 120 segundos (antes, una tardo 27 minutos y las
         // siguientes se quedaron sin onda ni mezcla).
         watchdog?.cancel()
         watchdog = Task { [weak self] in
-            do { try await Task.sleep(nanoseconds: 90_000_000_000) } catch { return }
+            do { try await Task.sleep(nanoseconds: 120_000_000_000) } catch { return }
             guard let self, self.running, self.runID == id else { return }
             let delay = self.nextRetryDelay(job.key)
             self.retryAfter[job.key] = Date().addingTimeInterval(delay)
             PlaybackReport.record(String(
-                format: "automix: el analisis de %@ (%@) lleva mas de 90 s, la cola sigue con las demas (se reintentara en %.0f min)",
+                format: "automix: el analisis de %@ (%@) lleva mas de 120 s, la cola sigue con las demas (se reintentara en %.0f min)",
                 job.videoId, job.role.rawValue, delay / 60
             ))
             self.abandoned.insert(job.key)
@@ -420,7 +422,7 @@ final class TrackAnalysisStore {
         let start = role == .outgoing ? max(0, duration - windowSeconds - 5) : 0
         // La ventana se lee a trozos cortos y a la vez (una lectura larga seguida se queda a medias en algunos videos).
         let length = role == .outgoing ? duration - start + 1 : windowSeconds
-        guard let pcm = decodePCMChunked(url, isLocal: isLocal, start: start, length: length, timeout: 60) else {
+        guard let pcm = decodePCMChunked(url, isLocal: isLocal, start: start, length: length, timeout: 90) else {
             return Analysis(structure: nil, wave: nil, decoded: false, longSeconds: duration, windowed: true)
         }
         guard let raw = TrackStructureAnalyzer.analyze(pcm) else {
@@ -436,16 +438,30 @@ final class TrackAnalysisStore {
     /// decodifica a PCM crudo en un archivo temporal. `timeout`: si no ha terminado a tiempo (direccion estrangulada, red muy
     /// lenta) se corta y se da por fallida.
     nonisolated static func decodePCM(
-        _ url: URL, isLocal: Bool, start: TimeInterval, length: TimeInterval?, timeout: TimeInterval
+        _ url: URL, isLocal: Bool, start: TimeInterval, length: TimeInterval?, timeout: TimeInterval,
+        isWave: Bool = false, giveUpAt: Date? = nil
     ) -> [Int16]? {
         // Las lecturas de fondo ceden ante la reproduccion: ninguna justo despues de un salto del usuario (el audio abre su
-        // propia conexion y las de fondo la frenaban) y como mucho 4 a la vez.
+        // propia conexion y las de fondo la frenaban) y como mucho 4 a la vez (2 para los analisis, que no pueden quitarle
+        // sitio a la onda de la que suena). `timeout` es lo que puede durar FFmpeg; esperar turno no cuenta.
         var waited = 0.0
-        while Date().timeIntervalSince(PlaybackActivity.lastSeekAt) < 12, waited < 20 {
+        while Date().timeIntervalSince(PlaybackActivity.lastSeekAt) < 12, waited < 20,
+              giveUpAt.map({ $0.timeIntervalSinceNow > 1 }) ?? true {
             Thread.sleep(forTimeInterval: 0.5)
             waited += 0.5
         }
-        guard readSlots.wait(timeout: .now() + max(timeout - waited, 1)) == .success else { return nil }
+        let queueLimit = giveUpAt.map { max($0.timeIntervalSinceNow, 0.5) } ?? 60
+        if !isWave {
+            guard analysisSlots.wait(timeout: .now() + queueLimit) == .success else {
+                PlaybackReport.record(String(format: "ffmpeg desde %.0f s: sin turno (analisis) tras esperar %.0f s", start, queueLimit + waited))
+                return nil
+            }
+        }
+        defer { if !isWave { analysisSlots.signal() } }
+        guard readSlots.wait(timeout: .now() + queueLimit) == .success else {
+            PlaybackReport.record(String(format: "ffmpeg desde %.0f s: sin turno tras esperar %.0f s", start, queueLimit + waited))
+            return nil
+        }
         defer { readSlots.signal() }
         let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("automix-\(UUID().uuidString).pcm")
         defer { try? FileManager.default.removeItem(at: temporary) }
@@ -504,7 +520,9 @@ final class TrackAnalysisStore {
             let begin = start + Double(index) * chunk
             let span = min(chunk, start + length - begin)
             guard span > 0.5,
-                  var pcm = decodePCM(url, isLocal: isLocal, start: begin, length: span, timeout: min(remaining, 15)) else { return }
+                  var pcm = decodePCM(
+                    url, isLocal: isLocal, start: begin, length: span, timeout: 15, giveUpAt: deadline
+                  ) else { return }
             let expected = Int((span * Double(rate)).rounded())
             if pcm.count > expected {
                 pcm.removeLast(pcm.count - expected)
@@ -529,7 +547,7 @@ final class TrackAnalysisStore {
 
     /// Una cancion en streaming entera (la usa la onda de las normales).
     nonisolated static func decodeRemote(_ url: URL, timeout: TimeInterval = 120) -> [Int16]? {
-        decodePCM(url, isLocal: false, start: 0, length: longSeconds + 30, timeout: timeout)
+        decodePCM(url, isLocal: false, start: 0, length: longSeconds + 30, timeout: timeout, isWave: true)
     }
 
     nonisolated static func decode(_ url: URL) async -> [Int16]? {
