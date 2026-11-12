@@ -110,7 +110,9 @@ final class AutoMixEngine {
 
         let lead = Double(plan.outgoingStartMs) / 1000 - position
         // La mezcla lleva ahora el resto entero de la entrante: preparar el archivo puede llevar unos segundos mas.
-        if lead > 30 || lead < 0.8 { return }
+        // Con una larga de por medio, preparar la mezcla lleva ~20 s (cada lectura tarda ~9 s en empezar): se empieza antes.
+        let longInvolved = TrackAnalysisStore.shared.isLong(outId) || TrackAnalysisStore.shared.isLong(inId)
+        if lead > (longInvolved ? 80 : 30) || lead < 0.8 { return }
         AutoMixVisuals.shared.prepare(song: NowPlaying.shared.queueSongs[NowPlaying.shared.queueIndex + 1])
         prepare(outId: outId, inId: inId, plan: plan)
         // Se deja detras de la cancion con tiempo de sobra antes del corte.
@@ -186,11 +188,15 @@ final class AutoMixEngine {
             let duration = Double(plan.durationMs) / 1000
             let outgoingRatio = plan.outgoingSpeedRatio
             let incomingRatio = plan.incomingSpeedRatio
+            // Una entrante larga no cabe entera en el archivo de la mezcla: lleva solo unos segundos y mpv sigue luego en streaming.
+            // (tambien las de 8-10 min: el resto de la cancion no cabria en los 8 min maximos del archivo.)
+            let tailStream = TrackAnalysisStore.shared.isLong(inId) || (inSource.duration ?? 0) > MixRenderer.maxRestSeconds - 30
             let rendered = await Task.detached(priority: .userInitiated) {
                 MixRenderer.render(
                     outgoingURL: outURL, outgoingStart: cutAt,
                     incomingURL: inURL, incomingStart: inStart,
-                    duration: duration, outgoingRatio: outgoingRatio, incomingRatio: incomingRatio
+                    duration: duration, outgoingRatio: outgoingRatio, incomingRatio: incomingRatio,
+                    tailStream: tailStream
                 )
             }.value
             guard let rendered else {
@@ -248,7 +254,8 @@ final class AutoMixEngine {
         guard let p = prepared, phase == .idle else { return }
         let controller = PlayerController.shared
         guard controller.armGaplessMix(
-            mixURL: p.mixURL, incomingURL: nil, incomingStart: p.resumeAt, endAt: p.cutAt, incomingId: p.inId
+            mixURL: p.mixURL, incomingURL: p.resumeAt > p.mixEndsAt + 0.05 ? p.incomingURL : nil,
+            incomingStart: p.resumeAt, endAt: p.cutAt, incomingId: p.inId
         ) else {
             PlaybackReport.record("automix: mpv no acepto la mezcla encadenada, se usa el paso normal")
             planCache = (p.outId, p.inId, nil)
@@ -260,6 +267,7 @@ final class AutoMixEngine {
         let next = NowPlaying.shared.queueIndex + 1
         incomingSongDuration = NowPlaying.shared.queueSongs.indices.contains(next)
             ? TimeInterval(NowPlaying.shared.queueSongs[next].duration) : 0
+        if incomingSongDuration <= 0, let known = TrackAnalysisStore.shared.knownDuration(p.inId) { incomingSongDuration = known }
         if let structure = TrackAnalysisStore.shared.structure(for: p.outId, role: .outgoing) {
             beatMs = structure.beatMs
             // Por encima de 140 BPM el latido seria nervioso: se hace cada dos pulsos.
@@ -381,7 +389,10 @@ final class AutoMixEngine {
         let controller = PlayerController.shared
         let duration = Double(p.plan.durationMs) / 1000
         controller.positionOverride = nil
-        controller.durationOverride = nil
+        // Si detras del archivo viene la entrante en streaming, durante esos segundos el archivo es corto: se sigue enseñando
+        // la duracion de la cancion hasta que mpv cambie (ahi se quita).
+        let continuesOnline = p.resumeAt > p.mixEndsAt + 0.05
+        controller.durationOverride = (continuesOnline && incomingSongDuration > 0) ? incomingSongDuration : nil
         controller.timeline = (shift: p.mixEndsAt - duration, mixEnd: duration)
         playingMix = p.mixURL
         PlaybackReport.record("automix: mezcla terminada, la entrante \(p.inId) suena sola")
@@ -536,12 +547,9 @@ final class AutoMixEngine {
         }
         var outStructure: TrackStructure?
         if outIsLong {
-            outStructure = await store.structureAround(outId, position: PlayerController.shared.currentTime)
-            guard AutoMixVisuals.shared.preparingManual, stillCurrent(outId, inId) else { abortManual(); return }
-            guard phase == .idle, prepared == nil, preparingKey == nil else {
-                holdPillUntilMixStarts()
-                return
-            }
+            // En una larga no se analiza un trozo (cada lectura tarda ~9 s en empezar y el resultado casi nunca tiene ritmo):
+            // fundido simple directo.
+            outStructure = nil
         } else {
             outStructure = store.structure(for: outId, role: .outgoing)
         }
@@ -549,8 +557,11 @@ final class AutoMixEngine {
         // Cuanto falta para empezar: lo que tardo en prepararse la ultima vez, con margen (entre 6 y 18 s).
         // En una cancion larga en streaming, leer 8 s a mitad de ella tarda (6-10 s): el margen minimo sube a 12 s, o casi
         // siempre llegaria tarde y habria que repetir.
-        let minimumLead: Double = (outIsLong && !DownloadManager.shared.isDownloaded(videoId: outId)) ? 12 : 6
-        let lead = min(max(lastRenderSeconds * 1.4 + 2.5, minimumLead), 18) + extraLead
+        let slowOut = outIsLong && !DownloadManager.shared.isDownloaded(videoId: outId)
+        let slowIn = store.isLong(inId) && !DownloadManager.shared.isDownloaded(videoId: inId)
+        // Entrante larga: lectura de la cola ademas de las dos (~20 s). Solo saliente larga: las dos a la vez (~12 s).
+        let minimumLead: Double = slowIn ? 24 : (slowOut ? 14 : 6)
+        let lead = min(max(lastRenderSeconds * 1.4 + 2.5, minimumLead), max(18, minimumLead)) + extraLead
         let startMs = Int64((PlayerController.shared.currentTime + lead) * 1000)
         let plan: TransitionPlan
         if let out = outStructure, let inc = incStructure {

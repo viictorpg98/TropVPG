@@ -33,10 +33,13 @@ enum MixRenderer {
     /// - Entrante: desde `incomingStart`, durante `duration` s, un paso alto que se abre de 2 kHz a 20 Hz, con el
     ///   volumen subiendo por seno, los graves entrando en el intercambio y el volumen igualado al de la saliente.
     ///   Si hace falta, empieza a `incomingRatio` veces su velocidad y vuelve a la normal al final.
+    /// `tailStream`: la entrante es larga (no cabe entera en el archivo de la mezcla): el archivo lleva solo unos segundos de ella
+    /// detras de la mezcla (`Output.extra`) y mpv sigue luego con su direccion de internet desde ahi.
     nonisolated static func render(
         outgoingURL: URL, outgoingStart: TimeInterval,
         incomingURL: URL, incomingStart: TimeInterval,
-        duration: TimeInterval, outgoingRatio: Double, incomingRatio: Double
+        duration: TimeInterval, outgoingRatio: Double, incomingRatio: Double,
+        tailStream: Bool = false
     ) -> Output? {
         // Misma frecuencia de muestreo que la saliente, para que mpv no tenga que cambiar de formato al encadenar.
         let rate = sampleRate(of: outgoingURL)
@@ -56,13 +59,21 @@ enum MixRenderer {
         let inPad = min(paddingFrames, Int(max(incomingStart, 0) * rate))
         let margin = Double(TimeStretch.grain + 2 * TimeStretch.tolerance) / rate
 
-        guard let outputSource = decode(
-            url: outgoingURL, start: outgoingStart - Double(outPad) / rate,
-            seconds: Double(outPad) / rate + advanceOut + margin, rate: rate
-        ), let incomingSource = decode(
-            url: incomingURL, start: incomingStart - Double(inPad) / rate,
-            seconds: Double(inPad) / rate + advanceIn + margin + 0.2, rate: rate
-        ) else { return nil }
+        // Las dos canciones se leen A LA VEZ: en las largas en streaming cada lectura tarda ~9 s en empezar y, una tras otra,
+        // sumaban 18 s.
+        let outStart = outgoingStart - Double(outPad) / rate
+        let outSeconds = Double(outPad) / rate + advanceOut + margin
+        let inStart = incomingStart - Double(inPad) / rate
+        let inSeconds = Double(inPad) / rate + advanceIn + margin + 0.2
+        let reads = ReadBox()
+        DispatchQueue.concurrentPerform(iterations: 2) { which in
+            if which == 0 {
+                reads.setOutgoing(decode(url: outgoingURL, start: outStart, seconds: outSeconds, rate: rate, label: "saliente"))
+            } else {
+                reads.setIncoming(decode(url: incomingURL, start: inStart, seconds: inSeconds, rate: rate, label: "entrante"))
+            }
+        }
+        guard let outputSource = reads.outgoing, let incomingSource = reads.incoming else { return nil }
 
         // Saliente en el tiempo de la mezcla.
         let outgoing: [[Float]]
@@ -149,10 +160,18 @@ enum MixRenderer {
         // Detras de la mezcla va el resto de la entrante tal cual, hasta el final de su cancion, en el MISMO archivo: asi mpv no
         // tiene que cambiar de archivo al acabar la mezcla (ese cambio era lo que dejaba el microcorte). Si la cancion es
         // demasiado larga para guardarla entera, no se mezcla.
-        guard let restURL = decodeToFile(url: incomingURL, start: mixEndsAt, seconds: maxRestSeconds, rate: rate) else { return nil }
-        defer { try? FileManager.default.removeItem(at: restURL) }
-        guard let url = write(mixed, followedBy: restURL, rate: rate) else { return nil }
-        return Output(url: url, mixEndsAt: mixEndsAt, extra: 0)
+        // Con una entrante larga solo se guardan unos segundos (leer 8 minutos de una cancion de 22 era lo que dejaba la
+        // preparacion colgada, y al final fallaba por ser demasiado larga).
+        let tailSeconds = 25.0
+        guard let rest = decodeToFile(
+            url: incomingURL, start: mixEndsAt, seconds: tailStream ? tailSeconds : maxRestSeconds, rate: rate,
+            wholeOnly: !tailStream, label: "resto de la entrante"
+        ) else { return nil }
+        defer { try? FileManager.default.removeItem(at: rest.url) }
+        guard let url = write(mixed, followedBy: rest.url, rate: rate) else { return nil }
+        // Si la cancion acaba antes de esos segundos, el archivo ya la lleva entera y no hace falta seguir con internet.
+        let extra = (tailStream && rest.seconds >= tailSeconds - 1) ? rest.seconds : 0
+        return Output(url: url, mixEndsAt: mixEndsAt, extra: extra)
     }
 
     // MARK: - Decodificacion con FFmpeg
@@ -165,7 +184,9 @@ enum MixRenderer {
     }
 
     /// `seconds` s de `url` desde `start`, a `rate` Hz y en estereo.
-    nonisolated private static func decode(url: URL, start: TimeInterval, seconds: TimeInterval, rate: Double) -> [[Float]]? {
+    nonisolated private static func decode(
+        url: URL, start: TimeInterval, seconds: TimeInterval, rate: Double, label: String = "audio"
+    ) -> [[Float]]? {
         let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("automix-\(UUID().uuidString).wav")
         defer { try? FileManager.default.removeItem(at: temporary) }
         let input = url.isFileURL ? url.path : url.absoluteString
@@ -177,8 +198,7 @@ enum MixRenderer {
             "-acodec", "pcm_f32le", "-f", "wav",
             temporary.path
         ]
-        let session = FFmpegKit.execute(withArguments: arguments)
-        guard ReturnCode.isSuccess(session?.getReturnCode()),
+        guard runFFmpeg(arguments, timeout: 30, label: label),
               let file = try? AVAudioFile(forReading: temporary),
               file.length > 0,
               let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)) else {
@@ -221,7 +241,9 @@ enum MixRenderer {
 
     /// Decodifica `url` desde `start` hasta el final (como mucho `seconds`) a un archivo WAV temporal. `nil` si no se puede o si la
     /// cancion es mas larga que el limite (el archivo quedaria corto).
-    nonisolated private static func decodeToFile(url: URL, start: TimeInterval, seconds: TimeInterval, rate: Double) -> URL? {
+    nonisolated private static func decodeToFile(
+        url: URL, start: TimeInterval, seconds: TimeInterval, rate: Double, wholeOnly: Bool = true, label: String = "audio"
+    ) -> (url: URL, seconds: Double)? {
         let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("automix-\(UUID().uuidString).wav")
         let input = url.isFileURL ? url.path : url.absoluteString
         let arguments = ["-y", "-v", "error"] + AutoMixSource.inputOptions(for: url) + [
@@ -232,14 +254,40 @@ enum MixRenderer {
             "-acodec", "pcm_s16le", "-f", "wav",
             temporary.path
         ]
-        let session = FFmpegKit.execute(withArguments: arguments)
-        guard ReturnCode.isSuccess(session?.getReturnCode()),
+        guard runFFmpeg(arguments, timeout: wholeOnly ? 60 : 30, label: label),
               let file = try? AVAudioFile(forReading: temporary), file.length > 0,
-              Double(file.length) / rate < seconds - 1 else {
+              !wholeOnly || Double(file.length) / rate < seconds - 1 else {
             try? FileManager.default.removeItem(at: temporary)
             return nil
         }
-        return temporary
+        return (temporary, Double(file.length) / rate)
+    }
+
+    /// Ejecuta FFmpeg con un limite de tiempo: si una lectura se queda a medias (direccion lenta) se corta y se da por fallida,
+    /// en vez de dejar la mezcla "preparando" para siempre. Apunta en el informe las lentas y las que fallan.
+    nonisolated private static func runFFmpeg(_ arguments: [String], timeout: TimeInterval, label: String) -> Bool {
+        let began = Date()
+        let done = DispatchSemaphore(value: 0)
+        let session = FFmpegKit.execute(
+            withArgumentsAsync: arguments,
+            withCompleteCallback: { _ in done.signal() },
+            withLogCallback: nil,
+            withStatisticsCallback: nil
+        )
+        if done.wait(timeout: .now() + timeout) == .timedOut {
+            session?.cancel()
+            _ = done.wait(timeout: .now() + 10)
+            PlaybackReport.record(String(format: "mezcla: lectura de %@ cortada a los %.0f s", label, Date().timeIntervalSince(began)))
+            return false
+        }
+        let succeeded = ReturnCode.isSuccess(session?.getReturnCode())
+        let elapsed = Date().timeIntervalSince(began)
+        if !succeeded {
+            PlaybackReport.record(String(format: "mezcla: lectura de %@ fallo en %.1f s", label, elapsed))
+        } else if elapsed > 4 {
+            PlaybackReport.record(String(format: "mezcla: lectura de %@ tardo %.1f s", label, elapsed))
+        }
+        return succeeded
     }
 
     /// Escribe la mezcla como WAV de 16 bits (la mitad de espacio y de escritura que en coma flotante; para escuchar es igual)
@@ -476,5 +524,36 @@ enum TimeStretch {
             }
         }
         return best
+    }
+}
+
+/// Las dos lecturas de una mezcla (saliente y entrante), que se hacen a la vez desde dos hilos.
+private final class ReadBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var outgoingValue: [[Float]]?
+    private var incomingValue: [[Float]]?
+
+    func setOutgoing(_ value: [[Float]]?) {
+        lock.lock()
+        outgoingValue = value
+        lock.unlock()
+    }
+
+    func setIncoming(_ value: [[Float]]?) {
+        lock.lock()
+        incomingValue = value
+        lock.unlock()
+    }
+
+    var outgoing: [[Float]]? {
+        lock.lock()
+        defer { lock.unlock() }
+        return outgoingValue
+    }
+
+    var incoming: [[Float]]? {
+        lock.lock()
+        defer { lock.unlock() }
+        return incomingValue
     }
 }

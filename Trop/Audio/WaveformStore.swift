@@ -129,7 +129,8 @@ final class WaveformStore {
             guard let self else { return }
             if let wave {
                 self.store(wave, for: videoId)
-            } else {
+            } else if !isCurrent || NowPlaying.shared.videoId == videoId {
+                // (Si se corto porque la cancion ya no es la actual no es un fallo: no se espera un minuto para volver a pedirla.)
                 self.failed[videoId] = Date().addingTimeInterval(60)
             }
             if isCurrent { self.urgentRunning = nil } else { self.backgroundRunning = nil }

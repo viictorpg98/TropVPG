@@ -42,6 +42,8 @@ final class PlayerController {
     nonisolated(unsafe) var gaplessStage = 0
     nonisolated(unsafe) var gaplessIncomingId: String?
     nonisolated(unsafe) var gaplessMixLoaded = false
+    /// Tras el archivo de la mezcla viene la entrante en streaming (es larga y no cabe entera en el archivo).
+    nonisolated(unsafe) var gaplessTail = false
     private var lastDetectedCrop: String?
     private var detectedCropRepeatCount = 0
     var currentLoudnessDb: Double?
@@ -561,6 +563,9 @@ extension PlayerController {
         if gaplessStage == 3 {
             cameFromMix = true
             gaplessStage = 0
+            var startedAt = Double(0)
+            mpv_get_property(mpv, "time-pos", MPV_FORMAT_DOUBLE, &startedAt)
+            PlaybackReport.record(String(format: "automix: la entrante en streaming empieza en %.1f s de su cancion", startedAt))
             mpv_set_property_string(mpv, "prefetch-playlist", "no")
             // Fin del empalme: el registro vuelve a ser solo de avisos (con un retraso, para que quede escrito lo del cambio).
             DispatchQueue.global().asyncAfter(deadline: .now() + 2.5) { [weak self] in
@@ -678,6 +683,21 @@ extension PlayerController {
             gaplessStage = 2
             _ = withMpv { mpv in mpv_set_property_string(mpv, "end", "none") }
             PlaybackReport.record("automix: mpv paso de la saliente al archivo de la mezcla")
+            return
+        }
+        if isEof, gaplessStage == 2, gaplessTail {
+            // El archivo de la mezcla solo lleva unos segundos de la entrante (es larga): mpv sigue sin pausa con su direccion
+            // de internet, ya cargada detras. La app no debe pensar que acabo la cancion.
+            let incomingId = gaplessIncomingId
+            gaplessStage = 3
+            gaplessTail = false
+            gaplessMixLoaded = false
+            pendingVideoId = incomingId
+            Task { @MainActor in
+                PlayerController.shared.clearTimeline()
+                PlayerController.shared.durationOverride = nil
+            }
+            PlaybackReport.record("automix: acabo el archivo de la mezcla, mpv sigue con la entrante en streaming")
             return
         }
         if isEof, gaplessStage == 2 {
@@ -1449,6 +1469,7 @@ extension PlayerController {
         if armed {
             gaplessIncomingId = incomingId
             gaplessMixLoaded = false
+            gaplessTail = incoming != nil
             gaplessStage = 1
         }
         return armed
@@ -1473,6 +1494,7 @@ extension PlayerController {
         gaplessStage = 0
         gaplessIncomingId = nil
         gaplessMixLoaded = false
+        gaplessTail = false
         positionOverride = nil
         durationOverride = nil
     }
