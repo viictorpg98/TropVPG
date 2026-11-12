@@ -21,7 +21,7 @@ jobs:
     name: Build iOS IPA
     # Mac con chip Apple: la prueba compilo el mismo codigo en 6 min frente a 12 del Mac Intel. Si GitHub no tuviera ejecutores
     # libres y la compilacion se quedara en cola, volver a 'macos-15-intel'.
-    runs-on: macos-15
+    runs-on: macos-15-intel
     permissions:
       contents: write
       actions: write
