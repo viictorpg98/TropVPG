@@ -1,0 +1,14 @@
+Command line invocation:
+    /Applications/Xcode_26.3.app/Contents/Developer/usr/bin/xcodebuild -resolvePackageDependencies -project /Users/runner/work/TropVPG/TropVPG/Trop.xcodeproj -scheme Trop -derivedDataPath /Volumes/TropBuild/DerivedDataApp -clonedSourcePackagesDirPath /Volumes/TropBuild/SourcePackages
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  GRDB: https://github.com/groue/GRDB.swift.git @ 6.29.3
+  MPVKit: https://github.com/mpvkit/MPVKit.git @ 1.0.0
+  SwiftyTube: https://github.com/686udjie/SwiftyTube.git @ 0.0.6
+  Nuke: https://github.com/kean/Nuke.git @ 12.9.0
+  Marquee: https://github.com/SwiftUIKit/Marquee.git @ 0.3.0
+
+resolved source packages: GRDB, MPVKit, SwiftyTube, Nuke, Marquee
