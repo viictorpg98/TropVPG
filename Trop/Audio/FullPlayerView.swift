@@ -242,6 +242,7 @@ struct FullPlayerView: View {
             .brightness(np.isPlaying ? 0 : -0.14)
             .animation(.easeInOut(duration: 0.4), value: np.isPlaying)
             .padding(.top, -(topInset + handle))
+            .overlay(alignment: .bottom) { weakConnectionOverlay }
 
             Spacer(minLength: isCompact ? 4 : 10)
         } else {
@@ -250,6 +251,7 @@ struct FullPlayerView: View {
             MixAwareArtwork(width: artSide, height: artSide, fullBleed: false, content: artwork)
                 .scaleEffect(np.isPlaying ? 1 : 0.88)
                 .animation(.spring(response: 0.5, dampingFraction: 0.62), value: np.isPlaying)
+                .overlay(alignment: .bottom) { weakConnectionOverlay }
 
             Spacer(minLength: isCompact ? 10 : 18)
         }
@@ -276,6 +278,15 @@ struct FullPlayerView: View {
         .padding(.horizontal, horizontalPadding)
         .frame(maxWidth: .infinity)
         .frame(height: 33, alignment: .bottom)
+    }
+
+    /// El aviso flota sobre la parte baja de la caratula: no empuja ni tapa el titulo, los botones ni los controles.
+    @ViewBuilder
+    private var weakConnectionOverlay: some View {
+        if np.isLoadingSlowly {
+            weakConnectionHint
+                .padding(.bottom, 8)
+        }
     }
 
     /// Con poca cobertura la cancion elegida tarda: el aviso de siempre va encima del mini reproductor, que aqui no se ve.
@@ -305,18 +316,16 @@ struct FullPlayerView: View {
                 .buttonStyle(.plain)
             }
         }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .padding(.horizontal, 24)
-        .padding(.bottom, 8)
         .transition(.opacity)
     }
 
     /// Barra de progreso, controles y botones del pie: el mismo bloque con la carátula y con la cola.
     @ViewBuilder
     private func playerBottom(horizontalPadding: CGFloat, isCompact: Bool) -> some View {
-        if np.isLoadingSlowly {
-            weakConnectionHint
-        }
-
         progressSlider(horizontalPadding: horizontalPadding)
             .padding(.top, 4)
             .padding(.bottom, isCompact ? 8 : 12)

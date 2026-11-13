@@ -61,6 +61,11 @@ final class NowPlaying {
     private var streamLoadedAt = Date.distantPast
     private var streamLoadedId: String?
     private var loadStartedAt = Date.distantPast
+    /// Cada vigilante de carga lleva su numero: si se arranca otro (nueva eleccion o reintento), el anterior se retira.
+    private var loadWatchToken = 0
+    /// `loadStartedAt` de la carga que ya se reintento sola (solo se reintenta una vez por eleccion).
+    private var stuckRetryLoadStart: Date?
+    private var lastStuckRetryAt = Date.distantPast
     var isLoadingTrack: Bool { loadingSpinnerShown && loadingTrackId != nil }
 
     /// Una lista, Inicio o Buscar pidieron sonar `videoId`: hasta que cargue su direccion la pantalla sigue con la anterior,
@@ -458,17 +463,18 @@ final class NowPlaying {
                 try await PlaybackManager.shared.resolveAndPlay(videoId: song.videoId, startAt: startAt, onlyIfCurrent: true)
             } catch {
                 Log.nowPlaying.error("\(logContext) failed: \(error)")
-                self.trackLoadFinished(videoId: song.videoId)
-                if self.videoId == song.videoId {
+                // Una carga cancelada (se reinicio o se eligio otra) no es un fallo: la rueda sigue con la nueva carga.
+                if !self.isCancellation(error) { self.trackLoadFinished(videoId: song.videoId) }
+                if self.videoId == song.videoId, !self.isCancellation(error) {
                     isPlaying = false
                     // Un fallo por mala cobertura o por un cambio de red no es de la cancion: no se salta a la siguiente
                     // (fallaria igual y se recorreria la cola); se queda para volver a tocarla.
                     // Si todos los clientes de YouTube fallan por falta de cobertura el error no siempre dice "red": se
                     // cuenta tambien el tiempo (10 s o mas esperando = cobertura, no una cancion imposible).
                     let slowFailure = Date().timeIntervalSince(requestStarted) >= 10
-                    let connectionProblem = !(error is CancellationError) && (self.isConnectionProblem(error) || slowFailure)
+                    let connectionProblem = self.isConnectionProblem(error) || slowFailure
                     if connectionProblem { PlaybackReport.record("carga: \(song.videoId) fallo por la conexion, no se salta (\(error.localizedDescription))") }
-                    failedToPlay = !(error is CancellationError) && logContext == "playNext" && !connectionProblem
+                    failedToPlay = logContext == "playNext" && !connectionProblem
                 }
             }
             if manageResolvingFlag {
@@ -511,12 +517,14 @@ final class NowPlaying {
     private func startSlowLoadWatch(for videoId: String) {
         loadingSpinnerShown = false
         loadStartedAt = Date()
+        loadWatchToken += 1
+        let token = loadWatchToken
         Task { [weak self] in
             try? await Task.sleep(nanoseconds: 1_200_000_000)
-            guard let self, self.loadingTrackId == videoId else { return }
+            guard let self, self.loadingTrackId == videoId, self.loadWatchToken == token else { return }
             self.loadingSpinnerShown = true
             try? await Task.sleep(nanoseconds: 3_800_000_000)
-            guard self.loadingTrackId == videoId else { return }
+            guard self.loadingTrackId == videoId, self.loadWatchToken == token else { return }
             self.isLoadingSlowly = true
             PlaybackActivity.weakConnectionUntil = Date().addingTimeInterval(90)
             let hasDownloads = DownloadManager.shared.persistedDownloadCount > 0
@@ -534,10 +542,49 @@ final class NowPlaying {
                 PlaybackNotice.shared.show(NSLocalizedString("Weak connection: still loading this song…", comment: ""))
             }
             try? await Task.sleep(nanoseconds: 40_000_000_000)
-            guard self.loadingTrackId == videoId else { return }
+            guard self.loadingTrackId == videoId, self.loadWatchToken == token else { return }
             PlaybackReport.record("carga lenta: \(videoId) sigue sin cargar tras 45 s")
+            // Si la carga se quedo colgada (por ejemplo en una red que ya no existe), se vuelve a pedir una vez antes de rendirse.
+            if self.stuckRetryLoadStart != self.loadStartedAt, self.isLoadStuck {
+                self.retryStuckLoad(reason: "45 s sin cargar")
+                return
+            }
             self.trackLoadFinished(videoId: videoId)
         }
+    }
+
+    /// La cancion que toca ahora esta pedida pero mpv aun no ha abierto su audio (carga en curso o colgada).
+    private var isLoadStuck: Bool {
+        guard queueSongs.indices.contains(queueIndex) else { return false }
+        let id = queueSongs[queueIndex].videoId
+        let controller = PlayerController.shared
+        return (loadingTrackId == id || controller.pendingVideoId == id) && controller.currentVideoId != id
+    }
+
+    /// Con poca cobertura una carga puede quedarse abierta en la red vieja y no recuperarse sola al volver el Wi-Fi (hacia falta
+    /// saltar de cancion): se pide de nuevo su direccion con la red de ahora y se carga otra vez.
+    /// `force`: el cambio de red o la conexion recuperada reinician siempre (aunque hace un momento ya se reintentara por el
+    /// tiempo: esa peticion pudo salir por la red vieja). Solo el reintento por tiempo respeta el margen de 3 s.
+    private func retryStuckLoad(reason: String, force: Bool = false) {
+        guard isLoadStuck, force || Date().timeIntervalSince(lastStuckRetryAt) > 3 else { return }
+        lastStuckRetryAt = Date()
+        let id = queueSongs[queueIndex].videoId
+        PlaybackReport.record("carga: \(id) no habia cargado (\(reason)), se pide de nuevo")
+        let hadSpinner = loadingSpinnerShown
+        loadingTrackId = id
+        startSlowLoadWatch(for: id)
+        loadingSpinnerShown = hadSpinner // la rueda no desaparece mientras se reintenta
+        stuckRetryLoadStart = loadStartedAt
+        let recoveryTime = beginRecoveryTime("sonar-retry-load")
+        Task {
+            defer { self.endRecoveryTime(recoveryTime) }
+            await PlaybackManager.shared.restartResolution(videoId: id)
+        }
+    }
+
+    private func isCancellation(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        return error is CancellationError || (nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled)
     }
 
     /// El fallo es de la conexion (sin cobertura, corte, cambio de Wi-Fi a datos) y no de la cancion.
@@ -572,6 +619,11 @@ final class NowPlaying {
     func networkInterfaceChanged(from old: String, to new: String) {
         PlaybackReport.record("red: cambio de \(old) a \(new)")
         Task { await StreamCache.shared.clear() }
+        // Si la cancion elegida seguia cargando, esa carga quedo abierta en la red vieja: se reinicia ya, con la nueva.
+        if isLoadStuck {
+            retryStuckLoad(reason: "cambio de \(old) a \(new)", force: true)
+            return
+        }
         networkRefreshTask?.cancel()
         networkRefreshTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 3_000_000_000)
@@ -859,6 +911,7 @@ final class NowPlaying {
 
     /// Vuelve la conexion: se recupera la cola normal (o la radio de la cancion actual) sin cortar lo que suena.
     func connectionRestored() {
+        if isLoadStuck { retryStuckLoad(reason: "conexion recuperada", force: true) }
         guard offlineQueueActive || offlineSeededQueue else { return }
         Task { @MainActor in
             // Se espera un poco por si es un corte breve.

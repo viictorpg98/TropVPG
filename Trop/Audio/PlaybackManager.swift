@@ -13,6 +13,9 @@ actor PlaybackManager {
     static let shared = PlaybackManager()
 
     private var inflightResolutions: [String: Task<PlaybackResult, Error>] = [:]
+    /// Cuantas veces se ha reiniciado la carga de cada cancion (`restartResolution`). Un intento de antes, que sigue colgado en la
+    /// red vieja, no puede ponerse a sonar cuando por fin acabe encima del reinicio (cancelar la peticion no esta garantizado).
+    private var restartGeneration: [String: Int] = [:]
     /// Canciones cuya resolucion en curso SI va a reproducirse al terminar (la lanzo `resolveAndPlay`). Las otras
     /// (`resolve`: onda de la barra, analisis de AutoMix...) solo piden la direccion y no reproducen nada.
     private var playingResolutions: Set<String> = []
@@ -35,6 +38,7 @@ actor PlaybackManager {
     /// ensenaba una y sonaba otra).
     @discardableResult
     func resolveAndPlay(videoId: String, startAt: TimeInterval = 0, onlyIfCurrent: Bool = false) async throws -> PlaybackResult {
+        let generation = restartGeneration[videoId, default: 0]
         if onlyIfCurrent { cancelSupersededResolutions(keeping: videoId) }
         await MainActor.run { SponsorBlockIntegration.shared.warm(for: videoId) }
         if let localPath = await DownloadManager.shared.localURL(for: videoId) {
@@ -98,6 +102,7 @@ actor PlaybackManager {
                 // La resolucion en curso solo pedia la direccion (onda, analisis de AutoMix...) y no reproduce: antes se
                 // devolvia sin mas y la cancion elegida no sonaba. Se reproduce aqui el resultado.
                 PlaybackReport.record("reproducir \(videoId): se unio a una resolucion que no reproducia, se reproduce ahora")
+                if isSuperseded(videoId, generation: generation) { return result }
                 if await isNoLongerChosen(videoId, onlyIfCurrent: onlyIfCurrent) { return result }
                 await playNetworkResult(result, videoId: videoId, startAt: startAt)
             }
@@ -105,7 +110,7 @@ actor PlaybackManager {
         }
 
         let task = Task { [self] in
-            try await resolveAndPlayFromNetwork(videoId: videoId, startAt: startAt, onlyIfCurrent: onlyIfCurrent)
+            try await resolveAndPlayFromNetwork(videoId: videoId, startAt: startAt, onlyIfCurrent: onlyIfCurrent, generation: generation)
         }
         inflightResolutions[videoId] = task
         playingResolutions.insert(videoId)
@@ -116,13 +121,17 @@ actor PlaybackManager {
         do {
             return try await task.value
         } catch {
-            await MainActor.run { NowPlaying.shared.trackLoadFinished(videoId: videoId) }
+            // Si se reinicio la carga mientras esta seguia, este intento ya no cuenta: es como una cancelacion.
+            if restartGeneration[videoId, default: 0] != generation { throw CancellationError() }
             // Una carga cancelada (se eligio otra cancion) o ya superada no es un fallo que ensenar: su aviso pisaria al de
             // "conexion debil" de la cancion que si se quiere oir.
             let nsError = error as NSError
             let cancelled = error is CancellationError || (nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled)
-            if !cancelled, !(await isNoLongerChosen(videoId, onlyIfCurrent: onlyIfCurrent)) {
-                await reportPlaybackFailure(error)
+            if !cancelled {
+                await MainActor.run { NowPlaying.shared.trackLoadFinished(videoId: videoId) }
+                if !(await isNoLongerChosen(videoId, onlyIfCurrent: onlyIfCurrent)) {
+                    await reportPlaybackFailure(error)
+                }
             }
             throw error
         }
@@ -152,7 +161,8 @@ actor PlaybackManager {
     private func resolveAndPlayFromNetwork(
         videoId: String,
         startAt: TimeInterval = 0,
-        onlyIfCurrent: Bool = false
+        onlyIfCurrent: Bool = false,
+        generation: Int = 0
     ) async throws -> PlaybackResult {
         var request = StreamResolveRequest.playback(videoId: videoId)
         request.options.audioQuality = SettingsStore.shared.audioQuality
@@ -191,9 +201,30 @@ actor PlaybackManager {
         PlaybackReport.record("direccion de \(videoId): cliente \(result.clientName) en \(Int(Date().timeIntervalSince(started) * 1000)) ms, \(result.mimeType)")
         // Lo que funciona para un podcast no dice nada de la musica: no se recuerda.
         if !isLong { UserDefaults.standard.set(result.clientName, forKey: Self.lastClientKey) }
+        if isSuperseded(videoId, generation: generation) { return result }
         if await isNoLongerChosen(videoId, onlyIfCurrent: onlyIfCurrent) { return result }
         await playNetworkResult(result, videoId: videoId, startAt: startAt)
         return result
+    }
+
+    /// Esta carga es de antes de un reinicio (`restartResolution`): la nueva es la que cuenta.
+    private func isSuperseded(_ videoId: String, generation: Int) -> Bool {
+        guard restartGeneration[videoId, default: 0] != generation else { return false }
+        PlaybackReport.record("reproducir \(videoId): una carga mas nueva la sustituye, esta no se pone a sonar")
+        return true
+    }
+
+    /// La carga de `videoId` quedo colgada (la red cayo o cambio de Wi-Fi a datos mientras cargaba): se cancela la peticion
+    /// pendiente, si la hay, se olvida su direccion guardada y se vuelve a pedir y a cargar con la red de ahora.
+    func restartResolution(videoId: String) async {
+        restartGeneration[videoId, default: 0] += 1
+        if let pending = inflightResolutions[videoId] {
+            pending.cancel()
+            clearInflight(key: videoId)
+            playingResolutions.remove(videoId)
+        }
+        await StreamCache.shared.remove(videoId: videoId)
+        _ = try? await resolveAndPlay(videoId: videoId, onlyIfCurrent: true)
     }
 
     /// Al elegir otra cancion, las cargas pendientes de las que se eligieron antes ya no sirven: se cancelan para que la ultima
