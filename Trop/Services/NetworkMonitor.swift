@@ -28,6 +28,7 @@ final class NetworkMonitor {
     /// El telefono cambio de Wi-Fi a datos (o al reves) hace menos de un minuto. Las direcciones de googlevideo llevan la IP
     /// publica de quien las pidio: tras el cambio dejan de valer y las canciones fallan al abrirse, aunque haya red.
     var changedInterfaceRecently: Bool { Date().timeIntervalSince(lastInterfaceChange) < 60 }
+    var lastInterfaceChangeAt: Date { lastInterfaceChange }
 
     private init() {
         monitor.pathUpdateHandler = { [weak self] path in

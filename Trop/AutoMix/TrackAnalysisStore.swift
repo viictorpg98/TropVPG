@@ -198,7 +198,7 @@ final class TrackAnalysisStore {
         // En streaming hay que pedir su direccion a YouTube: no se hace mientras se resuelve una cancion ni en los
         // segundos siguientes a un cambio (varias peticiones a la vez dejaban sin direccion valida a la que se quiere oir).
         if !DownloadManager.shared.isDownloaded(videoId: videoId) {
-            if NowPlaying.shared.isBusyResolving { return }
+            if NowPlaying.shared.isBusyResolving || PlaybackActivity.weakConnection { return }
             // La direccion de la que suena ya esta en la cache (no cuesta otra peticion a YouTube): se puede analizar antes.
             let wait: TimeInterval = NowPlaying.shared.videoId == videoId ? 3 : 12
             if Date().timeIntervalSince(AutoMixEngine.shared.lastSongChange) < wait { return }
@@ -652,4 +652,8 @@ private final class ChunkBox: @unchecked Sendable {
 enum PlaybackActivity {
     /// Cuando fue el ultimo salto de posicion: justo despues, el audio necesita su conexion libre.
     nonisolated(unsafe) static var lastSeekAt = Date.distantPast
+    /// Hasta cuando se da la conexion por floja (la cancion elegida tarda en cargar): el analisis de AutoMix, la caratula animada
+    /// y SponsorBlock esperan, porque compiten por la poca red con la cancion que se quiere oir.
+    nonisolated(unsafe) static var weakConnectionUntil = Date.distantPast
+    static var weakConnection: Bool { Date() < weakConnectionUntil }
 }

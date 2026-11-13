@@ -125,6 +125,12 @@ final class AnimatedArtworkService {
             }
         }
         guard wantsLookup else { return nil }
+        // Con la conexion floja (la cancion elegida tarda en cargar) no se empieza ninguna busqueda: competiria por la poca red.
+        // No se apunta como "sin resultado": la proxima vez que se pida se busca.
+        if PlaybackActivity.weakConnection, inflight[videoId] == nil {
+            note(videoId, "no se busca ahora (conexion debil)")
+            return nil
+        }
         if let running = inflight[videoId] { return await running.value }
 
         let task = Task<Info?, Never> { [weak self] in

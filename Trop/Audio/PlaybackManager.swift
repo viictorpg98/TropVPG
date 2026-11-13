@@ -35,6 +35,7 @@ actor PlaybackManager {
     /// ensenaba una y sonaba otra).
     @discardableResult
     func resolveAndPlay(videoId: String, startAt: TimeInterval = 0, onlyIfCurrent: Bool = false) async throws -> PlaybackResult {
+        if onlyIfCurrent { cancelSupersededResolutions(keeping: videoId) }
         await MainActor.run { SponsorBlockIntegration.shared.warm(for: videoId) }
         if let localPath = await DownloadManager.shared.localURL(for: videoId) {
             let song = await MainActor.run { NowPlaying.shared.queueSongs.first { $0.videoId == videoId } }
@@ -116,7 +117,13 @@ actor PlaybackManager {
             return try await task.value
         } catch {
             await MainActor.run { NowPlaying.shared.trackLoadFinished(videoId: videoId) }
-            await reportPlaybackFailure(error)
+            // Una carga cancelada (se eligio otra cancion) o ya superada no es un fallo que ensenar: su aviso pisaria al de
+            // "conexion debil" de la cancion que si se quiere oir.
+            let nsError = error as NSError
+            let cancelled = error is CancellationError || (nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled)
+            if !cancelled, !(await isNoLongerChosen(videoId, onlyIfCurrent: onlyIfCurrent)) {
+                await reportPlaybackFailure(error)
+            }
             throw error
         }
     }
@@ -187,6 +194,15 @@ actor PlaybackManager {
         if await isNoLongerChosen(videoId, onlyIfCurrent: onlyIfCurrent) { return result }
         await playNetworkResult(result, videoId: videoId, startAt: startAt)
         return result
+    }
+
+    /// Al elegir otra cancion, las cargas pendientes de las que se eligieron antes ya no sirven: se cancelan para que la ultima
+    /// tenga toda la red (con poca cobertura, 8 peticiones a la vez tardaban entre 20 y 40 s cada una).
+    private func cancelSupersededResolutions(keeping videoId: String) {
+        for (key, task) in inflightResolutions where key != videoId && playingResolutions.contains(key) {
+            task.cancel()
+            PlaybackReport.record("reproducir \(key): se cancela la carga, se eligio otra cancion")
+        }
     }
 
     /// Mientras se pedia la direccion de `videoId` se eligio otra cancion: no se pone a sonar (la direccion queda guardada).

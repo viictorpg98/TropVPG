@@ -278,9 +278,45 @@ struct FullPlayerView: View {
         .frame(height: 33, alignment: .bottom)
     }
 
+    /// Con poca cobertura la cancion elegida tarda: el aviso de siempre va encima del mini reproductor, que aqui no se ve.
+    /// Si hay musica descargada, se propone ir a las descargas (suena sin red).
+    private var weakConnectionHint: some View {
+        let hasDownloads = DownloadManager.shared.persistedDownloadCount > 0
+        return VStack(spacing: 6) {
+            Group {
+                if hasDownloads {
+                    Text("Weak connection: still loading this song. Try your downloads?")
+                } else {
+                    Text("Weak connection: still loading this song…")
+                }
+            }
+            .font(.footnote.weight(.medium))
+            .foregroundStyle(.white.opacity(0.85))
+            .multilineTextAlignment(.center)
+            if hasDownloads {
+                Button(action: { AppRouter.shared.openDownloads() }, label: {
+                    Text("Go to Downloads")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(Capsule().fill(.white.opacity(0.18)))
+                })
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.bottom, 8)
+        .transition(.opacity)
+    }
+
     /// Barra de progreso, controles y botones del pie: el mismo bloque con la carátula y con la cola.
     @ViewBuilder
     private func playerBottom(horizontalPadding: CGFloat, isCompact: Bool) -> some View {
+        if np.isLoadingSlowly {
+            weakConnectionHint
+        }
+
         progressSlider(horizontalPadding: horizontalPadding)
             .padding(.top, 4)
             .padding(.bottom, isCompact ? 8 : 12)

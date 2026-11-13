@@ -48,7 +48,7 @@ final class SponsorBlockIntegration {
     }
 
     func warm(for videoId: String?) {
-        guard SponsorBlock.isEnabled, let videoId else { return }
+        guard SponsorBlock.isEnabled, let videoId, !PlaybackActivity.weakConnection else { return }
         _ = fetchTask(for: videoId)
     }
 

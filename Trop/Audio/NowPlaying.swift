@@ -55,6 +55,12 @@ final class NowPlaying {
     var loadingTrackId: String?
     /// La rueda solo se ve si la carga tarda (mas de ~1 s): en un cambio normal de cancion no parpadea.
     private var loadingSpinnerShown = false
+    /// La carga de la cancion elegida pasa de 5 s (poca cobertura): sale el aviso (con las descargas si las hay) y lo secundario espera.
+    private(set) var isLoadingSlowly = false
+    /// Cuando se pidio la direccion con la que suena `streamLoadedId` (si no se sabe, cuando se abrio).
+    private var streamLoadedAt = Date.distantPast
+    private var streamLoadedId: String?
+    private var loadStartedAt = Date.distantPast
     var isLoadingTrack: Bool { loadingSpinnerShown && loadingTrackId != nil }
 
     /// Una lista, Inicio o Buscar pidieron sonar `videoId`: hasta que cargue su direccion la pantalla sigue con la anterior,
@@ -484,21 +490,49 @@ final class NowPlaying {
         if videoId == nil || loadingTrackId == videoId {
             loadingTrackId = nil
             loadingSpinnerShown = false
+            if isLoadingSlowly {
+                isLoadingSlowly = false
+                // La conexion puede seguir floja un momento: lo secundario espera un poco mas.
+                PlaybackActivity.weakConnectionUntil = Date().addingTimeInterval(15)
+            }
         }
+    }
+
+    /// mpv acaba de abrir el audio de `videoId` (si es streaming, su direccion se pidio justo antes).
+    func streamDidLoad(videoId: String?) {
+        // Si la eligio el usuario, la direccion se pidio cuando empezo la carga (y no cuando mpv la abrio: una peticion que
+        // empezo en la red vieja y acabo tras el cambio llevaria la IP vieja).
+        streamLoadedAt = (videoId != nil && loadingTrackId == videoId) ? loadStartedAt : Date()
+        streamLoadedId = videoId
     }
 
     /// Con poca cobertura la carga tarda: al segundo y poco sale la rueda, a los 5 s un aviso de que sigue cargando y a los 45 s
     /// se quita la rueda (nunca gira para siempre).
     private func startSlowLoadWatch(for videoId: String) {
         loadingSpinnerShown = false
+        loadStartedAt = Date()
         Task { [weak self] in
             try? await Task.sleep(nanoseconds: 1_200_000_000)
             guard let self, self.loadingTrackId == videoId else { return }
             self.loadingSpinnerShown = true
             try? await Task.sleep(nanoseconds: 3_800_000_000)
             guard self.loadingTrackId == videoId else { return }
-            PlaybackReport.record("carga lenta: \(videoId) sigue cargando tras 5 s")
-            PlaybackNotice.shared.show(NSLocalizedString("Weak connection: still loading this song…", comment: ""))
+            self.isLoadingSlowly = true
+            PlaybackActivity.weakConnectionUntil = Date().addingTimeInterval(90)
+            let hasDownloads = DownloadManager.shared.persistedDownloadCount > 0
+            PlaybackReport.record("carga lenta: \(videoId) sigue cargando tras 5 s (descargas: \(hasDownloads ? "si" : "no"))")
+            if hasDownloads {
+                // Con poca cobertura lo descargado suena sin red: se propone ir a las descargas.
+                PlaybackNotice.shared.show(
+                    NSLocalizedString("Weak connection: still loading this song. Try your downloads?", comment: ""),
+                    actionTitle: "Go to Downloads",
+                    duration: 12
+                ) {
+                    AppRouter.shared.openDownloads()
+                }
+            } else {
+                PlaybackNotice.shared.show(NSLocalizedString("Weak connection: still loading this song…", comment: ""))
+            }
             try? await Task.sleep(nanoseconds: 40_000_000_000)
             guard self.loadingTrackId == videoId else { return }
             PlaybackReport.record("carga lenta: \(videoId) sigue sin cargar tras 45 s")
@@ -554,6 +588,11 @@ final class NowPlaying {
               !DownloadManager.shared.isDownloaded(videoId: current),
               PlayerController.shared.currentVideoId == current,
               PlayerController.shared.gaplessStage == 0 else { return }
+        // Si su direccion se pidio DESPUES del cambio de red ya es buena (lleva la IP nueva): no hace falta cortar el audio.
+        if streamLoadedId == current, streamLoadedAt > NetworkMonitor.shared.lastInterfaceChangeAt {
+            PlaybackReport.record("red: la direccion de \(current) se pidio despues del cambio, no hace falta pedirla otra vez")
+            return
+        }
         let resumeAt = currentTime > 3 ? currentTime : 0
         PlaybackReport.record("red: se pide de nuevo la direccion de \(current) y se sigue en \(Int(resumeAt)) s")
         let recoveryTime = beginRecoveryTime("sonar-network-refresh")

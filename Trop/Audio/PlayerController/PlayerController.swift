@@ -610,6 +610,8 @@ extension PlayerController {
             NowPlaying.shared.isPlaying = actuallyPlaying
             self.currentVideoId = pendingVideoId
             self.pendingVideoId = nil
+            // Primero se anota de cuando es la direccion (mientras aun se sabe que estaba cargando) y luego se quita la rueda.
+            if !arrivedByMix { NowPlaying.shared.streamDidLoad(videoId: pendingVideoId) }
             NowPlaying.shared.trackLoadFinished(videoId: pendingVideoId)
             if !arrivedByMix { self.assertAudioSession() }
             self.setNowPlayingMetadata()
