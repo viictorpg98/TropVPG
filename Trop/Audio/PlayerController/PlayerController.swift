@@ -362,6 +362,14 @@ extension PlayerController {
     }
 
     func togglePlayPause() {
+        // Si lo que hay cargado es OTRA cancion distinta de la que se ve (la elegida no llego a cargar y la anterior quedo en
+        // pausa), reanudar sonaria con el titulo de la otra: se carga la que se ve.
+        let np = NowPlaying.shared
+        if playState.value != .playing, let shown = np.videoId, let loaded = currentVideoId, loaded != shown,
+           np.loadingTrackId == nil, pendingVideoId == nil, !AutoMixEngine.shared.isActive, gaplessStage == 0 {
+            np.playCurrentSong(logContext: "togglePlay")
+            return
+        }
         setPaused(playState.value == .playing)
     }
 

@@ -66,11 +66,14 @@ final class NowPlaying {
     /// `loadStartedAt` de la carga que ya se reintento sola (solo se reintenta una vez por eleccion).
     private var stuckRetryLoadStart: Date?
     private var lastStuckRetryAt = Date.distantPast
+    /// Cancion cuyo audio se pauso porque la elegida tarda en cargar (al llegar la elegida suena sola; si se vuelve a ella, se reanuda).
+    private var pausedForLoadId: String?
     var isLoadingTrack: Bool { loadingSpinnerShown && loadingTrackId != nil }
 
     /// Una lista, Inicio o Buscar pidieron sonar `videoId`: hasta que cargue su direccion la pantalla sigue con la anterior,
     /// asi que mientras tanto se ve la rueda (y, si tarda, el aviso de poca cobertura).
     func beginLoadingFeedback(videoId: String) {
+        pauseForNewChoice(newId: videoId)
         loadingTrackId = videoId
         startSlowLoadWatch(for: videoId)
     }
@@ -421,7 +424,8 @@ final class NowPlaying {
 
     func playPrevious() {
         // Pasados unos segundos, "anterior" vuelve al principio de la cancion (como en Apple Music y YouTube Music).
-        if currentTime > 3, queueSongs.indices.contains(queueIndex) {
+        if currentTime > 3, loadingTrackId == nil, PlayerController.shared.currentVideoId == videoId,
+           queueSongs.indices.contains(queueIndex) {
             PlayerController.shared.seek(to: 0)
             currentTime = 0
             PlayerController.shared.updateNowPlayingProgress()
@@ -443,12 +447,46 @@ final class NowPlaying {
         afterResolve: (() -> Void)? = nil
     ) {
         guard queueSongs.indices.contains(queueIndex) else { return }
+        let shownBefore = videoId
         AutoMixEngine.shared.songChanged()
         if manageResolvingFlag {
             resolvingCount += 1
         }
         let song = queueSongs[queueIndex]
         update(with: song)
+        // Se vuelve a la cancion que el reproductor TODAVIA tiene cargada (la elegida despues no llego a cargar): no hace falta
+        // pedirla otra vez por una red que quiza esta caida (y su direccion guardada se olvido al cambiar de red).
+        let controller = PlayerController.shared
+        if logContext != "repeatCurrent", startAt == 0, shownBefore != song.videoId,
+           controller.currentVideoId == song.videoId, controller.pendingVideoId == nil,
+           controller.playState.value != .stopped {
+            PlaybackReport.record("carga: \(song.videoId) ya estaba cargada en el reproductor, se vuelve a ella sin pedirla otra vez")
+            if manageResolvingFlag { resolvingCount = max(0, resolvingCount - 1) }
+            trackLoadFinished(videoId: nil)
+            persistQueueState()
+            WaveformStore.shared.songStarted(
+                current: song.videoId,
+                upcoming: queueSongs.dropFirst(queueIndex + 1).map(\.videoId)
+            )
+            Task { await PlaybackManager.shared.cancelPlayingResolutions() }
+            if pausedForLoadId == song.videoId {
+                pausedForLoadId = nil
+                controller.setPaused(false)
+            }
+            // `update` deja la posicion y la duracion a cero y esta vez no llegara ningun "archivo cargado" que las ponga bien.
+            isPlaying = controller.playState.value == .playing
+            currentTime = controller.currentTime
+            if controller.duration > 0 {
+                duration = controller.duration
+            } else if song.duration > 0 {
+                duration = TimeInterval(song.duration)
+            }
+            controller.setNowPlayingMetadata()
+            updateVideoAvailability()
+            afterResolve?()
+            return
+        }
+        pauseForNewChoice(newId: song.videoId)
         loadingTrackId = song.videoId
         startSlowLoadWatch(for: song.videoId)
         persistQueueState()
@@ -496,6 +534,8 @@ final class NowPlaying {
         if videoId == nil || loadingTrackId == videoId {
             loadingTrackId = nil
             loadingSpinnerShown = false
+            // Si se pauso la anterior al elegir y la nueva no llego a cargar, la pantalla deja de decir "reproduciendo".
+            if pausedForLoadId != nil { isPlaying = PlayerController.shared.playState.value == .playing }
             if isLoadingSlowly {
                 isLoadingSlowly = false
                 // La conexion puede seguir floja un momento: lo secundario espera un poco mas.
@@ -506,6 +546,8 @@ final class NowPlaying {
 
     /// mpv acaba de abrir el audio de `videoId` (si es streaming, su direccion se pidio justo antes).
     func streamDidLoad(videoId: String?) {
+        // Llego (de verdad) el audio de otra cancion: la que se habia pausado ya no se reanuda sola.
+        if videoId != pausedForLoadId { pausedForLoadId = nil }
         // Si la eligio el usuario, la direccion se pidio cuando empezo la carga (y no cuando mpv la abrio: una peticion que
         // empezo en la red vieja y acabo tras el cambio llevaria la IP vieja).
         streamLoadedAt = (videoId != nil && loadingTrackId == videoId) ? loadStartedAt : Date()
@@ -551,6 +593,19 @@ final class NowPlaying {
             }
             self.trackLoadFinished(videoId: videoId)
         }
+    }
+
+    /// Al elegir otra cancion (tocar, saltar), la que sonaba se pausa AL MOMENTO: aunque tuviera audio de sobra cargado, ya no es la
+    /// que se quiere oir, y si la nueva no puede cargar (poca cobertura) no debe seguir sonando la anterior. Si se vuelve a ella,
+    /// se reanuda; si llega la nueva, suena sola.
+    private func pauseForNewChoice(newId: String) {
+        let controller = PlayerController.shared
+        guard let old = controller.currentVideoId, old != newId, controller.playState.value == .playing else { return }
+        pausedForLoadId = old
+        PlaybackReport.record("carga: se pausa \(old), se eligio \(newId)")
+        controller.setPaused(true)
+        // La pantalla sigue en "reproduciendo": la elegida va a sonar (si tarda, sale la rueda). Sin esto el boton parpadearia a "play".
+        isPlaying = true
     }
 
     /// La cancion que toca ahora esta pedida pero mpv aun no ha abierto su audio (carga en curso o colgada).
@@ -1218,9 +1273,15 @@ final class NowPlaying {
         }
         let position = PlayerController.shared.currentTime
         AutoMixEngine.shared.tick(position: position)
-        if position != currentTime { currentTime = position }
-        let length = PlayerController.shared.duration
-        if length != duration { duration = length }
+        // Mientras la pantalla enseña una cancion elegida que aun no ha cargado, la posicion y la duracion de mpv son de la que
+        // sigue sonando (o de nada): no se copian a la barra de la nueva.
+        let loadedId = PlayerController.shared.currentVideoId
+        let showsUnloadedChoice = loadingTrackId != nil && loadedId != nil && loadedId != videoId
+        if !showsUnloadedChoice {
+            if position != currentTime { currentTime = position }
+            let length = PlayerController.shared.duration
+            if length != duration { duration = length }
+        }
         tickCount &+= max(1, Int((timerInterval / 0.25).rounded()))
         // El sistema extrapola la posicion con la velocidad: basta con avisarle una vez por segundo.
         PlayerController.shared.updateNowPlayingProgress(publishToSystem: tickCount % 4 == 0)

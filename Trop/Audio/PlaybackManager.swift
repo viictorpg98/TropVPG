@@ -227,6 +227,14 @@ actor PlaybackManager {
         _ = try? await resolveAndPlay(videoId: videoId, onlyIfCurrent: true)
     }
 
+    /// Se volvio a la cancion que el reproductor todavia tenia cargada: las cargas de las otras que quedaron pendientes ya no hacen falta.
+    func cancelPlayingResolutions() {
+        for (key, task) in inflightResolutions where playingResolutions.contains(key) {
+            task.cancel()
+            PlaybackReport.record("reproducir \(key): se cancela la carga, se volvio a la cancion que ya sonaba")
+        }
+    }
+
     /// Al elegir otra cancion, las cargas pendientes de las que se eligieron antes ya no sirven: se cancelan para que la ultima
     /// tenga toda la red (con poca cobertura, 8 peticiones a la vez tardaban entre 20 y 40 s cada una).
     private func cancelSupersededResolutions(keeping videoId: String) {
