@@ -665,6 +665,7 @@
 "Waiting for login…" = "Esperando el inicio de sesión…";
 "Watching" = "Viendo";
 "Waveform Progress Bar" = "Barra de progreso con onda";
+"Weak connection: still loading this song…" = "Conexión débil: la canción sigue cargando…";
 "What AutoMix Learned" = "Lo que AutoMix ha aprendido";
 "When off, searches and playback are not recorded locally." = "Si está desactivado, las búsquedas y reproducciones no se guardan en el dispositivo.";
 "When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on." = "Cuando queda poco espacio (menos de 3 GB), borra las descargas que llevas 3 meses sin escuchar. Las canciones que te gustan nunca se borran. Necesita tener activado el historial de reproducciones.";

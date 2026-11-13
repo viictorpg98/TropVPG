@@ -50,6 +50,20 @@ final class NowPlaying {
     var lastAutomaticChange = Date.distantPast
     /// Cuando se toco por ultima vez una cancion de la cola (el reproductor no cierra la cola por ese cambio).
     var lastQueueTap = Date.distantPast
+    /// Cancion cuyos datos ya enseña la pantalla pero cuyo audio aun se esta cargando (tocada o saltada con poca cobertura):
+    /// el reproductor enseña una rueda en vez del boton de pausa, y mientras tanto sigue sonando la anterior.
+    var loadingTrackId: String?
+    /// La rueda solo se ve si la carga tarda (mas de ~1 s): en un cambio normal de cancion no parpadea.
+    private var loadingSpinnerShown = false
+    var isLoadingTrack: Bool { loadingSpinnerShown && loadingTrackId != nil }
+
+    /// Una lista, Inicio o Buscar pidieron sonar `videoId`: hasta que cargue su direccion la pantalla sigue con la anterior,
+    /// asi que mientras tanto se ve la rueda (y, si tarda, el aviso de poca cobertura).
+    func beginLoadingFeedback(videoId: String) {
+        loadingTrackId = videoId
+        startSlowLoadWatch(for: videoId)
+    }
+    private var networkRefreshTask: Task<Void, Never>?
 
     var isShuffleOn = false
     var isRepeatOn = false
@@ -424,6 +438,8 @@ final class NowPlaying {
         }
         let song = queueSongs[queueIndex]
         update(with: song)
+        loadingTrackId = song.videoId
+        startSlowLoadWatch(for: song.videoId)
         persistQueueState()
         WaveformStore.shared.songStarted(
             current: song.videoId,
@@ -431,13 +447,22 @@ final class NowPlaying {
         )
         Task {
             var failedToPlay = false
+            let requestStarted = Date()
             do {
-                try await PlaybackManager.shared.resolveAndPlay(videoId: song.videoId, startAt: startAt)
+                try await PlaybackManager.shared.resolveAndPlay(videoId: song.videoId, startAt: startAt, onlyIfCurrent: true)
             } catch {
                 Log.nowPlaying.error("\(logContext) failed: \(error)")
+                self.trackLoadFinished(videoId: song.videoId)
                 if self.videoId == song.videoId {
                     isPlaying = false
-                    failedToPlay = !(error is CancellationError) && logContext == "playNext"
+                    // Un fallo por mala cobertura o por un cambio de red no es de la cancion: no se salta a la siguiente
+                    // (fallaria igual y se recorreria la cola); se queda para volver a tocarla.
+                    // Si todos los clientes de YouTube fallan por falta de cobertura el error no siempre dice "red": se
+                    // cuenta tambien el tiempo (10 s o mas esperando = cobertura, no una cancion imposible).
+                    let slowFailure = Date().timeIntervalSince(requestStarted) >= 10
+                    let connectionProblem = !(error is CancellationError) && (self.isConnectionProblem(error) || slowFailure)
+                    if connectionProblem { PlaybackReport.record("carga: \(song.videoId) fallo por la conexion, no se salta (\(error.localizedDescription))") }
+                    failedToPlay = !(error is CancellationError) && logContext == "playNext" && !connectionProblem
                 }
             }
             if manageResolvingFlag {
@@ -452,10 +477,103 @@ final class NowPlaying {
         }
     }
 
+    // MARK: - Carga lenta y cambios de red
+
+    /// El audio de `videoId` ya esta cargado (o fallo): se quita la rueda.
+    func trackLoadFinished(videoId: String?) {
+        if videoId == nil || loadingTrackId == videoId {
+            loadingTrackId = nil
+            loadingSpinnerShown = false
+        }
+    }
+
+    /// Con poca cobertura la carga tarda: al segundo y poco sale la rueda, a los 5 s un aviso de que sigue cargando y a los 45 s
+    /// se quita la rueda (nunca gira para siempre).
+    private func startSlowLoadWatch(for videoId: String) {
+        loadingSpinnerShown = false
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            guard let self, self.loadingTrackId == videoId else { return }
+            self.loadingSpinnerShown = true
+            try? await Task.sleep(nanoseconds: 3_800_000_000)
+            guard self.loadingTrackId == videoId else { return }
+            PlaybackReport.record("carga lenta: \(videoId) sigue cargando tras 5 s")
+            PlaybackNotice.shared.show(NSLocalizedString("Weak connection: still loading this song…", comment: ""))
+            try? await Task.sleep(nanoseconds: 40_000_000_000)
+            guard self.loadingTrackId == videoId else { return }
+            PlaybackReport.record("carga lenta: \(videoId) sigue sin cargar tras 45 s")
+            self.trackLoadFinished(videoId: videoId)
+        }
+    }
+
+    /// El fallo es de la conexion (sin cobertura, corte, cambio de Wi-Fi a datos) y no de la cancion.
+    private func isConnectionProblem(_ error: Error) -> Bool {
+        if error is CancellationError { return false }
+        if NetworkMonitor.shared.changedInterfaceRecently { return true }
+        let codes: Set<Int> = [
+            NSURLErrorTimedOut, NSURLErrorNetworkConnectionLost, NSURLErrorNotConnectedToInternet,
+            NSURLErrorCannotConnectToHost, NSURLErrorCannotFindHost, NSURLErrorDNSLookupFailed, NSURLErrorDataNotAllowed
+        ]
+        let nsError = error as NSError
+        return nsError.domain == NSURLErrorDomain && codes.contains(nsError.code)
+    }
+
+    /// Pide a iOS unos segundos mas en segundo plano para que una recuperacion tras un fallo de red pueda terminar.
+    private func beginRecoveryTime(_ name: String) -> UIBackgroundTaskIdentifier {
+        var task: UIBackgroundTaskIdentifier = .invalid
+        task = UIApplication.shared.beginBackgroundTask(withName: name) {
+            UIApplication.shared.endBackgroundTask(task)
+            task = .invalid
+        }
+        return task
+    }
+
+    private func endRecoveryTime(_ task: UIBackgroundTaskIdentifier) {
+        if task != .invalid { UIApplication.shared.endBackgroundTask(task) }
+    }
+
+    /// El telefono paso de Wi-Fi a datos (o al reves). Las direcciones guardadas de googlevideo llevan la IP publica de quien
+    /// las pidio, asi que se olvidan; y la que suena se vuelve a pedir y se sigue por donde iba (si no, el audio se corta cuando
+    /// se acaba lo que ya tenia cargado, a veces con el telefono bloqueado y sin que la app pueda recuperarse).
+    func networkInterfaceChanged(from old: String, to new: String) {
+        PlaybackReport.record("red: cambio de \(old) a \(new)")
+        Task { await StreamCache.shared.clear() }
+        networkRefreshTask?.cancel()
+        networkRefreshTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            guard !Task.isCancelled, let self else { return }
+            self.refreshCurrentStreamAfterNetworkChange()
+        }
+    }
+
+    private func refreshCurrentStreamAfterNetworkChange() {
+        // Solo si suena en streaming. Una mezcla de AutoMix suena desde un archivo local, y una descargada no necesita red.
+        guard isPlaying, let current = videoId, queueSongs.indices.contains(queueIndex),
+              queueSongs[queueIndex].videoId == current,
+              !AutoMixEngine.shared.isActive,
+              !DownloadManager.shared.isDownloaded(videoId: current),
+              PlayerController.shared.currentVideoId == current,
+              PlayerController.shared.gaplessStage == 0 else { return }
+        let resumeAt = currentTime > 3 ? currentTime : 0
+        PlaybackReport.record("red: se pide de nuevo la direccion de \(current) y se sigue en \(Int(resumeAt)) s")
+        let recoveryTime = beginRecoveryTime("sonar-network-refresh")
+        Task {
+            defer { self.endRecoveryTime(recoveryTime) }
+            await StreamCache.shared.remove(videoId: current)
+            _ = try? await PlaybackManager.shared.resolveAndPlay(videoId: current, startAt: resumeAt)
+        }
+    }
+
     /// Una cancion que no se ha podido abrir con ningun cliente de YouTube: pasa a la siguiente en vez de quedarse parada
     /// (hasta 3 seguidas; sin conexion no se salta nada).
     private func skipUnplayable(_ videoId: String) {
         guard self.videoId == videoId, hasNext, NetworkMonitor.shared.hasConnection else { return }
+        if NetworkMonitor.shared.changedInterfaceRecently {
+            PlaybackReport.record("reproductor: \(videoId) fallo justo tras cambiar de red, no se salta a la siguiente")
+            trackLoadFinished(videoId: videoId)
+            PlaybackNotice.shared.show(NSLocalizedString("Couldn't play this. Try again.", comment: ""))
+            return
+        }
         if Date().timeIntervalSince(lastUnplayableSkip) > 90 { unplayableSkips = 0 }
         guard unplayableSkips < 3 else { return }
         unplayableSkips += 1
@@ -768,7 +886,10 @@ final class NowPlaying {
         PlaybackReport.record("reproductor: \(videoId) no cargo, se pide de nuevo comprobando todas las direcciones")
         isPlaying = false
         Log.nowPlaying.notice("Stream failed mid-play, re-resolving \(videoId)")
+        // Con la pantalla bloqueada el audio parado deja dormir a la app: se pide tiempo para que la recuperacion termine.
+        let recoveryTime = beginRecoveryTime("sonar-recover")
         Task {
+            defer { self.endRecoveryTime(recoveryTime) }
             await PlayerConfigStore.shared.notifyStreamRejection()
             await PlaybackManager.shared.noteStreamFailure(videoId: videoId)
             await StreamCache.shared.remove(videoId: videoId)
@@ -781,6 +902,7 @@ final class NowPlaying {
                 _ = await MainActor.run { self.lastFailureAt.removeValue(forKey: videoId) }
             } catch {
                 Log.nowPlaying.error("Mid-play recovery failed: \(error)")
+                self.trackLoadFinished(videoId: videoId)
                 if self.videoId == videoId {
                     isPlaying = false
                     if !(error is CancellationError) { self.skipUnplayable(videoId) }

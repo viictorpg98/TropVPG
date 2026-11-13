@@ -30,8 +30,11 @@ actor PlaybackManager {
     private init() {}
 
     /// Resolve a video and start playback. Returns the result used, or throws.
+    /// `onlyIfCurrent`: la pide quien eligio la cancion (tocar, saltar). Con poca cobertura la direccion puede tardar
+    /// medio minuto; si mientras tanto se eligio otra, esta ya no se pone a sonar (antes pisaba a la nueva: la pantalla
+    /// ensenaba una y sonaba otra).
     @discardableResult
-    func resolveAndPlay(videoId: String, startAt: TimeInterval = 0) async throws -> PlaybackResult {
+    func resolveAndPlay(videoId: String, startAt: TimeInterval = 0, onlyIfCurrent: Bool = false) async throws -> PlaybackResult {
         await MainActor.run { SponsorBlockIntegration.shared.warm(for: videoId) }
         if let localPath = await DownloadManager.shared.localURL(for: videoId) {
             let song = await MainActor.run { NowPlaying.shared.queueSongs.first { $0.videoId == videoId } }
@@ -94,13 +97,14 @@ actor PlaybackManager {
                 // La resolucion en curso solo pedia la direccion (onda, analisis de AutoMix...) y no reproduce: antes se
                 // devolvia sin mas y la cancion elegida no sonaba. Se reproduce aqui el resultado.
                 PlaybackReport.record("reproducir \(videoId): se unio a una resolucion que no reproducia, se reproduce ahora")
+                if await isNoLongerChosen(videoId, onlyIfCurrent: onlyIfCurrent) { return result }
                 await playNetworkResult(result, videoId: videoId, startAt: startAt)
             }
             return result
         }
 
         let task = Task { [self] in
-            try await resolveAndPlayFromNetwork(videoId: videoId, startAt: startAt)
+            try await resolveAndPlayFromNetwork(videoId: videoId, startAt: startAt, onlyIfCurrent: onlyIfCurrent)
         }
         inflightResolutions[videoId] = task
         playingResolutions.insert(videoId)
@@ -111,6 +115,7 @@ actor PlaybackManager {
         do {
             return try await task.value
         } catch {
+            await MainActor.run { NowPlaying.shared.trackLoadFinished(videoId: videoId) }
             await reportPlaybackFailure(error)
             throw error
         }
@@ -137,7 +142,11 @@ actor PlaybackManager {
 
     /// Runs the client fallback chain for playback. Only called once per
     /// videoId by `resolveAndPlay`, which owns the in-flight dedup entry.
-    private func resolveAndPlayFromNetwork(videoId: String, startAt: TimeInterval = 0) async throws -> PlaybackResult {
+    private func resolveAndPlayFromNetwork(
+        videoId: String,
+        startAt: TimeInterval = 0,
+        onlyIfCurrent: Bool = false
+    ) async throws -> PlaybackResult {
         var request = StreamResolveRequest.playback(videoId: videoId)
         request.options.audioQuality = SettingsStore.shared.audioQuality
         let started = Date()
@@ -175,8 +184,22 @@ actor PlaybackManager {
         PlaybackReport.record("direccion de \(videoId): cliente \(result.clientName) en \(Int(Date().timeIntervalSince(started) * 1000)) ms, \(result.mimeType)")
         // Lo que funciona para un podcast no dice nada de la musica: no se recuerda.
         if !isLong { UserDefaults.standard.set(result.clientName, forKey: Self.lastClientKey) }
+        if await isNoLongerChosen(videoId, onlyIfCurrent: onlyIfCurrent) { return result }
         await playNetworkResult(result, videoId: videoId, startAt: startAt)
         return result
+    }
+
+    /// Mientras se pedia la direccion de `videoId` se eligio otra cancion: no se pone a sonar (la direccion queda guardada).
+    private func isNoLongerChosen(_ videoId: String, onlyIfCurrent: Bool) async -> Bool {
+        guard onlyIfCurrent else { return false }
+        // La elegida es la que ocupa ahora el sitio actual de la cola (al tocar en una lista la pantalla aun ensena la anterior).
+        let chosen = await MainActor.run { () -> String? in
+            let np = NowPlaying.shared
+            return np.queueSongs.indices.contains(np.queueIndex) ? np.queueSongs[np.queueIndex].videoId : nil
+        }
+        guard chosen != videoId else { return false }
+        PlaybackReport.record("reproducir \(videoId): ya no es la cancion elegida (ahora \(chosen ?? "ninguna")), no se pone a sonar")
+        return true
     }
 
     /// Podcasts y contenidos largos: se prueban los clientes en su orden de siempre, pero comprobando

@@ -22,12 +22,19 @@ final class NetworkMonitor {
 
     @ObservationIgnored private let monitor = NWPathMonitor()
     @ObservationIgnored private var offlineTask: Task<Void, Never>?
+    /// Por que red salia el telefono en la ultima lectura ("wifi", "datos", "cable"...): para notar el paso de una a otra.
+    @ObservationIgnored private var lastInterface: String?
+    @ObservationIgnored private var lastInterfaceChange = Date.distantPast
+    /// El telefono cambio de Wi-Fi a datos (o al reves) hace menos de un minuto. Las direcciones de googlevideo llevan la IP
+    /// publica de quien las pidio: tras el cambio dejan de valer y las canciones fallan al abrirse, aunque haya red.
+    var changedInterfaceRecently: Bool { Date().timeIntervalSince(lastInterfaceChange) < 60 }
 
     private init() {
         monitor.pathUpdateHandler = { [weak self] path in
             let satisfied = path.status == .satisfied
+            let interface = Self.interfaceName(path)
             Task { @MainActor [weak self] in
-                self?.handle(satisfied: satisfied)
+                self?.handle(satisfied: satisfied, interface: interface)
             }
         }
         monitor.start(queue: DispatchQueue(label: "com.sonar.networkMonitor"))
@@ -42,9 +49,23 @@ final class NetworkMonitor {
         return false
     }
 
-    private func handle(satisfied: Bool) {
+    nonisolated private static func interfaceName(_ path: NWPath) -> String {
+        if path.usesInterfaceType(.wifi) { return "wifi" }
+        if path.usesInterfaceType(.cellular) { return "datos" }
+        if path.usesInterfaceType(.wiredEthernet) { return "cable" }
+        return "otra"
+    }
+
+    private func handle(satisfied: Bool, interface: String) {
         let wasOffline = !hasConnection
         hasConnection = satisfied
+        if satisfied {
+            if let last = lastInterface, last != interface {
+                lastInterfaceChange = Date()
+                NowPlaying.shared.networkInterfaceChanged(from: last, to: interface)
+            }
+            lastInterface = interface
+        }
         offlineTask?.cancel()
         if satisfied {
             if wasOffline { NowPlaying.shared.connectionRestored() }

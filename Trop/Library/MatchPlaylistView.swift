@@ -11,7 +11,7 @@ import SwiftUI
 struct MatchPlaylistView: View {
     @Environment(SettingsStore.self) private var settings
 
-    @State private var rows: [MatchRow] = MatchPlaylist.ranked(MatchPlaylist.loadCache())
+    @State private var rows: [MatchRow] = []
     @State private var isLoading = true
     @State private var loadFailed = false
     @State private var isPreparing = false
@@ -38,7 +38,15 @@ struct MatchPlaylistView: View {
         .navigationTitle("Match Playlist")
         .navigationBarTitleDisplayMode(.inline)
         .sonarRefreshable { await reload() }
-        .task { await reload() }
+        .task {
+            // La ultima lista guardada se lee aqui y no al crear la vista (que se crea muchas veces).
+            if rows.isEmpty {
+                let started = Date()
+                rows = MatchPlaylist.ranked(MatchPlaylist.loadCache())
+                PlaybackReport.record("lista del partido: cache leida (\(rows.count) canciones) en \(Int(Date().timeIntervalSince(started) * 1000)) ms")
+            }
+            await reload()
+        }
     }
 
     // MARK: - Vacio / error
@@ -196,11 +204,13 @@ struct MatchPlaylistView: View {
 
     private func reload() async {
         isLoading = true
+        let started = Date()
         do {
             let entries = try await MatchPlaylist.fetch()
             rows = MatchPlaylist.ranked(entries)
             MatchPlaylist.saveCache(entries)
             loadFailed = false
+            PlaybackReport.record("lista del partido: leida (\(entries.count) canciones) en \(Int(Date().timeIntervalSince(started) * 1000)) ms")
         } catch is CancellationError {
             // Se salio de la pantalla a mitad de la carga: no es un fallo.
         } catch {
@@ -222,8 +232,13 @@ struct MatchPlaylistView: View {
         Task {
             let missing = snapshot.map(\.entry).filter { known[$0.sourceId] == nil }
             var songs = known
+            let resolveStarted = Date()
             for (sourceId, song) in await MatchResolver.resolveAll(missing) { songs[sourceId] = song }
             resolved = songs
+            PlaybackReport.record(
+                "lista del partido: \(missing.count) canciones buscadas en YouTube Music, \(songs.count) de \(snapshot.count) listas, "
+                    + "en \(Int(Date().timeIntervalSince(resolveStarted) * 1000)) ms"
+            )
 
             // En el orden de la clasificacion, sin repetir y saltando las que no se han encontrado.
             var seen = Set<String>()

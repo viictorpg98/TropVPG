@@ -610,6 +610,7 @@ extension PlayerController {
             NowPlaying.shared.isPlaying = actuallyPlaying
             self.currentVideoId = pendingVideoId
             self.pendingVideoId = nil
+            NowPlaying.shared.trackLoadFinished(videoId: pendingVideoId)
             if !arrivedByMix { self.assertAudioSession() }
             self.setNowPlayingMetadata()
             self.applyPendingResumeIfNeeded()
@@ -1116,6 +1117,13 @@ extension PlayerController {
             try session.setActive(true)
         } catch {
             Log.player.error("Failed to assert audio session: \(error)")
+            // Para el informe: iOS rechaza activar el audio desde segundo plano si otra app lo esta usando; asi se ve cuando pasa.
+            let playing = playState.value == .playing
+            Task { @MainActor in
+                let state = UIApplication.shared.applicationState
+                let where_ = state == .active ? "app abierta" : (state == .background ? "segundo plano" : "app inactiva")
+                PlaybackReport.record("sesion de audio: no se pudo activar (\(where_), suena: \(playing))")
+            }
         }
     }
 

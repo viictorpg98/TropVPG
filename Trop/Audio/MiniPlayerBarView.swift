@@ -230,10 +230,17 @@ struct MiniPlayerBarView: View {
                 // El progreso de la cancion, como un aro alrededor del boton (en una mezcla, el de la entrante entra con el
                 // mismo fundido que la carátula).
                 MiniProgressRing()
-                Image(systemName: np.isPlaying ? "pause.fill" : "play.fill")
-                    .contentTransition(.symbolEffect(.replace))
-                    .font(.system(size: 17))
-                    .foregroundStyle(titleColor)
+                if np.isLoadingTrack {
+                    // La cancion elegida aun se esta cargando (poca cobertura): sigue sonando la anterior.
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(titleColor)
+                } else {
+                    Image(systemName: np.isPlaying ? "pause.fill" : "play.fill")
+                        .contentTransition(.symbolEffect(.replace))
+                        .font(.system(size: 17))
+                        .foregroundStyle(titleColor)
+                }
             }
             .frame(width: 46, height: 48)
             .contentShape(Rectangle())

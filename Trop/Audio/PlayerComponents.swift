@@ -148,13 +148,21 @@ struct ProgressBar: View {
 struct PlayerPlayPauseButton: View {
     let isPlaying: Bool
     let action: () -> Void
+    private let nowPlaying = NowPlaying.shared
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                .font(.system(size: 42))
-                .foregroundStyle(.white)
-                .contentTransition(.symbolEffect(.replace))
+            if nowPlaying.isLoadingTrack {
+                // La cancion elegida aun se esta cargando (poca cobertura): sigue sonando la anterior.
+                ProgressView()
+                    .controlSize(.large)
+                    .tint(.white)
+            } else {
+                Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                    .font(.system(size: 42))
+                    .foregroundStyle(.white)
+                    .contentTransition(.symbolEffect(.replace))
+            }
         }
         .frame(width: 80, height: 80)
         .glassEffect(.regular.interactive(), in: Circle())

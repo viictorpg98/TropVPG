@@ -23,14 +23,14 @@ enum PlaybackQueue {
             loggedTask(log, "\(context) failed") {
                 let first = await store.resolve(songs[index])
                 start(songs, index: index, first: first)
-                try await PlaybackManager.shared.resolveAndPlay(videoId: first.videoId)
+                try await PlaybackManager.shared.resolveAndPlay(videoId: first.videoId, onlyIfCurrent: true)
             }
             return
         }
         let first = store.preferAudio(songs[index])
         start(songs, index: index, first: first)
         loggedTask(log, "\(context) failed") {
-            try await PlaybackManager.shared.resolveAndPlay(videoId: first.videoId)
+            try await PlaybackManager.shared.resolveAndPlay(videoId: first.videoId, onlyIfCurrent: true)
         }
     }
 
@@ -39,6 +39,7 @@ enum PlaybackQueue {
         var list = songs
         list[index] = first
         NowPlaying.shared.setQueue(list, startIndex: index)
+        NowPlaying.shared.beginLoadingFeedback(videoId: first.videoId)
         AnimatedArtworkService.shared.prefetch(first)
         warmArtwork(first)
     }
@@ -118,11 +119,12 @@ enum PlaybackQueue {
 
     private static func startSingleWithRadio(_ song: SongItem, log: AppLogger) {
         NowPlaying.shared.setQueue([song], startIndex: 0)
+        NowPlaying.shared.beginLoadingFeedback(videoId: song.videoId)
         AnimatedArtworkService.shared.prefetch(song)
         warmArtwork(song)
         Task { @MainActor in
             do {
-                try await PlaybackManager.shared.resolveAndPlay(videoId: song.videoId)
+                try await PlaybackManager.shared.resolveAndPlay(videoId: song.videoId, onlyIfCurrent: true)
             } catch {
                 log.error("Playback failed: \(error)")
                 return
