@@ -365,6 +365,26 @@ if [ -f "$PAYLOAD_DIR/$APPLICATION_NAME.app/$APPLICATION_NAME" ]; then
     strip "$PAYLOAD_DIR/$APPLICATION_NAME.app/$APPLICATION_NAME"
 fi
 
+# Grupo de app (la carpeta que comparten la app y el widget de portadas). AltStore/SideStore leen los grupos de las entitlements de
+# la FIRMA del ejecutable (y escriben el nombre real, con el id del equipo, en ALTAppGroups): con el IPA sin firma no concedian
+# ninguno y el widget se quedaba sin carpeta. Por eso se firma, ad hoc, solo el ejecutable de la app y el de la extension con esa
+# entitlement; la re-firma de SideStore lo sustituye todo. Si falla, el IPA sale igual (sin grupo, como antes).
+sign_with_group() {
+    local binary="$1" entitlements="$2"
+    if [ ! -f "$binary" ]; then
+        echo "WARNING: no existe $binary (se queda sin entitlement de grupo)"
+        return 0
+    fi
+    if codesign --force --sign - --timestamp=none --entitlements "$entitlements" "$binary"; then
+        echo "Firmado (ad hoc) con el grupo de app: $binary"
+        codesign -d --entitlements :- "$binary" 2>&1 | sed -n '1,14p' || true
+    else
+        echo "WARNING: no se pudo firmar $binary con el grupo de app"
+    fi
+}
+sign_with_group "$PAYLOAD_DIR/$APPLICATION_NAME.app/PlugIns/SonarWidget.appex/SonarWidget" "$WORKING_LOCATION/scripts/entitlements/SonarWidget.entitlements"
+sign_with_group "$PAYLOAD_DIR/$APPLICATION_NAME.app/$APPLICATION_NAME" "$WORKING_LOCATION/scripts/entitlements/Trop.entitlements"
+
 cd "$STAGE_DIR"
 rm -f "$IPA_PATH"
 zip -vr "$IPA_PATH" "Payload"
