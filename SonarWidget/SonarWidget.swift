@@ -41,38 +41,45 @@ struct SonarWidgetView: View {
         spanish ? es : en
     }
 
+    /// En la pantalla de inicio el widget tiene fondo; en CarPlay y StandBy el sistema se lo quita.
+    @Environment(\.showsWidgetContainerBackground) private var showsBackground
+
     /// Colores de la marca (las barras del icono de Sonar: del naranja al rojo). Cada boton usa un tramo del degradado.
-    private static let tileColor = Color(red: 0.16, green: 0.16, blue: 0.18)
+    private static let plateColor = Color(red: 0.16, green: 0.16, blue: 0.18)
     private static let iconInk = Color(red: 0.08, green: 0.08, blue: 0.09)
 
     private func tile<I: AppIntent>(
         _ intent: I, symbol: String, title: String, top: Color, bottom: Color
     ) -> some View {
         Button(intent: intent) {
-            VStack(spacing: 5) {
+            VStack(spacing: 3) {
                 ZStack {
                     Circle()
                         .fill(LinearGradient(colors: [top, bottom], startPoint: .top, endPoint: .bottom))
                     Image(systemName: symbol)
-                        .font(.system(size: 19, weight: .bold))
+                        .font(.system(size: 23, weight: .bold))
                         .foregroundStyle(Self.iconInk)
                 }
-                .frame(width: 42, height: 42)
+                .frame(width: 50, height: 50)
                 Text(title)
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.55), radius: 2, y: 1)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // Opaco (no transparente): en CarPlay el widget pierde su fondo y el boton tiene que verse sobre cualquier tema.
-            .background(Self.tileColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            // Con fondo (pantalla de inicio): sin cajas, los circulos van directos sobre el fondo; el casi-nada de opacidad solo
+            // sirve para que toda la celda sea tocable. Sin fondo (CarPlay): una placa oscura opaca detras para que se vea sobre
+            // cualquier tema del coche.
+            .background(showsBackground ? Color.black.opacity(0.01) : Self.plateColor,
+                        in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
     }
 
     var body: some View {
-        Grid(horizontalSpacing: 8, verticalSpacing: 8) {
+        Grid(horizontalSpacing: showsBackground ? 0 : 6, verticalSpacing: showsBackground ? 0 : 6) {
             GridRow {
                 tile(WidgetMixIntent(), symbol: "waveform", title: label("Mi mezcla", "My mix"),
                      top: Color(red: 1.00, green: 0.48, blue: 0.27), bottom: Color(red: 1.00, green: 0.27, blue: 0.33))
@@ -86,6 +93,7 @@ struct SonarWidgetView: View {
                      top: Color(red: 1.00, green: 0.35, blue: 0.35), bottom: Color(red: 1.00, green: 0.23, blue: 0.42))
             }
         }
+        .padding(6)
         .containerBackground(Color(red: 0.08, green: 0.08, blue: 0.09), for: .widget)
     }
 }
@@ -98,6 +106,8 @@ struct SonarWidget: Widget {
         .configurationDisplayName("Sonar")
         .description("Mi mezcla, mezclar ahora, dado y Me gusta.")
         .supportedFamilies([.systemSmall])
+        // Sin los margenes por defecto (unos 16 pt): el contenido ocupa casi todo el widget, con su propio margen pequeno.
+        .contentMarginsDisabled()
     }
 }
 
