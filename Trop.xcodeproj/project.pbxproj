@@ -28,7 +28,18 @@
 		14B578DF2FF20DCD006B3990 /* Nuke in Frameworks */ = {isa = PBXBuildFile; productRef = 14B578DE2FF20DCC006B3990 /* Nuke */; };
 		14B578E52FF20DCF006B3990 /* Marquee in Frameworks */ = {isa = PBXBuildFile; productRef = 14B578E42FF20DCF006B3990 /* Marquee */; };
 		14B578F32FF21002006B3990 /* SwiftyTube in Frameworks */ = {isa = PBXBuildFile; productRef = 14B578F22FF21001006B3990 /* SwiftyTube */; };
+		14B579A02FF4000D006B3990 /* SonarWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 14B579A02FF40002006B3990 /* SonarWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		14B579A02FF4000F006B3990 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 14B576272FF190EF006B3990 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 14B579A02FF40001006B3990;
+			remoteInfo = SonarWidget;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
 		1442DDC53040C1BE0032F8CD /* Embed Frameworks */ = {
@@ -49,6 +60,17 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		14B579A02FF4000C006B3990 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				14B579A02FF4000D006B3990 /* SonarWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -61,6 +83,7 @@
 		144200073040C1BE0032F8CD /* fk_libswscale.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = fk_libswscale.xcframework; path = "build/ffmpeg-kit-xcframeworks/fk_libswscale.xcframework"; sourceTree = SOURCE_ROOT; };
 		144200083040C1BE0032F8CD /* ffmpegkit.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = ffmpegkit.xcframework; path = "build/ffmpeg-kit-xcframeworks/ffmpegkit.xcframework"; sourceTree = SOURCE_ROOT; };
 		14B5762F2FF190EF006B3990 /* Trop.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Trop.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		14B579A02FF40002006B3990 /* SonarWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SonarWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -71,6 +94,13 @@
 			);
 			target = 14B5762E2FF190EF006B3990 /* Trop */;
 		};
+		14B579A02FF40005006B3990 /* Exceptions for "SonarWidget" folder in "SonarWidget" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 14B579A02FF40001006B3990 /* SonarWidget */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -80,6 +110,19 @@
 				14B578EA2FF30001006B3990 /* Exceptions for "Trop" folder in "Trop" target */,
 			);
 			path = Trop;
+			sourceTree = "<group>";
+		};
+		14B579A02FF40003006B3990 /* SonarWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				14B579A02FF40005006B3990 /* Exceptions for "SonarWidget" folder in "SonarWidget" target */,
+			);
+			path = SonarWidget;
+			sourceTree = "<group>";
+		};
+		14B579A02FF40004006B3990 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -105,6 +148,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		14B579A02FF40007006B3990 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -127,6 +177,8 @@
 			isa = PBXGroup;
 			children = (
 				14B576312FF190EF006B3990 /* Trop */,
+				14B579A02FF40003006B3990 /* SonarWidget */,
+				14B579A02FF40004006B3990 /* Shared */,
 				144200003040C1BE0032F8CD /* Frameworks */,
 				14B576302FF190EF006B3990 /* Products */,
 				14D78C92308D012A00BE059E /* Recovered References */,
@@ -137,6 +189,7 @@
 			isa = PBXGroup;
 			children = (
 				14B5762F2FF190EF006B3990 /* Trop.app */,
+				14B579A02FF40002006B3990 /* SonarWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -158,6 +211,7 @@
 				14B5762B2FF190EF006B3990 /* Sources */,
 				14B5762C2FF190EF006B3990 /* Frameworks */,
 				1442DDC53040C1BE0032F8CD /* Embed Frameworks */,
+				14B579A02FF4000C006B3990 /* Embed Foundation Extensions */,
 				14B5762D2FF190EF006B3990 /* Resources */,
 				250D2C10929042AA8A8BE59906F78CD5 /* InjectUIFileSharingEnabled */,
 				14B5763D2FF190F0006B3990 /* SwiftLint */,
@@ -165,9 +219,11 @@
 			buildRules = (
 			);
 			dependencies = (
+				14B579A02FF4000E006B3990 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				14B576312FF190EF006B3990 /* Trop */,
+				14B579A02FF40004006B3990 /* Shared */,
 			);
 			name = Trop;
 			packageProductDependencies = (
@@ -181,6 +237,29 @@
 			productReference = 14B5762F2FF190EF006B3990 /* Trop.app */;
 			productType = "com.apple.product-type.application";
 		};
+		14B579A02FF40001006B3990 /* SonarWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 14B579A02FF40009006B3990 /* Build configuration list for PBXNativeTarget "SonarWidget" */;
+			buildPhases = (
+				14B579A02FF40006006B3990 /* Sources */,
+				14B579A02FF40007006B3990 /* Frameworks */,
+				14B579A02FF40008006B3990 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				14B579A02FF40003006B3990 /* SonarWidget */,
+				14B579A02FF40004006B3990 /* Shared */,
+			);
+			name = SonarWidget;
+			packageProductDependencies = (
+			);
+			productName = SonarWidget;
+			productReference = 14B579A02FF40002006B3990 /* SonarWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -192,6 +271,9 @@
 				LastUpgradeCheck = 2660;
 				TargetAttributes = {
 					14B5762E2FF190EF006B3990 = {
+						CreatedOnToolsVersion = 26.3;
+					};
+					14B579A02FF40001006B3990 = {
 						CreatedOnToolsVersion = 26.3;
 					};
 				};
@@ -219,12 +301,20 @@
 			projectRoot = "";
 			targets = (
 				14B5762E2FF190EF006B3990 /* Trop */,
+				14B579A02FF40001006B3990 /* SonarWidget */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		14B5762D2FF190EF006B3990 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		14B579A02FF40008006B3990 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -283,7 +373,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		14B579A02FF40006006B3990 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		14B579A02FF4000E006B3990 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 14B579A02FF40001006B3990 /* SonarWidget */;
+			targetProxy = 14B579A02FF4000F006B3990 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		14B576382FF190F0006B3990 /* Debug */ = {
@@ -469,6 +574,64 @@
 			};
 			name = Release;
 		};
+		14B579A02FF4000A006B3990 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SonarWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Sonar;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 0.0.3;
+				PRODUCT_BUNDLE_IDENTIFIER = com.686udjie.Trop.SonarWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG WIDGET_EXTENSION $(inherited)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		14B579A02FF4000B006B3990 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SonarWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Sonar;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 0.0.3;
+				PRODUCT_BUNDLE_IDENTIFIER = com.686udjie.Trop.SonarWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "WIDGET_EXTENSION $(inherited)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -486,6 +649,15 @@
 			buildConfigurations = (
 				14B5763B2FF190F0006B3990 /* Debug */,
 				14B5763C2FF190F0006B3990 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		14B579A02FF40009006B3990 /* Build configuration list for PBXNativeTarget "SonarWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				14B579A02FF4000A006B3990 /* Debug */,
+				14B579A02FF4000B006B3990 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

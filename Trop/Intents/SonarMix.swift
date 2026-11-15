@@ -430,6 +430,26 @@ enum SonarMix {
         return name
     }
 
+    /// "El dado": una cancion al azar de lo que sale en el inicio de YouTube Music y de tu Acceso rapido guardado, con su radio
+    /// (lo mismo que el dado del inicio, pero sin necesitar la pantalla). Sin red, solo el Acceso rapido. `false` si no hay nada.
+    static func playRandomPick() async -> Bool {
+        await prepareSession()
+        var songs: [SongItem] = []
+        if NetworkMonitor.shared.hasConnection,
+           let sections = await withTimeout(seconds: 10, { await loadHomeSections(deep: false) }) {
+            songs = homeSongs(in: sections)
+        }
+        var seen = Set(songs.map(\.videoId))
+        for entry in (try? await DatabaseService.shared.fetchSpeedDial()) ?? [] {
+            let song = entry.toSongItem()
+            if seen.insert(song.videoId).inserted { songs.append(song) }
+        }
+        trace("dado: \(songs.count) candidatas")
+        guard let pick = songs.randomElement(), await play([pick], context: "dado") else { return false }
+        PlaybackQueue.startRadio(for: pick)
+        return true
+    }
+
     /// "Pon mis Me gusta": las canciones que te gustan, guardadas en el dispositivo (vale sin red).
     static func playLiked() async -> Bool {
         await prepareSession()
