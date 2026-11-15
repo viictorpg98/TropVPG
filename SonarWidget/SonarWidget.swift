@@ -3,8 +3,12 @@
 //  SonarWidget
 //
 //  Widget pequeno de Sonar con cuatro botones grandes. Sale en la galeria de widgets del iPhone y, en iOS 26, tambien en
-//  CarPlay (Ajustes > General > CarPlay > tu coche > Personalizar). No muestra datos: solo botones, sin actualizaciones.
+//  CarPlay (Ajustes > General > CarPlay > tu coche > Personalizar). No muestra datos: solo botones.
 //  Las acciones estan en Shared/WidgetIntents.swift y las ejecuta la app.
+//
+//  Hay tres widgets con el mismo aspecto: "Sonar" (el bueno, sin confirmacion del toque) y dos de prueba para ver que forma de
+//  confirmar el toque se nota y no rompe los botones: "prueba A" y "prueba B". Cuando se sepa cual vale, se deja en "Sonar" y
+//  se quitan las pruebas.
 //
 
 import AppIntents
@@ -26,12 +30,26 @@ struct SonarWidgetProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<SonarWidgetEntry>) -> Void) {
-        // Una sola entrada que nunca se actualiza: los botones no cambian.
-        completion(Timeline(entries: [SonarWidgetEntry(date: Date())], policy: .never))
+        // Los botones no cambian, pero se recarga cada hora: con "nunca", algunos widgets interactivos dejaban de responder tras
+        // horas parados (un hilo del foro de Apple lo cuenta), y en el coche puede llevar mucho sin tocarse.
+        completion(Timeline(entries: [SonarWidgetEntry(date: Date())], policy: .after(Date().addingTimeInterval(3600))))
     }
 }
 
+/// Como se confirma el toque (lo unico que cambia entre los tres widgets).
+enum SonarWidgetVariant {
+    /// Sin confirmacion: el que funciona.
+    case stable
+    /// `.invalidatableContent()` puesto en el propio boton (fuera de su contenido): el sistema lo atenua mientras la accion dura.
+    /// Dentro del contenido del boton rompia el toque (se abria la app).
+    case invalidatableOnButton
+    /// Sin `.buttonStyle(.plain)`: a ver si el sistema pone su propio efecto al pulsar.
+    case systemStyle
+}
+
 struct SonarWidgetView: View {
+    let variant: SonarWidgetVariant
+
     /// El widget no puede leer los textos de la app: se elige aqui entre español e ingles.
     private var spanish: Bool {
         Locale.preferredLanguages.first?.hasPrefix("es") ?? false
@@ -48,34 +66,52 @@ struct SonarWidgetView: View {
     private static let plateColor = Color(red: 0.16, green: 0.16, blue: 0.18)
     private static let iconInk = Color(red: 0.08, green: 0.08, blue: 0.09)
 
+    private func tileLabel(symbol: String, title: String, top: Color, bottom: Color) -> some View {
+        VStack(spacing: 3) {
+            ZStack {
+                Circle()
+                    .fill(LinearGradient(colors: [top, bottom], startPoint: .top, endPoint: .bottom))
+                Image(systemName: symbol)
+                    .font(.system(size: 23, weight: .bold))
+                    .foregroundStyle(Self.iconInk)
+            }
+            .frame(width: 50, height: 50)
+            Text(title)
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.55), radius: 2, y: 1)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // Con fondo (pantalla de inicio): sin cajas, los circulos van directos sobre el fondo; el casi-nada de opacidad solo
+        // sirve para que toda la celda sea tocable. Sin fondo (CarPlay): una placa oscura opaca detras para que se vea sobre
+        // cualquier tema del coche.
+        .background(showsBackground ? Color.black.opacity(0.01) : Self.plateColor,
+                    in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    @ViewBuilder
     private func tile<I: AppIntent>(
         _ intent: I, symbol: String, title: String, top: Color, bottom: Color
     ) -> some View {
-        Button(intent: intent) {
-            VStack(spacing: 3) {
-                ZStack {
-                    Circle()
-                        .fill(LinearGradient(colors: [top, bottom], startPoint: .top, endPoint: .bottom))
-                    Image(systemName: symbol)
-                        .font(.system(size: 23, weight: .bold))
-                        .foregroundStyle(Self.iconInk)
-                }
-                .frame(width: 50, height: 50)
-                Text(title)
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.55), radius: 2, y: 1)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+        switch variant {
+        case .stable:
+            Button(intent: intent) {
+                tileLabel(symbol: symbol, title: title, top: top, bottom: bottom)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // Con fondo (pantalla de inicio): sin cajas, los circulos van directos sobre el fondo; el casi-nada de opacidad solo
-            // sirve para que toda la celda sea tocable. Sin fondo (CarPlay): una placa oscura opaca detras para que se vea sobre
-            // cualquier tema del coche.
-            .background(showsBackground ? Color.black.opacity(0.01) : Self.plateColor,
-                        in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .buttonStyle(.plain)
+        case .invalidatableOnButton:
+            Button(intent: intent) {
+                tileLabel(symbol: symbol, title: title, top: top, bottom: bottom)
+            }
+            .buttonStyle(.plain)
+            .invalidatableContent()
+        case .systemStyle:
+            Button(intent: intent) {
+                tileLabel(symbol: symbol, title: title, top: top, bottom: bottom)
+            }
         }
-        .buttonStyle(.plain)
     }
 
     var body: some View {
@@ -101,7 +137,7 @@ struct SonarWidgetView: View {
 struct SonarWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "SonarWidget", provider: SonarWidgetProvider()) { _ in
-            SonarWidgetView()
+            SonarWidgetView(variant: .stable)
         }
         .configurationDisplayName("Sonar")
         .description("Mi mezcla, mezclar ahora, dado y Me gusta.")
@@ -111,9 +147,35 @@ struct SonarWidget: Widget {
     }
 }
 
+struct SonarWidgetTestA: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "SonarWidgetTestA", provider: SonarWidgetProvider()) { _ in
+            SonarWidgetView(variant: .invalidatableOnButton)
+        }
+        .configurationDisplayName("Sonar · prueba A")
+        .description("Prueba: el boton se atenua mientras la accion dura.")
+        .supportedFamilies([.systemSmall])
+        .contentMarginsDisabled()
+    }
+}
+
+struct SonarWidgetTestB: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "SonarWidgetTestB", provider: SonarWidgetProvider()) { _ in
+            SonarWidgetView(variant: .systemStyle)
+        }
+        .configurationDisplayName("Sonar · prueba B")
+        .description("Prueba: botones con el estilo del sistema.")
+        .supportedFamilies([.systemSmall])
+        .contentMarginsDisabled()
+    }
+}
+
 @main
 struct SonarWidgetBundle: WidgetBundle {
     var body: some Widget {
         SonarWidget()
+        SonarWidgetTestA()
+        SonarWidgetTestB()
     }
 }
