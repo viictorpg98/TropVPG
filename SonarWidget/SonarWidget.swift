@@ -67,9 +67,6 @@ struct SonarWidgetView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             // Opaco (no transparente): en CarPlay el widget pierde su fondo y el boton tiene que verse sobre cualquier tema.
             .background(Self.tileColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.10), lineWidth: 1))
-            // Al tocar, el sistema deja el boton "en curso" (atenuado) hasta que la accion termina: asi se nota que ha entrado el toque.
-            .invalidatableContent()
         }
         .buttonStyle(.plain)
     }
