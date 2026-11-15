@@ -41,19 +41,35 @@ struct SonarWidgetView: View {
         spanish ? es : en
     }
 
-    private func tile<I: AppIntent>(_ intent: I, symbol: String, title: String) -> some View {
+    /// Colores de la marca (las barras del icono de Sonar: del naranja al rojo). Cada boton usa un tramo del degradado.
+    private static let tileColor = Color(red: 0.16, green: 0.16, blue: 0.18)
+    private static let iconInk = Color(red: 0.08, green: 0.08, blue: 0.09)
+
+    private func tile<I: AppIntent>(
+        _ intent: I, symbol: String, title: String, top: Color, bottom: Color
+    ) -> some View {
         Button(intent: intent) {
-            VStack(spacing: 4) {
-                Image(systemName: symbol)
-                    .font(.system(size: 24, weight: .semibold))
+            VStack(spacing: 5) {
+                ZStack {
+                    Circle()
+                        .fill(LinearGradient(colors: [top, bottom], startPoint: .top, endPoint: .bottom))
+                    Image(systemName: symbol)
+                        .font(.system(size: 19, weight: .bold))
+                        .foregroundStyle(Self.iconInk)
+                }
+                .frame(width: 42, height: 42)
                 Text(title)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
-            .foregroundStyle(.white)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.white.opacity(0.16), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            // Opaco (no transparente): en CarPlay el widget pierde su fondo y el boton tiene que verse sobre cualquier tema.
+            .background(Self.tileColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.10), lineWidth: 1))
+            // Al tocar, el sistema deja el boton "en curso" (atenuado) hasta que la accion termina: asi se nota que ha entrado el toque.
+            .invalidatableContent()
         }
         .buttonStyle(.plain)
     }
@@ -61,15 +77,19 @@ struct SonarWidgetView: View {
     var body: some View {
         Grid(horizontalSpacing: 8, verticalSpacing: 8) {
             GridRow {
-                tile(WidgetMixIntent(), symbol: "waveform", title: label("Mi mezcla", "My mix"))
-                tile(WidgetMixNowIntent(), symbol: "arrow.triangle.merge", title: label("Mezclar", "Mix now"))
+                tile(WidgetMixIntent(), symbol: "waveform", title: label("Mi mezcla", "My mix"),
+                     top: Color(red: 1.00, green: 0.48, blue: 0.27), bottom: Color(red: 1.00, green: 0.27, blue: 0.33))
+                tile(WidgetMixNowIntent(), symbol: "arrow.triangle.merge", title: label("Mezclar", "Mix now"),
+                     top: Color(red: 1.00, green: 0.54, blue: 0.30), bottom: Color(red: 1.00, green: 0.35, blue: 0.29))
             }
             GridRow {
-                tile(WidgetDiceIntent(), symbol: "dice.fill", title: label("Dado", "Surprise"))
-                tile(WidgetLikeIntent(), symbol: "hand.thumbsup.fill", title: label("Me gusta", "Like"))
+                tile(WidgetDiceIntent(), symbol: "dice.fill", title: label("Dado", "Surprise"),
+                     top: Color(red: 1.00, green: 0.69, blue: 0.30), bottom: Color(red: 1.00, green: 0.48, blue: 0.27))
+                tile(WidgetLikeIntent(), symbol: "hand.thumbsup.fill", title: label("Me gusta", "Like"),
+                     top: Color(red: 1.00, green: 0.35, blue: 0.35), bottom: Color(red: 1.00, green: 0.23, blue: 0.42))
             }
         }
-        .containerBackground(Color(white: 0.1), for: .widget)
+        .containerBackground(Color(red: 0.08, green: 0.08, blue: 0.09), for: .widget)
     }
 }
 
