@@ -501,6 +501,8 @@ final class HomeViewModel {
         let all = cachedLocalSections + serverSections + savedQuickPicks + cachedPhase2Sections
         let merged = orderSections(all)
         homeSections = stable ? stabilized(merged, freshContent: freshContent) : merged
+        // El widget de portadas enseña lo mismo que el inicio (solo la portada normal: arriba, con un chip, ya se ha vuelto).
+        WidgetDataStore.shared.homeChanged(homeSections)
         // Se apunta cada vez que cambia lo que se ve (orden o contenido de alguna seccion), con cuales cambian.
         let ids = homeSections.map(\.id)
         var signature: [String: String] = [:]

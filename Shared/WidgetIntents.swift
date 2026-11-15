@@ -54,6 +54,37 @@ struct WidgetDiceIntent: AudioPlaybackIntent {
     }
 }
 
+/// Una cancion o episodio concreto, desde una portada del widget de portadas: suena y sigue su radio.
+struct WidgetPlayTrackIntent: AudioPlaybackIntent {
+    static let title: LocalizedStringResource = "Play Song"
+    static let isDiscoverable = false
+
+    @Parameter(title: "Video ID")
+    var videoId: String
+
+    @Parameter(title: "Song Title")
+    var songTitle: String
+
+    @Parameter(title: "Song Artist")
+    var songArtist: String
+
+    init() {}
+
+    init(videoId: String, songTitle: String, songArtist: String) {
+        self.videoId = videoId
+        self.songTitle = songTitle
+        self.songArtist = songArtist
+    }
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        #if !WIDGET_EXTENSION
+        _ = await SonarMix.playTrack(videoId: videoId, title: songTitle, artist: songArtist)
+        #endif
+        return .result()
+    }
+}
+
 /// "Me gusta" a la cancion que suena. Solo marca: si ya te gustaba, no la quita (un toque de mas en el coche no la desmarca).
 struct WidgetLikeIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Like This Song"

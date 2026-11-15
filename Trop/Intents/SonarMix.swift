@@ -450,6 +450,28 @@ enum SonarMix {
         return true
     }
 
+    /// Una cancion o episodio concreto (las portadas del widget): suena y sigue su radio. `false` si no arranca.
+    static func playTrack(videoId: String, title: String, artist: String) async -> Bool {
+        guard !videoId.isEmpty else { return false }
+        await prepareSession()
+        let song = SongItem(
+            videoId: videoId,
+            title: title,
+            artists: artist.isEmpty ? [] : [YTArtist(name: artist, id: nil)],
+            album: nil,
+            albumId: nil,
+            duration: 0,
+            thumbnailUrl: nil,
+            isExplicit: false,
+            playlistId: nil,
+            likeStatus: nil
+        )
+        trace("widget: \(title)")
+        guard await play([song], context: "widget") else { return false }
+        PlaybackQueue.startRadio(for: song)
+        return true
+    }
+
     /// "Pon mis Me gusta": las canciones que te gustan, guardadas en el dispositivo (vale sin red).
     static func playLiked() async -> Bool {
         await prepareSession()

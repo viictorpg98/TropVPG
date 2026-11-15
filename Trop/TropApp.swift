@@ -34,6 +34,11 @@ struct TropApp: App {
             forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: nil
         ) { _ in PlaybackReport.flush() }
         Task { await InnerTubeClient.tropShared.syncTropLocale() }
+        // El widget de portadas: deja su marca en la carpeta compartida al abrir la app y al volver a ella.
+        Task { @MainActor in WidgetDataStore.shared.start() }
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.willEnterForegroundNotification, object: nil, queue: nil
+        ) { _ in Task { @MainActor in WidgetDataStore.shared.appBecameActive() } }
     }
 
     /// Re-applies mpv playback settings whenever the user changes the
