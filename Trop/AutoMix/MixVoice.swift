@@ -170,13 +170,14 @@ enum MixRenderer {
                     let outBassPart = outSplit.process(filteredOut)
                     let outRestPart = filteredOut - outBassPart
                     let dry = (outBassPart * outBassGain + outRestPart) * outVolume
-                    // Efecto sobre la saliente (eco o reverb): sigue sonando aunque el volumen baje, y se apaga solo en el ultimo ~18 % de la
+                    // Efecto sobre la saliente (eco o reverb), alimentado con lo que se oye de ella (ya con su volumen): repite lo audible y sigue
+                    // sonando aunque el volumen baje, y se apaga solo en el ultimo ~18 % de la
                     // mezcla para no dejar una cola que se corte de golpe cuando entra la entrante.
                     var wet = 0.0
                     if effectKind == 1 {
-                        wet = echo.process(filteredOut) * 0.9
+                        wet = echo.process(dry) * 0.9
                     } else if effectKind == 2 {
-                        wet = reverb.process(filteredOut) * 0.25
+                        wet = reverb.process(dry) * 0.25
                     }
                     let effectAmount = t.count >= 7 ? lookup(t[6], progress) : 0
                     let effectFade = min(1, (1 - progress) / 0.18)

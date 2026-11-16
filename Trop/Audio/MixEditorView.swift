@@ -820,11 +820,16 @@ struct MixWaveformStrip: View {
             let first = max(Int((windowStart / barSeconds).rounded(.down)), 0)
             let last = min(Int((windowEnd / barSeconds).rounded(.up)), count - 1)
             guard first <= last else { return }
-            let barWidth = max(size.width * CGFloat(barSeconds / span), 1)
-            for index in first...last {
-                let middleSeconds = (Double(index) + 0.5) * barSeconds
+            let rawWidth = size.width * CGFloat(barSeconds / span)
+            // Si caben varias barras en un pixel (la onda con detalle vista entera), se dibuja una por grupo, con el valor mas alto del grupo.
+            let step = max(1, Int((1 / max(rawWidth, 0.0001)).rounded(.up)))
+            let barWidth = max(rawWidth * CGFloat(step), 1)
+            for index in stride(from: first, through: last, by: step) {
+                let middleSeconds = (Double(index) + Double(step) / 2) * barSeconds
                 let centerX = x(middleSeconds)
-                let barHeight = max(3, CGFloat(min(max(wave[index], 0), 1)) * size.height)
+                var peak: Float = 0
+                for k in index..<min(index + step, last + 1) { peak = max(peak, wave[k]) }
+                let barHeight = max(3, CGFloat(min(max(peak, 0), 1)) * size.height)
                 let rect = CGRect(
                     x: centerX - barWidth * 0.35, y: (size.height - barHeight) / 2, width: barWidth * 0.7, height: barHeight
                 )

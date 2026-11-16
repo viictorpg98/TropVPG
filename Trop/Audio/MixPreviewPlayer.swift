@@ -28,6 +28,9 @@ final class MixPreviewPlayer {
     @ObservationIgnored private var fileURL: URL?
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var resumeMusic = false
+    /// Cada escucha lleva su numero; parar o empezar otra lo cambia, y una preparacion que vuelve tarde (de una escucha ya cancelada) se
+    /// descarta sin tocar la nueva.
+    @ObservationIgnored private var generation = 0
 
     /// Segundos de la saliente que se oyen antes de que empiece la mezcla.
     private static let leadSeconds: TimeInterval = 6
@@ -43,14 +46,17 @@ final class MixPreviewPlayer {
             statusText = NSLocalizedString("Preview not available during a mix.", comment: "")
             return
         }
+        generation += 1
+        let mine = generation
         state = .preparing
         task = Task { [weak self] in
-            await self?.run(outgoingId: outgoingId, incomingId: incomingId, plan: plan)
+            await self?.run(outgoingId: outgoingId, incomingId: incomingId, plan: plan, generation: mine)
         }
     }
 
     /// Para la escucha (o la preparacion) y devuelve la musica si sonaba. Se puede llamar siempre.
     func stop() {
+        generation += 1
         task?.cancel()
         task = nil
         player?.stop()
@@ -66,18 +72,20 @@ final class MixPreviewPlayer {
         state = .idle
     }
 
-    private func fail() {
+    private func fail(generation mine: Int) {
+        guard mine == generation else { return }
         statusText = NSLocalizedString("Can't preview right now.", comment: "")
         PlaybackReport.record("mezcla: vista previa no disponible")
         stop()
     }
 
-    private func run(outgoingId: String, incomingId: String, plan: TransitionPlan) async {
+    private func run(outgoingId: String, incomingId: String, plan: TransitionPlan, generation mine: Int) async {
         guard let outSource = await AutoMixSource.source(for: outgoingId),
-              let inSource = await AutoMixSource.source(for: incomingId), !Task.isCancelled else {
-            fail()
+              let inSource = await AutoMixSource.source(for: incomingId) else {
+            fail(generation: mine)
             return
         }
+        guard mine == generation else { return }
         let outURL = outSource.url
         let inURL = inSource.url
         let cutAt = Double(plan.outgoingStartMs) / 1000
@@ -98,12 +106,17 @@ final class MixPreviewPlayer {
                 curveTables: curveTables, effectKind: effectKind, loopBars: loopBars, beatSeconds: beatSeconds, leadSeconds: lead
             )
         }.value
+        // Si mientras se preparaba se paro o se empezo otra escucha, lo preparado se tira sin tocar la nueva.
+        guard mine == generation else {
+            if let rendered { try? FileManager.default.removeItem(at: rendered) }
+            return
+        }
         guard let rendered else {
-            fail()
+            fail(generation: mine)
             return
         }
         fileURL = rendered
-        guard !Task.isCancelled, AutoMixEngine.shared.isActive == false else {
+        guard AutoMixEngine.shared.isActive == false else {
             stop()
             return
         }
@@ -112,21 +125,21 @@ final class MixPreviewPlayer {
         if resumeMusic { PlayerController.shared.setPaused(true) }
         try? AVAudioSession.sharedInstance().setActive(true)
         guard let audioPlayer = try? AVAudioPlayer(contentsOf: rendered) else {
-            fail()
+            fail(generation: mine)
             return
         }
         player = audioPlayer
         audioPlayer.prepareToPlay()
         guard audioPlayer.play() else {
-            fail()
+            fail(generation: mine)
             return
         }
         state = .playing
         // Hasta que acabe el archivo o se pase lo previsto (saliente + mezcla + un poco de la entrante).
         let limit = min(lead, cutAt) + duration + Self.tailSeconds
-        while !Task.isCancelled, audioPlayer.isPlaying, audioPlayer.currentTime < limit {
+        while mine == generation, audioPlayer.isPlaying, audioPlayer.currentTime < limit {
             try? await Task.sleep(nanoseconds: 200_000_000)
         }
-        stop()
+        if mine == generation { stop() }
     }
 }
