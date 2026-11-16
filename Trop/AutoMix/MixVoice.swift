@@ -35,6 +35,7 @@ enum MixRenderer {
     ///   Si hace falta, empieza a `incomingRatio` veces su velocidad y vuelve a la normal al final.
     /// `plainFade`: un fundido simple (la saliente baja por coseno y la entrante sube por seno, sin filtros ni intercambio de graves) en
     /// vez de la mezcla con filtros.
+    /// `isPreview`: es para escuchar en el editor (no se apunta en el informe como una mezcla de verdad).
     /// `effectKind` (0 nada, 1 eco, 2 reverb) y `loopBars` (compases de la saliente que se repiten, de `beatSeconds` s por pulso) solo se usan con
     /// `curveTables`.
     /// `curveTables`: las siete curvas del editor ya muestreadas (volumen, graves y filtro de la saliente y de la entrante, y el efecto; ver `MixCurves`). Con ellas
@@ -46,7 +47,7 @@ enum MixRenderer {
         incomingURL: URL, incomingStart: TimeInterval,
         duration: TimeInterval, outgoingRatio: Double, incomingRatio: Double,
         tailStream: Bool = false, plainFade: Bool = false, curveTables: [[Double]]? = nil,
-        effectKind: Int = 0, loopBars: Int = 0, beatSeconds: Double = 0.5
+        effectKind: Int = 0, loopBars: Int = 0, beatSeconds: Double = 0.5, isPreview: Bool = false
     ) -> Output? {
         // Misma frecuencia de muestreo que la saliente, para que mpv no tenga que cambiar de formato al encadenar.
         let rate = sampleRate(of: outgoingURL)
@@ -222,7 +223,7 @@ enum MixRenderer {
 
         // Para el informe: el salto entre la ultima muestra de la saliente antes del corte y la primera de la mezcla, frente a lo
         // que cambia de una muestra a otra de forma natural (si el salto es mucho mayor, se oye un "pop" en el empalme).
-        if outPad >= 8, outPad < outputSource[0].count {
+        if !isPreview, outPad >= 8, outPad < outputSource[0].count {
             let before = outputSource[0][outPad - 1]
             let natural = abs(outputSource[0][outPad] - before)
             var typical: Float = 0
@@ -266,6 +267,32 @@ enum MixRenderer {
         // Si la cancion acaba antes de esos segundos, el archivo ya la lleva entera y no hace falta seguir con internet.
         let extra = (tailStream && rest.seconds >= tailSeconds - 1) ? rest.seconds : 0
         return Output(url: url, mixEndsAt: mixEndsAt, extra: extra)
+    }
+
+    /// La mezcla para escucharla en el editor: unos segundos de la saliente tal cual (`leadSeconds`, o los que haya), la mezcla y unos segundos de la
+    /// entrante despues. Devuelve el archivo (el que llama lo borra al acabar).
+    nonisolated static func renderPreview(
+        outgoingURL: URL, outgoingStart: TimeInterval, incomingURL: URL, incomingStart: TimeInterval,
+        duration: TimeInterval, outgoingRatio: Double, incomingRatio: Double, plainFade: Bool,
+        curveTables: [[Double]]?, effectKind: Int, loopBars: Int, beatSeconds: Double, leadSeconds: TimeInterval
+    ) -> URL? {
+        // Siempre con `tailStream`: solo unos segundos de la entrante detras de la mezcla (no la cancion entera).
+        guard let mix = render(
+            outgoingURL: outgoingURL, outgoingStart: outgoingStart, incomingURL: incomingURL, incomingStart: incomingStart,
+            duration: duration, outgoingRatio: outgoingRatio, incomingRatio: incomingRatio, tailStream: true,
+            plainFade: plainFade, curveTables: curveTables, effectKind: effectKind, loopBars: loopBars,
+            beatSeconds: beatSeconds, isPreview: true
+        ) else { return nil }
+        let lead = min(leadSeconds, max(outgoingStart, 0))
+        // Mismo muestreo que uso la mezcla, o el archivo final sonaria a otra velocidad.
+        let rate = sampleRate(of: outgoingURL)
+        if lead > 0.5,
+           let leadIn = decode(url: outgoingURL, start: outgoingStart - lead, seconds: lead, rate: rate, label: "vista previa: saliente"),
+           let combined = write(leadIn, followedBy: mix.url, rate: rate) {
+            try? FileManager.default.removeItem(at: mix.url)
+            return combined
+        }
+        return mix.url
     }
 
     // MARK: - Decodificacion con FFmpeg

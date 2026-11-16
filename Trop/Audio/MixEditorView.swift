@@ -248,6 +248,8 @@ struct MixTransitionEditor: View {
     @State private var message: String?
     /// Sube cuando acaba un analisis, para volver a calcular la vista previa.
     @State private var refresh = 0
+    /// Para escuchar la mezcla desde el editor.
+    @State private var previewPlayer = MixPreviewPlayer.shared
 
     init(outgoing: SongItem, incoming: SongItem) {
         self.outgoing = outgoing
@@ -294,6 +296,16 @@ struct MixTransitionEditor: View {
 
     private var soundBinding: Binding<MixSound> {
         Binding(get: { sound }, set: { sound = $0; save() })
+    }
+
+    /// Prepara y reproduce la mezcla con lo elegido ahora (o la para si ya suena).
+    private func togglePreview() {
+        if previewPlayer.state != .idle {
+            previewPlayer.stop()
+            return
+        }
+        guard let plan = makePreview()?.plan else { return }
+        previewPlayer.start(outgoingId: outgoing.videoId, incomingId: incoming.videoId, plan: plan)
     }
 
     private var curvesOnBinding: Binding<Bool> {
@@ -467,6 +479,7 @@ struct MixTransitionEditor: View {
         }
         .navigationTitle("Transition")
         .navigationBarTitleDisplayMode(.inline)
+        .onDisappear { previewPlayer.stop() }
         .task {
             // La onda con detalle de las dos (una lectura por cancion; despues sale de la memoria).
             await DetailedWaveformStore.shared.load(outgoing.videoId)
@@ -547,7 +560,8 @@ struct MixTransitionEditor: View {
                             incomingStart: Double(plan.incomingStartMs) / 1000,
                             incomingEnd: Double(plan.incomingStartMs
                                 + AutoMixMath.incomingAdvanceMs(durationMs: plan.durationMs, startRatio: plan.incomingSpeedRatio)) / 1000,
-                            onCommit: { save() }
+                            onCommit: { save() },
+                            onPreview: { togglePreview() }
                         )
                     } label: {
                         Text("Edit Curves")
@@ -670,13 +684,40 @@ struct MixTransitionEditor: View {
                         startSeconds: inStart, endSeconds: inEnd, tint: .blue, height: 46
                     )
                 }
-                Text(String(
-                    format: NSLocalizedString("Leaves at %@ · %d s overlap · enters at %@", comment: ""),
-                    DurationFormat.playbackTime(outStart), Int((Double(plan.durationMs) / 1000).rounded()),
-                    DurationFormat.playbackTime(inStart)
-                ))
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    Text(String(
+                        format: NSLocalizedString("Leaves at %@ · %d s overlap · enters at %@", comment: ""),
+                        DurationFormat.playbackTime(outStart), Int((Double(plan.durationMs) / 1000).rounded()),
+                        DurationFormat.playbackTime(inStart)
+                    ))
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    Spacer(minLength: 4)
+                    Button {
+                        togglePreview()
+                    } label: {
+                        HStack(spacing: 5) {
+                            if previewPlayer.state == .preparing {
+                                ProgressView().controlSize(.mini)
+                            } else {
+                                Image(systemName: previewPlayer.state == .playing ? "stop.fill" : "play.fill")
+                            }
+                            Text(LocalizedStringKey(
+                                previewPlayer.state == .playing ? "Stop Preview"
+                                    : (previewPlayer.state == .preparing ? "Preparing the preview…" : "Preview Mix")
+                            ))
+                        }
+                        .font(.caption.weight(.semibold))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(previewPlayer.state == .preparing)
+                }
+                if let status = previewPlayer.statusText {
+                    Text(status)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             } else if preview != nil {
                 Text("No mix is possible between these two songs, so the normal transition will be used.")
                     .font(.footnote)

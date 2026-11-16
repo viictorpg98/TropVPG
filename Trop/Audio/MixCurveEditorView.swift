@@ -23,11 +23,14 @@ struct MixCurveEditorView: View {
     let incomingEnd: Double
     /// Se llama al soltar (para guardar lo elegido).
     let onCommit: () -> Void
+    /// Escuchar la mezcla (o pararla si ya suena).
+    let onPreview: () -> Void
 
     @State private var lane: MixLane = .volume
     /// El punto que se esta arrastrando: (es de la saliente, posicion en su curva).
     @State private var active: (outgoing: Bool, index: Int)?
     @State private var moved = false
+    @State private var previewPlayer = MixPreviewPlayer.shared
 
     private let paneHeight: CGFloat = 150
     private let paneGap: CGFloat = 14
@@ -94,13 +97,38 @@ struct MixCurveEditorView: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
 
-                Button {
-                    curves.set(lane, .make(lane, lane.presets[0]))
-                    onCommit()
-                } label: {
-                    Text("Reset This Curve")
+                HStack(spacing: 12) {
+                    Button {
+                        onPreview()
+                    } label: {
+                        HStack(spacing: 5) {
+                            if previewPlayer.state == .preparing {
+                                ProgressView().controlSize(.mini)
+                            } else {
+                                Image(systemName: previewPlayer.state == .playing ? "stop.fill" : "play.fill")
+                            }
+                            Text(LocalizedStringKey(
+                                previewPlayer.state == .playing ? "Stop Preview"
+                                    : (previewPlayer.state == .preparing ? "Preparing the preview…" : "Preview Mix")
+                            ))
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(previewPlayer.state == .preparing)
+
+                    Button {
+                        curves.set(lane, .make(lane, lane.presets[0]))
+                        onCommit()
+                    } label: {
+                        Text("Reset This Curve")
+                    }
+                    .buttonStyle(.bordered)
                 }
-                .buttonStyle(.bordered)
+                if let status = previewPlayer.statusText {
+                    Text(status)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             .padding(.horizontal, 24)
 
@@ -109,6 +137,7 @@ struct MixCurveEditorView: View {
         .padding(.top, 12)
         .navigationTitle("Edit Curves")
         .navigationBarTitleDisplayMode(.inline)
+        .onDisappear { previewPlayer.stop() }
     }
 
     // MARK: Dibujo
