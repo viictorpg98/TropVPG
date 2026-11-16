@@ -16,6 +16,7 @@ final class DJSettings {
 
     private static let sortKey = "dj.sortQueue"
     private static let cutKey = "dj.cutEarly"
+    private static let amountKey = "dj.playAmount"
 
     /// Hay una sesion de DJ en marcha (no se guarda: al abrir la app empieza apagada). Lo cambia `DJSession`.
     var sessionActive = false
@@ -30,8 +31,16 @@ final class DJSettings {
         didSet { UserDefaults.standard.set(cutEarly, forKey: Self.cutKey) }
     }
 
+    /// Cuanto deja oir el DJ de cada cancion antes de mezclar con la siguiente: 0 = menos, 1 = normal, 2 = casi toda. El momento exacto lo
+    /// elige el propio DJ (en un cambio de la musica); esto solo mueve cuanto espera.
+    var playAmount: Int {
+        didSet { UserDefaults.standard.set(playAmount, forKey: Self.amountKey) }
+    }
+
     private init() {
         let defaults = UserDefaults.standard
+        let amount = defaults.object(forKey: Self.amountKey) == nil ? 1 : defaults.integer(forKey: Self.amountKey)
+        playAmount = min(max(amount, 0), 2)
         sortQueue = defaults.object(forKey: Self.sortKey) == nil ? true : defaults.bool(forKey: Self.sortKey)
         cutEarly = defaults.object(forKey: Self.cutKey) == nil ? true : defaults.bool(forKey: Self.cutKey)
     }

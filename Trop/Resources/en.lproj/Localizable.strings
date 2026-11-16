@@ -267,6 +267,7 @@
 "Home" = "Home";
 "Home Feed" = "Home Feed";
 "Hopeless romantic" = "Hopeless romantic";
+"How Much of Each Song" = "How Much of Each Song";
 "How long the two songs overlap. The mix always starts and ends on the beat." = "How long the two songs overlap. The mix always starts and ends on the beat.";
 "How many minutes?" = "How many minutes?";
 "How was the mix?" = "How was the mix?";
@@ -310,6 +311,7 @@
 "Left" = "Left";
 "Leisure" = "Leisure";
 "Length" = "Length";
+"Less" = "Less";
 "Lesser-known related tracks" = "Lesser-known related tracks";
 "Library" = "Library";
 "Library Sync" = "Library Sync";
@@ -382,6 +384,7 @@
 "More like “%@”" = "More like “%@”";
 "More options" = "More options";
 "More…" = "More…";
+"Most" = "Most";
 "Most Relevant" = "Most Relevant";
 "Motivation" = "Motivation";
 "Move the points, or tap a part of the song, to choose where the first song is left and where the next one comes in. They snap to the nearest beat. Parts are named by their volume: the analysis cannot tell a verse from a chorus." = "Move the points, or tap a part of the song, to choose where the first song is left and where the next one comes in. They snap to the nearest beat. Parts are named by their volume: the analysis cannot tell a verse from a chorus.";
@@ -431,6 +434,7 @@
 "No similar tracks" = "No similar tracks";
 "No songs found" = "No songs found";
 "No songs yet" = "No songs yet";
+"Normal" = "Normal";
 "Not enough analyzed songs yet. Try again in a minute." = "Not enough analyzed songs yet. Try again in a minute.";
 "Not enough of the song is left to mix." = "Not enough of the song is left to mix.";
 "Not logged in" = "Not logged in";
@@ -670,7 +674,7 @@
 "Tempo" = "Tempo";
 "Test" = "Test";
 "Thanks!" = "Thanks!";
-"The DJ is a session: start it from the DJ button in the player, from the queue menu or from the Home screen. While it is on, it sorts the next songs so they fit together (tempo and key) and mixes each song into the next at a good moment, without waiting for it to end, like a DJ. Long songs and podcasts play in full. Mixes between songs that are not downloaded need Wi-Fi, or mobile data allowed in the AutoMix settings." = "The DJ is a session: start it from the DJ button in the player, from the queue menu or from the Home screen. While it is on, it sorts the next songs so they fit together (tempo and key) and mixes each song into the next at a good moment, without waiting for it to end, like a DJ. Long songs and podcasts play in full. Mixes between songs that are not downloaded need Wi-Fi, or mobile data allowed in the AutoMix settings.";
+"The DJ is a session: start it from the DJ button in the player, from the queue menu or from the Home screen. While it is on, it sorts the next songs so they fit together (tempo and key) and mixes each song into the next at a good moment, without waiting for it to end, like a DJ. Long songs and podcasts play in full. Mixes between songs that are not downloaded need Wi-Fi, or mobile data allowed in the AutoMix settings. How Much of Each Song says how long the DJ waits: Less mixes sooner and Most lets each song play almost to its end. The DJ still picks the exact moment, on a change in the music." = "The DJ is a session: start it from the DJ button in the player, from the queue menu or from the Home screen. While it is on, it sorts the next songs so they fit together (tempo and key) and mixes each song into the next at a good moment, without waiting for it to end, like a DJ. Long songs and podcasts play in full. Mixes between songs that are not downloaded need Wi-Fi, or mobile data allowed in the AutoMix settings. How Much of Each Song says how long the DJ waits: Less mixes sooner and Most lets each song play almost to its end. The DJ still picks the exact moment, on a change in the music.";
 "The DJ is on. Tap to stop it." = "The DJ is on. Tap to stop it.";
 "The country controls the region used for YouTube Music requests." = "The country controls the region used for YouTube Music requests.";
 "The music will stop in %d minutes." = "The music will stop in %d minutes.";

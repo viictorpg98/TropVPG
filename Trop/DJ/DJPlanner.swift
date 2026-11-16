@@ -6,8 +6,9 @@
 //
 //  - Mira la forma de la saliente (su analisis: donde empieza la musica, sus cambios de seccion y de volumen, sus compases) y la
 //    compara con la entrante (tempo y tonalidad).
-//  - No corta antes de ~1 minuto de musica ni despues de ~2 min 20 s; dentro de ese margen apunta a algo mas de la mitad de la
-//    cancion (entre 1 y 1:50 min de musica), segun lo que dure.
+//  - Cuanto deja oir depende de "cuanto de cada cancion" (Ajustes > DJ), contando desde el primer sonido. En normal no corta antes de
+//    1 min de musica ni despues de 2:20 y apunta al 55 % de la cancion (entre 1 y 1:50). Con "menos" apunta al 45 % (50-90 s, hasta 1:50
+//    como mucho) y con "casi toda" al 85 % (al menos 1:30, hasta 25 s antes del final). Nunca corta a menos de 30 s del final.
 //  - Elige el cambio de seccion mas cercano a ese punto (con una ventaja de 12 s si el volumen BAJA ahi: el final de una parte fuerte, que
 //    es por donde sale un DJ); si no hay ninguno, el inicio de frase (cada 8 compases) mas cercano.
 //  - La duracion de la mezcla la elige segun lo bien que encajan las dos: si tempo y tonalidad casan, larga; si chocan, corta.
@@ -61,20 +62,30 @@ enum DJPlanner {
         let clash = pairClash(outgoing: outgoing, incoming: incoming)
         let length: MixStyle.Length = clash.level == 0 ? .long : (clash.level == 2 ? .short : .medium)
 
-        // Margen en el que se puede cortar: de 1 min de musica a 2:20 (sin pasarse de 30 s antes del final), y a 25 s o mas de ahora.
-        let lower = max(first + 60_000, Int64((currentTime + 25) * 1000))
-        let upper = min(first + 140_000, end - 30_000)
+        // Cuanto deja oir el DJ de cada cancion segun "cuanto de cada cancion" (0 = menos, 1 = normal, 2 = casi toda). Todo se cuenta desde el
+        // primer sonido de la cancion. Normal es el criterio de siempre: de 1 min a 2:20 de musica, apuntando al 55 % (entre 1 y 1:50).
+        let level = min(max(DJSettings.shared.playAmount, 0), 2)
+        let lowestPlay: [Int64] = [50_000, 60_000, 60_000]
+        let highestPlay: [Int64] = [110_000, 140_000, 10_000_000]
+        let fractions: [Double] = [0.45, 0.55, 0.85]
+        let preferredMin: [Int64] = [50_000, 60_000, 90_000]
+        let preferredMax: [Int64] = [90_000, 110_000, 10_000_000]
+        let tailKept: Int64 = level == 2 ? 25_000 : 30_000
+        // Margen en el que se puede cortar: desde la musica minima (y a 25 s o mas de ahora) hasta la maxima o `tailKept` antes del final.
+        let lower = max(first + lowestPlay[level], Int64((currentTime + 25) * 1000))
+        let upper = min(first + highestPlay[level], end - tailKept)
         guard lower < upper else {
             return Decision(cutMs: nil, length: length, note: "no queda margen para cortarla antes, suena hasta el final (\(clash.text))")
         }
-        let preferredPlay = min(max(Int64(Double(usable) * 0.55), 60_000), 110_000)
+        let preferredPlay = min(max(Int64(Double(usable) * fractions[level]), preferredMin[level]), preferredMax[level])
         let aim = min(max(first + preferredPlay, lower), upper)
 
         // Entre los cambios de seccion del margen, el mejor es el mas cercano al objetivo; que el volumen BAJE ahi cuenta como 12 s de
         // ventaja (el final de una parte fuerte es por donde sale un DJ), pero no vale uno lejano solo por eso.
         let inWindow = outgoing.sections.filter { $0.timeMs >= lower && $0.timeMs <= upper }
         func cost(_ section: SectionChange) -> Int64 {
-            abs(section.timeMs - aim) - (section.deltaDb < 0 ? 12_000 : 0)
+            // La ventaja por bajar de volumen solo vale en el objetivo o despues (no para adelantar el corte).
+            abs(section.timeMs - aim) - (section.deltaDb < 0 && section.timeMs >= aim - 5_000 ? 12_000 : 0)
         }
         if let change = inWindow.min(by: { cost($0) < cost($1) }) {
             let kind = change.deltaDb < 0 ? String(format: "baja %.1f dB", -change.deltaDb) : String(format: "sube %.1f dB", change.deltaDb)
