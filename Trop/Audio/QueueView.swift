@@ -213,6 +213,43 @@ struct QueueView<ProgressSlider: View>: View {
         }
     }
 
+    /// Reordena lo que queda por sonar por tempo y tonalidad (solo las canciones ya analizadas; ver `QueueSmartOrder`).
+    private func sortByTempoAndKey() {
+        let message: String
+        switch QueueSmartOrder.reorderUpcoming() {
+        case .nothingToOrder:
+            message = NSLocalizedString("Nothing left in the queue to sort.", comment: "")
+        case .mixInProgress:
+            message = NSLocalizedString("A mix is in progress. Try again in a moment.", comment: "")
+        case .done(let ordered, let pending):
+            if ordered < 2 {
+                message = NSLocalizedString("Analyzing the next songs. Try again in a minute.", comment: "")
+            } else if pending > 0 {
+                message = String(format: NSLocalizedString("%d songs sorted; %d still being analyzed.", comment: ""), ordered, pending)
+            } else {
+                message = String(format: NSLocalizedString("%d songs sorted.", comment: ""), ordered)
+            }
+        }
+        PlaybackNotice.shared.show(message)
+    }
+
+    /// El estilo de la mezcla entre la que suena y la siguiente (`nil`: que decida AutoMix otra vez).
+    private func setNextTransition(_ choice: ManualMixStore.Choice?) {
+        guard np.queueSongs.indices.contains(np.queueIndex), np.queueIndex + 1 < np.queueSongs.count else {
+            PlaybackNotice.shared.show(NSLocalizedString("There is no next song to mix into.", comment: ""))
+            return
+        }
+        let outId = np.queueSongs[np.queueIndex].videoId
+        let inId = np.queueSongs[np.queueIndex + 1].videoId
+        ManualMixStore.shared.set(choice, outId: outId, inId: inId)
+        if AutoMixEngine.shared.isActive {
+            PlaybackNotice.shared.show(NSLocalizedString("Saved. This mix is already prepared; it applies the next time these two play.", comment: ""))
+        } else {
+            AutoMixEngine.shared.replan()
+            PlaybackNotice.shared.show(NSLocalizedString("Saved for the next transition.", comment: ""))
+        }
+    }
+
     private func removeDuplicates() {
         let removed = np.removeDuplicateSongs()
         let message = removed > 0
@@ -241,6 +278,20 @@ struct QueueView<ProgressSlider: View>: View {
                 removeDuplicates()
             } label: {
                 Label("Remove Duplicates", systemImage: "rectangle.on.rectangle.slash")
+            }
+            Button {
+                sortByTempoAndKey()
+            } label: {
+                Label("Sort by BPM & Key", systemImage: "arrow.up.arrow.down")
+            }
+            Menu {
+                Button("Automatic") { setNextTransition(nil) }
+                Button("Short Blend") { setNextTransition(ManualMixStore.Choice(length: .short, matchTempo: true)) }
+                Button("Medium Blend") { setNextTransition(ManualMixStore.Choice(length: .medium, matchTempo: true)) }
+                Button("Long Blend") { setNextTransition(ManualMixStore.Choice(length: .long, matchTempo: true)) }
+                Button("Keep Both Tempos") { setNextTransition(ManualMixStore.Choice(length: .medium, matchTempo: false)) }
+            } label: {
+                Label("Next Transition", systemImage: "wand.and.stars")
             }
             Button(role: .destructive) {
                 np.clearUpcoming()
@@ -502,9 +553,10 @@ struct QueueSongRow: View {
                 )
 
                 let artistStr = song.artists.map(\.name).joined(separator: ", ")
-                let subtitle = song.duration > 0
+                let baseSubtitle = song.duration > 0
                     ? (artistStr.isEmpty ? "" : artistStr + " · ") + DurationFormat.playbackTime(TimeInterval(song.duration))
                     : artistStr
+                let subtitle = [baseSubtitle, musicTag].filter { !$0.isEmpty }.joined(separator: " · ")
                 if !subtitle.isEmpty {
                     HStack(spacing: 4) {
                         if song.isExplicit { ExplicitBadge() }
@@ -533,6 +585,14 @@ struct QueueSongRow: View {
 
     private var titleColor: Color {
         isPlayed && !isCurrent ? Color.white.opacity(0.45) : .white
+    }
+
+    /// "128 BPM · 8A" (tempo y tonalidad en numeracion Camelot) cuando la cancion ya esta analizada; si no, nada.
+    private var musicTag: String {
+        guard let structure = TrackAnalysisStore.shared.structure(for: song.videoId), structure.bpm > 0 else { return "" }
+        var parts = ["\(Int(structure.bpm.rounded())) BPM"]
+        if let key = structure.key, let camelot = KeyDetector.camelot(key) { parts.append(camelot) }
+        return parts.joined(separator: " · ")
     }
 }
 

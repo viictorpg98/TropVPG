@@ -99,6 +99,10 @@ final class MixLearning {
     func style(outId: String, inId: String, outBpm: Double, inBpm: Double) -> MixStyle {
         let context = Self.context(outgoingBpm: outBpm, incomingBpm: inBpm)
         let standard = MixStyle(length: .medium, matchTempo: true, context: context)
+        // Lo elegido a mano para esta pareja manda sobre todo lo demas ("dejar el tempo" solo vale si los tempos son parecidos).
+        if let manual = ManualMixStore.shared.choice(outId: outId, inId: inId) {
+            return MixStyle(length: manual.length, matchTempo: context == "near" ? manual.matchTempo : true, context: context)
+        }
         guard SettingsStore.shared.autoMixLearns else { return standard }
         let pair = Self.pairKey(outId, inId)
         if let known = decided[pair] { return known }

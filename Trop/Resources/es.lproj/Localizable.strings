@@ -5,6 +5,8 @@
 "%@ subscribers" = "%@ suscriptores";
 "%@: %@ (%d of %d good)" = "%@: %@ (%d de %d bien)";
 "%d duplicates removed." = "Se han quitado %d duplicados.";
+"%d songs sorted." = "%d canciones ordenadas.";
+"%d songs sorted; %d still being analyzed." = "%d canciones ordenadas; %d aún se están analizando.";
 "%lld episode" = "%lld episodio";
 "%lld episodes" = "%lld episodios";
 "%lld offline track" = "%lld canción sin conexión";
@@ -16,6 +18,8 @@
 "-3s" = "-3s";
 "0 dB" = "0 dB";
 "2010s" = "Años 2010";
+"A host that introduces the songs: it lowers the music, says a short line over the start of the song and brings the music back. It is off until you turn it on." = "Un locutor que presenta las canciones: baja la música, dice una frase corta sobre el principio de la canción y vuelve a subirla. Está apagado hasta que lo actives.";
+"A mix is in progress. Try again in a moment." = "Hay una mezcla en marcha. Inténtalo en un momento.";
 "About" = "Acerca de";
 "Accent Color" = "Color de acento";
 "Account" = "Cuenta";
@@ -40,11 +44,13 @@
 "All Results" = "Todos los resultados";
 "Ambient + atmospheric" = "Ambiental y atmosférico";
 "Analysing songs…" = "Analizando canciones…";
+"Analyzing the next songs. Try again in a minute." = "Analizando las siguientes canciones. Inténtalo en un minuto.";
 "Animated Artwork" = "Carátulas animadas";
 "Animated Artwork on Mobile Data" = "Carátulas animadas con datos móviles";
 "Animated Background" = "Fondo animado";
 "App volume" = "Volumen de la app";
 "Appearance" = "Apariencia";
+"Apple Intelligence model: %@" = "Modelo de Apple Intelligence: %@";
 "Applies to buttons, highlights, and selected items." = "Se aplica a botones, resaltados y elementos seleccionados.";
 "Applies to buttons, highlights, and selected items. The neutral accent uses no color: white in the dark theme and black in the light theme." = "Se aplica a botones, resaltados y elementos seleccionados. El acento neutro no usa color: blanco en el tema oscuro y negro en el claro.";
 "April" = "Abril";
@@ -65,6 +71,7 @@
 "Auto-download saves liked songs for offline playback. Wi-Fi Only blocks downloads on cellular data." = "La descarga automática guarda las canciones que te gustan para escucharlas sin conexión. «Solo Wi-Fi» bloquea las descargas con datos móviles.";
 "AutoMix" = "AutoMix";
 "AutoMix Learns From Your Ratings" = "AutoMix aprende de tus valoraciones";
+"Automatic" = "Automática";
 "Autoplay Similar" = "Reproducción automática de similares";
 "Back" = "Atrás";
 "Bad mix" = "Mala mezcla";
@@ -139,6 +146,7 @@
 "Create one below to start collecting songs." = "Crea una abajo para empezar a reunir canciones.";
 "Create playlist" = "Crear lista de reproducción";
 "Customize Radio" = "Personalizar radio";
+"DJ" = "DJ";
 "DND" = "No molestar";
 "Daily Discover" = "Descubrimiento diario";
 "Daily Top Music Videos - %@" = "Videoclips más populares del día - %@";
@@ -233,6 +241,7 @@
 "Government" = "Gobierno";
 "Guest" = "Invitado";
 "Health & Fitness" = "Salud y bienestar";
+"Hi, I'm your DJ. This is my voice." = "Hola, soy tu DJ. Esta es mi voz.";
 "Hidden Artists" = "Artistas ocultos";
 "Hide %@" = "Ocultar a %@";
 "Hide Artist" = "Ocultar artista";
@@ -265,6 +274,7 @@
 "Jazz" = "Jazz";
 "July" = "Julio";
 "June" = "Junio";
+"Keep Both Tempos" = "Dejar cada tempo";
 "Keep Listening" = "Sigue escuchando";
 "Keep Mix Offline" = "Mantener la mezcla descargada";
 "Keep Video Ready" = "Dejar el vídeo listo";
@@ -312,6 +322,7 @@
 "Loading…" = "Cargando…";
 "Login" = "Iniciar sesión";
 "Logout" = "Cerrar sesión";
+"Long Blend" = "Mezcla larga";
 "Long listens" = "Escuchas largas";
 "Loudness" = "Sonoridad";
 "Low" = "Baja";
@@ -327,6 +338,7 @@
 "May" = "Mayo";
 "Meditative sleep" = "Sueño meditativo";
 "Medium" = "Media";
+"Medium Blend" = "Mezcla media";
 "Metadata & stream information" = "Metadatos e información de la transmisión";
 "Metal" = "Metal";
 "Mindfulness & meditation" = "Mindfulness y meditación";
@@ -366,11 +378,13 @@
 "New releases" = "Novedades";
 "News" = "Noticias";
 "Next" = "Siguiente";
+"Next Transition" = "Próxima transición";
 "No Downloads Yet" = "Aún no hay descargas";
 "No History" = "Sin historial";
 "No Playlists" = "Sin listas de reproducción";
 "No Recent Searches" = "Sin búsquedas recientes";
 "No Results" = "Sin resultados";
+"No Spanish voices found on this device." = "No hay voces en español en este dispositivo.";
 "No album data" = "Sin datos del álbum";
 "No artist data" = "Sin datos del artista";
 "No connection and no downloaded songs." = "Sin conexión y sin canciones descargadas.";
@@ -394,6 +408,7 @@
 "Not enough of the song is left to mix." = "Queda muy poco de la canción para mezclar.";
 "Not logged in" = "Sesión no iniciada";
 "Nothing here" = "No hay nada aquí";
+"Nothing left in the queue to sort." = "No queda nada en la cola para ordenar.";
 "Nothing to explore" = "Nada que explorar";
 "November" = "Noviembre";
 "Now Playing" = "Reproduciendo ahora";
@@ -512,6 +527,8 @@
 "Save to Library" = "Guardar en la biblioteca";
 "Saved" = "Guardado";
 "Saved Episodes" = "Episodios guardados";
+"Saved for the next transition." = "Guardado para la próxima transición.";
+"Saved. This mix is already prepared; it applies the next time these two play." = "Guardado. Esta mezcla ya está preparada; se aplicará la próxima vez que suenen estas dos.";
 "Saving the queue…" = "Guardando la cola…";
 "Science" = "Ciencia";
 "Scrobble Configuration" = "Configuración del scrobbling";
@@ -534,6 +551,7 @@
 "Share this playlist with others" = "Comparte esta lista de reproducción con otras personas";
 "Share this podcast with others" = "Comparte este pódcast con otras personas";
 "Share with Other Apps" = "Compartir con otras apps";
+"Short Blend" = "Mezcla corta";
 "Show Again" = "Volver a mostrar";
 "Show Interval Indicator" = "Mostrar indicador de intervalo";
 "Show Quick Picks" = "Mostrar Selecciones rápidas";
@@ -569,9 +587,11 @@
 "Songs you like will appear here" = "Las canciones que te gusten aparecerán aquí";
 "Songs you play will appear here." = "Las canciones que reproduzcas aparecerán aquí.";
 "Sort" = "Ordenar";
+"Sort by BPM & Key" = "Ordenar por BPM y tonalidad";
 "Sort results" = "Ordenar resultados";
 "Sound" = "Sonido";
 "Source" = "Origen";
+"Speak every %d songs" = "Hablar cada %d canciones";
 "Speed Dial" = "Acceso rápido";
 "Spirituality" = "Espiritualidad";
 "SponsorBlock" = "SponsorBlock";
@@ -607,15 +627,20 @@
 "Syncs with your YouTube Music account. This cannot be changed later." = "Se sincroniza con tu cuenta de YouTube Music. No se podrá cambiar después.";
 "System" = "Sistema";
 "TV & Film" = "Cine y televisión";
+"Tap a voice to hear it. For a much better voice, download an Enhanced or Premium Spanish one in the iPhone Settings: Accessibility > Spoken Content > Voices > Spanish. Then come back and pick it here." = "Toca una voz para oírla. Para una voz mucho mejor, descarga una en español Mejorada o Premium en los Ajustes del iPhone: Accesibilidad > Contenido hablado > Voces > Español. Luego vuelve aquí y elígela.";
 "Team playlist" = "Lista del equipo";
 "Technology" = "Tecnología";
 "Template" = "Plantilla";
+"Test" = "Prueba";
+"Test an Introduction" = "Probar una presentación";
+"Testing…" = "Probando…";
 "Thanks!" = "¡Gracias!";
 "The country controls the region used for YouTube Music requests." = "El país controla la región que se usa en las peticiones a YouTube Music.";
 "The music will stop in %d minutes." = "La música se parará en %d minutos.";
 "The summary of this session (screens, network, freezes, CPU, memory, battery) and the latest events. Pull down to refresh." = "El resumen de esta sesión (pantallas, red, tirones, CPU, memoria, batería) y los últimos eventos. Desliza hacia abajo para actualizar.";
 "Theme" = "Tema";
 "Theme Mode" = "Modo del tema";
+"There is no next song to mix into." = "No hay una siguiente canción con la que mezclar.";
 "This permanently deletes all offline tracks from your device." = "Esto elimina de forma permanente todas las canciones sin conexión de tu dispositivo.";
 "This week" = "Esta semana";
 "Title" = "Título";
@@ -662,6 +687,7 @@
 "View Podcast" = "Ver pódcast";
 "Views" = "Reproducciones";
 "Vocal" = "Vocal";
+"Voice" = "Voz";
 "Waiting for login…" = "Esperando el inicio de sesión…";
 "Watching" = "Viendo";
 "Waveform Progress Bar" = "Barra de progreso con onda";
@@ -676,6 +702,8 @@
 "Wi-Fi Only" = "Solo Wi-Fi";
 "Wider mix around this song" = "Mezcla más amplia en torno a esta canción";
 "Workout" = "Entrenamiento";
+"Write With Apple Intelligence" = "Escribir con Apple Intelligence";
+"Writes and says an introduction for the song that is playing now (or an example if nothing is playing). What happened is also saved in the playback report, on the lines starting with dj:." = "Escribe y dice una presentación de la canción que suena ahora (o un ejemplo si no suena nada). Lo que ha pasado también se guarda en el informe de reproducción, en las líneas que empiezan por dj:.";
 "Yesterday" = "Ayer";
 "You have no liked songs saved yet." = "Todavía no tienes canciones que te gusten guardadas.";
 "You won't see their songs on Home or in radios. You can undo it in Settings." = "No verás sus canciones en Inicio ni en las radios. Puedes deshacerlo en Ajustes.";

@@ -613,6 +613,14 @@ final class AutoMixEngine {
     /// Hay una mezcla preparandose, preparada o sonando.
     var isActive: Bool { phase != .idle }
 
+    /// Se ha cambiado a mano el estilo de la mezcla que viene: se descarta lo planificado y preparado para que se rehaga.
+    /// No hace nada si la mezcla ya esta armada o sonando (`isActive`); quien llama debe avisar de que se aplicara a la siguiente.
+    func replan() {
+        guard phase == .idle else { return }
+        planCache = nil
+        dropPrepared()
+    }
+
     /// Segundo de `outId` donde empezara la mezcla con la siguiente, si ya esta planificada (para la marca de la barra).
     func plannedMixStart(for outId: String) -> TimeInterval? {
         guard SettingsStore.shared.autoMixEnabled, let cached = planCache, cached.outId == outId, let plan = cached.plan else { return nil }

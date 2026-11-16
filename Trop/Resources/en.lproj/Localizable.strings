@@ -5,6 +5,8 @@
 "%@ subscribers" = "%@ subscribers";
 "%@: %@ (%d of %d good)" = "%@: %@ (%d of %d good)";
 "%d duplicates removed." = "%d duplicates removed.";
+"%d songs sorted." = "%d songs sorted.";
+"%d songs sorted; %d still being analyzed." = "%d songs sorted; %d still being analyzed.";
 "%lld episode" = "%lld episode";
 "%lld episodes" = "%lld episodes";
 "%lld offline track" = "%lld offline track";
@@ -16,6 +18,8 @@
 "-3s" = "-3s";
 "0 dB" = "0 dB";
 "2010s" = "2010s";
+"A host that introduces the songs: it lowers the music, says a short line over the start of the song and brings the music back. It is off until you turn it on." = "A host that introduces the songs: it lowers the music, says a short line over the start of the song and brings the music back. It is off until you turn it on.";
+"A mix is in progress. Try again in a moment." = "A mix is in progress. Try again in a moment.";
 "About" = "About";
 "Accent Color" = "Accent Color";
 "Account" = "Account";
@@ -40,11 +44,13 @@
 "All Results" = "All Results";
 "Ambient + atmospheric" = "Ambient + atmospheric";
 "Analysing songs…" = "Analysing songs…";
+"Analyzing the next songs. Try again in a minute." = "Analyzing the next songs. Try again in a minute.";
 "Animated Artwork" = "Animated Artwork";
 "Animated Artwork on Mobile Data" = "Animated Artwork on Mobile Data";
 "Animated Background" = "Animated Background";
 "App volume" = "App volume";
 "Appearance" = "Appearance";
+"Apple Intelligence model: %@" = "Apple Intelligence model: %@";
 "Applies to buttons, highlights, and selected items." = "Applies to buttons, highlights, and selected items.";
 "Applies to buttons, highlights, and selected items. The neutral accent uses no color: white in the dark theme and black in the light theme." = "Applies to buttons, highlights, and selected items. The neutral accent uses no color: white in the dark theme and black in the light theme.";
 "April" = "April";
@@ -65,6 +71,7 @@
 "Auto-download saves liked songs for offline playback. Wi-Fi Only blocks downloads on cellular data." = "Auto-download saves liked songs for offline playback. Wi-Fi Only blocks downloads on cellular data.";
 "AutoMix" = "AutoMix";
 "AutoMix Learns From Your Ratings" = "AutoMix Learns From Your Ratings";
+"Automatic" = "Automatic";
 "Autoplay Similar" = "Autoplay Similar";
 "Back" = "Back";
 "Bad mix" = "Bad mix";
@@ -139,6 +146,7 @@
 "Create one below to start collecting songs." = "Create one below to start collecting songs.";
 "Create playlist" = "Create playlist";
 "Customize Radio" = "Customize Radio";
+"DJ" = "DJ";
 "DND" = "DND";
 "Daily Discover" = "Daily Discover";
 "Daily Top Music Videos - %@" = "Daily Top Music Videos - %@";
@@ -233,6 +241,7 @@
 "Government" = "Government";
 "Guest" = "Guest";
 "Health & Fitness" = "Health & Fitness";
+"Hi, I'm your DJ. This is my voice." = "Hi, I'm your DJ. This is my voice.";
 "Hidden Artists" = "Hidden Artists";
 "Hide %@" = "Hide %@";
 "Hide Artist" = "Hide Artist";
@@ -265,6 +274,7 @@
 "Jazz" = "Jazz";
 "July" = "July";
 "June" = "June";
+"Keep Both Tempos" = "Keep Both Tempos";
 "Keep Listening" = "Keep Listening";
 "Keep Mix Offline" = "Keep Mix Offline";
 "Keep Video Ready" = "Keep Video Ready";
@@ -312,6 +322,7 @@
 "Loading…" = "Loading…";
 "Login" = "Login";
 "Logout" = "Logout";
+"Long Blend" = "Long Blend";
 "Long listens" = "Long listens";
 "Loudness" = "Loudness";
 "Low" = "Low";
@@ -327,6 +338,7 @@
 "May" = "May";
 "Meditative sleep" = "Meditative sleep";
 "Medium" = "Medium";
+"Medium Blend" = "Medium Blend";
 "Metadata & stream information" = "Metadata & stream information";
 "Metal" = "Metal";
 "Mindfulness & meditation" = "Mindfulness & meditation";
@@ -366,11 +378,13 @@
 "New releases" = "New releases";
 "News" = "News";
 "Next" = "Next";
+"Next Transition" = "Next Transition";
 "No Downloads Yet" = "No Downloads Yet";
 "No History" = "No History";
 "No Playlists" = "No Playlists";
 "No Recent Searches" = "No Recent Searches";
 "No Results" = "No Results";
+"No Spanish voices found on this device." = "No Spanish voices found on this device.";
 "No album data" = "No album data";
 "No artist data" = "No artist data";
 "No connection and no downloaded songs." = "No connection and no downloaded songs.";
@@ -394,6 +408,7 @@
 "Not enough of the song is left to mix." = "Not enough of the song is left to mix.";
 "Not logged in" = "Not logged in";
 "Nothing here" = "Nothing here";
+"Nothing left in the queue to sort." = "Nothing left in the queue to sort.";
 "Nothing to explore" = "Nothing to explore";
 "November" = "November";
 "Now Playing" = "Now Playing";
@@ -512,6 +527,8 @@
 "Save to Library" = "Save to Library";
 "Saved" = "Saved";
 "Saved Episodes" = "Saved Episodes";
+"Saved for the next transition." = "Saved for the next transition.";
+"Saved. This mix is already prepared; it applies the next time these two play." = "Saved. This mix is already prepared; it applies the next time these two play.";
 "Saving the queue…" = "Saving the queue…";
 "Science" = "Science";
 "Scrobble Configuration" = "Scrobble Configuration";
@@ -534,6 +551,7 @@
 "Share this playlist with others" = "Share this playlist with others";
 "Share this podcast with others" = "Share this podcast with others";
 "Share with Other Apps" = "Share with Other Apps";
+"Short Blend" = "Short Blend";
 "Show Again" = "Show Again";
 "Show Interval Indicator" = "Show Interval Indicator";
 "Show Quick Picks" = "Show Quick Picks";
@@ -569,9 +587,11 @@
 "Songs you like will appear here" = "Songs you like will appear here";
 "Songs you play will appear here." = "Songs you play will appear here.";
 "Sort" = "Sort";
+"Sort by BPM & Key" = "Sort by BPM & Key";
 "Sort results" = "Sort results";
 "Sound" = "Sound";
 "Source" = "Source";
+"Speak every %d songs" = "Speak every %d songs";
 "Speed Dial" = "Speed Dial";
 "Spirituality" = "Spirituality";
 "SponsorBlock" = "SponsorBlock";
@@ -607,15 +627,20 @@
 "Syncs with your YouTube Music account. This cannot be changed later." = "Syncs with your YouTube Music account. This cannot be changed later.";
 "System" = "System";
 "TV & Film" = "TV & Film";
+"Tap a voice to hear it. For a much better voice, download an Enhanced or Premium Spanish one in the iPhone Settings: Accessibility > Spoken Content > Voices > Spanish. Then come back and pick it here." = "Tap a voice to hear it. For a much better voice, download an Enhanced or Premium Spanish one in the iPhone Settings: Accessibility > Spoken Content > Voices > Spanish. Then come back and pick it here.";
 "Team playlist" = "Team playlist";
 "Technology" = "Technology";
 "Template" = "Template";
+"Test" = "Test";
+"Test an Introduction" = "Test an Introduction";
+"Testing…" = "Testing…";
 "Thanks!" = "Thanks!";
 "The country controls the region used for YouTube Music requests." = "The country controls the region used for YouTube Music requests.";
 "The music will stop in %d minutes." = "The music will stop in %d minutes.";
 "The summary of this session (screens, network, freezes, CPU, memory, battery) and the latest events. Pull down to refresh." = "The summary of this session (screens, network, freezes, CPU, memory, battery) and the latest events. Pull down to refresh.";
 "Theme" = "Theme";
 "Theme Mode" = "Theme Mode";
+"There is no next song to mix into." = "There is no next song to mix into.";
 "This permanently deletes all offline tracks from your device." = "This permanently deletes all offline tracks from your device.";
 "This week" = "This week";
 "Title" = "Title";
@@ -662,6 +687,7 @@
 "View Podcast" = "View Podcast";
 "Views" = "Views";
 "Vocal" = "Vocal";
+"Voice" = "Voice";
 "Waiting for login…" = "Waiting for login…";
 "Watching" = "Watching";
 "Waveform Progress Bar" = "Waveform Progress Bar";
@@ -676,6 +702,8 @@
 "Wi-Fi Only" = "Wi-Fi Only";
 "Wider mix around this song" = "Wider mix around this song";
 "Workout" = "Workout";
+"Write With Apple Intelligence" = "Write With Apple Intelligence";
+"Writes and says an introduction for the song that is playing now (or an example if nothing is playing). What happened is also saved in the playback report, on the lines starting with dj:." = "Writes and says an introduction for the song that is playing now (or an example if nothing is playing). What happened is also saved in the playback report, on the lines starting with dj:.";
 "Yesterday" = "Yesterday";
 "You have no liked songs saved yet." = "You have no liked songs saved yet.";
 "You won't see their songs on Home or in radios. You can undo it in Settings." = "You won't see their songs on Home or in radios. You can undo it in Settings.";
