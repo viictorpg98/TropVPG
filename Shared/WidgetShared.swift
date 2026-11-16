@@ -40,6 +40,13 @@ struct WidgetProbe: Codable {
     var bundleId: String
 }
 
+/// La cancion que suena y si te gusta: el boton "Me gusta" del widget se ve distinto cuando ya la tiene marcada.
+struct WidgetNowPlaying: Codable {
+    var videoId: String?
+    var liked: Bool
+    var updated: Date
+}
+
 /// En que punto esta el reparto de datos, tal como lo ve el widget.
 enum WidgetShareState {
     /// Ningun nombre de grupo abre una carpeta: el sistema no ha dado el grupo a esta extension.
@@ -149,6 +156,20 @@ enum WidgetShared {
         guard let base = resolved?.url,
               let data = try? Data(contentsOf: base.appendingPathComponent(probeName)) else { return nil }
         return try? decoder().decode(WidgetProbe.self, from: data)
+    }
+
+    private static let nowPlayingName = "widget-nowplaying.json"
+
+    static func writeNowPlaying(_ value: WidgetNowPlaying, in base: URL) {
+        if let data = try? encoder().encode(value) {
+            try? data.write(to: base.appendingPathComponent(nowPlayingName), options: .atomic)
+        }
+    }
+
+    static func loadNowPlaying() -> WidgetNowPlaying? {
+        guard let base = resolved?.url,
+              let data = try? Data(contentsOf: base.appendingPathComponent(nowPlayingName)) else { return nil }
+        return try? decoder().decode(WidgetNowPlaying.self, from: data)
     }
 
     /// El estado completo, para que el widget enseñe datos o diga que falla.

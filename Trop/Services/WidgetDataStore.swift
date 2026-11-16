@@ -63,6 +63,41 @@ final class WidgetDataStore {
         )
     }
 
+    // MARK: - Cancion que suena (boton "Me gusta")
+
+    private var lastNowPlaying: (id: String?, liked: Bool)?
+    private var lastButtonsReload = Date.distantPast
+    private var buttonsReloadTask: Task<Void, Never>?
+
+    /// Lo llama el reproductor cuando cambia la cancion o su Me gusta: deja el dato en la carpeta compartida y recarga los widgets
+    /// de botones. El sistema limita las recargas, asi que como mucho se pide una cada 15 s (si hay mas cambios seguidos, se juntan).
+    func nowPlayingChanged(videoId: String?, liked: Bool) {
+        if let last = lastNowPlaying, last.id == videoId, last.liked == liked { return }
+        lastNowPlaying = (videoId, liked)
+        guard let found = WidgetShared.resolved else { return }
+        WidgetShared.writeNowPlaying(
+            WidgetNowPlaying(videoId: videoId, liked: liked, updated: Date()), in: found.url
+        )
+        let sinceLast = Date().timeIntervalSince(lastButtonsReload)
+        buttonsReloadTask?.cancel()
+        if sinceLast >= 15 {
+            reloadButtonWidgets()
+        } else {
+            buttonsReloadTask = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: UInt64((15 - sinceLast) * 1_000_000_000))
+                guard !Task.isCancelled else { return }
+                self?.reloadButtonWidgets()
+            }
+        }
+    }
+
+    private func reloadButtonWidgets() {
+        lastButtonsReload = Date()
+        for kind in ["SonarWidget", "SonarWidgetTestA", "SonarWidgetTestB"] {
+            WidgetCenter.shared.reloadTimelines(ofKind: kind)
+        }
+    }
+
     // MARK: - Datos del inicio
 
     /// Lo llama el inicio cuando cambia lo que se ve (solo la portada normal, no la de un chip).

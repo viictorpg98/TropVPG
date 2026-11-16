@@ -109,6 +109,8 @@ struct WidgetLikeIntent: AudioPlaybackIntent {
             if !LikeStore.shared.isLiked(videoId: song.videoId) {
                 await LikeStore.shared.toggle(song: song)
             }
+            // El widget se recarga al terminar esta accion: el dato tiene que estar ya escrito para que se vea marcado.
+            WidgetDataStore.shared.nowPlayingChanged(videoId: song.videoId, liked: LikeStore.shared.isLiked(videoId: song.videoId))
         }
         #endif
         return .result()
