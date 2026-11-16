@@ -338,8 +338,15 @@ final class TrackAnalysisStore {
             let delay = nextRetryDelay(job.key)
             retryAfter[job.key] = Date().addingTimeInterval(delay)
         } else if analysis?.decoded == false, !isLocal {
-            // En streaming el fallo puede ser pasajero (sin red, direccion caducada, lectura demasiado lenta): se reintenta.
-            let delay = nextRetryDelay(job.key)
+            // En streaming el fallo puede ser pasajero (sin red, direccion caducada, lectura demasiado lenta): se reintenta. Si la cancion no es
+            // la que suena ni la siguiente (solo se adelanta el analisis, p. ej. para el DJ), se reintenta mucho mas tarde (10, 20, 30 min):
+            // cada intento cuesta una decena de peticiones a YouTube y algunas canciones dan siempre "403 Forbidden".
+            var delay = nextRetryDelay(job.key)
+            let np = NowPlaying.shared
+            let nextId = np.queueSongs.indices.contains(np.queueIndex + 1) ? np.queueSongs[np.queueIndex + 1].videoId : nil
+            if videoId != np.videoId, videoId != nextId {
+                delay = max(delay, min(1800, 600 * Double(failures[job.key] ?? 1)))
+            }
             retryAfter[job.key] = Date().addingTimeInterval(delay)
             PlaybackReport.record(String(format: "automix: %@ (%@) no se pudo leer, se reintentara en %.0f min", videoId, job.role.rawValue, delay / 60))
         } else {

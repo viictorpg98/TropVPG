@@ -107,7 +107,13 @@ final class DJSession {
         let analyzed = window.filter { (store.structure(for: $0.videoId)?.bpm ?? 0) > 0 }.count
         guard analyzed >= 2, analyzed != lastAnalyzedCount, !AutoMixEngine.shared.isActive else { return }
 
-        switch QueueSmartOrder.reorderUpcoming(freezeNext: hasSortedOnce) {
+        // La siguiente se deja fija solo cuando su mezcla esta cerca (a menos de 45 s de empezar, o ya sin plan que cambiar): hasta entonces,
+        // con mas canciones analizadas, puede salir una pareja mejor (al arrancar solo hay unas pocas analizadas).
+        var freezeNext = false
+        if hasSortedOnce, let currentId = np.videoId, let start = AutoMixEngine.shared.plannedMixStart(for: currentId) {
+            freezeNext = start - np.currentTime < 45
+        }
+        switch QueueSmartOrder.reorderUpcoming(freezeNext: freezeNext) {
         case .done(let ordered, let pending):
             hasSortedOnce = true
             lastAnalyzedCount = analyzed
