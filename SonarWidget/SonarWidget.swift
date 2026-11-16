@@ -38,13 +38,13 @@ struct SonarWidgetProvider: TimelineProvider {
 
 /// Como se confirma el toque (lo unico que cambia entre los tres widgets).
 enum SonarWidgetVariant {
-    /// Botones planos, sin efecto al pulsar (el de antes: sirve de referencia).
-    case stable
-    /// Widget negro y botones del sistema con fondo negro, o sea invisible: no se ven bloques, y al pulsar el boton se encoge y se
-    /// oscurece (es el efecto propio del sistema, que se vio en las grabaciones).
+    /// Widget negro y botones `.bordered` del sistema con tinte negro: el que hay ahora. Al pulsar el boton se encoge y se oscurece
+    /// (efecto propio del sistema, visto en las grabaciones), pero en reposo se nota un bloque algo mas claro que el fondo.
     case systemBlack
-    /// Igual pero sobre el gris oscuro de siempre y con un fondo blanco muy suave en cada boton.
-    case systemSoft
+    /// Botones `.borderless`: en teoria sin fondo en reposo; a ver si conservan el efecto al pulsar.
+    case borderless
+    /// Botones `.bordered` con tinte transparente: a ver si desaparece el bloque y queda el efecto.
+    case clearTint
 }
 
 struct SonarWidgetView: View {
@@ -96,11 +96,6 @@ struct SonarWidgetView: View {
         _ intent: I, symbol: String, title: String, top: Color, bottom: Color
     ) -> some View {
         switch variant {
-        case .stable:
-            Button(intent: intent) {
-                tileLabel(symbol: symbol, title: title, top: top, bottom: bottom)
-            }
-            .buttonStyle(.plain)
         case .systemBlack:
             Button(intent: intent) {
                 tileLabel(symbol: symbol, title: title, top: top, bottom: bottom)
@@ -108,13 +103,18 @@ struct SonarWidgetView: View {
             .buttonStyle(.bordered)
             .buttonBorderShape(.roundedRectangle(radius: 16))
             .tint(.black)
-        case .systemSoft:
+        case .borderless:
+            Button(intent: intent) {
+                tileLabel(symbol: symbol, title: title, top: top, bottom: bottom)
+            }
+            .buttonStyle(.borderless)
+        case .clearTint:
             Button(intent: intent) {
                 tileLabel(symbol: symbol, title: title, top: top, bottom: bottom)
             }
             .buttonStyle(.bordered)
             .buttonBorderShape(.roundedRectangle(radius: 16))
-            .tint(Color.white.opacity(0.10))
+            .tint(.clear)
         }
     }
 
@@ -134,10 +134,7 @@ struct SonarWidgetView: View {
             }
         }
         .padding(6)
-        .containerBackground(
-            variant == .systemBlack ? Color.black : Color(red: 0.08, green: 0.08, blue: 0.09),
-            for: .widget
-        )
+        .containerBackground(Color.black, for: .widget)
     }
 }
 
@@ -157,10 +154,10 @@ struct SonarWidget: Widget {
 struct SonarWidgetTestA: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "SonarWidgetTestA", provider: SonarWidgetProvider()) { _ in
-            SonarWidgetView(variant: .systemSoft)
+            SonarWidgetView(variant: .borderless)
         }
         .configurationDisplayName("Sonar · prueba A")
-        .description("Prueba: gris oscuro con fondo blanco muy suave en cada boton.")
+        .description("Prueba: negro, botones sin borde (borderless).")
         .supportedFamilies([.systemSmall])
         .contentMarginsDisabled()
     }
@@ -169,10 +166,10 @@ struct SonarWidgetTestA: Widget {
 struct SonarWidgetTestB: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "SonarWidgetTestB", provider: SonarWidgetProvider()) { _ in
-            SonarWidgetView(variant: .stable)
+            SonarWidgetView(variant: .clearTint)
         }
         .configurationDisplayName("Sonar · prueba B")
-        .description("Prueba: botones planos, sin efecto al pulsar (el de antes).")
+        .description("Prueba: negro, botones del sistema con tinte transparente.")
         .supportedFamilies([.systemSmall])
         .contentMarginsDisabled()
     }
