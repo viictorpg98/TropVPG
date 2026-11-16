@@ -28,14 +28,34 @@ enum AutoMixSource {
         DownloadManager.shared.isDownloaded(videoId: videoId) || streamingAllowed
     }
 
+    /// Canciones cuya direccion de reproduccion no se pudo leer con FFmpeg (p. ej. "403 Forbidden"): para ellas se prueba la direccion de
+    /// DESCARGA (otra cadena de clientes de YouTube), una sola vez por sesion y cancion (cada intento cuesta una tanda de peticiones).
+    private static var useDownloadAddress = Set<String>()
+    private static var triedDownloadAddress = Set<String>()
+
+    /// El analisis o la preparacion de una mezcla no pudo leer esta cancion en streaming.
+    static func noteReadFailure(videoId: String) {
+        if useDownloadAddress.contains(videoId) {
+            useDownloadAddress.remove(videoId)
+            PlaybackReport.record("automix: \(videoId) direccion de descarga: tampoco se pudo leer")
+            return
+        }
+        guard !triedDownloadAddress.contains(videoId) else { return }
+        triedDownloadAddress.insert(videoId)
+        useDownloadAddress.insert(videoId)
+        PlaybackReport.record("automix: \(videoId) no se pudo leer; la proxima vez se prueba la direccion de descarga")
+    }
+
     static func source(for videoId: String) async -> Source? {
         if let local = await DownloadManager.shared.localURL(for: videoId) {
             let seconds = (try? await AVURLAsset(url: local).load(.duration))?.seconds
             return Source(url: local, isLocal: true, duration: seconds.flatMap { $0.isFinite && $0 > 0 ? $0 : nil })
         }
         guard streamingAllowed else { return nil }
-        guard let result = try? await PlaybackManager.shared.resolve(videoId: videoId),
+        let wantsDownloadAddress = useDownloadAddress.contains(videoId)
+        guard let result = try? await PlaybackManager.shared.resolve(videoId: videoId, forDownload: wantsDownloadAddress),
               let url = URL(string: result.streamUrl) else { return nil }
+        if wantsDownloadAddress { PlaybackReport.record("automix: \(videoId) direccion de descarga obtenida, se intenta leer con ella") }
         return Source(url: url, isLocal: false, duration: result.duration.flatMap { $0 > 0 ? TimeInterval($0) : nil })
     }
 

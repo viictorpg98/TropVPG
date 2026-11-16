@@ -79,6 +79,7 @@
 "Bad mix" = "Bad mix";
 "Balanced" = "Balanced";
 "Based on Trop by SwiftyMedia (GPL-3.0)." = "Based on Trop by SwiftyMedia (GPL-3.0).";
+"Bass" = "Bass";
 "Bass Boost" = "Bass Boost";
 "Bass Reducer" = "Bass Reducer";
 "Beast mode" = "Beast mode";
@@ -100,6 +101,7 @@
 "Cardio" = "Cardio";
 "Category" = "Category";
 "Center" = "Center";
+"Centre Bass Swap" = "Centre Bass Swap";
 "Charts" = "Charts";
 "Check your connection and try again." = "Check your connection and try again.";
 "Chilled" = "Chilled";
@@ -151,8 +153,13 @@
 "Create" = "Create";
 "Create one below to start collecting songs." = "Create one below to start collecting songs.";
 "Create playlist" = "Create playlist";
+"Curve" = "Curve";
+"Curves" = "Curves";
+"Custom" = "Custom";
+"Custom Curves" = "Custom Curves";
 "Custom points" = "Custom points";
 "Customize Radio" = "Customize Radio";
+"Cut In, Fade Out" = "Cut In, Fade Out";
 "DJ" = "DJ";
 "DJ on. It sorts the queue and mixes the songs." = "DJ on. It sorts the queue and mixes the songs.";
 "DJ stopped." = "DJ stopped.";
@@ -189,12 +196,15 @@
 "Downloading" = "Downloading";
 "Downloading…" = "Downloading…";
 "Downloads" = "Downloads";
+"Drag the points to shape the curve. Tap the line to add a point, tap a point to remove it." = "Drag the points to shape the curve. Tap the line to add a point, tap a point to remove it.";
 "Drag to reorder providers" = "Drag to reorder providers";
 "Duration" = "Duration";
 "EQ" = "EQ";
 "Each mix you rate teaches AutoMix which kinds of mixes you like: how long they last and whether the tempo is matched, depending on how close the two songs are. It still tries other styles now and then, and a pair of songs you rated badly is not mixed the same way again." = "Each mix you rate teaches AutoMix which kinds of mixes you like: how long they last and whether the tempo is matched, depending on how close the two songs are. It still tries other styles now and then, and a pair of songs you rated badly is not mixed the same way again.";
 "Early" = "Early";
+"Early Bass Swap" = "Early Bass Swap";
 "Edit" = "Edit";
+"Edit Curves" = "Edit Curves";
 "Edit Mix" = "Edit Mix";
 "Edit playlist" = "Edit playlist";
 "Education" = "Education";
@@ -216,6 +226,8 @@
 "Explore" = "Explore";
 "Explore failed" = "Explore failed";
 "Fade" = "Fade";
+"Fade In, Cut Out" = "Fade In, Cut Out";
+"Fade In, Fade Out" = "Fade In, Fade Out";
 "Fades the music out and stops it after the minutes you say. Say 0 to cancel." = "Fades the music out and stops it after the minutes you say. Say 0 to cancel.";
 "Fans Also Like" = "Fans Also Like";
 "Favorites" = "Favorites";
@@ -228,10 +240,13 @@
 "Feeling happy" = "Feeling happy";
 "Feeling sad" = "Feeling sad";
 "Fiction" = "Fiction";
+"Filter" = "Filter";
+"Filter Sweep" = "Filter Sweep";
 "Finding similar tracks…" = "Finding similar tracks…";
 "Flat" = "Flat";
 "Flow state" = "Flow state";
 "Focus" = "Focus";
+"Follow Volume" = "Follow Volume";
 "For you" = "For you";
 "Forgotten Favorites" = "Forgotten Favorites";
 "Forgotten favorites" = "Forgotten favorites";
@@ -259,6 +274,7 @@
 "Hide Explicit Content" = "Hide Explicit Content";
 "High" = "High";
 "High (128–192 kbps)" = "High (128–192 kbps)";
+"High-Pass Filter In" = "High-Pass Filter In";
 "High-Quality Covers" = "High-Quality Covers";
 "Hip-Hop" = "Hip-Hop";
 "History" = "History";
@@ -304,6 +320,7 @@
 "Last.fm Login" = "Last.fm Login";
 "LastWave (AutoMix and animated artwork)" = "LastWave (AutoMix and animated artwork)";
 "Late" = "Late";
+"Late Bass Swap" = "Late Bass Swap";
 "Latin party" = "Latin party";
 "Layout" = "Layout";
 "Leaves at %@ · %d s overlap · enters at %@" = "Leaves at %@ · %d s overlap · enters at %@";
@@ -346,6 +363,7 @@
 "Loud" = "Loud";
 "Loudness" = "Loudness";
 "Low" = "Low";
+"Low-Pass Filter Out" = "Low-Pass Filter Out";
 "Lyric Offset" = "Lyric Offset";
 "Lyrics" = "Lyrics";
 "Lyrics Alignment" = "Lyrics Alignment";
@@ -409,6 +427,7 @@
 "Next Transition" = "Next Transition";
 "Next song enters at" = "Next song enters at";
 "No Downloads Yet" = "No Downloads Yet";
+"No Filter" = "No Filter";
 "No History" = "No History";
 "No Playlists" = "No Playlists";
 "No Recent Searches" = "No Recent Searches";
@@ -541,6 +560,7 @@
 "Remove Duplicates" = "Remove Duplicates";
 "Remove all downloads" = "Remove all downloads";
 "Remove from Playlist" = "Remove from Playlist";
+"Reset This Curve" = "Reset This Curve";
 "Reset What AutoMix Learned" = "Reset What AutoMix Learned";
 "Reset offset" = "Reset offset";
 "Results" = "Results";
@@ -583,6 +603,7 @@
 "Select All" = "Select All";
 "September" = "September";
 "Settings" = "Settings";
+"Shape the volume, the bass and the filter of each song during the mix. The presets are starting points; move the points to make your own. With custom curves, the Sound choice is not used." = "Shape the volume, the bass and the filter of each song during the mix. The presets are starting points; move the points to make your own. With custom curves, the Sound choice is not used.";
 "Share" = "Share";
 "Share this album with others" = "Share this album with others";
 "Share this playlist with others" = "Share this playlist with others";
@@ -615,6 +636,7 @@
 "Sleep Timer" = "Sleep Timer";
 "Sleep timer cancelled." = "Sleep timer cancelled.";
 "Smart Shuffle" = "Smart Shuffle";
+"Smooth Crossfade" = "Smooth Crossfade";
 "Society & Culture" = "Society & Culture";
 "Solid" = "Solid";
 "Song" = "Song";
@@ -732,6 +754,7 @@
 "Views" = "Views";
 "Vocal" = "Vocal";
 "Voice" = "Voice";
+"Volume" = "Volume";
 "Waiting for login…" = "Waiting for login…";
 "Watching" = "Watching";
 "Waveform Progress Bar" = "Waveform Progress Bar";

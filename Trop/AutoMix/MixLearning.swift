@@ -40,6 +40,10 @@ struct MixStyle: Equatable {
     var sound: MixSound = .blend
     /// Elegido a mano en el editor de la mezcla: el limite de duracion de las canciones sin voces conocidas no se aplica.
     var manual = false
+    /// Lo mas que dura la mezcla cuando no se sabe cuando cantan (ms). El DJ lo sube para parejas que casan muy bien.
+    var vocalCapMs: Int64 = 10_000
+    /// Las curvas del editor (solo en modo Manual); `nil`: la mezcla de siempre.
+    var curves: MixCurves?
 
     var key: String { "\(context)|\(length.rawValue)|\(matchTempo ? "tempo" : "libre")" }
 
@@ -113,7 +117,7 @@ final class MixLearning {
         if let manual = ManualMixStore.shared.choice(outId: outId, inId: inId) {
             return MixStyle(
                 length: manual.length, matchTempo: context == "near" ? manual.matchTempo : true, context: context,
-                sound: manual.sound, manual: true
+                sound: manual.sound, manual: true, curves: manual.curves
             )
         }
         guard SettingsStore.shared.autoMixLearns else { return standard }

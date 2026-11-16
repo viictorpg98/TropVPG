@@ -43,6 +43,8 @@ final class AutoMixEngine {
     private var prepared: Prepared?
     private var preparingKey: String?
     private var planCache: (outId: String, inId: String, plan: TransitionPlan?)?
+    /// Inicio (ms) del ultimo plan que se descarto por haberse pasado la posicion de largo (un salto hacia delante); evita replanificar en bucle.
+    private var lastBehindStartMs: Int64?
     private var timer: Timer?
 
     // Estado mientras suena la mezcla
@@ -109,6 +111,17 @@ final class AutoMixEngine {
         guard let plan = plan(outId: outId, inId: inId) else { return }
 
         let lead = Double(plan.outgoingStartMs) / 1000 - position
+        // La posicion ya paso del punto planificado sin que hubiera nada preparado (se ha saltado hacia delante): se vuelve a planificar desde
+        // aqui (una vez por plan distinto); si no, la cancion sonaria hasta el final y cortaria de golpe.
+        if lead < -1, phase == .idle, prepared == nil, preparingKey == nil, plan.outgoingStartMs != lastBehindStartMs {
+            lastBehindStartMs = plan.outgoingStartMs
+            PlaybackReport.record(String(
+                format: "automix: la posicion (%.0f s) ya paso del punto planificado (%.0f s), se vuelve a planificar desde aqui",
+                position, Double(plan.outgoingStartMs) / 1000
+            ))
+            planCache = nil
+            return
+        }
         // La mezcla lleva ahora el resto entero de la entrante: preparar el archivo puede llevar unos segundos mas.
         // Con una larga de por medio, preparar la mezcla lleva ~20 s (cada lectura tarda ~9 s en empezar): se empieza antes.
         let longInvolved = TrackAnalysisStore.shared.isLong(outId) || TrackAnalysisStore.shared.isLong(inId)
@@ -206,12 +219,14 @@ final class AutoMixEngine {
             // (tambien las de 8-10 min: el resto de la cancion no cabria en los 8 min maximos del archivo.)
             let tailStream = TrackAnalysisStore.shared.isLong(inId) || (inSource.duration ?? 0) > MixRenderer.maxRestSeconds - 30
             let plainFade = plan.sound == .fade
+            // Las curvas del editor, ya muestreadas (el renderizador recibe arrays, no el modelo).
+            let curveTables: [[Double]]? = plan.curves?.tables()
             let rendered = await Task.detached(priority: .userInitiated) {
                 MixRenderer.render(
                     outgoingURL: outURL, outgoingStart: cutAt,
                     incomingURL: inURL, incomingStart: inStart,
                     duration: duration, outgoingRatio: outgoingRatio, incomingRatio: incomingRatio,
-                    tailStream: tailStream, plainFade: plainFade
+                    tailStream: tailStream, plainFade: plainFade, curveTables: curveTables
                 )
             }.value
             guard let rendered else {
@@ -645,6 +660,7 @@ final class AutoMixEngine {
 
     func songChanged() {
         lastSongChange = Date()
+        lastBehindStartMs = nil
         releasePlayingMix()
         holdPillTask?.cancel()
         AutoMixVisuals.shared.preparingManual = false

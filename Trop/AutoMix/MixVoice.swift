@@ -35,13 +35,15 @@ enum MixRenderer {
     ///   Si hace falta, empieza a `incomingRatio` veces su velocidad y vuelve a la normal al final.
     /// `plainFade`: un fundido simple (la saliente baja por coseno y la entrante sube por seno, sin filtros ni intercambio de graves) en
     /// vez de la mezcla con filtros.
+    /// `curveTables`: las seis curvas del editor ya muestreadas (volumen, graves y filtro de la saliente y de la entrante; ver `MixCurves`). Con ellas
+    /// la mezcla se hace por ese camino; sin ellas (`nil`), exactamente como siempre.
     /// `tailStream`: la entrante es larga (no cabe entera en el archivo de la mezcla): el archivo lleva solo unos segundos de ella
     /// detras de la mezcla (`Output.extra`) y mpv sigue luego con su direccion de internet desde ahi.
     nonisolated static func render(
         outgoingURL: URL, outgoingStart: TimeInterval,
         incomingURL: URL, incomingStart: TimeInterval,
         duration: TimeInterval, outgoingRatio: Double, incomingRatio: Double,
-        tailStream: Bool = false, plainFade: Bool = false
+        tailStream: Bool = false, plainFade: Bool = false, curveTables: [[Double]]? = nil
     ) -> Output? {
         // Misma frecuencia de muestreo que la saliente, para que mpv no tenga que cambiar de formato al encadenar.
         let rate = sampleRate(of: outgoingURL)
@@ -135,13 +137,36 @@ enum MixRenderer {
             // Pre-rodaje: los filtros arrancaban en cero justo en el primer instante de la mezcla, con la cancion ya sonando, y
             // eso es un escalon (un "pop" seco al empezar). Se les pasa antes el trozo de la saliente anterior al corte (el
             // colchon de `outPad`) para que empiecen ya en marcha.
-            lowpass.setLowPass(cutoff: exponential(20_000, 200, sweepCurve(0)), rate: rate)
+            let startFilter = (curveTables?.count == 6 ? lookup(curveTables![4], 0) : sweepCurve(0))
+            lowpass.setLowPass(cutoff: exponential(20_000, 200, startFilter), rate: rate)
             for k in 0..<min(outPad, outputSource[channel].count) {
                 let warmed = lowpass.process(Double(outputSource[channel][k]))
                 _ = outSplit.process(warmed)
             }
             for i in 0..<frames {
                 let progress = Double(i) / Double(frames)
+                if let t = curveTables, t.count == 6 {
+                    // Mezcla con las curvas del editor: volumen de toda la cancion x (graves x su ganancia + el resto).
+                    if i % 64 == 0 {
+                        lowpass.setLowPass(cutoff: exponential(20_000, 200, lookup(t[4], progress)), rate: rate)
+                        highpass.setHighPass(cutoff: exponential(20, 2_000, lookup(t[5], progress)), rate: rate)
+                    }
+                    let outVolume = lookup(t[0], progress)
+                    let inVolume = lookup(t[1], progress)
+                    let outBassGain = lookup(t[2], progress)
+                    let inBassGain = lookup(t[3], progress)
+                    let filteredOut = lowpass.process(Double(outgoing[channel][i]))
+                    let outBassPart = outSplit.process(filteredOut)
+                    let outRestPart = filteredOut - outBassPart
+                    let outSample = (outBassPart * outBassGain + outRestPart) * outVolume
+                    let x = Double(incoming[channel][i])
+                    let inBassPart = inSplit.process(x)
+                    let inRestPart = highpass.process(x - inBassPart)
+                    let level = pow(match, 1 - progress)
+                    let inSample = (inBassPart * inBassGain + inRestPart) * inVolume * level
+                    mixed[channel][i] = Float(max(-1, min(1, outSample + inSample)))
+                    continue
+                }
                 if plainFade {
                     let level = pow(match, 1 - progress)
                     let outSample = Double(outgoing[channel][i]) * cos(progress * Double.pi / 2)
@@ -421,6 +446,15 @@ enum MixRenderer {
 
     /// Frecuencia por debajo de la cual se hace el intercambio de graves.
     nonisolated private static let bassCrossover = 250.0
+
+    /// El valor de una curva ya muestreada (`table`, de x = 0 a x = 1) en `x`, con interpolacion lineal.
+    nonisolated private static func lookup(_ table: [Double], _ x: Double) -> Double {
+        guard table.count > 1 else { return table.first ?? 0 }
+        let position = min(max(x, 0), 1) * Double(table.count - 1)
+        let index = min(Int(position), table.count - 2)
+        let fraction = position - Double(index)
+        return table[index] + (table[index + 1] - table[index]) * fraction
+    }
 
     /// Intercambio de graves: de 0 a 1 en un tramo corto hacia la mitad de la mezcla (de 42 % a 58 %).
     nonisolated private static func bassSwap(_ progress: Double) -> Double {

@@ -32,6 +32,8 @@ enum DJPlanner {
         var length: MixStyle.Length?
         /// Que decidio y por que (para el informe).
         var note: String
+        /// Lo mas que puede durar la mezcla sin saber cuando cantan (ms); `nil`: el de siempre (10 s).
+        var vocalCapMs: Int64?
     }
 
     /// Lo bien que encajan las dos: 0 (casan) a 2 (chocan).
@@ -90,7 +92,9 @@ enum DJPlanner {
 
         // Lo que durara la mezcla, aproximado (el planificador la ajusta): sin voces conocidas no pasa de ~10 s. Ademas, dos pulsos de margen
         // por el ajuste al inicio de compas.
-        let estimate = min(AutoMixMath.durationMs(outgoing: outgoing, incoming: incoming, scale: length.durationScale), 10_000)
+        // Las parejas que casan muy bien (tempo y tonalidad) admiten una mezcla mas larga aunque no se sepa cuando cantan (hasta 16 s); el resto, 10 s.
+        let vocalCap: Int64 = clash.level == 0 ? 16_000 : 10_000
+        let estimate = min(AutoMixMath.durationMs(outgoing: outgoing, incoming: incoming, scale: length.durationScale), vocalCap)
         let margin = Int64(outgoing.beatMs * 2)
         func start(forEnd boundary: Int64) -> Int64 {
             max(boundary - estimate - margin, first + 20_000)
@@ -105,7 +109,8 @@ enum DJPlanner {
         if let drop = drops.min(by: { abs($0.timeMs - aim) < abs($1.timeMs - aim) }) {
             return Decision(
                 cutMs: start(forEnd: drop.timeMs), length: length,
-                note: String(format: "fin de parte fuerte (baja %.1f dB): ", -drop.deltaDb) + described(drop.timeMs)
+                note: String(format: "fin de parte fuerte (baja %.1f dB): ", -drop.deltaDb) + described(drop.timeMs),
+                vocalCapMs: vocalCap
             )
         }
         // Sin un final de parte fuerte a mano: el inicio de frase (cada 8 compases desde el primer compas con musica) mas cercano.
@@ -113,8 +118,8 @@ enum DJPlanner {
         var phraseStarts: [Int64] = []
         for (index, bar) in bars.enumerated() where index % 8 == 0 { phraseStarts.append(bar) }
         if let phrase = phraseStarts.filter({ $0 >= lower && $0 <= upper }).min(by: { abs($0 - aim) < abs($1 - aim) }) {
-            return Decision(cutMs: start(forEnd: phrase), length: length, note: "inicio de frase: " + described(phrase))
+            return Decision(cutMs: start(forEnd: phrase), length: length, note: "inicio de frase: " + described(phrase), vocalCapMs: vocalCap)
         }
-        return Decision(cutMs: start(forEnd: aim), length: length, note: "sin secciones ni compases claros: " + described(aim))
+        return Decision(cutMs: start(forEnd: aim), length: length, note: "sin secciones ni compases claros: " + described(aim), vocalCapMs: vocalCap)
     }
 }

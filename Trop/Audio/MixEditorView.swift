@@ -239,6 +239,8 @@ struct MixTransitionEditor: View {
     @State private var length: MixStyle.Length
     @State private var matchTempo: Bool
     @State private var sound: MixSound
+    /// Las curvas del editor (volumen, graves y filtro); `nil`: la mezcla de siempre con el sonido elegido.
+    @State private var curves: MixCurves?
     @State private var customPoints: Bool
     /// Donde deja la saliente y por donde entra la entrante (segundos de cada cancion), si se eligen a mano.
     @State private var outSeconds: Double
@@ -255,6 +257,7 @@ struct MixTransitionEditor: View {
         _length = State(initialValue: saved?.length ?? .medium)
         _matchTempo = State(initialValue: saved?.matchTempo ?? true)
         _sound = State(initialValue: saved?.sound ?? .blend)
+        _curves = State(initialValue: saved?.curves)
         _customPoints = State(initialValue: saved?.outStartMs != nil || saved?.inStartMs != nil)
         _outSeconds = State(initialValue: Double(saved?.outStartMs ?? 0) / 1000)
         _inSeconds = State(initialValue: Double(saved?.inStartMs ?? 0) / 1000)
@@ -268,7 +271,8 @@ struct MixTransitionEditor: View {
         return ManualMixStore.Choice(
             length: length, matchTempo: matchTempo, sound: sound,
             outStartMs: customPoints && outSeconds > 0 ? Int64(outSeconds * 1000) : nil,
-            inStartMs: customPoints ? Int64(max(inSeconds, 0) * 1000) : nil
+            inStartMs: customPoints ? Int64(max(inSeconds, 0) * 1000) : nil,
+            curves: curves
         )
     }
 
@@ -290,6 +294,34 @@ struct MixTransitionEditor: View {
 
     private var soundBinding: Binding<MixSound> {
         Binding(get: { sound }, set: { sound = $0; save() })
+    }
+
+    private var curvesOnBinding: Binding<Bool> {
+        Binding(get: { curves != nil }, set: { on in
+            curves = on ? MixCurves.standard : nil
+            save()
+        })
+    }
+
+    /// Para el editor de curvas (que siempre trabaja con unas curvas).
+    private var curvesEditingBinding: Binding<MixCurves> {
+        Binding(get: { curves ?? MixCurves.standard }, set: { curves = $0 })
+    }
+
+    private func presetBinding(_ lane: MixLane) -> Binding<String> {
+        Binding(get: { curves?.lane(lane).preset ?? lane.presets[0] }, set: { name in
+            guard name != "custom" else { return }
+            curves?.set(lane, MixLaneCurves.make(lane, name))
+            save()
+        })
+    }
+
+    private func laneTitle(_ lane: MixLane) -> String {
+        switch lane {
+        case .volume: return "Volume"
+        case .bass: return "Bass"
+        case .filter: return "Filter"
+        }
     }
 
     private var tempoBinding: Binding<Bool> {
@@ -454,16 +486,55 @@ struct MixTransitionEditor: View {
             Text("How long the two songs overlap. The mix always starts and ends on the beat.")
         }
 
-        Section {
-            Picker("Sound", selection: soundBinding) {
-                Text("Blend").tag(MixSound.blend)
-                Text("Fade").tag(MixSound.fade)
+        if curves == nil {
+            Section {
+                Picker("Sound", selection: soundBinding) {
+                    Text("Blend").tag(MixSound.blend)
+                    Text("Fade").tag(MixSound.fade)
+                }
+                .pickerStyle(.segmented)
+            } header: {
+                Text("Sound")
+            } footer: {
+                Text("Blend closes and opens filters and swaps the bass between the songs. Fade is a plain cross-fade.")
             }
-            .pickerStyle(.segmented)
+        }
+
+        Section {
+            Toggle("Custom Curves", isOn: curvesOnBinding)
+                .disabled(preview == nil)
+            if curves != nil {
+                ForEach(MixLane.allCases, id: \.self) { lane in
+                    Picker(LocalizedStringKey(laneTitle(lane)), selection: presetBinding(lane)) {
+                        ForEach(lane.presets, id: \.self) { name in
+                            Text(LocalizedStringKey(lane.title(for: name))).tag(name)
+                        }
+                        if curves?.lane(lane).preset == "custom" {
+                            Text("Custom").tag("custom")
+                        }
+                    }
+                }
+                if let preview, let plan = preview.plan {
+                    NavigationLink {
+                        MixCurveEditorView(
+                            curves: curvesEditingBinding,
+                            outgoingWave: preview.outgoingWave, outgoingSeconds: preview.outgoingSeconds,
+                            outgoingStart: Double(plan.outgoingStartMs) / 1000, outgoingEnd: Double(plan.outgoingEndMs) / 1000,
+                            incomingWave: preview.incomingWave, incomingSeconds: preview.incomingSeconds,
+                            incomingStart: Double(plan.incomingStartMs) / 1000,
+                            incomingEnd: Double(plan.incomingStartMs
+                                + AutoMixMath.incomingAdvanceMs(durationMs: plan.durationMs, startRatio: plan.incomingSpeedRatio)) / 1000,
+                            onCommit: { save() }
+                        )
+                    } label: {
+                        Text("Edit Curves")
+                    }
+                }
+            }
         } header: {
-            Text("Sound")
+            Text("Curves")
         } footer: {
-            Text("Blend closes and opens filters and swaps the bass between the songs. Fade is a plain cross-fade.")
+            Text("Shape the volume, the bass and the filter of each song during the mix. The presets are starting points; move the points to make your own. With custom curves, the Sound choice is not used.")
         }
 
         Section {
@@ -655,7 +726,7 @@ private struct MixPairHeader: View {
 
 /// La forma de onda de una cancion con el tramo de la mezcla resaltado. Dibuja solo la ventana pedida (entera, o ampliada alrededor de
 /// la mezcla). `markers`: segundos donde empieza cada tramo de la cancion (lineas finas).
-private struct MixWaveformStrip: View {
+struct MixWaveformStrip: View {
     let wave: [Float]
     let totalSeconds: Double
     let windowStart: Double

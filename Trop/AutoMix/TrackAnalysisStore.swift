@@ -341,6 +341,7 @@ final class TrackAnalysisStore {
             // En streaming el fallo puede ser pasajero (sin red, direccion caducada, lectura demasiado lenta): se reintenta. Si la cancion no es
             // la que suena ni la siguiente (solo se adelanta el analisis, p. ej. para el DJ), se reintenta mucho mas tarde (10, 20, 30 min):
             // cada intento cuesta una decena de peticiones a YouTube y algunas canciones dan siempre "403 Forbidden".
+            AutoMixSource.noteReadFailure(videoId: videoId)
             var delay = nextRetryDelay(job.key)
             let np = NowPlaying.shared
             let nextId = np.queueSongs.indices.contains(np.queueIndex + 1) ? np.queueSongs[np.queueIndex + 1].videoId : nil

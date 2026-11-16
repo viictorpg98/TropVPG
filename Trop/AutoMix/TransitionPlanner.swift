@@ -26,6 +26,8 @@ struct TransitionPlan: Equatable {
     var styleKey: String?
     /// Como suena la transicion (fundido simple o con filtros).
     var sound: MixSound = .blend
+    /// Las curvas del editor (solo en modo Manual); `nil`: la mezcla de siempre.
+    var curves: MixCurves?
 }
 
 enum TransitionPlanner {
@@ -53,6 +55,7 @@ enum TransitionPlanner {
         ) else { return nil }
         result.plan.styleKey = style?.key
         result.plan.sound = style?.sound ?? .blend
+        result.plan.curves = style?.curves
         return result
     }
 
@@ -80,7 +83,7 @@ enum TransitionPlanner {
         let knownVocals = vocals?.outgoing != nil && vocals?.incoming != nil
         // Sin saber cuando cantan, la mezcla se limita a 10 s para que las voces no se pisen; si la duracion la ha elegido la persona,
         // se respeta.
-        if !knownVocals, style?.manual != true { baseDuration = min(baseDuration, 10_000) }
+        if !knownVocals, style?.manual != true { baseDuration = min(baseDuration, style?.vocalCapMs ?? 10_000) }
 
         let bar = Int64(outgoing.beatMs * 4)
         let incomingBar = Int64(incoming.beatMs * 4)

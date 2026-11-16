@@ -21,23 +21,28 @@ final class ManualMixStore {
         /// Donde deja la saliente (ms de su cancion) y por donde entra la entrante; `nil`: lo decide AutoMix. Se ajustan a compas.
         var outStartMs: Int64?
         var inStartMs: Int64?
+        /// Las curvas del editor (volumen, graves y filtro); `nil`: la mezcla de siempre con el sonido elegido.
+        var curves: MixCurves?
 
-        /// "duracion|tempo|sonido|salida|entrada" (los guardados antiguos solo llevan los dos primeros campos).
+        /// "duracion|tempo|sonido|salida|entrada|curvas" (los guardados antiguos llevan solo los dos primeros campos o los cinco primeros).
         var stored: String {
             [
                 length.rawValue, matchTempo ? "tempo" : "libre", sound.rawValue,
-                outStartMs.map(String.init) ?? "-", inStartMs.map(String.init) ?? "-"
+                outStartMs.map(String.init) ?? "-", inStartMs.map(String.init) ?? "-",
+                curves?.encoded ?? "-"
             ].joined(separator: "|")
         }
 
         init(
-            length: MixStyle.Length, matchTempo: Bool, sound: MixSound = .blend, outStartMs: Int64? = nil, inStartMs: Int64? = nil
+            length: MixStyle.Length, matchTempo: Bool, sound: MixSound = .blend, outStartMs: Int64? = nil, inStartMs: Int64? = nil,
+            curves: MixCurves? = nil
         ) {
             self.length = length
             self.matchTempo = matchTempo
             self.sound = sound
             self.outStartMs = outStartMs
             self.inStartMs = inStartMs
+            self.curves = curves
         }
 
         init?(stored: String) {
@@ -51,7 +56,10 @@ final class ManualMixStore {
                 outStart = Int64(parts[3])
                 inStart = Int64(parts[4])
             }
-            self.init(length: length, matchTempo: parts[1] == "tempo", sound: sound, outStartMs: outStart, inStartMs: inStart)
+            let curves = parts.count >= 6 ? MixCurves(encoded: parts[5]) : nil
+            self.init(
+                length: length, matchTempo: parts[1] == "tempo", sound: sound, outStartMs: outStart, inStartMs: inStart, curves: curves
+            )
         }
     }
 
@@ -122,7 +130,11 @@ enum MixTransition {
         case .medium: title = NSLocalizedString("Medium Blend", comment: "")
         case .long: title = NSLocalizedString("Long Blend", comment: "")
         }
-        if choice.sound == .fade { title += " · " + NSLocalizedString("Fade", comment: "") }
+        if choice.curves != nil {
+            title += " · " + NSLocalizedString("Curves", comment: "")
+        } else if choice.sound == .fade {
+            title += " · " + NSLocalizedString("Fade", comment: "")
+        }
         if choice.outStartMs != nil || choice.inStartMs != nil { title += " · " + NSLocalizedString("Custom points", comment: "") }
         return title
     }
@@ -158,7 +170,7 @@ enum MixTransition {
         if let choice {
             style = MixStyle(
                 length: choice.length, matchTempo: context == "near" ? choice.matchTempo : true, context: context,
-                sound: choice.sound, manual: true
+                sound: choice.sound, manual: true, curves: choice.curves
             )
         } else {
             style = MixLearning.shared.style(outId: outId, inId: inId, outBpm: outgoing.bpm, inBpm: incoming.bpm)
@@ -172,6 +184,7 @@ enum MixTransition {
             let decision = DJPlanner.decide(outId: outId, outgoing: outgoing, incoming: incoming, currentTime: currentTime)
             inputs.forcedStartMs = decision.cutMs
             if let length = decision.length { style.length = length }
+            if let cap = decision.vocalCapMs { style.vocalCapMs = cap }
             inputs.djNote = decision.note
         }
         inputs.style = style

@@ -79,6 +79,7 @@
 "Bad mix" = "Mala mezcla";
 "Balanced" = "Equilibrado";
 "Based on Trop by SwiftyMedia (GPL-3.0)." = "Basada en Trop, de SwiftyMedia (GPL-3.0).";
+"Bass" = "Graves";
 "Bass Boost" = "Realce de graves";
 "Bass Reducer" = "Reducción de graves";
 "Beast mode" = "Modo bestia";
@@ -100,6 +101,7 @@
 "Cardio" = "Cardio";
 "Category" = "Categoría";
 "Center" = "Centro";
+"Centre Bass Swap" = "Intercambio de graves al centro";
 "Charts" = "Listas de éxitos";
 "Check your connection and try again." = "Revisa tu conexión e inténtalo de nuevo.";
 "Chilled" = "Tranquilo";
@@ -151,8 +153,13 @@
 "Create" = "Crear";
 "Create one below to start collecting songs." = "Crea una abajo para empezar a reunir canciones.";
 "Create playlist" = "Crear lista de reproducción";
+"Curve" = "Curva";
+"Curves" = "Curvas";
+"Custom" = "Personalizada";
+"Custom Curves" = "Curvas propias";
 "Custom points" = "puntos propios";
 "Customize Radio" = "Personalizar radio";
+"Cut In, Fade Out" = "Entra de golpe, sale con fundido";
 "DJ" = "DJ";
 "DJ on. It sorts the queue and mixes the songs." = "DJ encendido. Ordena la cola y mezcla las canciones.";
 "DJ stopped." = "DJ parado.";
@@ -189,12 +196,15 @@
 "Downloading" = "Descargando";
 "Downloading…" = "Descargando…";
 "Downloads" = "Descargas";
+"Drag the points to shape the curve. Tap the line to add a point, tap a point to remove it." = "Arrastra los puntos para dar forma a la curva. Toca la línea para añadir un punto y toca un punto para quitarlo.";
 "Drag to reorder providers" = "Arrastra para reordenar los proveedores";
 "Duration" = "Duración";
 "EQ" = "EQ";
 "Each mix you rate teaches AutoMix which kinds of mixes you like: how long they last and whether the tempo is matched, depending on how close the two songs are. It still tries other styles now and then, and a pair of songs you rated badly is not mixed the same way again." = "Cada mezcla que valoras le enseña a AutoMix que tipo de mezclas te gustan: cuanto duran y si se iguala el tempo, segun lo parecidas que sean las dos canciones. De vez en cuando prueba otros estilos, y una pareja de canciones que valoraste mal no se mezcla igual otra vez.";
 "Early" = "Pronto";
+"Early Bass Swap" = "Intercambio de graves pronto";
 "Edit" = "Editar";
+"Edit Curves" = "Editar curvas";
 "Edit Mix" = "Editar mezclas";
 "Edit playlist" = "Editar lista de reproducción";
 "Education" = "Educación";
@@ -216,6 +226,8 @@
 "Explore" = "Explorar";
 "Explore failed" = "Error al explorar";
 "Fade" = "Fundido";
+"Fade In, Cut Out" = "Entra con fundido, sale de golpe";
+"Fade In, Fade Out" = "Entra y sale con fundido";
 "Fades the music out and stops it after the minutes you say. Say 0 to cancel." = "Baja el volumen poco a poco y para la música pasados los minutos que digas. Di 0 para cancelarlo.";
 "Fans Also Like" = "A los fans también les gusta";
 "Favorites" = "Favoritas";
@@ -228,10 +240,13 @@
 "Feeling happy" = "Con alegría";
 "Feeling sad" = "Me siento triste";
 "Fiction" = "Ficción";
+"Filter" = "Filtro";
+"Filter Sweep" = "Barrido de filtros";
 "Finding similar tracks…" = "Buscando canciones similares…";
 "Flat" = "Plano";
 "Flow state" = "Estado de flujo";
 "Focus" = "Concentración";
+"Follow Volume" = "Graves con el volumen";
 "For you" = "Para ti";
 "Forgotten Favorites" = "Favoritas olvidadas";
 "Forgotten favorites" = "Favoritas olvidadas";
@@ -259,6 +274,7 @@
 "Hide Explicit Content" = "Ocultar contenido explícito";
 "High" = "Alta";
 "High (128–192 kbps)" = "Alta (128–192 kbps)";
+"High-Pass Filter In" = "Paso alto en la que entra";
 "High-Quality Covers" = "Carátulas de alta calidad";
 "Hip-Hop" = "Hip hop";
 "History" = "Historial";
@@ -304,6 +320,7 @@
 "Last.fm Login" = "Iniciar sesión en Last.fm";
 "LastWave (AutoMix and animated artwork)" = "LastWave (AutoMix y carátulas animadas)";
 "Late" = "Tarde";
+"Late Bass Swap" = "Intercambio de graves tarde";
 "Latin party" = "Fiesta latina";
 "Layout" = "Disposición";
 "Leaves at %@ · %d s overlap · enters at %@" = "Sale en %@ · solape de %d s · entra en %@";
@@ -346,6 +363,7 @@
 "Loud" = "Fuerte";
 "Loudness" = "Sonoridad";
 "Low" = "Baja";
+"Low-Pass Filter Out" = "Paso bajo en la que sale";
 "Lyric Offset" = "Desfase de la letra";
 "Lyrics" = "Letras";
 "Lyrics Alignment" = "Alineación de la letra";
@@ -409,6 +427,7 @@
 "Next Transition" = "Próxima transición";
 "Next song enters at" = "La siguiente entra en";
 "No Downloads Yet" = "Aún no hay descargas";
+"No Filter" = "Sin filtro";
 "No History" = "Sin historial";
 "No Playlists" = "Sin listas de reproducción";
 "No Recent Searches" = "Sin búsquedas recientes";
@@ -541,6 +560,7 @@
 "Remove Duplicates" = "Quitar duplicados";
 "Remove all downloads" = "Quitar todas las descargas";
 "Remove from Playlist" = "Quitar de la lista";
+"Reset This Curve" = "Restablecer esta curva";
 "Reset What AutoMix Learned" = "Borrar lo que AutoMix ha aprendido";
 "Reset offset" = "Restablecer desfase";
 "Results" = "Resultados";
@@ -583,6 +603,7 @@
 "Select All" = "Seleccionar todo";
 "September" = "Septiembre";
 "Settings" = "Ajustes";
+"Shape the volume, the bass and the filter of each song during the mix. The presets are starting points; move the points to make your own. With custom curves, the Sound choice is not used." = "Da forma al volumen, a los graves y al filtro de cada canción durante la mezcla. Los preajustes son un punto de partida; mueve los puntos para hacer los tuyos. Con curvas propias, la elección de sonido no se usa.";
 "Share" = "Compartir";
 "Share this album with others" = "Comparte este álbum con otras personas";
 "Share this playlist with others" = "Comparte esta lista de reproducción con otras personas";
@@ -615,6 +636,7 @@
 "Sleep Timer" = "Temporizador para dormir";
 "Sleep timer cancelled." = "Temporizador cancelado.";
 "Smart Shuffle" = "Aleatorio inteligente";
+"Smooth Crossfade" = "Fundido suave";
 "Society & Culture" = "Sociedad y cultura";
 "Solid" = "Sólido";
 "Song" = "Canción";
@@ -732,6 +754,7 @@
 "Views" = "Reproducciones";
 "Vocal" = "Vocal";
 "Voice" = "Voz";
+"Volume" = "Volumen";
 "Waiting for login…" = "Esperando el inicio de sesión…";
 "Watching" = "Viendo";
 "Waveform Progress Bar" = "Barra de progreso con onda";
