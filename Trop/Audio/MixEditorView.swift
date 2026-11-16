@@ -110,6 +110,31 @@ struct MixEditorView: View {
     }
 }
 
+/// La barra que se mueve por una onda mientras suena la escucha de la mezcla. `songTime` pasa la posicion del archivo a segundos de la cancion
+/// (`nil`: no se enseña). Lee la posicion dentro de su propio cuerpo, asi solo esta vista se repinta al moverse.
+struct MixPlayheadLine: View {
+    let songTime: (TimeInterval) -> Double?
+    let windowStart: Double
+    let windowEnd: Double
+
+    var body: some View {
+        // Se lee fuera del GeometryReader, para que esta vista se repinte cada vez que cambia la posicion.
+        let player = MixPreviewPlayer.shared
+        let time: Double? = player.state == .playing ? songTime(player.position) : nil
+        GeometryReader { geometry in
+            if windowEnd > windowStart, let time, time >= windowStart, time <= windowEnd {
+                let x = geometry.size.width * CGFloat((time - windowStart) / (windowEnd - windowStart))
+                Rectangle()
+                    .fill(Color.white)
+                    .frame(width: 2, height: geometry.size.height)
+                    .shadow(color: .black.opacity(0.6), radius: 1)
+                    .offset(x: x - 1)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
 /// Una cancion de la lista: portada, titulo, artista y duracion; a la derecha, tempo y tonalidad.
 private struct MixSongRow: View {
     let song: SongItem
@@ -666,11 +691,23 @@ struct MixTransitionEditor: View {
                         startSeconds: outStart, endSeconds: outEnd, tint: .orange, height: 20,
                         markers: preview.outBlocks.map(\.startSeconds)
                     )
+                    .overlay {
+                        MixPlayheadLine(
+                            songTime: { MixPreviewPlayer.shared.outgoingSongTime($0, cutAt: outStart) },
+                            windowStart: 0, windowEnd: preview.outgoingSeconds
+                        )
+                    }
                     MixWaveformStrip(
                         wave: wave, totalSeconds: preview.outgoingSeconds,
                         windowStart: max(outStart - 20, 0), windowEnd: min(outEnd + 8, preview.outgoingSeconds),
                         startSeconds: outStart, endSeconds: outEnd, tint: .orange, height: 46
                     )
+                    .overlay {
+                        MixPlayheadLine(
+                            songTime: { MixPreviewPlayer.shared.outgoingSongTime($0, cutAt: outStart) },
+                            windowStart: max(outStart - 20, 0), windowEnd: min(outEnd + 8, preview.outgoingSeconds)
+                        )
+                    }
                 }
                 if let wave = preview.incomingWave {
                     MixWaveformStrip(
@@ -678,11 +715,23 @@ struct MixTransitionEditor: View {
                         startSeconds: inStart, endSeconds: inEnd, tint: .blue, height: 20,
                         markers: preview.inBlocks.map(\.startSeconds)
                     )
+                    .overlay {
+                        MixPlayheadLine(
+                            songTime: { MixPreviewPlayer.shared.incomingSongTime($0, inStart: inStart) },
+                            windowStart: 0, windowEnd: preview.incomingSeconds
+                        )
+                    }
                     MixWaveformStrip(
                         wave: wave, totalSeconds: preview.incomingSeconds,
                         windowStart: max(inStart - 3, 0), windowEnd: min(inEnd + 22, preview.incomingSeconds),
                         startSeconds: inStart, endSeconds: inEnd, tint: .blue, height: 46
                     )
+                    .overlay {
+                        MixPlayheadLine(
+                            songTime: { MixPreviewPlayer.shared.incomingSongTime($0, inStart: inStart) },
+                            windowStart: max(inStart - 3, 0), windowEnd: min(inEnd + 22, preview.incomingSeconds)
+                        )
+                    }
                 }
                 HStack(spacing: 8) {
                     Text(String(

@@ -36,6 +36,8 @@ struct MixCurveEditorView: View {
     private let paneGap: CGFloat = 14
     private let verticalPadding: CGFloat = 12
     private let hitRadius: CGFloat = 26
+    /// Lo que se ve a cada lado de la mezcla, en fracciones de lo que dura (el margen del 14 % entre la parte de la mezcla, el 72 %).
+    private let sideRatio: Double = 0.14 / 0.72
 
     private var laneColor: Color {
         switch lane {
@@ -80,6 +82,13 @@ struct MixCurveEditorView: View {
                     }
                     .frame(width: size.width, height: paneHeight * 2 + paneGap)
                     .allowsHitTesting(false)
+
+                    // La barra de la escucha: el mismo avance de la mezcla en las dos ondas (a los lados, un poco antes y despues).
+                    MixPlayheadLine(
+                        songTime: { MixPreviewPlayer.shared.mixProgress($0) },
+                        windowStart: -sideRatio, windowEnd: 1 + sideRatio
+                    )
+                    .frame(width: size.width, height: paneHeight * 2 + paneGap)
                 }
                 .frame(width: size.width, height: paneHeight * 2 + paneGap)
                 .contentShape(Rectangle())

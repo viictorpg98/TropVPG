@@ -23,6 +23,11 @@ final class MixPreviewPlayer {
     private(set) var state = State.idle
     /// Un mensaje corto cuando algo no ha ido bien (se enseña junto al boton).
     private(set) var statusText: String?
+    /// Por donde va la escucha (segundos del archivo preparado), para la barra que se mueve por las ondas. 0 si no suena.
+    private(set) var position: TimeInterval = 0
+    /// Los segundos de la saliente que se oyen antes de la mezcla en este archivo, y lo que dura la mezcla (para colocar la barra).
+    private(set) var leadActual: TimeInterval = 0
+    private(set) var mixDuration: TimeInterval = 0
 
     @ObservationIgnored private var player: AVAudioPlayer?
     @ObservationIgnored private var fileURL: URL?
@@ -69,7 +74,24 @@ final class MixPreviewPlayer {
             resumeMusic = false
             PlayerController.shared.setPaused(false)
         }
+        position = 0
         state = .idle
+    }
+
+    /// El segundo de la saliente que suena en la posicion `t` del archivo; `nil` cuando la saliente ya no suena (acabo la mezcla).
+    func outgoingSongTime(_ t: TimeInterval, cutAt: Double) -> Double? {
+        let mixEnd = leadActual + mixDuration
+        return t <= mixEnd + 0.1 ? cutAt - leadActual + min(t, mixEnd) : nil
+    }
+
+    /// El segundo de la entrante que suena en la posicion `t` del archivo; `nil` antes de que empiece la mezcla.
+    func incomingSongTime(_ t: TimeInterval, inStart: Double) -> Double? {
+        t >= leadActual ? inStart + (t - leadActual) : nil
+    }
+
+    /// Cuanto va la mezcla en la posicion `t` (0 = empieza, 1 = acaba; negativo antes y mayor que 1 despues).
+    func mixProgress(_ t: TimeInterval) -> Double {
+        mixDuration > 0 ? (t - leadActual) / mixDuration : 0
     }
 
     private func fail(generation mine: Int) {
@@ -134,11 +156,16 @@ final class MixPreviewPlayer {
             fail(generation: mine)
             return
         }
+        leadActual = min(lead, cutAt)
+        mixDuration = duration
+        position = 0
         state = .playing
-        // Hasta que acabe el archivo o se pase lo previsto (saliente + mezcla + un poco de la entrante).
-        let limit = min(lead, cutAt) + duration + Self.tailSeconds
+        // Hasta que acabe el archivo o se pase lo previsto (saliente + mezcla + un poco de la entrante). La posicion se actualiza ~20 veces por
+        // segundo para la barra que se mueve; solo la leen las vistas de esa barra.
+        let limit = leadActual + duration + Self.tailSeconds
         while mine == generation, audioPlayer.isPlaying, audioPlayer.currentTime < limit {
-            try? await Task.sleep(nanoseconds: 200_000_000)
+            position = audioPlayer.currentTime
+            try? await Task.sleep(nanoseconds: 50_000_000)
         }
         if mine == generation { stop() }
     }
