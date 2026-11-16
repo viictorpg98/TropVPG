@@ -4,7 +4,7 @@
 //
 //  "Ordenar por BPM y tonalidad": reordena lo que queda por sonar para que cada cancion encaje con la anterior (tempo parecido y
 //  tonalidad compatible en la rueda Camelot). La que suena y las ya sonadas no se tocan. Solo se ordenan las canciones ya
-//  analizadas; el resto queda al final, en su orden. `sortAndAnnounce` pide analizar las 25 siguientes y espera hasta ~30 s a que
+//  analizadas; el resto queda al final, en su orden. `sortAndAnnounce` pide analizar las 12 siguientes y espera hasta ~30 s a que
 //  se vayan haciendo (con avisos de progreso) antes de ordenar; lo ya analizado queda guardado, asi que pulsarlo otra vez un
 //  rato despues ordena mas.
 //
@@ -24,7 +24,7 @@ enum QueueSmartOrder {
 
     private static let analyzeAhead = 12
     /// Cuantas canciones siguientes se mandan analizar antes de ordenar, y lo mas que se espera a que se hagan.
-    private static let waitAhead = 25
+    private static let waitAhead = 12
     private static let maxWaitSeconds = 30
     private static var isSorting = false
 

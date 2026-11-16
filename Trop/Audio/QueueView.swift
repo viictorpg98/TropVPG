@@ -441,6 +441,22 @@ struct QueueView<ProgressSlider: View>: View {
 
             Spacer()
 
+            // La pantalla Mix (tempo, tonalidad y editor de cada transicion), a un toque como en Spotify.
+            Button {
+                showMixEditor = true
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "slider.horizontal.3")
+                    Text("Mix")
+                }
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.white)
+                .padding(.horizontal, 12)
+                .frame(height: 30)
+                .glassEffect(.regular.interactive(), in: Capsule())
+            }
+            .buttonStyle(.plain)
+
             queueOptionsMenu
         }
         .padding(.horizontal, 20)

@@ -750,5 +750,11 @@
   "Blend closes and opens filters and swaps the bass between the songs. Fade is a plain cross-fade.": "Blend closes and opens filters and swaps the bass between the songs. Fade is a plain cross-fade.",
   "Choose the Points": "Choose the Points",
   "Leaves the first song at": "Leaves the first song at",
-  "Move the points to choose where the first song is left and where the next one comes in. They snap to the nearest beat.": "Move the points to choose where the first song is left and where the next one comes in. They snap to the nearest beat."
+  "Intro": "Intro",
+  "Start": "Start",
+  "Outro": "Outro",
+  "Loud": "Loud",
+  "Quiet": "Quiet",
+  "Leaves at %@ · %d s overlap · enters at %@": "Leaves at %@ · %d s overlap · enters at %@",
+  "Move the points, or tap a part of the song, to choose where the first song is left and where the next one comes in. They snap to the nearest beat. Parts are named by their volume: the analysis cannot tell a verse from a chorus.": "Move the points, or tap a part of the song, to choose where the first song is left and where the next one comes in. They snap to the nearest beat. Parts are named by their volume: the analysis cannot tell a verse from a chorus."
 }

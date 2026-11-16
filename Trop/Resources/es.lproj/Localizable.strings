@@ -282,6 +282,7 @@
 "Infinite Playback" = "Reproducción infinita";
 "Infinite Playback keeps similar songs coming when the queue ends. Smart Shuffle puts songs you heard in the last days at the end and keeps two songs by the same artist from playing back to back. With Mobile Data for Extras off, animated covers, video preload and AutoMix on streamed songs only use Wi-Fi." = "Reproducción infinita sigue poniendo canciones parecidas cuando se acaba la cola. El aleatorio inteligente deja al final lo que has oído en los últimos días y evita que suenen seguidas dos canciones del mismo artista. Con Datos móviles para extras apagado, las carátulas animadas, la precarga de vídeo y AutoMix en canciones en streaming solo usan Wi-Fi.";
 "Integrations" = "Integraciones";
+"Intro" = "Intro";
 "January" = "Enero";
 "Jazz" = "Jazz";
 "July" = "Julio";
@@ -304,6 +305,7 @@
 "Late" = "Tarde";
 "Latin party" = "Fiesta latina";
 "Layout" = "Disposición";
+"Leaves at %@ · %d s overlap · enters at %@" = "Sale en %@ · solape de %d s · entra en %@";
 "Leaves the first song at" = "Deja la primera canción en";
 "Left" = "Izquierda";
 "Leisure" = "Ocio";
@@ -339,6 +341,7 @@
 "Long" = "Larga";
 "Long Blend" = "Mezcla larga";
 "Long listens" = "Escuchas largas";
+"Loud" = "Fuerte";
 "Loudness" = "Sonoridad";
 "Low" = "Baja";
 "Lyric Offset" = "Desfase de la letra";
@@ -381,7 +384,7 @@
 "More…" = "Más…";
 "Most Relevant" = "Más relevantes";
 "Motivation" = "Motivación";
-"Move the points to choose where the first song is left and where the next one comes in. They snap to the nearest beat." = "Mueve los puntos para elegir dónde se deja la primera canción y por dónde entra la siguiente. Se ajustan al pulso más cercano.";
+"Move the points, or tap a part of the song, to choose where the first song is left and where the next one comes in. They snap to the nearest beat. Parts are named by their volume: the analysis cannot tell a verse from a chorus." = "Mueve los puntos, o toca una parte de la canción, para elegir dónde se deja la primera canción y por dónde entra la siguiente. Se ajustan al pulso más cercano. Las partes se nombran por su volumen: el análisis no distingue una estrofa de un estribillo.";
 "Music" = "Música";
 "Music videos" = "Videoclips";
 "Music videos for you" = "Videoclips para ti";
@@ -449,6 +452,7 @@
 "Online" = "En línea";
 "Only your downloaded music is available." = "Solo está disponible la música descargada.";
 "Options" = "Opciones";
+"Outro" = "Final";
 "Overlap" = "Solape";
 "Party" = "Fiesta";
 "Party music" = "Música de fiesta";
@@ -514,6 +518,7 @@
 "Queue saved as “%@”." = "Cola guardada como «%@».";
 "Quick Picks" = "Selecciones rápidas";
 "Quick picks" = "Selecciones rápidas";
+"Quiet" = "Suave";
 "Rating" = "Valoración";
 "Ratings so far: %d" = "Valoraciones hasta ahora: %d";
 "Re-sync" = "Volver a sincronizar";
@@ -628,6 +633,7 @@
 "Spotify Canvas" = "Spotify Canvas";
 "Spotify Login" = "Iniciar sesión en Spotify";
 "Standard (64–96 kbps)" = "Estándar (64–96 kbps)";
+"Start" = "Inicio";
 "Start DJ" = "Iniciar DJ";
 "Start Radio" = "Iniciar radio";
 "Starts a mix of music you like." = "Empieza una mezcla de música que te gusta.";

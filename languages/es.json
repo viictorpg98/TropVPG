@@ -750,5 +750,11 @@
   "Blend closes and opens filters and swaps the bass between the songs. Fade is a plain cross-fade.": "Mezcla cierra y abre filtros e intercambia los graves entre las canciones. Fundido es un fundido simple.",
   "Choose the Points": "Elegir los puntos",
   "Leaves the first song at": "Deja la primera canción en",
-  "Move the points to choose where the first song is left and where the next one comes in. They snap to the nearest beat.": "Mueve los puntos para elegir dónde se deja la primera canción y por dónde entra la siguiente. Se ajustan al pulso más cercano."
+  "Intro": "Intro",
+  "Start": "Inicio",
+  "Outro": "Final",
+  "Loud": "Fuerte",
+  "Quiet": "Suave",
+  "Leaves at %@ · %d s overlap · enters at %@": "Sale en %@ · solape de %d s · entra en %@",
+  "Move the points, or tap a part of the song, to choose where the first song is left and where the next one comes in. They snap to the nearest beat. Parts are named by their volume: the analysis cannot tell a verse from a chorus.": "Mueve los puntos, o toca una parte de la canción, para elegir dónde se deja la primera canción y por dónde entra la siguiente. Se ajustan al pulso más cercano. Las partes se nombran por su volumen: el análisis no distingue una estrofa de un estribillo."
 }

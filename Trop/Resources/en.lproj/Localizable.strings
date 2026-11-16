@@ -282,6 +282,7 @@
 "Infinite Playback" = "Infinite Playback";
 "Infinite Playback keeps similar songs coming when the queue ends. Smart Shuffle puts songs you heard in the last days at the end and keeps two songs by the same artist from playing back to back. With Mobile Data for Extras off, animated covers, video preload and AutoMix on streamed songs only use Wi-Fi." = "Infinite Playback keeps similar songs coming when the queue ends. Smart Shuffle puts songs you heard in the last days at the end and keeps two songs by the same artist from playing back to back. With Mobile Data for Extras off, animated covers, video preload and AutoMix on streamed songs only use Wi-Fi.";
 "Integrations" = "Integrations";
+"Intro" = "Intro";
 "January" = "January";
 "Jazz" = "Jazz";
 "July" = "July";
@@ -304,6 +305,7 @@
 "Late" = "Late";
 "Latin party" = "Latin party";
 "Layout" = "Layout";
+"Leaves at %@ · %d s overlap · enters at %@" = "Leaves at %@ · %d s overlap · enters at %@";
 "Leaves the first song at" = "Leaves the first song at";
 "Left" = "Left";
 "Leisure" = "Leisure";
@@ -339,6 +341,7 @@
 "Long" = "Long";
 "Long Blend" = "Long Blend";
 "Long listens" = "Long listens";
+"Loud" = "Loud";
 "Loudness" = "Loudness";
 "Low" = "Low";
 "Lyric Offset" = "Lyric Offset";
@@ -381,7 +384,7 @@
 "More…" = "More…";
 "Most Relevant" = "Most Relevant";
 "Motivation" = "Motivation";
-"Move the points to choose where the first song is left and where the next one comes in. They snap to the nearest beat." = "Move the points to choose where the first song is left and where the next one comes in. They snap to the nearest beat.";
+"Move the points, or tap a part of the song, to choose where the first song is left and where the next one comes in. They snap to the nearest beat. Parts are named by their volume: the analysis cannot tell a verse from a chorus." = "Move the points, or tap a part of the song, to choose where the first song is left and where the next one comes in. They snap to the nearest beat. Parts are named by their volume: the analysis cannot tell a verse from a chorus.";
 "Music" = "Music";
 "Music videos" = "Music videos";
 "Music videos for you" = "Music videos for you";
@@ -449,6 +452,7 @@
 "Online" = "Online";
 "Only your downloaded music is available." = "Only your downloaded music is available.";
 "Options" = "Options";
+"Outro" = "Outro";
 "Overlap" = "Overlap";
 "Party" = "Party";
 "Party music" = "Party music";
@@ -514,6 +518,7 @@
 "Queue saved as “%@”." = "Queue saved as “%@”.";
 "Quick Picks" = "Quick Picks";
 "Quick picks" = "Quick picks";
+"Quiet" = "Quiet";
 "Rating" = "Rating";
 "Ratings so far: %d" = "Ratings so far: %d";
 "Re-sync" = "Re-sync";
@@ -628,6 +633,7 @@
 "Spotify Canvas" = "Spotify Canvas";
 "Spotify Login" = "Spotify Login";
 "Standard (64–96 kbps)" = "Standard (64–96 kbps)";
+"Start" = "Start";
 "Start DJ" = "Start DJ";
 "Start Radio" = "Start Radio";
 "Starts a mix of music you like." = "Starts a mix of music you like.";

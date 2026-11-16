@@ -8,8 +8,8 @@
 //    compara con la entrante (tempo y tonalidad).
 //  - No corta antes de ~1 minuto de musica ni despues de ~2 min 20 s; dentro de ese margen apunta a algo mas de la mitad de la
 //    cancion (entre 1 y 1:50 min de musica), segun lo que dure.
-//  - Elige el cambio de seccion mas cercano a ese punto, mejor si el volumen BAJA ahi (el final de una parte fuerte, que es por donde
-//    sale un DJ); si no hay ninguno, el inicio de frase (cada 8 compases) mas cercano.
+//  - Elige el cambio de seccion mas cercano a ese punto (con una ventaja de 12 s si el volumen BAJA ahi: el final de una parte fuerte, que
+//    es por donde sale un DJ); si no hay ninguno, el inicio de frase (cada 8 compases) mas cercano.
 //  - La duracion de la mezcla la elige segun lo bien que encajan las dos: si tempo y tonalidad casan, larga; si chocan, corta.
 //  - No toca las canciones largas (mezclas de horas, directos, podcasts): suenan enteras.
 //  - Si no queda margen (la cancion es muy corta o ya va por la mitad), no corta: suena hasta su final natural.
@@ -70,22 +70,18 @@ enum DJPlanner {
         let preferredPlay = min(max(Int64(Double(usable) * 0.55), 60_000), 110_000)
         let aim = min(max(first + preferredPlay, lower), upper)
 
+        // Entre los cambios de seccion del margen, el mejor es el mas cercano al objetivo; que el volumen BAJE ahi cuenta como 12 s de
+        // ventaja (el final de una parte fuerte es por donde sale un DJ), pero no vale uno lejano solo por eso.
         let inWindow = outgoing.sections.filter { $0.timeMs >= lower && $0.timeMs <= upper }
-        func nearest(_ list: [SectionChange]) -> SectionChange? {
-            list.min { abs($0.timeMs - aim) < abs($1.timeMs - aim) }
+        func cost(_ section: SectionChange) -> Int64 {
+            abs(section.timeMs - aim) - (section.deltaDb < 0 ? 12_000 : 0)
         }
-        if let drop = nearest(inWindow.filter { $0.deltaDb < 0 }) {
-            return Decision(
-                cutMs: drop.timeMs, length: length,
-                note: String(format: "corta en %.0f s (baja %.1f dB; objetivo %.0f s), mezcla %@ (%@)",
-                             Double(drop.timeMs) / 1000, drop.deltaDb, Double(aim) / 1000, length.rawValue, clash.text)
-            )
-        }
-        if let change = nearest(inWindow) {
+        if let change = inWindow.min(by: { cost($0) < cost($1) }) {
+            let kind = change.deltaDb < 0 ? String(format: "baja %.1f dB", -change.deltaDb) : String(format: "sube %.1f dB", change.deltaDb)
             return Decision(
                 cutMs: change.timeMs, length: length,
-                note: String(format: "corta en %.0f s (cambio de seccion, sube %.1f dB; objetivo %.0f s), mezcla %@ (%@)",
-                             Double(change.timeMs) / 1000, change.deltaDb, Double(aim) / 1000, length.rawValue, clash.text)
+                note: String(format: "corta en %.0f s (cambio de seccion, %@; objetivo %.0f s), mezcla %@ (%@)",
+                             Double(change.timeMs) / 1000, kind, Double(aim) / 1000, length.rawValue, clash.text)
             )
         }
         // Sin cambios de seccion: el inicio de frase (cada 8 compases desde el primer compas con musica) mas cercano al objetivo.

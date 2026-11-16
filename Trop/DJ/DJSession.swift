@@ -25,7 +25,7 @@ final class DJSession {
     /// Ya se ordeno la cola entera una vez en esta sesion: a partir de ahi la siguiente cancion no se mueve.
     private var hasSortedOnce = false
 
-    private static let analyzeAhead = 25
+    private static let analyzeAhead = 12
     private static let passInterval: UInt64 = 4_000_000_000
 
     private init() {}

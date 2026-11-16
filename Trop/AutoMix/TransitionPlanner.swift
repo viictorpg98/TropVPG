@@ -92,28 +92,36 @@ enum TransitionPlanner {
         if durations.isEmpty { durations = [baseDuration] }
 
         var best: (plan: TransitionPlan, overlap: Int)?
-        for duration in durations {
-            for cutShift in [Int64(0), bar, 2 * bar, 4 * bar] {
-                for incomingShift in [Int64(0), incomingBar, 2 * incomingBar, 4 * incomingBar, 8 * incomingBar] {
-                    guard let candidate = build(
-                        outgoing: outgoing, incoming: incoming, durationMs: duration,
-                        outgoingRatio: outgoingRatio, incomingRatio: incomingRatio,
-                        cutShiftMs: cutShift, incomingShiftMs: incomingShift, forcedStartMs: forcedStartMs,
-                        maxEarlyMs: maxEarlyMs, forcedIncomingMs: forcedIncomingMs
-                    ) else { continue }
-                    guard knownVocals, let out = vocals?.outgoing, let inc = vocals?.incoming else {
-                        return (candidate, "voces desconocidas, mezcla limitada a \(duration / 1000) s")
+        // Primero se prueba entrar antes (hacia el principio de la entrante). Si con eso las voces siguen pisandose, ultimo recurso: entrar mas
+        // tarde (1, 2, 4 u 8 compases despues) por si ahi encaja mejor. Una entrada elegida a mano no se toca.
+        var shiftPasses: [[Int64]] = [[Int64(0), incomingBar, 2 * incomingBar, 4 * incomingBar, 8 * incomingBar]]
+        if forcedIncomingMs == nil, knownVocals {
+            shiftPasses.append([-incomingBar, -2 * incomingBar, -4 * incomingBar, -8 * incomingBar])
+        }
+        for incomingShifts in shiftPasses {
+            for duration in durations {
+                for cutShift in [Int64(0), bar, 2 * bar, 4 * bar] {
+                    for incomingShift in incomingShifts {
+                        guard let candidate = build(
+                            outgoing: outgoing, incoming: incoming, durationMs: duration,
+                            outgoingRatio: outgoingRatio, incomingRatio: incomingRatio,
+                            cutShiftMs: cutShift, incomingShiftMs: incomingShift, forcedStartMs: forcedStartMs,
+                            maxEarlyMs: maxEarlyMs, forcedIncomingMs: forcedIncomingMs
+                        ) else { continue }
+                        guard knownVocals, let out = vocals?.outgoing, let inc = vocals?.incoming else {
+                            return (candidate, "voces desconocidas, mezcla limitada a \(duration / 1000) s")
+                        }
+                        let overlap = VocalMaskStore.overlapMs(
+                            outgoing: out, incoming: inc,
+                            outgoingStart: Double(candidate.outgoingStartMs) / 1000,
+                            incomingStart: Double(candidate.incomingStartMs) / 1000,
+                            duration: Double(candidate.durationMs) / 1000
+                        )
+                        if overlap <= maxVocalOverlapMs {
+                            return (candidate, incomingShift < 0 ? "voces: solape \(overlap) ms (entrando mas tarde)" : "voces: solape \(overlap) ms")
+                        }
+                        if best == nil || overlap < best!.overlap { best = (candidate, overlap) }
                     }
-                    let overlap = VocalMaskStore.overlapMs(
-                        outgoing: out, incoming: inc,
-                        outgoingStart: Double(candidate.outgoingStartMs) / 1000,
-                        incomingStart: Double(candidate.incomingStartMs) / 1000,
-                        duration: Double(candidate.durationMs) / 1000
-                    )
-                    if overlap <= maxVocalOverlapMs {
-                        return (candidate, "voces: solape \(overlap) ms")
-                    }
-                    if best == nil || overlap < best!.overlap { best = (candidate, overlap) }
                 }
             }
         }
