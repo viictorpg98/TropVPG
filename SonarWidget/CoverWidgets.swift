@@ -146,21 +146,34 @@ struct CoverWidgetView: View {
 
     /// Franja oscura con el titulo abajo (se degrada hacia arriba para que no haya un corte seco).
     private func titleScrim(_ title: String, lines: Int) -> some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 0)
-            Text(title)
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white)
-                .lineLimit(lines)
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 7)
-                .padding(.top, 16)
-                .padding(.bottom, 5)
-                .background(
-                    LinearGradient(colors: [.clear, Color.black.opacity(0.78)], startPoint: .top, endPoint: .bottom)
-                )
+        Text(title)
+            .font(.system(size: 10, weight: .semibold, design: .rounded))
+            .foregroundStyle(.white)
+            .lineLimit(lines)
+            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 7)
+            .padding(.top, 16)
+            .padding(.bottom, 5)
+            .background(
+                LinearGradient(colors: [.clear, Color.black.opacity(0.78)], startPoint: .top, endPoint: .bottom)
+            )
+    }
+
+    /// Casilla de portada con su titulo. La imagen va en una capa y el titulo en otra, las dos sobre una base que ya tiene el
+    /// tamaño de la casilla: asi la imagen (que llena y se sale) no agranda la capa del titulo. Antes iban juntas en un ZStack y
+    /// el titulo se maquetaba tan ancho como la imagen y salia cortado por los lados, sin puntos suspensivos.
+    private func coverTile(_ track: WidgetTrack, isSquare: Bool, lines: Int) -> some View {
+        Group {
+            if isSquare {
+                Color.clear.aspectRatio(1, contentMode: .fit)
+            } else {
+                Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
+        .overlay { coverImage(track) }
+        .overlay(alignment: .bottom) { titleScrim(track.title, lines: lines) }
+        .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
     }
 
     /// Casilla cuadrada: el contenido llena el cuadrado y se recorta con esquinas redondeadas.
@@ -209,27 +222,10 @@ struct CoverWidgetView: View {
             songDuration: track.duration ?? 0,
             isEpisode: track.episode ?? false
         )
-        if kind.isWide {
-            Button(intent: intent) {
-                flexible {
-                    ZStack {
-                        coverImage(track)
-                        titleScrim(track.title, lines: 2)
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-        } else {
-            Button(intent: intent) {
-                square {
-                    ZStack {
-                        coverImage(track)
-                        titleScrim(track.title, lines: 1)
-                    }
-                }
-            }
-            .buttonStyle(.plain)
+        Button(intent: intent) {
+            coverTile(track, isSquare: !kind.isWide, lines: kind.isWide ? 2 : 1)
         }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
