@@ -180,7 +180,7 @@ enum MixTransition {
         if let manual = choice {
             if let start = manual.outStartMs, start >= minStartMs { inputs.forcedStartMs = start }
             inputs.forcedIncomingMs = manual.inStartMs
-        } else if DJSettings.shared.sessionActive, DJSettings.shared.cutEarly {
+        } else if DJSettings.shared.sessionActive {
             let decision = DJPlanner.decide(outId: outId, outgoing: outgoing, incoming: incoming, currentTime: currentTime)
             inputs.forcedStartMs = decision.cutMs
             if let length = decision.length { style.length = length }

@@ -6,7 +6,8 @@
 //  marcha:
 //  - Ordena lo que queda de la cola para que cada cancion encaje con la anterior (tempo y tonalidad; `QueueSmartOrder`), y sigue
 //    ordenando conforme se van analizando mas canciones. La siguiente, una vez fijada, no se mueve.
-//  - Deja cada cancion en un buen punto, sin esperar a que acabe (`DJPlanner`, a traves del motor de AutoMix).
+//  - Mezcla cada cancion por su salida natural (la de AutoMix: el final de su ultimo estribillo), con la duracion que mejor le va a cada pareja
+//    (`DJPlanner`). Para pasar antes esta "siguiente" (`next`), que mezcla con la siguiente al momento.
 //
 //  La sesion no se guarda: al abrir la app el DJ esta apagado. Todo lo que hace se apunta en el Informe con el prefijo "dj:".
 //
@@ -45,7 +46,7 @@ final class DJSession {
         lastAnalyzedCount = -1
         knownUpcoming = []
         hasSortedOnce = false
-        PlaybackReport.record("dj: sesion iniciada (ordenar \(DJSettings.shared.sortQueue), cortar antes \(DJSettings.shared.cutEarly))")
+        PlaybackReport.record("dj: sesion iniciada (ordenar \(DJSettings.shared.sortQueue))")
         // Lo planificado hasta ahora era para el final natural de la cancion: se rehace con el DJ.
         AutoMixEngine.shared.replan()
         loop?.cancel()

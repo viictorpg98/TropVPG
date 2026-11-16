@@ -289,7 +289,6 @@
 "Home" = "Inicio";
 "Home Feed" = "Pantalla de inicio";
 "Hopeless romantic" = "Romántico empedernido";
-"How Much of Each Song" = "Cuánto de cada canción";
 "How long the two songs overlap. The mix always starts and ends on the beat." = "Cuánto se solapan las dos canciones. La mezcla siempre empieza y acaba a tempo.";
 "How many minutes?" = "¿Cuántos minutos?";
 "How was the mix?" = "¿Qué tal la mezcla?";
@@ -334,7 +333,6 @@
 "Left" = "Izquierda";
 "Leisure" = "Ocio";
 "Length" = "Duración";
-"Less" = "Menos";
 "Lesser-known related tracks" = "Canciones relacionadas menos conocidas";
 "Library" = "Biblioteca";
 "Library Sync" = "Sincronización de la biblioteca";
@@ -393,7 +391,6 @@
 "Minimum Track Duration" = "Duración mínima de la canción";
 "Minutes" = "Minutos";
 "Mix" = "Mix";
-"Mix Before the Song Ends" = "Mezclar antes de que acabe la canción";
 "Mix Streamed Songs on Mobile Data" = "Mezclar canciones en streaming con datos móviles";
 "Mix Timing" = "Momento de la mezcla";
 "Mix now" = "Mezclar";
@@ -409,7 +406,6 @@
 "More like “%@”" = "Más como “%@”";
 "More options" = "Más opciones";
 "More…" = "Más…";
-"Most" = "Casi toda";
 "Most Relevant" = "Más relevantes";
 "Motivation" = "Motivación";
 "Move the points, or tap a part of the song, to choose where the first song is left and where the next one comes in. They snap to the nearest beat. Parts are named by their volume: the analysis cannot tell a verse from a chorus." = "Mueve los puntos, o toca una parte de la canción, para elegir dónde se deja la primera canción y por dónde entra la siguiente. Se ajustan al pulso más cercano. Las partes se nombran por su volumen: el análisis no distingue una estrofa de un estribillo.";
@@ -710,7 +706,7 @@
 "Tempo" = "Tempo";
 "Test" = "Prueba";
 "Thanks!" = "¡Gracias!";
-"The DJ is a session: start it from the DJ button in the player, from the queue menu or from the Home screen. While it is on, it sorts the next songs so they fit together (tempo and key) and mixes each song into the next at a good moment, without waiting for it to end, like a DJ. Long songs and podcasts play in full. Mixes between songs that are not downloaded need Wi-Fi, or mobile data allowed in the AutoMix settings. How Much of Each Song says how long the DJ waits: Less mixes sooner and Most lets each song play almost to its end. The DJ still picks the exact moment, on a change in the music." = "El DJ es una sesión: inícialo desde el botón DJ del reproductor, desde el menú de la cola o desde el Inicio. Mientras está encendido, ordena las siguientes canciones para que encajen (tempo y tonalidad) y mezcla cada canción con la siguiente en un buen momento, sin esperar a que acabe, como un DJ. Las canciones largas y los podcasts suenan enteros. Las mezclas entre canciones sin descargar necesitan Wi-Fi, o datos móviles permitidos en los ajustes de AutoMix. Cuánto de cada canción dice cuánto espera el DJ: Menos mezcla antes y Casi toda deja sonar cada canción casi hasta el final. El DJ sigue eligiendo el momento exacto, en un cambio de la música.";
+"The DJ is a session: start it from the DJ button in the player, from the queue menu or from the Home screen. While it is on, it sorts the next songs so they fit together (tempo and key) and mixes each song into the next at its natural exit, near the end of the last chorus, with a longer blend when the two songs match well. To move on earlier, press Next: it mixes into the next song straight away. Long songs and podcasts play in full. Mixes between songs that are not downloaded need Wi-Fi, or mobile data allowed in the AutoMix settings." = "El DJ es una sesión: inícialo desde el botón DJ del reproductor, desde el menú de la cola o desde el Inicio. Mientras está encendido, ordena las siguientes canciones para que encajen (tempo y tonalidad) y mezcla cada canción con la siguiente por su salida natural, cerca del final de su último estribillo, con una mezcla más larga cuando las dos casan bien. Para pasar antes, pulsa Siguiente: mezcla con la siguiente al momento. Las canciones largas y los podcasts suenan enteros. Las mezclas entre canciones sin descargar necesitan Wi-Fi, o datos móviles permitidos en los ajustes de AutoMix.";
 "The DJ is on. Tap to stop it." = "El DJ está encendido. Toca para pararlo.";
 "The country controls the region used for YouTube Music requests." = "El país controla la región que se usa en las peticiones a YouTube Music.";
 "The music will stop in %d minutes." = "La música se parará en %d minutos.";
