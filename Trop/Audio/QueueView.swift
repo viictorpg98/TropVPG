@@ -268,9 +268,9 @@ struct QueueView<ProgressSlider: View>: View {
                 Label("Edit Mix", systemImage: "slider.horizontal.3")
             }
             Button {
-                let on = DJHost.shared.toggle()
+                let on = DJSession.shared.toggle()
                 PlaybackNotice.shared.show(NSLocalizedString(
-                    on ? "DJ started. It will introduce songs as they play." : "DJ stopped.", comment: ""
+                    on ? "DJ on. It sorts the queue and mixes the songs." : "DJ stopped.", comment: ""
                 ))
             } label: {
                 Label(LocalizedStringKey(DJSettings.shared.sessionActive ? "Stop DJ" : "Start DJ"), systemImage: "mic")

@@ -2,9 +2,8 @@
 //  DJSettings.swift
 //  Trop
 //
-//  Ajustes del DJ (el locutor que presenta las canciones). La sesion de DJ (encendido/apagado) NO se guarda: empieza apagada cada
-//  vez que se abre la app y se enciende desde el reproductor, el menu de la cola o el Inicio. Lo demas se guarda aparte de
-//  `SettingsStore`.
+//  Ajustes del DJ automatico. La sesion de DJ (encendido/apagado) NO se guarda: empieza apagada cada vez que se abre la app y se
+//  enciende desde el reproductor, el menu de la cola o el Inicio. Lo demas se guarda aparte de `SettingsStore`.
 //
 
 import Foundation
@@ -15,36 +14,25 @@ import Observation
 final class DJSettings {
     static let shared = DJSettings()
 
-    private static let everyKey = "dj.everySongs"
-    private static let voiceKey = "dj.voiceId"
-    private static let modelKey = "dj.useLanguageModel"
+    private static let sortKey = "dj.sortQueue"
+    private static let cutKey = "dj.cutEarly"
 
-    /// Hay una sesion de DJ en marcha (no se guarda: al abrir la app empieza apagada). Lo cambia `DJHost`.
+    /// Hay una sesion de DJ en marcha (no se guarda: al abrir la app empieza apagada). Lo cambia `DJSession`.
     var sessionActive = false
 
-    /// El DJ esta hablando ahora mismo (el boton del reproductor se anima mientras tanto). Lo cambia `DJHost`.
-    var speaking = false
-
-    /// Habla cada tantas canciones (la primera tras activarlo siempre).
-    var everySongs: Int {
-        didSet { UserDefaults.standard.set(everySongs, forKey: Self.everyKey) }
+    /// Con el DJ en marcha, ordena solo lo que queda de la cola para que las canciones encajen (tempo y tonalidad).
+    var sortQueue: Bool {
+        didSet { UserDefaults.standard.set(sortQueue, forKey: Self.sortKey) }
     }
 
-    /// Identificador de la voz del sistema; vacio = la que el sistema da por defecto para español.
-    var voiceId: String {
-        didSet { UserDefaults.standard.set(voiceId, forKey: Self.voiceKey) }
-    }
-
-    /// Escribir las presentaciones con el modelo del iPhone (Apple Intelligence) cuando se pueda; si no, frases hechas.
-    var useLanguageModel: Bool {
-        didSet { UserDefaults.standard.set(useLanguageModel, forKey: Self.modelKey) }
+    /// Con el DJ en marcha, mezcla las canciones antes de que acaben (en un buen punto), como un DJ de verdad.
+    var cutEarly: Bool {
+        didSet { UserDefaults.standard.set(cutEarly, forKey: Self.cutKey) }
     }
 
     private init() {
         let defaults = UserDefaults.standard
-        let every = defaults.integer(forKey: Self.everyKey)
-        everySongs = every > 0 ? every : 3
-        voiceId = defaults.string(forKey: Self.voiceKey) ?? ""
-        useLanguageModel = defaults.object(forKey: Self.modelKey) == nil ? true : defaults.bool(forKey: Self.modelKey)
+        sortQueue = defaults.object(forKey: Self.sortKey) == nil ? true : defaults.bool(forKey: Self.sortKey)
+        cutEarly = defaults.object(forKey: Self.cutKey) == nil ? true : defaults.bool(forKey: Self.cutKey)
     }
 }

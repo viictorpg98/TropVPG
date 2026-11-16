@@ -5,9 +5,10 @@
 //  La pantalla "Mix" (como la de Spotify, con lo que el motor de AutoMix sabe hacer): la que suena y las siguientes de la cola,
 //  con su tempo y tonalidad, y entre cada dos canciones una etiqueta ("Automatic ›") que abre el editor de esa transicion.
 //
-//  El editor deja elegir, para esa pareja, la duracion de la mezcla (corta, media o larga) y si se iguala el tempo. Enseña la forma
-//  de onda de las dos canciones con el tramo que se mezclaria marcado. Lo que se elige se guarda por pareja (`ManualMixStore`) y
-//  manda sobre lo que decidiria AutoMix. El motor no cambia: los puntos de corte y de entrada los sigue calculando el, a compases.
+//  El editor deja elegir, para esa pareja, en modo manual: la duracion de la mezcla (corta, media o larga), como suena (con filtros o un
+//  fundido simple), si se iguala el tempo y, si se quiere, donde deja la primera cancion y por donde entra la segunda. Enseña la forma
+//  de onda de las dos (entera y ampliada) con el tramo que se mezcla marcado. Lo que se elige se guarda por pareja (`ManualMixStore`) y
+//  manda sobre lo que decidiria AutoMix o el DJ. Los puntos se ajustan solos al compas mas cercano.
 //
 
 import SwiftUI
@@ -187,8 +188,14 @@ struct MixTransitionEditor: View {
     let outgoing: SongItem
     let incoming: SongItem
 
-    @State private var length: MixStyle.Length?
+    @State private var isManual: Bool
+    @State private var length: MixStyle.Length
     @State private var matchTempo: Bool
+    @State private var sound: MixSound
+    @State private var customPoints: Bool
+    /// Donde deja la saliente y por donde entra la entrante (segundos de cada cancion), si se eligen a mano.
+    @State private var outSeconds: Double
+    @State private var inSeconds: Double
     @State private var message: String?
     /// Sube cuando acaba un analisis, para volver a calcular la vista previa.
     @State private var refresh = 0
@@ -197,21 +204,61 @@ struct MixTransitionEditor: View {
         self.outgoing = outgoing
         self.incoming = incoming
         let saved = ManualMixStore.shared.choice(outId: outgoing.videoId, inId: incoming.videoId)
-        _length = State(initialValue: saved?.length)
+        _isManual = State(initialValue: saved != nil)
+        _length = State(initialValue: saved?.length ?? .medium)
         _matchTempo = State(initialValue: saved?.matchTempo ?? true)
+        _sound = State(initialValue: saved?.sound ?? .blend)
+        _customPoints = State(initialValue: saved?.outStartMs != nil || saved?.inStartMs != nil)
+        _outSeconds = State(initialValue: Double(saved?.outStartMs ?? 0) / 1000)
+        _inSeconds = State(initialValue: Double(saved?.inStartMs ?? 0) / 1000)
     }
 
-    private var lengthBinding: Binding<MixStyle.Length?> {
+    // MARK: Lo elegido
+
+    /// Lo que hay elegido ahora (`nil`: automatico).
+    private var currentChoice: ManualMixStore.Choice? {
+        guard isManual else { return nil }
+        return ManualMixStore.Choice(
+            length: length, matchTempo: matchTempo, sound: sound,
+            outStartMs: customPoints && outSeconds > 0 ? Int64(outSeconds * 1000) : nil,
+            inStartMs: customPoints ? Int64(max(inSeconds, 0) * 1000) : nil
+        )
+    }
+
+    private func save() {
+        message = MixTransition.apply(currentChoice, outId: outgoing.videoId, inId: incoming.videoId)
+    }
+
+    private var manualBinding: Binding<Bool> {
+        Binding(get: { isManual }, set: { on in
+            isManual = on
+            if !on { customPoints = false }
+            save()
+        })
+    }
+
+    private var lengthBinding: Binding<MixStyle.Length> {
         Binding(get: { length }, set: { length = $0; save() })
+    }
+
+    private var soundBinding: Binding<MixSound> {
+        Binding(get: { sound }, set: { sound = $0; save() })
     }
 
     private var tempoBinding: Binding<Bool> {
         Binding(get: { matchTempo }, set: { matchTempo = $0; save() })
     }
 
-    private func save() {
-        let choice = length.map { ManualMixStore.Choice(length: $0, matchTempo: matchTempo) }
-        message = MixTransition.apply(choice, outId: outgoing.videoId, inId: incoming.videoId)
+    private func customPointsBinding(seed plan: TransitionPlan?) -> Binding<Bool> {
+        Binding(get: { customPoints }, set: { on in
+            customPoints = on
+            if on, let plan {
+                // Se parte de lo que haria el automatico, para que nada salte.
+                outSeconds = Double(plan.outgoingStartMs) / 1000
+                inSeconds = Double(plan.incomingStartMs) / 1000
+            }
+            save()
+        })
     }
 
     // MARK: Vista previa
@@ -226,35 +273,47 @@ struct MixTransitionEditor: View {
         let incomingBpm: Double
         /// Tempos parecidos: solo entonces tiene sentido elegir si se iguala el tempo.
         let tempoMatters: Bool
+        /// Entre que segundos se pueden poner a mano la salida y la entrada (`nil`: no hay margen).
+        let outRange: ClosedRange<Double>?
+        let inRange: ClosedRange<Double>?
     }
 
-    /// Lo que haria el motor con esta pareja y lo elegido ahora (misma funcion que usa AutoMix; no toca su plan guardado).
-    /// `nil` si alguna de las dos aun no esta analizada.
+    /// Lo que haria el motor con esta pareja y lo elegido ahora: la misma funcion que usa AutoMix (`MixTransition.planInputs`), asi lo que
+    /// se ve es lo que suena. No toca su plan guardado. `nil` si alguna de las dos aun no esta analizada.
     private func makePreview() -> Preview? {
         _ = refresh
         let store = TrackAnalysisStore.shared
         guard let out = store.structure(for: outgoing.videoId, role: .outgoing),
               let inc = store.structure(for: incoming.videoId, role: .incoming) else { return nil }
-        let context = MixLearning.context(outgoingBpm: out.bpm, incomingBpm: inc.bpm)
-        let style: MixStyle
-        if let length {
-            style = MixStyle(length: length, matchTempo: context == "near" ? matchTempo : true, context: context)
-        } else {
-            style = MixLearning.shared.style(
-                outId: outgoing.videoId, inId: incoming.videoId, outBpm: out.bpm, inBpm: inc.bpm
-            )
-        }
+        let np = NowPlaying.shared
+        let isNext = np.queueSongs.indices.contains(np.queueIndex) && np.queueIndex + 1 < np.queueSongs.count
+            && np.queueSongs[np.queueIndex].videoId == outgoing.videoId && np.queueSongs[np.queueIndex + 1].videoId == incoming.videoId
+        let inputs = MixTransition.planInputs(
+            outId: outgoing.videoId, inId: incoming.videoId, outgoing: out, incoming: inc,
+            currentTime: isNext ? np.currentTime : 0, choice: currentChoice
+        )
         let vocals = TransitionPlanner.Vocals(
             outgoing: VocalMaskStore.shared.segments(for: outgoing.videoId),
             incoming: VocalMaskStore.shared.segments(for: incoming.videoId)
         )
-        let result = TransitionPlanner.plan(
-            outgoing: out, incoming: inc, vocals: vocals, style: style,
-            maxEarlyMs: SettingsStore.shared.autoMixTiming.maxEarlyMs
+        let maxEarly = SettingsStore.shared.autoMixTiming.maxEarlyMs
+        var result = TransitionPlanner.plan(
+            outgoing: out, incoming: inc, vocals: vocals, forcedStartMs: inputs.forcedStartMs, style: inputs.style,
+            maxEarlyMs: maxEarly, forcedIncomingMs: inputs.forcedIncomingMs
         )
+        if result == nil, inputs.forcedStartMs != nil {
+            result = TransitionPlanner.plan(
+                outgoing: out, incoming: inc, vocals: vocals, style: inputs.style, maxEarlyMs: maxEarly,
+                forcedIncomingMs: inputs.forcedIncomingMs
+            )
+        }
         // La forma de onda es la de la cancion entera (las canciones largas no la tienen aqui).
         let outWhole = store.structure(for: outgoing.videoId)
         let incWhole = store.structure(for: incoming.videoId)
+
+        let outLow = max(Double(out.firstSoundMs) / 1000 + 15, 20)
+        let outHigh = Double(out.musicEndMs) / 1000 - 8
+        let inHigh = min(max(Double(inc.musicEndMs) / 1000 - 30, 0), 150)
         return Preview(
             plan: result?.plan,
             outgoingWave: outWhole?.waveform,
@@ -263,7 +322,9 @@ struct MixTransitionEditor: View {
             incomingSeconds: store.knownDuration(incoming.videoId) ?? Double(inc.lastSoundMs) / 1000,
             outgoingBpm: out.bpm,
             incomingBpm: inc.bpm,
-            tempoMatters: context == "near"
+            tempoMatters: inputs.style.context == "near",
+            outRange: outHigh > outLow ? outLow...outHigh : nil,
+            inRange: inHigh > 1 ? 0...inHigh : nil
         )
     }
 
@@ -289,25 +350,20 @@ struct MixTransitionEditor: View {
             }
 
             Section {
-                Picker("Transition", selection: lengthBinding) {
-                    Text("Automatic").tag(MixStyle.Length?.none)
-                    Text("Short Blend").tag(MixStyle.Length?.some(.short))
-                    Text("Medium Blend").tag(MixStyle.Length?.some(.medium))
-                    Text("Long Blend").tag(MixStyle.Length?.some(.long))
+                Picker("Mode", selection: manualBinding) {
+                    Text("Automatic").tag(false)
+                    Text("Manual").tag(true)
                 }
-                .pickerStyle(.inline)
+                .pickerStyle(.segmented)
                 .labelsHidden()
             } header: {
                 Text("Transition")
             } footer: {
-                Text("Automatic lets AutoMix decide. The mix always starts and ends on the beat; the length changes how long the two songs overlap.")
+                Text("Automatic lets AutoMix (or the DJ) decide. In Manual, what you choose here is used every time these two songs play one after the other.")
             }
 
-            Section {
-                Toggle("Match Tempo", isOn: tempoBinding)
-                    .disabled(length == nil || !(preview?.tempoMatters ?? true))
-            } footer: {
-                Text("Off keeps each song at its own tempo. It only applies when both songs have a similar tempo.")
+            if isManual {
+                manualControls(preview)
             }
 
             if let message {
@@ -333,37 +389,125 @@ struct MixTransitionEditor: View {
         }
     }
 
+    // MARK: Controles manuales
+
+    @ViewBuilder
+    private func manualControls(_ preview: Preview?) -> some View {
+        Section {
+            Picker("Length", selection: lengthBinding) {
+                Text("Short").tag(MixStyle.Length.short)
+                Text("Medium").tag(MixStyle.Length.medium)
+                Text("Long").tag(MixStyle.Length.long)
+            }
+            .pickerStyle(.segmented)
+        } header: {
+            Text("Length")
+        } footer: {
+            Text("How long the two songs overlap. The mix always starts and ends on the beat.")
+        }
+
+        Section {
+            Picker("Sound", selection: soundBinding) {
+                Text("Blend").tag(MixSound.blend)
+                Text("Fade").tag(MixSound.fade)
+            }
+            .pickerStyle(.segmented)
+        } header: {
+            Text("Sound")
+        } footer: {
+            Text("Blend closes and opens filters and swaps the bass between the songs. Fade is a plain cross-fade.")
+        }
+
+        Section {
+            Toggle("Match Tempo", isOn: tempoBinding)
+                .disabled(!(preview?.tempoMatters ?? true))
+        } footer: {
+            Text("Off keeps each song at its own tempo. It only applies when both songs have a similar tempo.")
+        }
+
+        Section {
+            Toggle("Choose the Points", isOn: customPointsBinding(seed: preview?.plan))
+                .disabled(preview == nil)
+            if customPoints, let preview, let plan = preview.plan {
+                if let range = preview.outRange {
+                    pointSlider(
+                        title: "Leaves the first song at", shown: Double(plan.outgoingStartMs) / 1000,
+                        value: $outSeconds, range: range
+                    )
+                }
+                if let range = preview.inRange {
+                    pointSlider(
+                        title: "Next song enters at", shown: Double(plan.incomingStartMs) / 1000,
+                        value: $inSeconds, range: range
+                    )
+                }
+            }
+        } footer: {
+            Text("Move the points to choose where the first song is left and where the next one comes in. They snap to the nearest beat.")
+        }
+    }
+
+    private func pointSlider(title: String, shown: Double, value: Binding<Double>, range: ClosedRange<Double>) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(LocalizedStringKey(title))
+                Spacer()
+                Text(DurationFormat.playbackTime(shown))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+            // Se guarda al soltar (cada cambio rehace la mezcla preparada).
+            Slider(value: value, in: range, onEditingChanged: { editing in
+                if !editing { save() }
+            })
+        }
+    }
+
+    // MARK: Forma de onda y datos
+
     @ViewBuilder
     private func previewSection(_ preview: Preview) -> some View {
         Section {
             if let plan = preview.plan {
-                let mixEnd = Double(plan.outgoingEndMs) / 1000
+                let outStart = Double(plan.outgoingStartMs) / 1000
+                let outEnd = Double(plan.outgoingEndMs) / 1000
+                let inStart = Double(plan.incomingStartMs) / 1000
                 let inEnd = Double(plan.incomingStartMs
                     + AutoMixMath.incomingAdvanceMs(durationMs: plan.durationMs, startRatio: plan.incomingSpeedRatio)) / 1000
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 8) {
                     if let wave = preview.outgoingWave {
                         MixWaveformStrip(
+                            wave: wave, totalSeconds: preview.outgoingSeconds, windowStart: 0, windowEnd: preview.outgoingSeconds,
+                            startSeconds: outStart, endSeconds: outEnd, tint: .orange, height: 26
+                        )
+                        MixWaveformStrip(
                             wave: wave, totalSeconds: preview.outgoingSeconds,
-                            startSeconds: Double(plan.outgoingStartMs) / 1000, endSeconds: mixEnd, tint: .orange
+                            windowStart: max(outStart - 20, 0), windowEnd: min(outEnd + 8, preview.outgoingSeconds),
+                            startSeconds: outStart, endSeconds: outEnd, tint: .orange, height: 56
                         )
                     }
                     if let wave = preview.incomingWave {
                         MixWaveformStrip(
+                            wave: wave, totalSeconds: preview.incomingSeconds, windowStart: 0, windowEnd: preview.incomingSeconds,
+                            startSeconds: inStart, endSeconds: inEnd, tint: .blue, height: 26
+                        )
+                        MixWaveformStrip(
                             wave: wave, totalSeconds: preview.incomingSeconds,
-                            startSeconds: Double(plan.incomingStartMs) / 1000, endSeconds: inEnd, tint: .blue
+                            windowStart: max(inStart - 3, 0), windowEnd: min(inEnd + 22, preview.incomingSeconds),
+                            startSeconds: inStart, endSeconds: inEnd, tint: .blue, height: 56
                         )
                     }
                 }
                 .padding(.vertical, 4)
 
                 LabeledContent("Mix starts at") {
-                    Text(DurationFormat.playbackTime(Double(plan.outgoingStartMs) / 1000))
+                    Text(DurationFormat.playbackTime(outStart))
                 }
                 LabeledContent("Overlap") {
                     Text(String(format: NSLocalizedString("%d s", comment: ""), Int((Double(plan.durationMs) / 1000).rounded())))
                 }
                 LabeledContent("Next song enters at") {
-                    Text(DurationFormat.playbackTime(Double(plan.incomingStartMs) / 1000))
+                    Text(DurationFormat.playbackTime(inStart))
                 }
                 LabeledContent("Tempo") {
                     Text("\(Int(preview.outgoingBpm.rounded())) → \(Int(preview.incomingBpm.rounded())) BPM")
@@ -410,36 +554,53 @@ private struct MixPairHeader: View {
     }
 }
 
-/// La forma de onda de una cancion con el tramo de la mezcla resaltado.
+/// La forma de onda de una cancion con el tramo de la mezcla resaltado. Dibuja solo la ventana pedida (entera, o ampliada alrededor de
+/// la mezcla).
 private struct MixWaveformStrip: View {
     let wave: [Float]
     let totalSeconds: Double
+    let windowStart: Double
+    let windowEnd: Double
     let startSeconds: Double
     let endSeconds: Double
     let tint: Color
+    let height: CGFloat
 
     var body: some View {
         Canvas { context, size in
             let count = wave.count
-            guard count > 0, totalSeconds > 0 else { return }
-            let barWidth = size.width / CGFloat(count)
-            let from = size.width * CGFloat(min(max(startSeconds / totalSeconds, 0), 1))
-            let to = size.width * CGFloat(min(max(endSeconds / totalSeconds, 0), 1))
-            let region = CGRect(x: from, y: 0, width: max(to - from, 3), height: size.height)
-            context.fill(Path(roundedRect: region, cornerRadius: 4), with: .color(tint.opacity(0.2)))
-            for index in 0..<count {
-                let height = max(3, CGFloat(min(max(wave[index], 0), 1)) * size.height)
-                let x = CGFloat(index) * barWidth
-                let rect = CGRect(x: x + barWidth * 0.15, y: (size.height - height) / 2, width: barWidth * 0.7, height: height)
-                let middle = x + barWidth / 2
-                let inside = middle >= from && middle <= to
+            let span = windowEnd - windowStart
+            guard count > 1, totalSeconds > 0, span > 0 else { return }
+            func x(_ seconds: Double) -> CGFloat {
+                size.width * CGFloat(min(max((seconds - windowStart) / span, 0), 1))
+            }
+            let from = x(startSeconds)
+            let to = x(endSeconds)
+            context.fill(
+                Path(roundedRect: CGRect(x: from, y: 0, width: max(to - from, 3), height: size.height), cornerRadius: 4),
+                with: .color(tint.opacity(0.2))
+            )
+            // Cada barra de la forma de onda cubre `totalSeconds / count` segundos de la cancion.
+            let barSeconds = totalSeconds / Double(count)
+            let first = max(Int((windowStart / barSeconds).rounded(.down)), 0)
+            let last = min(Int((windowEnd / barSeconds).rounded(.up)), count - 1)
+            guard first <= last else { return }
+            let barWidth = max(size.width * CGFloat(barSeconds / span), 1)
+            for index in first...last {
+                let middleSeconds = (Double(index) + 0.5) * barSeconds
+                let centerX = x(middleSeconds)
+                let barHeight = max(3, CGFloat(min(max(wave[index], 0), 1)) * size.height)
+                let rect = CGRect(
+                    x: centerX - barWidth * 0.35, y: (size.height - barHeight) / 2, width: barWidth * 0.7, height: barHeight
+                )
+                let inside = middleSeconds >= startSeconds && middleSeconds <= endSeconds
                 context.fill(
-                    Path(roundedRect: rect, cornerRadius: barWidth * 0.35),
+                    Path(roundedRect: rect, cornerRadius: barWidth * 0.3),
                     with: .color(inside ? tint : Color.secondary.opacity(0.45))
                 )
             }
         }
-        .frame(height: 48)
+        .frame(height: height)
         .accessibilityHidden(true)
     }
 }

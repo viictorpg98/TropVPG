@@ -88,7 +88,9 @@ enum QueueSmartOrder {
         notice.show(message)
     }
 
-    static func reorderUpcoming() -> Outcome {
+    /// `freezeNext`: la cancion que va a continuacion no se mueve (su mezcla ya puede estar planificada o preparada); se ordena el resto
+    /// a partir de ella.
+    static func reorderUpcoming(freezeNext: Bool = false) -> Outcome {
         let np = NowPlaying.shared
         guard np.queueSongs.indices.contains(np.queueIndex), np.queueIndex + 1 < np.queueSongs.count else {
             return .nothingToOrder
@@ -97,8 +99,11 @@ enum QueueSmartOrder {
 
         let store = TrackAnalysisStore.shared
         let current = np.queueSongs[np.queueIndex]
-        let head = Array(np.queueSongs[...np.queueIndex])
-        let upcoming = Array(np.queueSongs[(np.queueIndex + 1)...])
+        var head = Array(np.queueSongs[...np.queueIndex])
+        var upcoming = Array(np.queueSongs[(np.queueIndex + 1)...])
+        // Con la siguiente fija, esta pasa a ser parte de lo que ya esta colocado y el orden sigue desde ella.
+        let frozen: SongItem? = freezeNext && upcoming.count >= 2 ? upcoming.removeFirst() : nil
+        if let frozen { head.append(frozen) }
 
         for song in upcoming.prefix(analyzeAhead) { store.request(song.videoId) }
 
@@ -114,7 +119,7 @@ enum QueueSmartOrder {
         guard pool.count >= 2 else { return .done(ordered: pool.count, pending: pending.count) }
 
         // Se parte de la que suena (si esta analizada) y siempre se elige la siguiente que mejor encaja con la ultima.
-        var last: TrackStructure? = store.structure(for: current.videoId)
+        var last: TrackStructure? = store.structure(for: (frozen ?? current).videoId)
         var ordered: [SongItem] = []
         while !pool.isEmpty {
             var bestIndex = 0
@@ -135,8 +140,9 @@ enum QueueSmartOrder {
         if newQueue.map(\.videoId) != np.queueSongs.map(\.videoId) {
             np.queueSongs = newQueue
             np.persistQueueState()
-            // La mezcla que estaba planificada era con la que iba despues: se rehace con la nueva siguiente.
-            AutoMixEngine.shared.replan()
+            // La mezcla que estaba planificada era con la que iba despues: se rehace con la nueva siguiente (si la siguiente no se
+            // ha movido, lo planificado sigue valiendo).
+            if frozen == nil { AutoMixEngine.shared.replan() }
         }
         PlaybackReport.record("cola: ordenada por BPM y tonalidad (\(ordered.count) ordenadas, \(pending.count) sin analizar)")
         return .done(ordered: ordered.count, pending: pending.count)

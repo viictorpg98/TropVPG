@@ -393,25 +393,25 @@ struct FullPlayerView: View {
 
                 // Mezclar con la siguiente. El propio boton cuenta lo que pasa: se prepara, y luego, mientras suena la
                 // mezcla, se convierte en "AutoMix" con las ondas; al acabar vuelve a ser "Mezclar" (no se oculta ni aparece).
-                if settings.autoMixEnabled, np.hasNext || AutoMixVisuals.shared.isMixing {
+                if MixTransition.mixingEnabled, np.hasNext || AutoMixVisuals.shared.isMixing {
                     MixNowPill {
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                         AutoMixEngine.shared.mixNow()
                     }
                 }
 
-                // DJ: una sesion que se enciende y se apaga aqui. Encendido, el boton se ilumina y las ondas se animan mientras habla.
+                // DJ: una sesion que se enciende y se apaga aqui. Encendido, el boton se ilumina y las ondas se animan mientras mezcla.
                 PlayerPillButton(
                     systemImage: dj.sessionActive ? "waveform" : "mic",
                     title: "DJ",
                     isActive: dj.sessionActive,
                     accessibility: "DJ",
-                    pulses: dj.speaking
+                    pulses: dj.sessionActive && AutoMixVisuals.shared.isMixing
                 ) {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    let on = DJHost.shared.toggle()
+                    let on = DJSession.shared.toggle()
                     PlaybackNotice.shared.show(NSLocalizedString(
-                        on ? "DJ started. It will introduce songs as they play." : "DJ stopped.", comment: ""
+                        on ? "DJ on. It sorts the queue and mixes the songs." : "DJ stopped.", comment: ""
                     ))
                 }
 

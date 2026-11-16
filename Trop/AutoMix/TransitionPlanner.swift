@@ -24,6 +24,8 @@ struct TransitionPlan: Equatable {
     var incomingSpeedRatio: Double
     /// El estilo de mezcla con que se hizo (lo elige el aprendizaje); sirve para aprender de su valoracion.
     var styleKey: String?
+    /// Como suena la transicion (fundido simple o con filtros).
+    var sound: MixSound = .blend
 }
 
 enum TransitionPlanner {
@@ -43,19 +45,20 @@ enum TransitionPlanner {
     /// que no se pisen (acortando la mezcla o moviendo los puntos de corte y de entrada); sin ellas, limita la duracion.
     static func plan(
         outgoing: TrackStructure, incoming: TrackStructure, vocals: Vocals? = nil, forcedStartMs: Int64? = nil,
-        style: MixStyle? = nil, maxEarlyMs: Int64 = 30_000
+        style: MixStyle? = nil, maxEarlyMs: Int64 = 30_000, forcedIncomingMs: Int64? = nil
     ) -> (plan: TransitionPlan, note: String)? {
         guard var result = planUnstyled(
             outgoing: outgoing, incoming: incoming, vocals: vocals, forcedStartMs: forcedStartMs, style: style,
-            maxEarlyMs: maxEarlyMs
+            maxEarlyMs: maxEarlyMs, forcedIncomingMs: forcedIncomingMs
         ) else { return nil }
         result.plan.styleKey = style?.key
+        result.plan.sound = style?.sound ?? .blend
         return result
     }
 
     private static func planUnstyled(
         outgoing: TrackStructure, incoming: TrackStructure, vocals: Vocals?, forcedStartMs: Int64?, style: MixStyle?,
-        maxEarlyMs: Int64
+        maxEarlyMs: Int64, forcedIncomingMs: Int64?
     ) -> (plan: TransitionPlan, note: String)? {
         guard outgoing.beatMs > 0, outgoing.bpm > 0, incoming.bpm > 0 else { return nil }
         // El cambio de tempo se reparte entre las dos canciones (cada una la raiz de la diferencia), asi ninguna se
@@ -75,7 +78,9 @@ enum TransitionPlanner {
         if full == 1, abs(1 - folded) > 0.07 { baseDuration = min(baseDuration, 8_000) }
 
         let knownVocals = vocals?.outgoing != nil && vocals?.incoming != nil
-        if !knownVocals { baseDuration = min(baseDuration, 10_000) }
+        // Sin saber cuando cantan, la mezcla se limita a 10 s para que las voces no se pisen; si la duracion la ha elegido la persona,
+        // se respeta.
+        if !knownVocals, style?.manual != true { baseDuration = min(baseDuration, 10_000) }
 
         let bar = Int64(outgoing.beatMs * 4)
         let incomingBar = Int64(incoming.beatMs * 4)
@@ -94,7 +99,7 @@ enum TransitionPlanner {
                         outgoing: outgoing, incoming: incoming, durationMs: duration,
                         outgoingRatio: outgoingRatio, incomingRatio: incomingRatio,
                         cutShiftMs: cutShift, incomingShiftMs: incomingShift, forcedStartMs: forcedStartMs,
-                        maxEarlyMs: maxEarlyMs
+                        maxEarlyMs: maxEarlyMs, forcedIncomingMs: forcedIncomingMs
                     ) else { continue }
                     guard knownVocals, let out = vocals?.outgoing, let inc = vocals?.incoming else {
                         return (candidate, "voces desconocidas, mezcla limitada a \(duration / 1000) s")
@@ -121,7 +126,7 @@ enum TransitionPlanner {
     private static func build(
         outgoing: TrackStructure, incoming: TrackStructure, durationMs: Int64,
         outgoingRatio: Double, incomingRatio: Double, cutShiftMs: Int64, incomingShiftMs: Int64, forcedStartMs: Int64? = nil,
-        maxEarlyMs: Int64 = 30_000
+        maxEarlyMs: Int64 = 30_000, forcedIncomingMs: Int64? = nil
     ) -> TransitionPlan? {
         // La saliente recorre mas (o menos) de su propia linea de tiempo de lo que dura la mezcla, porque
         // cambia de velocidad: media a mitad de rampa y luego la mantiene.
@@ -151,12 +156,17 @@ enum TransitionPlanner {
         // La entrante entra por el inicio de compas mas cercano al punto donde su intro acabaria con la mezcla.
         let incomingAdvance = AutoMixMath.incomingAdvanceMs(durationMs: durationMs, startRatio: incomingRatio)
         var incomingStart: Int64 = 0
-        if let introEnd = incoming.introEndMs {
-            incomingStart = max(introEnd - incomingAdvance, 0)
+        if let forcedIn = forcedIncomingMs {
+            // Elegido a mano: se entra donde se pidio (ajustado al inicio de compas mas cercano).
+            incomingStart = max(forcedIn, 0)
         } else {
-            incomingStart = incoming.firstSoundMs
+            if let introEnd = incoming.introEndMs {
+                incomingStart = max(introEnd - incomingAdvance, 0)
+            } else {
+                incomingStart = incoming.firstSoundMs
+            }
+            incomingStart = max(incomingStart - incomingShiftMs, 0)
         }
-        incomingStart = max(incomingStart - incomingShiftMs, 0)
         if let bar = incoming.downbeatsMs.min(by: { abs($0 - incomingStart) < abs($1 - incomingStart) }),
            abs(bar - incomingStart) < Int64(incoming.beatMs * 4) {
             incomingStart = bar

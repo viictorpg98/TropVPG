@@ -10,6 +10,12 @@
 
 import Foundation
 
+/// Como suena la transicion: "blend" es la de siempre (filtros que se cierran y se abren e intercambio de graves) y "fade" un
+/// fundido simple (la saliente baja y la entrante sube, sin filtros).
+enum MixSound: String, CaseIterable {
+    case blend, fade
+}
+
 /// Como se hace una mezcla concreta.
 struct MixStyle: Equatable {
     enum Length: String, CaseIterable {
@@ -30,6 +36,10 @@ struct MixStyle: Equatable {
     var matchTempo = true
     /// "near" (tempos parecidos) o "far" (muy distintos).
     var context: String
+    /// Como suena la transicion (solo se cambia a mano; el aprendizaje no lo toca).
+    var sound: MixSound = .blend
+    /// Elegido a mano en el editor de la mezcla: el limite de duracion de las canciones sin voces conocidas no se aplica.
+    var manual = false
 
     var key: String { "\(context)|\(length.rawValue)|\(matchTempo ? "tempo" : "libre")" }
 
@@ -101,7 +111,10 @@ final class MixLearning {
         let standard = MixStyle(length: .medium, matchTempo: true, context: context)
         // Lo elegido a mano para esta pareja manda sobre todo lo demas ("dejar el tempo" solo vale si los tempos son parecidos).
         if let manual = ManualMixStore.shared.choice(outId: outId, inId: inId) {
-            return MixStyle(length: manual.length, matchTempo: context == "near" ? manual.matchTempo : true, context: context)
+            return MixStyle(
+                length: manual.length, matchTempo: context == "near" ? manual.matchTempo : true, context: context,
+                sound: manual.sound, manual: true
+            )
         }
         guard SettingsStore.shared.autoMixLearns else { return standard }
         let pair = Self.pairKey(outId, inId)

@@ -90,7 +90,7 @@ final class AutoMixEngine {
     // MARK: - Llamada desde el temporizador de NowPlaying (cada 0,25 s)
 
     func tick(position: TimeInterval) {
-        guard SettingsStore.shared.autoMixEnabled else {
+        guard MixTransition.mixingEnabled else {
             if phase != .idle { cancel("desactivado") }
             dropPrepared()
             return
@@ -146,11 +146,25 @@ final class AutoMixEngine {
         let vocals = TransitionPlanner.Vocals(
             outgoing: VocalMaskStore.shared.segments(for: outId), incoming: VocalMaskStore.shared.segments(for: inId)
         )
-        let style = MixLearning.shared.style(outId: outId, inId: inId, outBpm: out.bpm, inBpm: inc.bpm)
-        let result = TransitionPlanner.plan(
-            outgoing: out, incoming: inc, vocals: vocals, style: style,
-            maxEarlyMs: SettingsStore.shared.autoMixTiming.maxEarlyMs
+        // Estilo, punto de salida y de entrada: lo elegido a mano, o lo que decide el DJ, o lo de siempre (misma funcion que usa el editor).
+        let inputs = MixTransition.planInputs(
+            outId: outId, inId: inId, outgoing: out, incoming: inc, currentTime: PlayerController.shared.currentTime
         )
+        let style = inputs.style
+        let maxEarly = SettingsStore.shared.autoMixTiming.maxEarlyMs
+        var result = TransitionPlanner.plan(
+            outgoing: out, incoming: inc, vocals: vocals, forcedStartMs: inputs.forcedStartMs, style: style,
+            maxEarlyMs: maxEarly, forcedIncomingMs: inputs.forcedIncomingMs
+        )
+        if result == nil, inputs.forcedStartMs != nil {
+            // El punto pedido no cabe (cerca del final, o sin margen): se hace la mezcla de siempre, al final de la cancion.
+            PlaybackReport.record("automix: el punto de corte pedido no es posible, se usa el final natural")
+            result = TransitionPlanner.plan(
+                outgoing: out, incoming: inc, vocals: vocals, style: style, maxEarlyMs: maxEarly,
+                forcedIncomingMs: inputs.forcedIncomingMs
+            )
+        }
+        if let note = inputs.djNote { PlaybackReport.record("dj: \(outId) -> \(inId): \(note)") }
         let plan = result?.plan
         planCache = (outId, inId, plan)
         PlaybackReport.record(result.map {
@@ -191,12 +205,13 @@ final class AutoMixEngine {
             // Una entrante larga no cabe entera en el archivo de la mezcla: lleva solo unos segundos y mpv sigue luego en streaming.
             // (tambien las de 8-10 min: el resto de la cancion no cabria en los 8 min maximos del archivo.)
             let tailStream = TrackAnalysisStore.shared.isLong(inId) || (inSource.duration ?? 0) > MixRenderer.maxRestSeconds - 30
+            let plainFade = plan.sound == .fade
             let rendered = await Task.detached(priority: .userInitiated) {
                 MixRenderer.render(
                     outgoingURL: outURL, outgoingStart: cutAt,
                     incomingURL: inURL, incomingStart: inStart,
                     duration: duration, outgoingRatio: outgoingRatio, incomingRatio: incomingRatio,
-                    tailStream: tailStream
+                    tailStream: tailStream, plainFade: plainFade
                 )
             }.value
             guard let rendered else {
@@ -477,7 +492,7 @@ final class AutoMixEngine {
     /// segundos: lo que tardo la ultima vez, con un margen).
     @discardableResult
     func mixNow() -> Bool {
-        guard SettingsStore.shared.autoMixEnabled else { return false }
+        guard MixTransition.mixingEnabled else { return false }
         guard !AutoMixVisuals.shared.preparingManual else { return false }
         // Ya hay una mezcla automatica preparandose o armada (el final de la cancion esta cerca): antes no se enseñaba nada.
         // Ahora se ve el aviso animado hasta que empieza, que sera en unos segundos.
@@ -570,7 +585,8 @@ final class AutoMixEngine {
             )
             let style = MixLearning.shared.style(outId: outId, inId: inId, outBpm: out.bpm, inBpm: inc.bpm)
             guard let result = TransitionPlanner.plan(
-                outgoing: out, incoming: inc, vocals: vocals, forcedStartMs: startMs, style: style
+                outgoing: out, incoming: inc, vocals: vocals, forcedStartMs: startMs, style: style,
+                forcedIncomingMs: ManualMixStore.shared.choice(outId: outId, inId: inId)?.inStartMs
             ) else {
                 abortManual("Not enough of the song is left to mix.")
                 return
@@ -623,7 +639,7 @@ final class AutoMixEngine {
 
     /// Segundo de `outId` donde empezara la mezcla con la siguiente, si ya esta planificada (para la marca de la barra).
     func plannedMixStart(for outId: String) -> TimeInterval? {
-        guard SettingsStore.shared.autoMixEnabled, let cached = planCache, cached.outId == outId, let plan = cached.plan else { return nil }
+        guard MixTransition.mixingEnabled, let cached = planCache, cached.outId == outId, let plan = cached.plan else { return nil }
         return Double(plan.outgoingStartMs) / 1000
     }
 

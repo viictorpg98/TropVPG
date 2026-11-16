@@ -16,18 +16,42 @@ final class ManualMixStore {
     struct Choice: Equatable {
         var length: MixStyle.Length
         var matchTempo: Bool
+        /// Como suena la transicion.
+        var sound: MixSound = .blend
+        /// Donde deja la saliente (ms de su cancion) y por donde entra la entrante; `nil`: lo decide AutoMix. Se ajustan a compas.
+        var outStartMs: Int64?
+        var inStartMs: Int64?
 
-        var stored: String { "\(length.rawValue)|\(matchTempo ? "tempo" : "libre")" }
+        /// "duracion|tempo|sonido|salida|entrada" (los guardados antiguos solo llevan los dos primeros campos).
+        var stored: String {
+            [
+                length.rawValue, matchTempo ? "tempo" : "libre", sound.rawValue,
+                outStartMs.map(String.init) ?? "-", inStartMs.map(String.init) ?? "-"
+            ].joined(separator: "|")
+        }
 
-        init(length: MixStyle.Length, matchTempo: Bool) {
+        init(
+            length: MixStyle.Length, matchTempo: Bool, sound: MixSound = .blend, outStartMs: Int64? = nil, inStartMs: Int64? = nil
+        ) {
             self.length = length
             self.matchTempo = matchTempo
+            self.sound = sound
+            self.outStartMs = outStartMs
+            self.inStartMs = inStartMs
         }
 
         init?(stored: String) {
-            let parts = stored.split(separator: "|").map(String.init)
-            guard parts.count == 2, let length = MixStyle.Length(rawValue: parts[0]) else { return nil }
-            self.init(length: length, matchTempo: parts[1] == "tempo")
+            let parts = stored.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+            guard parts.count >= 2, let length = MixStyle.Length(rawValue: parts[0]) else { return nil }
+            var sound = MixSound.blend
+            var outStart: Int64?
+            var inStart: Int64?
+            if parts.count >= 5 {
+                sound = MixSound(rawValue: parts[2]) ?? .blend
+                outStart = Int64(parts[3])
+                inStart = Int64(parts[4])
+            }
+            self.init(length: length, matchTempo: parts[1] == "tempo", sound: sound, outStartMs: outStart, inStartMs: inStart)
         }
     }
 
@@ -64,6 +88,11 @@ final class ManualMixStore {
 /// Guardar la transicion elegida para una pareja y aplicarla: si es la de la cancion que suena con la siguiente, se rehace el plan.
 @MainActor
 enum MixTransition {
+    /// Hay mezclas: con AutoMix encendido en Ajustes o con una sesion de DJ en marcha (el DJ mezcla aunque AutoMix este apagado).
+    static var mixingEnabled: Bool {
+        SettingsStore.shared.autoMixEnabled || DJSettings.shared.sessionActive
+    }
+
     /// Guarda la eleccion (`nil`: que decida AutoMix) y devuelve el texto que explica cuando se aplicara.
     @discardableResult
     static func apply(_ choice: ManualMixStore.Choice?, outId: String, inId: String) -> String {
@@ -71,7 +100,7 @@ enum MixTransition {
         let np = NowPlaying.shared
         let isNext = np.queueSongs.indices.contains(np.queueIndex) && np.queueIndex + 1 < np.queueSongs.count
             && np.queueSongs[np.queueIndex].videoId == outId && np.queueSongs[np.queueIndex + 1].videoId == inId
-        guard SettingsStore.shared.autoMixEnabled else {
+        guard mixingEnabled else {
             return NSLocalizedString("Saved, but AutoMix is off: turn it on in Settings to use it.", comment: "")
         }
         guard isNext else {
@@ -87,10 +116,65 @@ enum MixTransition {
     /// El nombre corto de lo elegido, para la etiqueta entre dos canciones ("Automatic" si no se ha tocado).
     static func title(for choice: ManualMixStore.Choice?) -> String {
         guard let choice else { return NSLocalizedString("Automatic", comment: "") }
+        var title: String
         switch choice.length {
-        case .short: return NSLocalizedString("Short Blend", comment: "")
-        case .medium: return NSLocalizedString("Medium Blend", comment: "")
-        case .long: return NSLocalizedString("Long Blend", comment: "")
+        case .short: title = NSLocalizedString("Short Blend", comment: "")
+        case .medium: title = NSLocalizedString("Medium Blend", comment: "")
+        case .long: title = NSLocalizedString("Long Blend", comment: "")
         }
+        if choice.sound == .fade { title += " · " + NSLocalizedString("Fade", comment: "") }
+        if choice.outStartMs != nil || choice.inStartMs != nil { title += " · " + NSLocalizedString("Custom points", comment: "") }
+        return title
+    }
+
+    /// Todo lo que decide como se mezcla una pareja: el estilo, donde deja la saliente y por donde entra la entrante. Lo usan el motor
+    /// (la mezcla de verdad) y el editor (la vista previa), para que lo que se ve sea lo que suena.
+    struct PlanInputs {
+        var style: MixStyle
+        var forcedStartMs: Int64?
+        var forcedIncomingMs: Int64?
+        /// Lo que decidio el DJ (para el informe), si decidio algo.
+        var djNote: String?
+    }
+
+    /// - `currentTime`: donde va la saliente ahora (0 si no es la que suena). Un punto de salida elegido a mano que ya queda a menos de
+    ///   10 s se ignora (la mezcla se haria tarde), y el DJ no elige un corte tan pronto.
+    static func planInputs(
+        outId: String, inId: String, outgoing: TrackStructure, incoming: TrackStructure, currentTime: TimeInterval
+    ) -> PlanInputs {
+        planInputs(
+            outId: outId, inId: inId, outgoing: outgoing, incoming: incoming, currentTime: currentTime,
+            choice: ManualMixStore.shared.choice(outId: outId, inId: inId)
+        )
+    }
+
+    /// Igual, pero con la eleccion a mano dada (el editor la prueba antes de guardarla); `nil` = automatico.
+    static func planInputs(
+        outId: String, inId: String, outgoing: TrackStructure, incoming: TrackStructure, currentTime: TimeInterval,
+        choice: ManualMixStore.Choice?
+    ) -> PlanInputs {
+        let context = MixLearning.context(outgoingBpm: outgoing.bpm, incomingBpm: incoming.bpm)
+        var style: MixStyle
+        if let choice {
+            style = MixStyle(
+                length: choice.length, matchTempo: context == "near" ? choice.matchTempo : true, context: context,
+                sound: choice.sound, manual: true
+            )
+        } else {
+            style = MixLearning.shared.style(outId: outId, inId: inId, outBpm: outgoing.bpm, inBpm: incoming.bpm)
+        }
+        var inputs = PlanInputs(style: style)
+        let minStartMs = Int64((currentTime + 10) * 1000)
+        if let manual = choice {
+            if let start = manual.outStartMs, start >= minStartMs { inputs.forcedStartMs = start }
+            inputs.forcedIncomingMs = manual.inStartMs
+        } else if DJSettings.shared.sessionActive, DJSettings.shared.cutEarly {
+            let decision = DJPlanner.decide(outId: outId, outgoing: outgoing, incoming: incoming, currentTime: currentTime)
+            inputs.forcedStartMs = decision.cutMs
+            if let length = decision.length { style.length = length }
+            inputs.djNote = decision.note
+        }
+        inputs.style = style
+        return inputs
     }
 }

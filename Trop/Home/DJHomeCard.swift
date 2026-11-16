@@ -2,8 +2,8 @@
 //  DJHomeCard.swift
 //  Trop
 //
-//  La tarjeta del DJ en el Inicio (como la de Spotify): un toque arranca tu mezcla con el DJ ya encendido; con el DJ en marcha, un
-//  toque lo para (la musica sigue). Es una sesion: no se guarda, al abrir la app el DJ esta apagado.
+//  La tarjeta del DJ en el Inicio (como la de Spotify): un toque arranca tu mezcla con el DJ ya encendido (ordena la cola y mezcla las
+//  canciones solo); con el DJ en marcha, un toque lo para (la musica sigue). Es una sesion: no se guarda, al abrir la app esta apagado.
 //
 
 import SwiftUI
@@ -25,7 +25,7 @@ struct DJHomeCard: View {
                         Image(systemName: dj.sessionActive ? "waveform" : "mic.fill")
                             .font(.system(size: 18, weight: .semibold))
                             .foregroundStyle(.white)
-                            .symbolEffect(.variableColor.iterative, isActive: dj.speaking)
+                            .symbolEffect(.variableColor.iterative, isActive: dj.sessionActive && AutoMixVisuals.shared.isMixing)
                     }
                 }
                 .frame(width: 44, height: 44)
@@ -34,7 +34,7 @@ struct DJHomeCard: View {
                     Text("DJ")
                         .font(.headline)
                     Text(LocalizedStringKey(
-                        dj.sessionActive ? "The DJ is on. Tap to stop it." : "Your mix, with a host that introduces the songs."
+                        dj.sessionActive ? "The DJ is on. Tap to stop it." : "Your mix, sorted and mixed automatically like a DJ set."
                     ))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -64,19 +64,19 @@ struct DJHomeCard: View {
     private func tap() {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         if dj.sessionActive {
-            DJHost.shared.stop()
+            DJSession.shared.stop()
             PlaybackNotice.shared.show(NSLocalizedString("DJ stopped.", comment: ""))
             return
         }
         guard !isStarting else { return }
         isStarting = true
-        // Se enciende ya (sin presentar lo que sonara antes) y habla al empezar la primera de la mezcla.
-        DJHost.shared.start(introduceCurrent: false)
+        // Se enciende ya y empieza a ordenar y mezclar en cuanto la mezcla tiene canciones.
+        DJSession.shared.start()
         Task {
             let started = await SonarMix.start()
             isStarting = false
             if !started {
-                DJHost.shared.stop()
+                DJSession.shared.stop()
                 PlaybackNotice.shared.show(NSLocalizedString("Couldn't start the mix.", comment: ""))
             }
         }

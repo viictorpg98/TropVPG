@@ -52,7 +52,6 @@
 "Animated Background" = "Fondo animado";
 "App volume" = "Volumen de la app";
 "Appearance" = "Apariencia";
-"Apple Intelligence model: %@" = "Modelo de Apple Intelligence: %@";
 "Applies to buttons, highlights, and selected items." = "Se aplica a botones, resaltados y elementos seleccionados.";
 "Applies to buttons, highlights, and selected items. The neutral accent uses no color: white in the dark theme and black in the light theme." = "Se aplica a botones, resaltados y elementos seleccionados. El acento neutro no usa color: blanco en el tema oscuro y negro en el claro.";
 "April" = "Abril";
@@ -74,7 +73,7 @@
 "AutoMix" = "AutoMix";
 "AutoMix Learns From Your Ratings" = "AutoMix aprende de tus valoraciones";
 "Automatic" = "Automática";
-"Automatic lets AutoMix decide. The mix always starts and ends on the beat; the length changes how long the two songs overlap." = "Automática deja que decida AutoMix. La mezcla siempre empieza y acaba a tempo; la duración cambia cuánto se solapan las dos canciones.";
+"Automatic lets AutoMix (or the DJ) decide. In Manual, what you choose here is used every time these two songs play one after the other." = "Automática deja que decida AutoMix (o el DJ). En Manual, lo que elijas aquí se usa siempre que estas dos canciones suenen una tras otra.";
 "Autoplay Similar" = "Reproducción automática de similares";
 "Back" = "Atrás";
 "Bad mix" = "Mala mezcla";
@@ -84,6 +83,8 @@
 "Bass Reducer" = "Reducción de graves";
 "Beast mode" = "Modo bestia";
 "Bitrate" = "Tasa de bits";
+"Blend" = "Mezcla";
+"Blend closes and opens filters and swaps the bass between the songs. Fade is a plain cross-fade." = "Mezcla cierra y abre filtros e intercambia los graves entre las canciones. Fundido es un fundido simple.";
 "Blends one downloaded song into the next like a DJ: they overlap and the tempo is matched. It only works between downloaded songs; everything else plays as usual. The Playback Report shows what it did." = "Mezcla una canción descargada con la siguiente como un DJ: se solapan y se iguala el tempo. Solo funciona entre canciones descargadas; el resto suena como siempre. El Informe de reproducción cuenta qué hizo.";
 "Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Downloaded songs always mix; streamed songs mix over Wi-Fi, or also on mobile data if you turn that on (it downloads each song's audio an extra time). The Playback Report shows what it did." = "Mezcla una canción con la siguiente como un DJ: se solapan, se iguala el tempo y se intercambian los graves. Las descargadas siempre se mezclan; las de streaming, con Wi-Fi o también con datos móviles si lo activas (se descarga el audio de cada canción una vez más). El Informe de reproducción cuenta qué hizo.";
 "Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Streamed songs mix over Wi-Fi unless Mobile Data for Extras is on." = "Une una canción con la siguiente como un DJ: se solapan, se iguala el tempo y se intercambian los graves. Las canciones en streaming se mezclan con Wi-Fi, salvo que \"Datos móviles para extras\" esté activado.";
@@ -103,6 +104,7 @@
 "Check your connection and try again." = "Revisa tu conexión e inténtalo de nuevo.";
 "Chilled" = "Tranquilo";
 "Choose how the app follows your device appearance." = "Elige cómo sigue la app la apariencia de tu dispositivo.";
+"Choose the Points" = "Elegir los puntos";
 "Choose which library sections sync from your YouTube Music account." = "Elige qué secciones de la biblioteca se sincronizan desde tu cuenta de YouTube Music.";
 "Classical" = "Clásica";
 "Clear" = "Borrar";
@@ -149,9 +151,10 @@
 "Create" = "Crear";
 "Create one below to start collecting songs." = "Crea una abajo para empezar a reunir canciones.";
 "Create playlist" = "Crear lista de reproducción";
+"Custom points" = "puntos propios";
 "Customize Radio" = "Personalizar radio";
 "DJ" = "DJ";
-"DJ started. It will introduce songs as they play." = "DJ iniciado. Presentará las canciones según suenen.";
+"DJ on. It sorts the queue and mixes the songs." = "DJ encendido. Ordena la cola y mezcla las canciones.";
 "DJ stopped." = "DJ parado.";
 "DND" = "No molestar";
 "Daily Discover" = "Descubrimiento diario";
@@ -212,6 +215,7 @@
 "Explicit" = "Explícito";
 "Explore" = "Explorar";
 "Explore failed" = "Error al explorar";
+"Fade" = "Fundido";
 "Fades the music out and stops it after the minutes you say. Say 0 to cancel." = "Baja el volumen poco a poco y para la música pasados los minutos que digas. Di 0 para cancelarlo.";
 "Fans Also Like" = "A los fans también les gusta";
 "Favorites" = "Favoritas";
@@ -249,7 +253,6 @@
 "Government" = "Gobierno";
 "Guest" = "Invitado";
 "Health & Fitness" = "Salud y bienestar";
-"Hi, I'm your DJ. This is my voice." = "Hola, soy tu DJ. Esta es mi voz.";
 "Hidden Artists" = "Artistas ocultos";
 "Hide %@" = "Ocultar a %@";
 "Hide Artist" = "Ocultar artista";
@@ -264,6 +267,7 @@
 "Home" = "Inicio";
 "Home Feed" = "Pantalla de inicio";
 "Hopeless romantic" = "Romántico empedernido";
+"How long the two songs overlap. The mix always starts and ends on the beat." = "Cuánto se solapan las dos canciones. La mezcla siempre empieza y acaba a tempo.";
 "How many minutes?" = "¿Cuántos minutos?";
 "How was the mix?" = "¿Qué tal la mezcla?";
 "I couldn't find that artist." = "No encuentro ese artista.";
@@ -300,8 +304,10 @@
 "Late" = "Tarde";
 "Latin party" = "Fiesta latina";
 "Layout" = "Disposición";
+"Leaves the first song at" = "Deja la primera canción en";
 "Left" = "Izquierda";
 "Leisure" = "Ocio";
+"Length" = "Duración";
 "Lesser-known related tracks" = "Canciones relacionadas menos conocidas";
 "Library" = "Biblioteca";
 "Library Sync" = "Sincronización de la biblioteca";
@@ -330,6 +336,7 @@
 "Loading…" = "Cargando…";
 "Login" = "Iniciar sesión";
 "Logout" = "Cerrar sesión";
+"Long" = "Larga";
 "Long Blend" = "Mezcla larga";
 "Long listens" = "Escuchas largas";
 "Loudness" = "Sonoridad";
@@ -340,6 +347,7 @@
 "Lyrics Font Size" = "Tamaño de la letra";
 "Lyrics Providers" = "Proveedores de letras";
 "Lyrics not found" = "Letra no encontrada";
+"Manual" = "Manual";
 "March" = "Marzo";
 "Match Playlist" = "Lista del partido";
 "Match Tempo" = "Igualar tempo";
@@ -355,12 +363,14 @@
 "Minimum Track Duration" = "Duración mínima de la canción";
 "Minutes" = "Minutos";
 "Mix" = "Mix";
+"Mix Before the Song Ends" = "Mezclar antes de que acabe la canción";
 "Mix Streamed Songs on Mobile Data" = "Mezclar canciones en streaming con datos móviles";
 "Mix Timing" = "Momento de la mezcla";
 "Mix now" = "Mezclar";
 "Mix starts at" = "La mezcla empieza en";
 "Mixed for you" = "Mezclado para ti";
 "Mobile Data for Extras" = "Datos móviles para extras";
+"Mode" = "Modo";
 "Mood & Genres" = "Estados de ánimo y géneros";
 "Moods & genres" = "Estados de ánimo y géneros";
 "Moods & moments" = "Estados de ánimo y momentos";
@@ -371,6 +381,7 @@
 "More…" = "Más…";
 "Most Relevant" = "Más relevantes";
 "Motivation" = "Motivación";
+"Move the points to choose where the first song is left and where the next one comes in. They snap to the nearest beat." = "Mueve los puntos para elegir dónde se deja la primera canción y por dónde entra la siguiente. Se ajustan al pulso más cercano.";
 "Music" = "Música";
 "Music videos" = "Videoclips";
 "Music videos for you" = "Videoclips para ti";
@@ -396,7 +407,6 @@
 "No Playlists" = "Sin listas de reproducción";
 "No Recent Searches" = "Sin búsquedas recientes";
 "No Results" = "Sin resultados";
-"No Spanish voices found on this device." = "No hay voces en español en este dispositivo.";
 "No album data" = "Sin datos del álbum";
 "No artist data" = "Sin datos del artista";
 "No connection and no downloaded songs." = "Sin conexión y sin canciones descargadas.";
@@ -569,6 +579,7 @@
 "Share this playlist with others" = "Comparte esta lista de reproducción con otras personas";
 "Share this podcast with others" = "Comparte este pódcast con otras personas";
 "Share with Other Apps" = "Compartir con otras apps";
+"Short" = "Corta";
 "Short Blend" = "Mezcla corta";
 "Show Again" = "Volver a mostrar";
 "Show Interval Indicator" = "Mostrar indicador de intervalo";
@@ -607,9 +618,9 @@
 "Sort" = "Ordenar";
 "Sort by BPM & Key" = "Ordenar por BPM y tonalidad";
 "Sort results" = "Ordenar resultados";
+"Sort the Queue" = "Ordenar la cola";
 "Sound" = "Sonido";
 "Source" = "Origen";
-"Speak every %d songs" = "Hablar cada %d canciones";
 "Speed Dial" = "Acceso rápido";
 "Spirituality" = "Espiritualidad";
 "SponsorBlock" = "SponsorBlock";
@@ -647,16 +658,13 @@
 "Syncs with your YouTube Music account. This cannot be changed later." = "Se sincroniza con tu cuenta de YouTube Music. No se podrá cambiar después.";
 "System" = "Sistema";
 "TV & Film" = "Cine y televisión";
-"Tap a voice to hear it. For a much better voice, download an Enhanced or Premium Spanish one in the iPhone Settings: Accessibility > Spoken Content > Voices > Spanish. Then come back and pick it here." = "Toca una voz para oírla. Para una voz mucho mejor, descarga una en español Mejorada o Premium en los Ajustes del iPhone: Accesibilidad > Contenido hablado > Voces > Español. Luego vuelve aquí y elígela.";
 "Team playlist" = "Lista del equipo";
 "Technology" = "Tecnología";
 "Template" = "Plantilla";
 "Tempo" = "Tempo";
 "Test" = "Prueba";
-"Test an Introduction" = "Probar una presentación";
-"Testing…" = "Probando…";
 "Thanks!" = "¡Gracias!";
-"The DJ is a session: start it from the DJ button in the player, from the queue menu or from the Home screen. It lowers the music, says a short line over the start of a song and brings the music back." = "El DJ es una sesión: inícialo desde el botón DJ del reproductor, desde el menú de la cola o desde el Inicio. Baja la música, dice una frase corta sobre el principio de una canción y vuelve a subirla.";
+"The DJ is a session: start it from the DJ button in the player, from the queue menu or from the Home screen. While it is on, it sorts the next songs so they fit together (tempo and key) and mixes each song into the next at a good moment, without waiting for it to end, like a DJ. Long songs and podcasts play in full. Mixes between songs that are not downloaded need Wi-Fi, or mobile data allowed in the AutoMix settings." = "El DJ es una sesión: inícialo desde el botón DJ del reproductor, desde el menú de la cola o desde el Inicio. Mientras está encendido, ordena las siguientes canciones para que encajen (tempo y tonalidad) y mezcla cada canción con la siguiente en un buen momento, sin esperar a que acabe, como un DJ. Las canciones largas y los podcasts suenan enteros. Las mezclas entre canciones sin descargar necesitan Wi-Fi, o datos móviles permitidos en los ajustes de AutoMix.";
 "The DJ is on. Tap to stop it." = "El DJ está encendido. Toca para pararlo.";
 "The country controls the region used for YouTube Music requests." = "El país controla la región que se usa en las peticiones a YouTube Music.";
 "The music will stop in %d minutes." = "La música se parará en %d minutos.";
@@ -728,15 +736,13 @@
 "Wi-Fi Only" = "Solo Wi-Fi";
 "Wider mix around this song" = "Mezcla más amplia en torno a esta canción";
 "Workout" = "Entrenamiento";
-"Write With Apple Intelligence" = "Escribir con Apple Intelligence";
-"Writes and says an introduction for the song that is playing now (or an example if nothing is playing). What happened is also saved in the playback report, on the lines starting with dj:." = "Escribe y dice una presentación de la canción que suena ahora (o un ejemplo si no suena nada). Lo que ha pasado también se guarda en el informe de reproducción, en las líneas que empiezan por dj:.";
 "Yesterday" = "Ayer";
 "You have no liked songs saved yet." = "Todavía no tienes canciones que te gusten guardadas.";
 "You won't see their songs on Home or in radios. You can undo it in Settings." = "No verás sus canciones en Inicio ni en las radios. Puedes deshacerlo en Ajustes.";
 "Your New Episodes" = "Tus nuevos episodios";
 "Your Playlists" = "Tus listas de reproducción";
 "Your daily discover" = "Tu descubrimiento diario";
-"Your mix, with a host that introduces the songs." = "Tu mezcla, con un locutor que presenta las canciones.";
+"Your mix, sorted and mixed automatically like a DJ set." = "Tu mezcla, ordenada y mezclada sola como una sesión de DJ.";
 "Your recent searches will appear here." = "Tus búsquedas recientes aparecerán aquí.";
 "Your shows" = "Tus pódcast";
 "long mixes" = "mezclas largas";

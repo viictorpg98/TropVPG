@@ -33,13 +33,15 @@ enum MixRenderer {
     /// - Entrante: desde `incomingStart`, durante `duration` s, un paso alto que se abre de 2 kHz a 20 Hz, con el
     ///   volumen subiendo por seno, los graves entrando en el intercambio y el volumen igualado al de la saliente.
     ///   Si hace falta, empieza a `incomingRatio` veces su velocidad y vuelve a la normal al final.
+    /// `plainFade`: un fundido simple (la saliente baja por coseno y la entrante sube por seno, sin filtros ni intercambio de graves) en
+    /// vez de la mezcla con filtros.
     /// `tailStream`: la entrante es larga (no cabe entera en el archivo de la mezcla): el archivo lleva solo unos segundos de ella
     /// detras de la mezcla (`Output.extra`) y mpv sigue luego con su direccion de internet desde ahi.
     nonisolated static func render(
         outgoingURL: URL, outgoingStart: TimeInterval,
         incomingURL: URL, incomingStart: TimeInterval,
         duration: TimeInterval, outgoingRatio: Double, incomingRatio: Double,
-        tailStream: Bool = false
+        tailStream: Bool = false, plainFade: Bool = false
     ) -> Output? {
         // Misma frecuencia de muestreo que la saliente, para que mpv no tenga que cambiar de formato al encadenar.
         let rate = sampleRate(of: outgoingURL)
@@ -140,6 +142,13 @@ enum MixRenderer {
             }
             for i in 0..<frames {
                 let progress = Double(i) / Double(frames)
+                if plainFade {
+                    let level = pow(match, 1 - progress)
+                    let outSample = Double(outgoing[channel][i]) * cos(progress * Double.pi / 2)
+                    let inSample = Double(incoming[channel][i]) * sin(progress * Double.pi / 2) * level
+                    mixed[channel][i] = Float(max(-1, min(1, outSample + inSample)))
+                    continue
+                }
                 if i % 64 == 0 {
                     let sweep = sweepCurve(progress)
                     lowpass.setLowPass(cutoff: exponential(20_000, 200, sweep), rate: rate)

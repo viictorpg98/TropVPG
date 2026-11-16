@@ -52,7 +52,6 @@
 "Animated Background" = "Animated Background";
 "App volume" = "App volume";
 "Appearance" = "Appearance";
-"Apple Intelligence model: %@" = "Apple Intelligence model: %@";
 "Applies to buttons, highlights, and selected items." = "Applies to buttons, highlights, and selected items.";
 "Applies to buttons, highlights, and selected items. The neutral accent uses no color: white in the dark theme and black in the light theme." = "Applies to buttons, highlights, and selected items. The neutral accent uses no color: white in the dark theme and black in the light theme.";
 "April" = "April";
@@ -74,7 +73,7 @@
 "AutoMix" = "AutoMix";
 "AutoMix Learns From Your Ratings" = "AutoMix Learns From Your Ratings";
 "Automatic" = "Automatic";
-"Automatic lets AutoMix decide. The mix always starts and ends on the beat; the length changes how long the two songs overlap." = "Automatic lets AutoMix decide. The mix always starts and ends on the beat; the length changes how long the two songs overlap.";
+"Automatic lets AutoMix (or the DJ) decide. In Manual, what you choose here is used every time these two songs play one after the other." = "Automatic lets AutoMix (or the DJ) decide. In Manual, what you choose here is used every time these two songs play one after the other.";
 "Autoplay Similar" = "Autoplay Similar";
 "Back" = "Back";
 "Bad mix" = "Bad mix";
@@ -84,6 +83,8 @@
 "Bass Reducer" = "Bass Reducer";
 "Beast mode" = "Beast mode";
 "Bitrate" = "Bitrate";
+"Blend" = "Blend";
+"Blend closes and opens filters and swaps the bass between the songs. Fade is a plain cross-fade." = "Blend closes and opens filters and swaps the bass between the songs. Fade is a plain cross-fade.";
 "Blends one downloaded song into the next like a DJ: they overlap and the tempo is matched. It only works between downloaded songs; everything else plays as usual. The Playback Report shows what it did." = "Blends one downloaded song into the next like a DJ: they overlap and the tempo is matched. It only works between downloaded songs; everything else plays as usual. The Playback Report shows what it did.";
 "Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Downloaded songs always mix; streamed songs mix over Wi-Fi, or also on mobile data if you turn that on (it downloads each song's audio an extra time). The Playback Report shows what it did." = "Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Downloaded songs always mix; streamed songs mix over Wi-Fi, or also on mobile data if you turn that on (it downloads each song's audio an extra time). The Playback Report shows what it did.";
 "Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Streamed songs mix over Wi-Fi unless Mobile Data for Extras is on." = "Blends one song into the next like a DJ: they overlap, the tempo is matched and the bass is swapped. Streamed songs mix over Wi-Fi unless Mobile Data for Extras is on.";
@@ -103,6 +104,7 @@
 "Check your connection and try again." = "Check your connection and try again.";
 "Chilled" = "Chilled";
 "Choose how the app follows your device appearance." = "Choose how the app follows your device appearance.";
+"Choose the Points" = "Choose the Points";
 "Choose which library sections sync from your YouTube Music account." = "Choose which library sections sync from your YouTube Music account.";
 "Classical" = "Classical";
 "Clear" = "Clear";
@@ -149,9 +151,10 @@
 "Create" = "Create";
 "Create one below to start collecting songs." = "Create one below to start collecting songs.";
 "Create playlist" = "Create playlist";
+"Custom points" = "Custom points";
 "Customize Radio" = "Customize Radio";
 "DJ" = "DJ";
-"DJ started. It will introduce songs as they play." = "DJ started. It will introduce songs as they play.";
+"DJ on. It sorts the queue and mixes the songs." = "DJ on. It sorts the queue and mixes the songs.";
 "DJ stopped." = "DJ stopped.";
 "DND" = "DND";
 "Daily Discover" = "Daily Discover";
@@ -212,6 +215,7 @@
 "Explicit" = "Explicit";
 "Explore" = "Explore";
 "Explore failed" = "Explore failed";
+"Fade" = "Fade";
 "Fades the music out and stops it after the minutes you say. Say 0 to cancel." = "Fades the music out and stops it after the minutes you say. Say 0 to cancel.";
 "Fans Also Like" = "Fans Also Like";
 "Favorites" = "Favorites";
@@ -249,7 +253,6 @@
 "Government" = "Government";
 "Guest" = "Guest";
 "Health & Fitness" = "Health & Fitness";
-"Hi, I'm your DJ. This is my voice." = "Hi, I'm your DJ. This is my voice.";
 "Hidden Artists" = "Hidden Artists";
 "Hide %@" = "Hide %@";
 "Hide Artist" = "Hide Artist";
@@ -264,6 +267,7 @@
 "Home" = "Home";
 "Home Feed" = "Home Feed";
 "Hopeless romantic" = "Hopeless romantic";
+"How long the two songs overlap. The mix always starts and ends on the beat." = "How long the two songs overlap. The mix always starts and ends on the beat.";
 "How many minutes?" = "How many minutes?";
 "How was the mix?" = "How was the mix?";
 "I couldn't find that artist." = "I couldn't find that artist.";
@@ -300,8 +304,10 @@
 "Late" = "Late";
 "Latin party" = "Latin party";
 "Layout" = "Layout";
+"Leaves the first song at" = "Leaves the first song at";
 "Left" = "Left";
 "Leisure" = "Leisure";
+"Length" = "Length";
 "Lesser-known related tracks" = "Lesser-known related tracks";
 "Library" = "Library";
 "Library Sync" = "Library Sync";
@@ -330,6 +336,7 @@
 "Loading…" = "Loading…";
 "Login" = "Login";
 "Logout" = "Logout";
+"Long" = "Long";
 "Long Blend" = "Long Blend";
 "Long listens" = "Long listens";
 "Loudness" = "Loudness";
@@ -340,6 +347,7 @@
 "Lyrics Font Size" = "Lyrics Font Size";
 "Lyrics Providers" = "Lyrics Providers";
 "Lyrics not found" = "Lyrics not found";
+"Manual" = "Manual";
 "March" = "March";
 "Match Playlist" = "Match Playlist";
 "Match Tempo" = "Match Tempo";
@@ -355,12 +363,14 @@
 "Minimum Track Duration" = "Minimum Track Duration";
 "Minutes" = "Minutes";
 "Mix" = "Mix";
+"Mix Before the Song Ends" = "Mix Before the Song Ends";
 "Mix Streamed Songs on Mobile Data" = "Mix Streamed Songs on Mobile Data";
 "Mix Timing" = "Mix Timing";
 "Mix now" = "Mix now";
 "Mix starts at" = "Mix starts at";
 "Mixed for you" = "Mixed for you";
 "Mobile Data for Extras" = "Mobile Data for Extras";
+"Mode" = "Mode";
 "Mood & Genres" = "Mood & Genres";
 "Moods & genres" = "Moods & genres";
 "Moods & moments" = "Moods & moments";
@@ -371,6 +381,7 @@
 "More…" = "More…";
 "Most Relevant" = "Most Relevant";
 "Motivation" = "Motivation";
+"Move the points to choose where the first song is left and where the next one comes in. They snap to the nearest beat." = "Move the points to choose where the first song is left and where the next one comes in. They snap to the nearest beat.";
 "Music" = "Music";
 "Music videos" = "Music videos";
 "Music videos for you" = "Music videos for you";
@@ -396,7 +407,6 @@
 "No Playlists" = "No Playlists";
 "No Recent Searches" = "No Recent Searches";
 "No Results" = "No Results";
-"No Spanish voices found on this device." = "No Spanish voices found on this device.";
 "No album data" = "No album data";
 "No artist data" = "No artist data";
 "No connection and no downloaded songs." = "No connection and no downloaded songs.";
@@ -569,6 +579,7 @@
 "Share this playlist with others" = "Share this playlist with others";
 "Share this podcast with others" = "Share this podcast with others";
 "Share with Other Apps" = "Share with Other Apps";
+"Short" = "Short";
 "Short Blend" = "Short Blend";
 "Show Again" = "Show Again";
 "Show Interval Indicator" = "Show Interval Indicator";
@@ -607,9 +618,9 @@
 "Sort" = "Sort";
 "Sort by BPM & Key" = "Sort by BPM & Key";
 "Sort results" = "Sort results";
+"Sort the Queue" = "Sort the Queue";
 "Sound" = "Sound";
 "Source" = "Source";
-"Speak every %d songs" = "Speak every %d songs";
 "Speed Dial" = "Speed Dial";
 "Spirituality" = "Spirituality";
 "SponsorBlock" = "SponsorBlock";
@@ -647,16 +658,13 @@
 "Syncs with your YouTube Music account. This cannot be changed later." = "Syncs with your YouTube Music account. This cannot be changed later.";
 "System" = "System";
 "TV & Film" = "TV & Film";
-"Tap a voice to hear it. For a much better voice, download an Enhanced or Premium Spanish one in the iPhone Settings: Accessibility > Spoken Content > Voices > Spanish. Then come back and pick it here." = "Tap a voice to hear it. For a much better voice, download an Enhanced or Premium Spanish one in the iPhone Settings: Accessibility > Spoken Content > Voices > Spanish. Then come back and pick it here.";
 "Team playlist" = "Team playlist";
 "Technology" = "Technology";
 "Template" = "Template";
 "Tempo" = "Tempo";
 "Test" = "Test";
-"Test an Introduction" = "Test an Introduction";
-"Testing…" = "Testing…";
 "Thanks!" = "Thanks!";
-"The DJ is a session: start it from the DJ button in the player, from the queue menu or from the Home screen. It lowers the music, says a short line over the start of a song and brings the music back." = "The DJ is a session: start it from the DJ button in the player, from the queue menu or from the Home screen. It lowers the music, says a short line over the start of a song and brings the music back.";
+"The DJ is a session: start it from the DJ button in the player, from the queue menu or from the Home screen. While it is on, it sorts the next songs so they fit together (tempo and key) and mixes each song into the next at a good moment, without waiting for it to end, like a DJ. Long songs and podcasts play in full. Mixes between songs that are not downloaded need Wi-Fi, or mobile data allowed in the AutoMix settings." = "The DJ is a session: start it from the DJ button in the player, from the queue menu or from the Home screen. While it is on, it sorts the next songs so they fit together (tempo and key) and mixes each song into the next at a good moment, without waiting for it to end, like a DJ. Long songs and podcasts play in full. Mixes between songs that are not downloaded need Wi-Fi, or mobile data allowed in the AutoMix settings.";
 "The DJ is on. Tap to stop it." = "The DJ is on. Tap to stop it.";
 "The country controls the region used for YouTube Music requests." = "The country controls the region used for YouTube Music requests.";
 "The music will stop in %d minutes." = "The music will stop in %d minutes.";
@@ -728,15 +736,13 @@
 "Wi-Fi Only" = "Wi-Fi Only";
 "Wider mix around this song" = "Wider mix around this song";
 "Workout" = "Workout";
-"Write With Apple Intelligence" = "Write With Apple Intelligence";
-"Writes and says an introduction for the song that is playing now (or an example if nothing is playing). What happened is also saved in the playback report, on the lines starting with dj:." = "Writes and says an introduction for the song that is playing now (or an example if nothing is playing). What happened is also saved in the playback report, on the lines starting with dj:.";
 "Yesterday" = "Yesterday";
 "You have no liked songs saved yet." = "You have no liked songs saved yet.";
 "You won't see their songs on Home or in radios. You can undo it in Settings." = "You won't see their songs on Home or in radios. You can undo it in Settings.";
 "Your New Episodes" = "Your New Episodes";
 "Your Playlists" = "Your Playlists";
 "Your daily discover" = "Your daily discover";
-"Your mix, with a host that introduces the songs." = "Your mix, with a host that introduces the songs.";
+"Your mix, sorted and mixed automatically like a DJ set." = "Your mix, sorted and mixed automatically like a DJ set.";
 "Your recent searches will appear here." = "Your recent searches will appear here.";
 "Your shows" = "Your shows";
 "long mixes" = "long mixes";
