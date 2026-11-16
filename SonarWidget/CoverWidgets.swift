@@ -5,7 +5,10 @@
 //  Tres widgets de portadas, como el de YouTube Music: tus Selecciones rapidas, tu Acceso rapido (con el dado) y tus nuevos
 //  episodios. Al tocar una portada suena esa cancion con su radio. Los datos y las portadas los deja la app en una carpeta
 //  compartida (Shared/WidgetShared.swift); si el sistema no da esa carpeta al widget, enseña el motivo en vez de las portadas.
-//  En CarPlay solo sale la version pequena (2x2); en la pantalla de inicio tambien la mediana (4 en fila).
+//  En CarPlay solo sale la version pequena; en la pantalla de inicio tambien la mediana.
+//
+//  Canciones: cuadricula de portadas cuadradas con el titulo abajo. Podcasts: miniaturas anchas (se ven casi enteras: solo se
+//  recorta un poco arriba y abajo) con el titulo del episodio; 2 en la pequena (una sobre otra) y 4 en la mediana (2x2).
 //
 
 import AppIntents
@@ -52,6 +55,9 @@ enum CoverKind {
     /// El Acceso rapido lleva el dado en la cuarta casilla.
     var hasDice: Bool { self == .speedDial }
 
+    /// Los episodios llevan miniaturas anchas (16:9), no portadas cuadradas.
+    var isWide: Bool { self == .episodes }
+
     var emptyMessageEs: String {
         switch self {
         case .quickPicks: return "Abre Sonar para cargar tus Selecciones rápidas"
@@ -88,19 +94,27 @@ struct CoverWidgetView: View {
     let kind: CoverKind
 
     @Environment(\.widgetFamily) private var family
-    @Environment(\.showsWidgetContainerBackground) private var showsBackground
 
     private var spanish: Bool {
         Locale.preferredLanguages.first?.hasPrefix("es") ?? false
     }
 
     private static let plateColor = Color(red: 0.16, green: 0.16, blue: 0.18)
+    /// Esquinas concentricas con las del widget (unos 24 pt) menos el margen de 9 pt.
+    private static let cornerRadius: CGFloat = 16
+    private static let gap: CGFloat = 8
+    private static let margin: CGFloat = 9
 
     // MARK: Casillas
 
+    /// Cuantas casillas lleva cada widget: 4 (2x2 o 4 en fila), salvo episodios pequeños, que son 2 apilados.
+    private var slots: Int {
+        if kind.isWide && family != .systemMedium { return 2 }
+        return 4
+    }
+
     private func cells(for snapshot: WidgetSnapshot) -> [CoverCell] {
         let tracks = kind.tracks(in: snapshot)
-        let slots = 4
         let realSlots = kind.hasDice ? slots - 1 : slots
         var result: [CoverCell] = tracks.prefix(realSlots).map { .track($0) }
         var filler = 0
@@ -115,7 +129,7 @@ struct CoverWidgetView: View {
     private func placeholder() -> some View {
         ZStack {
             Self.plateColor
-            Image(systemName: "music.note")
+            Image(systemName: kind.isWide ? "mic.fill" : "music.note")
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.35))
         }
@@ -130,12 +144,39 @@ struct CoverWidgetView: View {
         }
     }
 
+    /// Franja oscura con el titulo abajo (se degrada hacia arriba para que no haya un corte seco).
+    private func titleScrim(_ title: String, lines: Int) -> some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 0)
+            Text(title)
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+                .lineLimit(lines)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 7)
+                .padding(.top, 16)
+                .padding(.bottom, 5)
+                .background(
+                    LinearGradient(colors: [.clear, Color.black.opacity(0.78)], startPoint: .top, endPoint: .bottom)
+                )
+        }
+    }
+
     /// Casilla cuadrada: el contenido llena el cuadrado y se recorta con esquinas redondeadas.
     private func square<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         Color.clear
             .aspectRatio(1, contentMode: .fit)
             .overlay(content())
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
+    }
+
+    /// Casilla que ocupa todo el hueco que le toque (miniaturas anchas): la imagen llena el hueco y recorta lo que sobra.
+    private func flexible<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        Color.clear
+            .overlay(content())
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
     }
 
     private var diceCell: some View {
@@ -160,17 +201,50 @@ struct CoverWidgetView: View {
     }
 
     @ViewBuilder
+    private func trackCell(_ track: WidgetTrack) -> some View {
+        let intent = WidgetPlayTrackIntent(
+            videoId: track.id,
+            songTitle: track.title,
+            songArtist: track.artist,
+            songDuration: track.duration ?? 0,
+            isEpisode: track.episode ?? false
+        )
+        if kind.isWide {
+            Button(intent: intent) {
+                flexible {
+                    ZStack {
+                        coverImage(track)
+                        titleScrim(track.title, lines: 2)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+        } else {
+            Button(intent: intent) {
+                square {
+                    ZStack {
+                        coverImage(track)
+                        titleScrim(track.title, lines: 1)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
     private func cell(_ cell: CoverCell) -> some View {
         switch cell {
         case .track(let track):
-            Button(intent: WidgetPlayTrackIntent(videoId: track.id, songTitle: track.title, songArtist: track.artist)) {
-                square { coverImage(track) }
-            }
-            .buttonStyle(.plain)
+            trackCell(track)
         case .dice:
             diceCell
         case .empty:
-            square { placeholder() }
+            if kind.isWide {
+                flexible { placeholder() }
+            } else {
+                square { placeholder() }
+            }
         }
     }
 
@@ -178,12 +252,18 @@ struct CoverWidgetView: View {
 
     private func grid(_ cells: [CoverCell]) -> some View {
         Group {
-            if family == .systemMedium {
-                HStack(spacing: 8) {
+            if kind.isWide && family != .systemMedium {
+                // Podcasts pequeño: dos miniaturas, una sobre otra, a todo el ancho.
+                VStack(spacing: Self.gap) {
+                    cell(cells[0])
+                    cell(cells[1])
+                }
+            } else if family == .systemMedium && !kind.isWide {
+                HStack(spacing: Self.gap) {
                     ForEach(cells) { self.cell($0) }
                 }
             } else {
-                Grid(horizontalSpacing: 6, verticalSpacing: 6) {
+                Grid(horizontalSpacing: Self.gap, verticalSpacing: Self.gap) {
                     GridRow {
                         cell(cells[0])
                         cell(cells[1])
@@ -254,7 +334,7 @@ struct CoverWidgetView: View {
 
     var body: some View {
         content
-            .padding(6)
+            .padding(Self.margin)
             .containerBackground(Color(red: 0.08, green: 0.08, blue: 0.09), for: .widget)
     }
 }
@@ -289,7 +369,7 @@ struct SonarEpisodesWidget: Widget {
             CoverWidgetView(entry: entry, kind: .episodes)
         }
         .configurationDisplayName("Sonar · Podcasts")
-        .description("Portadas de tus nuevos episodios.")
+        .description("Tus nuevos episodios: toca uno y suena.")
         .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()
     }

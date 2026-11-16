@@ -19,6 +19,10 @@ struct WidgetTrack: Codable, Hashable {
     var title: String
     var artist: String
     var cover: String?
+    /// Duracion en segundos y si es un episodio de podcast: la app los necesita al reproducir (sin ellos, un episodio de 88 min se
+    /// pedia como una cancion normal y YouTube rechazaba la direccion). Opcionales para leer datos escritos por versiones anteriores.
+    var duration: Int?
+    var episode: Bool?
 }
 
 /// Lo que ensena el widget de portadas: la app lo reescribe cuando cambia el inicio.

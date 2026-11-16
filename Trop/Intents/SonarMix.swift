@@ -451,7 +451,9 @@ enum SonarMix {
     }
 
     /// Una cancion o episodio concreto (las portadas del widget): suena y sigue su radio. `false` si no arranca.
-    static func playTrack(videoId: String, title: String, artist: String) async -> Bool {
+    /// `duration` y `isEpisode` son importantes: con ellos el reproductor trata un podcast como contenido largo (otra cadena de
+    /// clientes de YouTube); sin ellos un episodio de 88 min se pedia como una cancion y la direccion daba 403.
+    static func playTrack(videoId: String, title: String, artist: String, duration: Int, isEpisode: Bool) async -> Bool {
         guard !videoId.isEmpty else { return false }
         await prepareSession()
         let song = SongItem(
@@ -460,11 +462,12 @@ enum SonarMix {
             artists: artist.isEmpty ? [] : [YTArtist(name: artist, id: nil)],
             album: nil,
             albumId: nil,
-            duration: 0,
+            duration: duration,
             thumbnailUrl: nil,
             isExplicit: false,
             playlistId: nil,
-            likeStatus: nil
+            likeStatus: nil,
+            musicVideoType: isEpisode ? "MUSIC_VIDEO_TYPE_PODCAST_EPISODE" : nil
         )
         trace("widget: \(title)")
         guard await play([song], context: "widget") else { return false }

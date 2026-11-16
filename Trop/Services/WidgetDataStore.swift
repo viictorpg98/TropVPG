@@ -22,6 +22,8 @@ final class WidgetDataStore {
         let title: String
         let artist: String
         let thumbnailUrl: String?
+        let duration: Int
+        let isEpisode: Bool
     }
 
     private var quickPicks: [Source] = []
@@ -159,14 +161,18 @@ final class WidgetDataStore {
                 id: song.videoId,
                 title: song.title,
                 artist: song.artists.map(\.name).joined(separator: ", "),
-                thumbnailUrl: song.thumbnailUrl
+                thumbnailUrl: song.thumbnailUrl,
+                duration: song.duration,
+                isEpisode: song.musicVideoType == "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
             )
         case .episode(let episode):
             return Source(
                 id: episode.videoId,
                 title: episode.title,
                 artist: episode.artists.map(\.name).joined(separator: ", "),
-                thumbnailUrl: episode.thumbnailUrl
+                thumbnailUrl: episode.thumbnailUrl,
+                duration: episode.duration,
+                isEpisode: true
             )
         default:
             return nil
@@ -184,7 +190,10 @@ final class WidgetDataStore {
             let entries = (try? await DatabaseService.shared.fetchSpeedDial(limit: 8)) ?? []
             // Primero las canciones que has fijado en el Acceso rapido; si faltan, las de "Volver a escuchar" del inicio.
             var dial = entries.map {
-                Source(id: $0.videoId, title: $0.title, artist: $0.artist, thumbnailUrl: $0.thumbnailUrl)
+                Source(
+                    id: $0.videoId, title: $0.title, artist: $0.artist, thumbnailUrl: $0.thumbnailUrl,
+                    duration: $0.duration, isEpisode: false
+                )
             }
             var seenDial = Set(dial.map(\.id))
             for source in recent where seenDial.insert(source.id).inserted { dial.append(source) }
@@ -240,16 +249,21 @@ final class WidgetDataStore {
         for source in sources {
             let name = await Self.coverFile(for: source, in: directory)
             if let name { kept.insert(name) }
-            result.append(WidgetTrack(id: source.id, title: source.title, artist: source.artist, cover: name))
+            result.append(
+                WidgetTrack(
+                    id: source.id, title: source.title, artist: source.artist, cover: name,
+                    duration: source.duration, episode: source.isEpisode
+                )
+            )
         }
         return result
     }
 
     // MARK: - Portadas
 
-    /// Google redimensiona la portada con "=w226-h226...": se pide de 300 px, de sobra para el widget.
+    /// Google redimensiona la portada con "=w226-h226...": se pide de 480 px (las miniaturas de podcast son anchas y salen a ~150 pt).
     nonisolated private static func sizedURL(_ raw: String) -> URL? {
-        let sized = raw.replacingOccurrences(of: "=w\\d+-h\\d+", with: "=w300-h300", options: .regularExpression)
+        let sized = raw.replacingOccurrences(of: "=w\\d+-h\\d+", with: "=w480-h480", options: .regularExpression)
         return URL(string: sized)
     }
 
@@ -258,7 +272,8 @@ final class WidgetDataStore {
         guard let raw = source.thumbnailUrl, let url = sizedURL(raw) else { return nil }
         let safeId = source.id.filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }
         guard !safeId.isEmpty else { return nil }
-        let name = safeId + ".jpg"
+        // "_v2": portadas de 480 px; las antiguas (240 px) se borran solas por no estar en ninguna lista.
+        let name = safeId + "_v2.jpg"
         let file = directory.appendingPathComponent(name)
 
         if let attributes = try? FileManager.default.attributesOfItem(atPath: file.path),
@@ -270,7 +285,7 @@ final class WidgetDataStore {
         request.timeoutInterval = 10
         guard let (data, _) = try? await URLSession.shared.data(for: request),
               let image = UIImage(data: data),
-              let jpeg = downscaled(image, maxSide: 240).jpegData(compressionQuality: 0.8) else {
+              let jpeg = downscaled(image, maxSide: 480).jpegData(compressionQuality: 0.8) else {
             // Sin red: se conserva la portada vieja si la hay.
             return FileManager.default.fileExists(atPath: file.path) ? name : nil
         }

@@ -68,18 +68,28 @@ struct WidgetPlayTrackIntent: AudioPlaybackIntent {
     @Parameter(title: "Song Artist")
     var songArtist: String
 
+    @Parameter(title: "Duration")
+    var songDuration: Int
+
+    @Parameter(title: "Is Episode")
+    var isEpisode: Bool
+
     init() {}
 
-    init(videoId: String, songTitle: String, songArtist: String) {
+    init(videoId: String, songTitle: String, songArtist: String, songDuration: Int, isEpisode: Bool) {
         self.videoId = videoId
         self.songTitle = songTitle
         self.songArtist = songArtist
+        self.songDuration = songDuration
+        self.isEpisode = isEpisode
     }
 
     @MainActor
     func perform() async throws -> some IntentResult {
         #if !WIDGET_EXTENSION
-        _ = await SonarMix.playTrack(videoId: videoId, title: songTitle, artist: songArtist)
+        _ = await SonarMix.playTrack(
+            videoId: videoId, title: songTitle, artist: songArtist, duration: songDuration, isEpisode: isEpisode
+        )
         #endif
         return .result()
     }
