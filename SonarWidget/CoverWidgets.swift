@@ -145,9 +145,9 @@ struct CoverWidgetView: View {
     }
 
     /// Franja oscura con el titulo abajo (se degrada hacia arriba para que no haya un corte seco).
-    private func titleScrim(_ title: String, lines: Int) -> some View {
+    private func titleScrim(_ title: String, lines: Int, size: CGFloat) -> some View {
         Text(title)
-            .font(.system(size: 10, weight: .semibold, design: .rounded))
+            .font(.system(size: size, weight: .semibold, design: .rounded))
             .foregroundStyle(.white)
             .lineLimit(lines)
             .multilineTextAlignment(.leading)
@@ -172,7 +172,7 @@ struct CoverWidgetView: View {
             }
         }
         .overlay { coverImage(track) }
-        .overlay(alignment: .bottom) { titleScrim(track.title, lines: lines) }
+        .overlay(alignment: .bottom) { titleScrim(track.title, lines: lines, size: isSquare ? 9 : 10) }
         .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
     }
 
@@ -194,17 +194,15 @@ struct CoverWidgetView: View {
 
     private var diceCell: some View {
         Button(intent: WidgetDiceIntent()) {
+            // Toda la casilla es el dado: relleno con el degradado de la marca y el dado grande en el centro.
             square {
                 ZStack {
-                    Self.plateColor
-                    Circle()
-                        .fill(LinearGradient(
-                            colors: [Color(red: 1.00, green: 0.69, blue: 0.30), Color(red: 1.00, green: 0.48, blue: 0.27)],
-                            startPoint: .top, endPoint: .bottom
-                        ))
-                        .frame(width: 42, height: 42)
+                    LinearGradient(
+                        colors: [Color(red: 1.00, green: 0.69, blue: 0.30), Color(red: 1.00, green: 0.38, blue: 0.30)],
+                        startPoint: .top, endPoint: .bottom
+                    )
                     Image(systemName: "dice.fill")
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.system(size: 34, weight: .bold))
                         .foregroundStyle(Color(red: 0.08, green: 0.08, blue: 0.09))
                 }
             }
@@ -223,7 +221,7 @@ struct CoverWidgetView: View {
             isEpisode: track.episode ?? false
         )
         Button(intent: intent) {
-            coverTile(track, isSquare: !kind.isWide, lines: kind.isWide ? 2 : 1)
+            coverTile(track, isSquare: !kind.isWide, lines: 2)
         }
         .buttonStyle(.plain)
     }

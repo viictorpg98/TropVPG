@@ -38,13 +38,13 @@ struct SonarWidgetProvider: TimelineProvider {
 
 /// Como se confirma el toque (lo unico que cambia entre los tres widgets).
 enum SonarWidgetVariant {
-    /// Sin confirmacion: el que funciona.
+    /// Botones planos, sin efecto al pulsar: el que funciona.
     case stable
-    /// `.invalidatableContent()` puesto en el propio boton (fuera de su contenido): el sistema lo atenua mientras la accion dura.
-    /// Dentro del contenido del boton rompia el toque (se abria la app).
-    case invalidatableOnButton
-    /// Sin `.buttonStyle(.plain)`: a ver si el sistema pone su propio efecto al pulsar.
-    case systemStyle
+    /// Estilo de boton del sistema (da efecto al pulsar) pero con forma de rectangulo redondeado y fondo blanco suave, en vez del
+    /// circulo azul de antes.
+    case systemNeutral
+    /// Igual, pero pidiendo `.bordered` de forma explicita y con el naranja de Sonar como color.
+    case systemOrange
 }
 
 struct SonarWidgetView: View {
@@ -101,16 +101,19 @@ struct SonarWidgetView: View {
                 tileLabel(symbol: symbol, title: title, top: top, bottom: bottom)
             }
             .buttonStyle(.plain)
-        case .invalidatableOnButton:
+        case .systemNeutral:
             Button(intent: intent) {
                 tileLabel(symbol: symbol, title: title, top: top, bottom: bottom)
             }
-            .buttonStyle(.plain)
-            .invalidatableContent()
-        case .systemStyle:
+            .buttonBorderShape(.roundedRectangle(radius: 16))
+            .tint(.white)
+        case .systemOrange:
             Button(intent: intent) {
                 tileLabel(symbol: symbol, title: title, top: top, bottom: bottom)
             }
+            .buttonStyle(.bordered)
+            .buttonBorderShape(.roundedRectangle(radius: 16))
+            .tint(Color(red: 1.00, green: 0.48, blue: 0.27))
         }
     }
 
@@ -150,10 +153,10 @@ struct SonarWidget: Widget {
 struct SonarWidgetTestA: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "SonarWidgetTestA", provider: SonarWidgetProvider()) { _ in
-            SonarWidgetView(variant: .invalidatableOnButton)
+            SonarWidgetView(variant: .systemNeutral)
         }
         .configurationDisplayName("Sonar · prueba A")
-        .description("Prueba: el boton se atenua mientras la accion dura.")
+        .description("Prueba: efecto del sistema, rectangular y blanco suave.")
         .supportedFamilies([.systemSmall])
         .contentMarginsDisabled()
     }
@@ -162,10 +165,10 @@ struct SonarWidgetTestA: Widget {
 struct SonarWidgetTestB: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "SonarWidgetTestB", provider: SonarWidgetProvider()) { _ in
-            SonarWidgetView(variant: .systemStyle)
+            SonarWidgetView(variant: .systemOrange)
         }
         .configurationDisplayName("Sonar · prueba B")
-        .description("Prueba: botones con el estilo del sistema.")
+        .description("Prueba: efecto del sistema, rectangular y naranja de Sonar.")
         .supportedFamilies([.systemSmall])
         .contentMarginsDisabled()
     }
