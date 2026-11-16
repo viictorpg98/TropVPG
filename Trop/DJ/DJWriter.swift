@@ -78,19 +78,20 @@ enum DJWriter {
             return (nil, "modelo no disponible (\(reason))")
         }
 
-        let instructions = """
-        You are a warm, concise radio DJ introducing songs to a Spanish-speaking listener. \
-        Always answer in Spanish, in one or two short sentences, at most 30 words in total. \
-        Use only the facts you are given. Never invent facts about the artist or the song. \
-        No emojis, no quotation marks, no hashtags.
-        """
-        let session = LanguageModelSession(instructions: instructions)
         let request = makePrompt(for: context)
         let started = Date()
 
         let outcome: ModelOutcome = await withTaskGroup(of: ModelOutcome.self) { group in
             group.addTask {
                 do {
+                    // La sesion se crea aqui dentro (no se captura desde fuera: no es Sendable). Las instrucciones van como cadena
+                    // literal, como en el ejemplo de Apple.
+                    let session = LanguageModelSession(instructions: """
+                    You are a warm, concise radio DJ introducing songs to a Spanish-speaking listener. \
+                    Always answer in Spanish, in one or two short sentences, at most 30 words in total. \
+                    Use only the facts you are given. Never invent facts about the artist or the song. \
+                    No emojis, no quotation marks, no hashtags.
+                    """)
                     // Una cadena con interpolacion (y no la variable sola) vale tanto si `respond` pide String como si pide Prompt.
                     let response = try await session.respond(to: "\(request)")
                     return .text(response.content)

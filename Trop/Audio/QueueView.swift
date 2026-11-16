@@ -244,6 +244,8 @@ struct QueueView<ProgressSlider: View>: View {
         ManualMixStore.shared.set(choice, outId: outId, inId: inId)
         if AutoMixEngine.shared.isActive {
             PlaybackNotice.shared.show(NSLocalizedString("Saved. This mix is already prepared; it applies the next time these two play.", comment: ""))
+        } else if !SettingsStore.shared.autoMixEnabled {
+            PlaybackNotice.shared.show(NSLocalizedString("Saved, but AutoMix is off: turn it on in Settings to use it.", comment: ""))
         } else {
             AutoMixEngine.shared.replan()
             PlaybackNotice.shared.show(NSLocalizedString("Saved for the next transition.", comment: ""))

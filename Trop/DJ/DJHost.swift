@@ -105,6 +105,11 @@ final class DJHost {
         duckOriginal = original
         let ducked = original * Self.duckFactor
         await ramp(from: original, to: ducked, steps: 5)
+        // Si mientras bajaba el volumen cambio la cancion (la tarea se cancela), se devuelve el volumen y no se habla.
+        if Task.isCancelled {
+            restoreVolume()
+            return
+        }
         await DJSpeech.shared.speak(text, voiceId: DJSettings.shared.voiceId)
         restoreVolume()
     }
@@ -112,21 +117,21 @@ final class DJHost {
     private func ramp(from start: Double, to end: Double, steps: Int) async {
         let player = PlayerController.shared
         for step in 1...steps {
+            if Task.isCancelled { return }
             player.volumeScale = start + (end - start) * Double(step) / Double(steps)
             player.applyPlayerVolume()
             try? await Task.sleep(nanoseconds: 60_000_000)
         }
     }
 
-    /// Vuelve el volumen a lo que era, solo si nadie mas lo ha tocado mientras tanto (AutoMix y el temporizador tambien lo mueven).
+    /// Vuelve el volumen a lo que era. Si hay una mezcla de AutoMix en marcha, el volumen es suyo y no se toca.
     private func restoreVolume() {
         guard let original = duckOriginal else { return }
         duckOriginal = nil
+        guard !AutoMixEngine.shared.isActive else { return }
         let player = PlayerController.shared
-        if abs(player.volumeScale - original * Self.duckFactor) < 0.02 {
-            player.volumeScale = original
-            player.applyPlayerVolume()
-        }
+        player.volumeScale = original
+        player.applyPlayerVolume()
     }
 
     private func stopSpeaking() {

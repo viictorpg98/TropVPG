@@ -717,5 +717,6 @@
   "Test an Introduction": "Test an Introduction",
   "Test": "Test",
   "Writes and says an introduction for the song that is playing now (or an example if nothing is playing). What happened is also saved in the playback report, on the lines starting with dj:.": "Writes and says an introduction for the song that is playing now (or an example if nothing is playing). What happened is also saved in the playback report, on the lines starting with dj:.",
-  "Hi, I'm your DJ. This is my voice.": "Hi, I'm your DJ. This is my voice."
+  "Hi, I'm your DJ. This is my voice.": "Hi, I'm your DJ. This is my voice.",
+  "Saved, but AutoMix is off: turn it on in Settings to use it.": "Saved, but AutoMix is off: turn it on in Settings to use it."
 }

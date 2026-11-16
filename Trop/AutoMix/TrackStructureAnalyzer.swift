@@ -37,8 +37,9 @@ struct TrackStructure: Codable, Equatable {
     var lastChorusEndMs: Int64?
     /// Forma de onda de toda la cancion (unas 160 barras, de 0 a 1) para la barra de progreso.
     var waveform: [Float]?
-    /// Tonalidad (0-11 mayor desde do, 12-23 menor desde do; ver `KeyDetector`). `nil` en analisis guardados antes de existir
-    /// y cuando no se pudo medir: no hace falta volver a analizar nada, se rellena al analizar de nuevo.
+    /// Tonalidad (0-11 mayor desde do, 12-23 menor desde do; ver `KeyDetector`). `nil` cuando no se pudo medir y en los analisis
+    /// guardados antes de existir este campo: esos NO se vuelven a analizar (no se subio `currentVersion` para no rehacer toda la
+    /// cache), asi que esas canciones se quedan sin tonalidad; solo las que se analicen de cero la tendran.
     var key: Int?
 }
 
