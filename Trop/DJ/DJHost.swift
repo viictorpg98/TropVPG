@@ -53,8 +53,8 @@ final class DJHost {
         DJSettings.shared.sessionActive = true
         PlaybackReport.record("dj: sesion iniciada")
         let np = NowPlaying.shared
-        if introduceCurrent, np.isPlaying, !np.videoId.isEmpty {
-            songStarted(videoId: np.videoId)
+        if introduceCurrent, np.isPlaying, let currentId = np.videoId, !currentId.isEmpty {
+            songStarted(videoId: currentId)
         }
     }
 
