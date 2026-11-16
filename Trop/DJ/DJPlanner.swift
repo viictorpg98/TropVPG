@@ -6,16 +6,19 @@
 //
 //  - Mira la forma de la saliente (su analisis: donde empieza la musica, sus cambios de seccion y de volumen, sus compases) y la
 //    compara con la entrante (tempo y tonalidad).
-//  - Cuanto deja oir depende de "cuanto de cada cancion" (Ajustes > DJ), contando desde el primer sonido. En normal no corta antes de
-//    1 min de musica ni despues de 2:20 y apunta al 55 % de la cancion (entre 1 y 1:50). Con "menos" apunta al 45 % (50-90 s, hasta 1:50
-//    como mucho) y con "casi toda" al 85 % (al menos 1:30, hasta 25 s antes del final). Nunca corta a menos de 30 s del final.
-//  - Elige el cambio de seccion mas cercano a ese punto (con una ventaja de 12 s si el volumen BAJA ahi: el final de una parte fuerte, que
-//    es por donde sale un DJ); si no hay ninguno, el inicio de frase (cada 8 compases) mas cercano.
+//  - Cuanto deja oir depende de "cuanto de cada cancion" (Ajustes > DJ), contando desde el primer sonido. En normal no mezcla antes de
+//    1:15 de musica ni despues de 2:40 y apunta al 65 % de la cancion (entre 1:15 y 2:05). Con "menos" apunta al 45 % (50-90 s, hasta
+//    1:50 como mucho) y con "casi toda" al 85 % (al menos 1:30, hasta 25 s antes del final). Nunca mezcla a menos de 30 s del final.
+//  - El punto elegido es donde TERMINA la mezcla, no donde empieza: la saliente se va apagando durante los ultimos segundos de su parte
+//    fuerte (o de su frase) y cuando llegaria lo siguiente (la estrofa, donde suele entrar la voz) ya suena la entrante. Asi no se corta
+//    justo antes de que cante el artista. Los puntos donde SUBE el volumen (donde empieza el estribillo) no se usan nunca.
+//  - Elige el final de parte fuerte (el volumen BAJA) mas cercano al objetivo; si no hay ninguno, el inicio de frase (cada 8 compases) mas
+//    cercano.
 //  - La duracion de la mezcla la elige segun lo bien que encajan las dos: si tempo y tonalidad casan, larga; si chocan, corta.
 //  - No toca las canciones largas (mezclas de horas, directos, podcasts): suenan enteras.
 //  - Si no queda margen (la cancion es muy corta o ya va por la mitad), no corta: suena hasta su final natural.
 //
-//  El motor luego ajusta el punto al siguiente inicio de compas.
+//  El motor luego ajusta el inicio de la mezcla al siguiente inicio de compas.
 //
 
 import Foundation
@@ -52,10 +55,14 @@ enum DJPlanner {
         if store.isLong(outId) {
             return Decision(cutMs: nil, length: nil, note: "cancion larga: suena entera")
         }
+        // Sin tempo medible en alguna de las dos no se puede planificar (y las cuentas de tempo no terminarian).
+        guard outgoing.bpm > 0, incoming.bpm > 0, outgoing.beatMs > 0 else {
+            return Decision(cutMs: nil, length: nil, note: "sin tempo medible: no se planifica")
+        }
         let first = outgoing.firstSoundMs
         let end = outgoing.musicEndMs
         let usable = end - first
-        guard outgoing.beatMs > 0, usable >= 100_000 else {
+        guard usable >= 100_000 else {
             return Decision(cutMs: nil, length: nil, note: "demasiado corta para cortarla antes (\(usable / 1000) s de musica)")
         }
 
@@ -63,16 +70,17 @@ enum DJPlanner {
         let length: MixStyle.Length = clash.level == 0 ? .long : (clash.level == 2 ? .short : .medium)
 
         // Cuanto deja oir el DJ de cada cancion segun "cuanto de cada cancion" (0 = menos, 1 = normal, 2 = casi toda). Todo se cuenta desde el
-        // primer sonido de la cancion. Normal es el criterio de siempre: de 1 min a 2:20 de musica, apuntando al 55 % (entre 1 y 1:50).
+        // primer sonido de la cancion y se refiere al punto donde TERMINA la mezcla.
         let level = min(max(DJSettings.shared.playAmount, 0), 2)
-        let lowestPlay: [Int64] = [50_000, 60_000, 60_000]
-        let highestPlay: [Int64] = [110_000, 140_000, 10_000_000]
-        let fractions: [Double] = [0.45, 0.55, 0.85]
-        let preferredMin: [Int64] = [50_000, 60_000, 90_000]
-        let preferredMax: [Int64] = [90_000, 110_000, 10_000_000]
+        let lowestPlay: [Int64] = [50_000, 75_000, 60_000]
+        let highestPlay: [Int64] = [110_000, 160_000, 10_000_000]
+        let fractions: [Double] = [0.45, 0.65, 0.85]
+        let preferredMin: [Int64] = [50_000, 75_000, 90_000]
+        let preferredMax: [Int64] = [90_000, 125_000, 10_000_000]
         let tailKept: Int64 = level == 2 ? 25_000 : 30_000
-        // Margen en el que se puede cortar: desde la musica minima (y a 25 s o mas de ahora) hasta la maxima o `tailKept` antes del final.
-        let lower = max(first + lowestPlay[level], Int64((currentTime + 25) * 1000))
+        // Margen en el que puede terminar la mezcla: desde la musica minima (y a 35 s o mas de ahora, para que de tiempo a prepararla)
+        // hasta la maxima o `tailKept` antes del final.
+        let lower = max(first + lowestPlay[level], Int64((currentTime + 35) * 1000))
         let upper = min(first + highestPlay[level], end - tailKept)
         guard lower < upper else {
             return Decision(cutMs: nil, length: length, note: "no queda margen para cortarla antes, suena hasta el final (\(clash.text))")
@@ -80,36 +88,33 @@ enum DJPlanner {
         let preferredPlay = min(max(Int64(Double(usable) * fractions[level]), preferredMin[level]), preferredMax[level])
         let aim = min(max(first + preferredPlay, lower), upper)
 
-        // Entre los cambios de seccion del margen, el mejor es el mas cercano al objetivo; que el volumen BAJE ahi cuenta como 12 s de
-        // ventaja (el final de una parte fuerte es por donde sale un DJ), pero no vale uno lejano solo por eso.
-        let inWindow = outgoing.sections.filter { $0.timeMs >= lower && $0.timeMs <= upper }
-        func cost(_ section: SectionChange) -> Int64 {
-            // La ventaja por bajar de volumen solo vale en el objetivo o despues (no para adelantar el corte).
-            abs(section.timeMs - aim) - (section.deltaDb < 0 && section.timeMs >= aim - 5_000 ? 12_000 : 0)
+        // Lo que durara la mezcla, aproximado (el planificador la ajusta): sin voces conocidas no pasa de ~10 s. Ademas, dos pulsos de margen
+        // por el ajuste al inicio de compas.
+        let estimate = min(AutoMixMath.durationMs(outgoing: outgoing, incoming: incoming, scale: length.durationScale), 10_000)
+        let margin = Int64(outgoing.beatMs * 2)
+        func start(forEnd boundary: Int64) -> Int64 {
+            max(boundary - estimate - margin, first + 20_000)
         }
-        if let change = inWindow.min(by: { cost($0) < cost($1) }) {
-            let kind = change.deltaDb < 0 ? String(format: "baja %.1f dB", -change.deltaDb) : String(format: "sube %.1f dB", change.deltaDb)
+        func described(_ boundary: Int64) -> String {
+            String(format: "termina hacia %.0f s y empieza en %.0f s (objetivo %.0f s), mezcla %@ (%@)",
+                   Double(boundary) / 1000, Double(start(forEnd: boundary)) / 1000, Double(aim) / 1000, length.rawValue, clash.text)
+        }
+
+        // El final de una parte fuerte (el volumen BAJA) mas cercano al objetivo. Los puntos donde SUBE el volumen no se usan.
+        let drops = outgoing.sections.filter { $0.deltaDb < 0 && $0.timeMs >= lower && $0.timeMs <= upper }
+        if let drop = drops.min(by: { abs($0.timeMs - aim) < abs($1.timeMs - aim) }) {
             return Decision(
-                cutMs: change.timeMs, length: length,
-                note: String(format: "corta en %.0f s (cambio de seccion, %@; objetivo %.0f s), mezcla %@ (%@)",
-                             Double(change.timeMs) / 1000, kind, Double(aim) / 1000, length.rawValue, clash.text)
+                cutMs: start(forEnd: drop.timeMs), length: length,
+                note: String(format: "fin de parte fuerte (baja %.1f dB): ", -drop.deltaDb) + described(drop.timeMs)
             )
         }
-        // Sin cambios de seccion: el inicio de frase (cada 8 compases desde el primer compas con musica) mas cercano al objetivo.
+        // Sin un final de parte fuerte a mano: el inicio de frase (cada 8 compases desde el primer compas con musica) mas cercano.
         let bars = outgoing.downbeatsMs.filter { $0 >= first }
         var phraseStarts: [Int64] = []
         for (index, bar) in bars.enumerated() where index % 8 == 0 { phraseStarts.append(bar) }
         if let phrase = phraseStarts.filter({ $0 >= lower && $0 <= upper }).min(by: { abs($0 - aim) < abs($1 - aim) }) {
-            return Decision(
-                cutMs: phrase, length: length,
-                note: String(format: "corta en %.0f s (inicio de frase; objetivo %.0f s), mezcla %@ (%@)",
-                             Double(phrase) / 1000, Double(aim) / 1000, length.rawValue, clash.text)
-            )
+            return Decision(cutMs: start(forEnd: phrase), length: length, note: "inicio de frase: " + described(phrase))
         }
-        return Decision(
-            cutMs: aim, length: length,
-            note: String(format: "corta hacia %.0f s (sin secciones ni compases claros), mezcla %@ (%@)",
-                         Double(aim) / 1000, length.rawValue, clash.text)
-        )
+        return Decision(cutMs: start(forEnd: aim), length: length, note: "sin secciones ni compases claros: " + described(aim))
     }
 }
