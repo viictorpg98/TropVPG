@@ -783,5 +783,19 @@
   "High-Pass Filter In": "Paso alto en la que entra",
   "Drag the points to shape the curve. Tap the line to add a point, tap a point to remove it.": "Arrastra los puntos para dar forma a la curva. Toca la línea para añadir un punto y toca un punto para quitarlo.",
   "Reset This Curve": "Restablecer esta curva",
-  "Shape the volume, the bass and the filter of each song during the mix. The presets are starting points; move the points to make your own. With custom curves, the Sound choice is not used.": "Da forma al volumen, a los graves y al filtro de cada canción durante la mezcla. Los preajustes son un punto de partida; mueve los puntos para hacer los tuyos. Con curvas propias, la elección de sonido no se usa."
+  "Shape the volume, the bass and the filter of each song during the mix. The presets are starting points; move the points to make your own. With custom curves, the Sound choice is not used. Looping repeats the start of the song that is leaving and is ignored when the tempo match stretches it. Effects only act during the mix and fade out before it ends.": "Da forma al volumen, a los graves y al filtro de cada canción durante la mezcla. Los preajustes son un punto de partida; mueve los puntos para hacer los tuyos. Con curvas propias, la elección de sonido no se usa. El looping repite el principio de la canción que sale y se ignora si el ajuste de tempo la estira. Los efectos solo actúan durante la mezcla y se apagan antes de que acabe.",
+  "Effects": "Efectos",
+  "No Effect": "Sin efecto",
+  "Echo Out": "Eco en la que sale",
+  "Reverb Out": "Reverb en la que sale",
+  "Looping": "Looping",
+  "None": "Ninguno",
+  "1 Bar": "1 compás",
+  "2 Bars": "2 compases",
+  "4 Bars": "4 compases",
+  "Preview Mix": "Escuchar la mezcla",
+  "Stop Preview": "Parar la escucha",
+  "Preparing the preview…": "Preparando la escucha…",
+  "Can't preview right now.": "Ahora no se puede escuchar.",
+  "Preview not available during a mix.": "No se puede escuchar durante una mezcla."
 }

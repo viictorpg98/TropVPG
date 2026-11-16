@@ -221,12 +221,16 @@ final class AutoMixEngine {
             let plainFade = plan.sound == .fade
             // Las curvas del editor, ya muestreadas (el renderizador recibe arrays, no el modelo).
             let curveTables: [[Double]]? = plan.curves?.tables()
+            let effectKind = plan.curves?.effectKind ?? 0
+            let loopBars = plan.curves?.loopBars ?? 0
+            let beatSeconds = (TrackAnalysisStore.shared.structure(for: outId, role: .outgoing)?.beatMs ?? 500) / 1000
             let rendered = await Task.detached(priority: .userInitiated) {
                 MixRenderer.render(
                     outgoingURL: outURL, outgoingStart: cutAt,
                     incomingURL: inURL, incomingStart: inStart,
                     duration: duration, outgoingRatio: outgoingRatio, incomingRatio: incomingRatio,
-                    tailStream: tailStream, plainFade: plainFade, curveTables: curveTables
+                    tailStream: tailStream, plainFade: plainFade, curveTables: curveTables,
+                    effectKind: effectKind, loopBars: loopBars, beatSeconds: beatSeconds
                 )
             }.value
             guard let rendered else {

@@ -2,14 +2,17 @@
 //  MixCurves.swift
 //  Trop
 //
-//  Las curvas de una mezcla (como el editor de Spotify): tres carriles, cada uno con una curva para la saliente y otra para la entrante.
+//  Las curvas de una mezcla (como el editor de Spotify): cuatro carriles, cada uno con una curva para la saliente y otra para la entrante.
 //  El eje x es lo que lleva avanzado la mezcla (0 = empieza, 1 = acaba) y el eje y, un valor de 0 a 1:
 //  - Volumen: ganancia de toda la cancion (0 = silencio, 1 = entera).
 //  - Graves: ganancia de los graves (por debajo de ~250 Hz) ademas del volumen; es lo que hace el "intercambio de graves".
 //  - Filtro: cuanto se filtra (0 = nada). En la saliente cierra un paso bajo (de 20 kHz a 200 Hz); en la entrante abre un paso alto (de 2 kHz a 20 Hz).
+//  - Efecto: cuanto suena el efecto elegido (eco o reverb) sobre la SALIENTE (0 = nada). La entrante no lleva efecto.
+//  Ademas, se puede repetir un trozo de la saliente (looping: 1, 2 o 4 compases).
 //
-//  Cada carril lleva un preajuste (por su nombre) o "custom" si se han movido los puntos a mano. Las curvas son lineales a trozos.
-//  Solo se usan en el modo Manual del editor; la mezcla automatica no pasa por aqui y suena exactamente como antes.
+//  Cada carril lleva un preajuste (por su nombre) o "custom" si se han movido los puntos a mano (en el efecto, el preajuste es el tipo de
+//  efecto y se conserva). Las curvas son lineales a trozos. Solo se usan en el modo Manual del editor; la mezcla automatica no pasa por
+//  aqui y suena exactamente como antes.
 //
 
 import Foundation
@@ -21,7 +24,7 @@ struct MixPoint: Codable, Equatable {
 }
 
 enum MixLane: String, CaseIterable, Codable {
-    case volume, bass, filter
+    case volume, bass, filter, effect
 
     /// Los preajustes de cada carril (el primero es el de siempre).
     var presets: [String] {
@@ -29,6 +32,7 @@ enum MixLane: String, CaseIterable, Codable {
         case .volume: return ["smooth", "overlap", "fadeInOut", "cutInFadeOut", "fadeInCutOut"]
         case .bass: return ["centre", "early", "late", "follow"]
         case .filter: return ["sweep", "none", "lowPassOut", "highPassIn"]
+        case .effect: return ["none", "echo", "reverb"]
         }
     }
 
@@ -48,6 +52,9 @@ enum MixLane: String, CaseIterable, Codable {
         case (.filter, "none"): return "No Filter"
         case (.filter, "lowPassOut"): return "Low-Pass Filter Out"
         case (.filter, "highPassIn"): return "High-Pass Filter In"
+        case (.effect, "none"): return "No Effect"
+        case (.effect, "echo"): return "Echo Out"
+        case (.effect, "reverb"): return "Reverb Out"
         default: return "Custom"
         }
     }
@@ -100,6 +107,13 @@ struct MixLaneCurves: Codable, Equatable {
             return ([p(0, 0), p(1, 0)], sweepIn)
         case (.filter, _):
             return (sweepOut, sweepIn)
+        case (.effect, "echo"):
+            // El efecto sube durante la mezcla y se apaga solo al final (ver el renderizador); la entrante no lleva efecto.
+            return ([p(0, 0), p(0.4, 0.25), p(1, 0.5)], [p(0, 0), p(1, 0)])
+        case (.effect, "reverb"):
+            return ([p(0, 0), p(0.4, 0.3), p(1, 0.5)], [p(0, 0), p(1, 0)])
+        case (.effect, _):
+            return ([p(0, 0), p(1, 0)], [p(0, 0), p(1, 0)])
         }
     }
 
@@ -112,12 +126,33 @@ struct MixCurves: Codable, Equatable {
     var volume: MixLaneCurves
     var bass: MixLaneCurves
     var filter: MixLaneCurves
+    var effect: MixLaneCurves
+    /// Compases de la saliente que se repiten durante la mezcla (0 = nada; 1, 2 o 4). Solo si la saliente no se estira de tempo.
+    var loopBars: Int
 
-    /// Las de siempre: coseno y seno, intercambio de graves al centro y barrido de filtros.
+    init(volume: MixLaneCurves, bass: MixLaneCurves, filter: MixLaneCurves, effect: MixLaneCurves, loopBars: Int) {
+        self.volume = volume
+        self.bass = bass
+        self.filter = filter
+        self.effect = effect
+        self.loopBars = loopBars
+    }
+
+    /// Las de siempre: coseno y seno, intercambio de graves al centro, barrido de filtros, sin efecto y sin looping.
     static var standard: MixCurves {
         MixCurves(
-            volume: .make(.volume, "smooth"), bass: .make(.bass, "centre"), filter: .make(.filter, "sweep")
+            volume: .make(.volume, "smooth"), bass: .make(.bass, "centre"), filter: .make(.filter, "sweep"),
+            effect: .make(.effect, "none"), loopBars: 0
         )
+    }
+
+    /// 0 = sin efecto, 1 = eco, 2 = reverb.
+    var effectKind: Int {
+        switch effect.preset {
+        case "echo": return 1
+        case "reverb": return 2
+        default: return 0
+        }
     }
 
     func lane(_ lane: MixLane) -> MixLaneCurves {
@@ -125,6 +160,7 @@ struct MixCurves: Codable, Equatable {
         case .volume: return volume
         case .bass: return bass
         case .filter: return filter
+        case .effect: return effect
         }
     }
 
@@ -133,6 +169,7 @@ struct MixCurves: Codable, Equatable {
         case .volume: volume = value
         case .bass: bass = value
         case .filter: filter = value
+        case .effect: effect = value
         }
     }
 
@@ -157,7 +194,7 @@ struct MixCurves: Codable, Equatable {
             points[index] = MixPoint(x: min(max(point.x, low), max(high, low)), y: y)
         }
         if isOutgoing { value.outgoing = points } else { value.incoming = points }
-        value.preset = "custom"
+        if lane != .effect { value.preset = "custom" }
         set(lane, value)
     }
 
@@ -172,7 +209,7 @@ struct MixCurves: Codable, Equatable {
         points.append(MixPoint(x: x, y: y))
         points.sort { $0.x < $1.x }
         if isOutgoing { value.outgoing = points } else { value.incoming = points }
-        value.preset = "custom"
+        if lane != .effect { value.preset = "custom" }
         set(lane, value)
     }
 
@@ -183,7 +220,7 @@ struct MixCurves: Codable, Equatable {
         guard index > 0, index < points.count - 1 else { return }
         points.remove(at: index)
         if isOutgoing { value.outgoing = points } else { value.incoming = points }
-        value.preset = "custom"
+        if lane != .effect { value.preset = "custom" }
         set(lane, value)
     }
 
@@ -208,13 +245,14 @@ struct MixCurves: Codable, Equatable {
         (0..<count).map { value(of: points, at: Double($0) / Double(count - 1)) }
     }
 
-    /// Las seis curvas muestreadas, en este orden: volumen saliente, volumen entrante, graves saliente, graves entrante, filtro saliente,
-    /// filtro entrante.
+    /// Las siete curvas muestreadas, en este orden: volumen saliente, volumen entrante, graves saliente, graves entrante, filtro saliente,
+    /// filtro entrante y efecto sobre la saliente.
     func tables() -> [[Double]] {
         [
             Self.table(volume.outgoing), Self.table(volume.incoming),
             Self.table(bass.outgoing), Self.table(bass.incoming),
-            Self.table(filter.outgoing), Self.table(filter.incoming)
+            Self.table(filter.outgoing), Self.table(filter.incoming),
+            Self.table(effect.outgoing)
         ]
     }
 
@@ -228,7 +266,8 @@ struct MixCurves: Codable, Equatable {
 
     /// Lee lo guardado; `nil` si no es valido (curvas con menos de dos puntos, desordenadas o fuera de rango).
     init?(encoded: String) {
-        guard let data = encoded.data(using: .utf8), let decoded = try? JSONDecoder().decode(MixCurves.self, from: data) else {
+        guard let data = encoded.data(using: .utf8), let decoded = try? JSONDecoder().decode(MixCurves.self, from: data),
+              [0, 1, 2, 4].contains(decoded.loopBars) else {
             return nil
         }
         for lane in MixLane.allCases {
@@ -241,11 +280,5 @@ struct MixCurves: Codable, Equatable {
             }
         }
         self = decoded
-    }
-
-    init(volume: MixLaneCurves, bass: MixLaneCurves, filter: MixLaneCurves) {
-        self.volume = volume
-        self.bass = bass
-        self.filter = filter
     }
 }

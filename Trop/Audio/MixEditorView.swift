@@ -321,7 +321,15 @@ struct MixTransitionEditor: View {
         case .volume: return "Volume"
         case .bass: return "Bass"
         case .filter: return "Filter"
+        case .effect: return "Effects"
         }
+    }
+
+    private var loopBinding: Binding<Int> {
+        Binding(get: { curves?.loopBars ?? 0 }, set: { value in
+            curves?.loopBars = value
+            save()
+        })
     }
 
     private var tempoBinding: Binding<Bool> {
@@ -523,6 +531,12 @@ struct MixTransitionEditor: View {
                         }
                     }
                 }
+                Picker("Looping", selection: loopBinding) {
+                    Text("None").tag(0)
+                    Text("1 Bar").tag(1)
+                    Text("2 Bars").tag(2)
+                    Text("4 Bars").tag(4)
+                }
                 if let preview, let plan = preview.plan {
                     NavigationLink {
                         MixCurveEditorView(
@@ -543,7 +557,7 @@ struct MixTransitionEditor: View {
         } header: {
             Text("Curves")
         } footer: {
-            Text("Shape the volume, the bass and the filter of each song during the mix. The presets are starting points; move the points to make your own. With custom curves, the Sound choice is not used.")
+            Text("Shape the volume, the bass and the filter of each song during the mix. The presets are starting points; move the points to make your own. With custom curves, the Sound choice is not used. Looping repeats the start of the song that is leaving and is ignored when the tempo match stretches it. Effects only act during the mix and fade out before it ends.")
         }
 
         Section {

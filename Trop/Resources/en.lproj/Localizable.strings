@@ -18,7 +18,10 @@
 ", " = ", ";
 "-3s" = "-3s";
 "0 dB" = "0 dB";
+"1 Bar" = "1 Bar";
+"2 Bars" = "2 Bars";
 "2010s" = "2010s";
+"4 Bars" = "4 Bars";
 "A mix is in progress. Try again in a moment." = "A mix is in progress. Try again in a moment.";
 "About" = "About";
 "Accent Color" = "Accent Color";
@@ -96,6 +99,7 @@
 "Buttons" = "Buttons";
 "Can't mix right now." = "Can't mix right now.";
 "Can't play this yet: %@" = "Can't play this yet: %@";
+"Can't preview right now." = "Can't preview right now.";
 "Cancel" = "Cancel";
 "Canvas" = "Canvas";
 "Cardio" = "Cardio";
@@ -203,11 +207,13 @@
 "Each mix you rate teaches AutoMix which kinds of mixes you like: how long they last and whether the tempo is matched, depending on how close the two songs are. It still tries other styles now and then, and a pair of songs you rated badly is not mixed the same way again." = "Each mix you rate teaches AutoMix which kinds of mixes you like: how long they last and whether the tempo is matched, depending on how close the two songs are. It still tries other styles now and then, and a pair of songs you rated badly is not mixed the same way again.";
 "Early" = "Early";
 "Early Bass Swap" = "Early Bass Swap";
+"Echo Out" = "Echo Out";
 "Edit" = "Edit";
 "Edit Curves" = "Edit Curves";
 "Edit Mix" = "Edit Mix";
 "Edit playlist" = "Edit playlist";
 "Education" = "Education";
+"Effects" = "Effects";
 "Electronic" = "Electronic";
 "Electronic sleep sounds" = "Electronic sleep sounds";
 "Enable Discord RPC" = "Enable Discord RPC";
@@ -360,6 +366,7 @@
 "Long" = "Long";
 "Long Blend" = "Long Blend";
 "Long listens" = "Long listens";
+"Looping" = "Looping";
 "Loud" = "Loud";
 "Loudness" = "Loudness";
 "Low" = "Low";
@@ -427,6 +434,7 @@
 "Next Transition" = "Next Transition";
 "Next song enters at" = "Next song enters at";
 "No Downloads Yet" = "No Downloads Yet";
+"No Effect" = "No Effect";
 "No Filter" = "No Filter";
 "No History" = "No History";
 "No Playlists" = "No Playlists";
@@ -453,6 +461,7 @@
 "No similar tracks" = "No similar tracks";
 "No songs found" = "No songs found";
 "No songs yet" = "No songs yet";
+"None" = "None";
 "Normal" = "Normal";
 "Not enough analyzed songs yet. Try again in a minute." = "Not enough analyzed songs yet. Try again in a minute.";
 "Not enough of the song is left to mix." = "Not enough of the song is left to mix.";
@@ -526,9 +535,12 @@
 "Power boost" = "Power boost";
 "Preferences" = "Preferences";
 "Preparing the mix…" = "Preparing the mix…";
+"Preparing the preview…" = "Preparing the preview…";
 "Preparing…" = "Preparing…";
 "Presence" = "Presence";
 "Preview" = "Preview";
+"Preview Mix" = "Preview Mix";
+"Preview not available during a mix." = "Preview not available during a mix.";
 "Previous" = "Previous";
 "Privacy" = "Privacy";
 "Privacy & Content" = "Privacy & Content";
@@ -568,6 +580,7 @@
 "Resumes what was playing, or starts a mix if nothing was." = "Resumes what was playing, or starts a mix if nothing was.";
 "Retry" = "Retry";
 "Return to artwork player" = "Return to artwork player";
+"Reverb Out" = "Reverb Out";
 "Right" = "Right";
 "Rock" = "Rock";
 "Romance" = "Romance";
@@ -603,7 +616,7 @@
 "Select All" = "Select All";
 "September" = "September";
 "Settings" = "Settings";
-"Shape the volume, the bass and the filter of each song during the mix. The presets are starting points; move the points to make your own. With custom curves, the Sound choice is not used." = "Shape the volume, the bass and the filter of each song during the mix. The presets are starting points; move the points to make your own. With custom curves, the Sound choice is not used.";
+"Shape the volume, the bass and the filter of each song during the mix. The presets are starting points; move the points to make your own. With custom curves, the Sound choice is not used. Looping repeats the start of the song that is leaving and is ignored when the tempo match stretches it. Effects only act during the mix and fade out before it ends." = "Shape the volume, the bass and the filter of each song during the mix. The presets are starting points; move the points to make your own. With custom curves, the Sound choice is not used. Looping repeats the start of the song that is leaving and is ignored when the tempo match stretches it. Effects only act during the mix and fade out before it ends.";
 "Share" = "Share";
 "Share this album with others" = "Share this album with others";
 "Share this playlist with others" = "Share this playlist with others";
@@ -667,6 +680,7 @@
 "Stats" = "Stats";
 "Status" = "Status";
 "Stop DJ" = "Stop DJ";
+"Stop Preview" = "Stop Preview";
 "Stop hearing this artist?" = "Stop hearing this artist?";
 "Stream" = "Stream";
 "Style" = "Style";

@@ -39,8 +39,12 @@ struct MixCurveEditorView: View {
         case .volume: return .cyan
         case .bass: return .yellow
         case .filter: return .pink
+        case .effect: return .purple
         }
     }
+
+    /// El efecto solo actua sobre la saliente: en ese carril la curva de la entrante no se enseña ni se toca.
+    private var visibleSides: [Bool] { lane == .effect ? [true] : [true, false] }
 
     var body: some View {
         VStack(spacing: 14) {
@@ -48,6 +52,7 @@ struct MixCurveEditorView: View {
                 Text("Volume").tag(MixLane.volume)
                 Text("Bass").tag(MixLane.bass)
                 Text("Filter").tag(MixLane.filter)
+                Text("Effects").tag(MixLane.effect)
             }
             .pickerStyle(.segmented)
             .padding(.horizontal, 16)
@@ -156,7 +161,7 @@ struct MixCurveEditorView: View {
     }
 
     private func drawCurves(_ context: inout GraphicsContext, width: CGFloat) {
-        for outgoing in [true, false] {
+        for outgoing in visibleSides {
             let list = points(outgoing: outgoing)
             guard list.count >= 2 else { continue }
             var path = Path()
@@ -180,7 +185,7 @@ struct MixCurveEditorView: View {
     /// El punto mas cercano (de las dos curvas del carril) a `location`, si esta a menos de `hitRadius`.
     private func nearestPoint(to location: CGPoint, width: CGFloat) -> (outgoing: Bool, index: Int)? {
         var best: (outgoing: Bool, index: Int, distance: CGFloat)?
-        for outgoing in [true, false] {
+        for outgoing in visibleSides {
             for (index, point) in points(outgoing: outgoing).enumerated() {
                 let center = CGPoint(x: xPosition(point.x, width: width), y: yPosition(point.y, outgoing: outgoing))
                 let distance = hypot(center.x - location.x, center.y - location.y)
@@ -223,6 +228,7 @@ struct MixCurveEditorView: View {
         guard !moved else { return }
         let location = value.startLocation
         let outgoing = location.y < paneHeight + paneGap / 2
+        guard visibleSides.contains(outgoing) else { return }
         let fraction = progress(atX: location.x, width: width)
         guard fraction > 0, fraction < 1 else { return }
         let curveY = yPosition(MixCurves.value(of: points(outgoing: outgoing), at: fraction), outgoing: outgoing)

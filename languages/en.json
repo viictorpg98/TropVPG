@@ -783,5 +783,19 @@
   "High-Pass Filter In": "High-Pass Filter In",
   "Drag the points to shape the curve. Tap the line to add a point, tap a point to remove it.": "Drag the points to shape the curve. Tap the line to add a point, tap a point to remove it.",
   "Reset This Curve": "Reset This Curve",
-  "Shape the volume, the bass and the filter of each song during the mix. The presets are starting points; move the points to make your own. With custom curves, the Sound choice is not used.": "Shape the volume, the bass and the filter of each song during the mix. The presets are starting points; move the points to make your own. With custom curves, the Sound choice is not used."
+  "Shape the volume, the bass and the filter of each song during the mix. The presets are starting points; move the points to make your own. With custom curves, the Sound choice is not used. Looping repeats the start of the song that is leaving and is ignored when the tempo match stretches it. Effects only act during the mix and fade out before it ends.": "Shape the volume, the bass and the filter of each song during the mix. The presets are starting points; move the points to make your own. With custom curves, the Sound choice is not used. Looping repeats the start of the song that is leaving and is ignored when the tempo match stretches it. Effects only act during the mix and fade out before it ends.",
+  "Effects": "Effects",
+  "No Effect": "No Effect",
+  "Echo Out": "Echo Out",
+  "Reverb Out": "Reverb Out",
+  "Looping": "Looping",
+  "None": "None",
+  "1 Bar": "1 Bar",
+  "2 Bars": "2 Bars",
+  "4 Bars": "4 Bars",
+  "Preview Mix": "Preview Mix",
+  "Stop Preview": "Stop Preview",
+  "Preparing the preview…": "Preparing the preview…",
+  "Can't preview right now.": "Can't preview right now.",
+  "Preview not available during a mix.": "Preview not available during a mix."
 }

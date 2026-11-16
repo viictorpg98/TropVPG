@@ -18,7 +18,10 @@
 ", " = ", ";
 "-3s" = "-3s";
 "0 dB" = "0 dB";
+"1 Bar" = "1 compás";
+"2 Bars" = "2 compases";
 "2010s" = "Años 2010";
+"4 Bars" = "4 compases";
 "A mix is in progress. Try again in a moment." = "Hay una mezcla en marcha. Inténtalo en un momento.";
 "About" = "Acerca de";
 "Accent Color" = "Color de acento";
@@ -96,6 +99,7 @@
 "Buttons" = "Botones";
 "Can't mix right now." = "Ahora no se puede mezclar.";
 "Can't play this yet: %@" = "Todavía no se puede reproducir: %@";
+"Can't preview right now." = "Ahora no se puede escuchar.";
 "Cancel" = "Cancelar";
 "Canvas" = "Canvas";
 "Cardio" = "Cardio";
@@ -203,11 +207,13 @@
 "Each mix you rate teaches AutoMix which kinds of mixes you like: how long they last and whether the tempo is matched, depending on how close the two songs are. It still tries other styles now and then, and a pair of songs you rated badly is not mixed the same way again." = "Cada mezcla que valoras le enseña a AutoMix que tipo de mezclas te gustan: cuanto duran y si se iguala el tempo, segun lo parecidas que sean las dos canciones. De vez en cuando prueba otros estilos, y una pareja de canciones que valoraste mal no se mezcla igual otra vez.";
 "Early" = "Pronto";
 "Early Bass Swap" = "Intercambio de graves pronto";
+"Echo Out" = "Eco en la que sale";
 "Edit" = "Editar";
 "Edit Curves" = "Editar curvas";
 "Edit Mix" = "Editar mezclas";
 "Edit playlist" = "Editar lista de reproducción";
 "Education" = "Educación";
+"Effects" = "Efectos";
 "Electronic" = "Electrónica";
 "Electronic sleep sounds" = "Sonidos electrónicos para dormir";
 "Enable Discord RPC" = "Activar Discord RPC";
@@ -360,6 +366,7 @@
 "Long" = "Larga";
 "Long Blend" = "Mezcla larga";
 "Long listens" = "Escuchas largas";
+"Looping" = "Looping";
 "Loud" = "Fuerte";
 "Loudness" = "Sonoridad";
 "Low" = "Baja";
@@ -427,6 +434,7 @@
 "Next Transition" = "Próxima transición";
 "Next song enters at" = "La siguiente entra en";
 "No Downloads Yet" = "Aún no hay descargas";
+"No Effect" = "Sin efecto";
 "No Filter" = "Sin filtro";
 "No History" = "Sin historial";
 "No Playlists" = "Sin listas de reproducción";
@@ -453,6 +461,7 @@
 "No similar tracks" = "No hay canciones similares";
 "No songs found" = "No se encontraron canciones";
 "No songs yet" = "Todavía no hay canciones";
+"None" = "Ninguno";
 "Normal" = "Normal";
 "Not enough analyzed songs yet. Try again in a minute." = "Aún no hay suficientes canciones analizadas. Inténtalo en un minuto.";
 "Not enough of the song is left to mix." = "Queda muy poco de la canción para mezclar.";
@@ -526,9 +535,12 @@
 "Power boost" = "Subidón de energía";
 "Preferences" = "Preferencias";
 "Preparing the mix…" = "Preparando la mezcla…";
+"Preparing the preview…" = "Preparando la escucha…";
 "Preparing…" = "Preparando…";
 "Presence" = "Presencia";
 "Preview" = "Vista previa";
+"Preview Mix" = "Escuchar la mezcla";
+"Preview not available during a mix." = "No se puede escuchar durante una mezcla.";
 "Previous" = "Anterior";
 "Privacy" = "Privacidad";
 "Privacy & Content" = "Privacidad y contenido";
@@ -568,6 +580,7 @@
 "Resumes what was playing, or starts a mix if nothing was." = "Retoma lo que sonaba o, si no había nada, empieza una mezcla.";
 "Retry" = "Reintentar";
 "Return to artwork player" = "Volver al reproductor con portada";
+"Reverb Out" = "Reverb en la que sale";
 "Right" = "Derecha";
 "Rock" = "Rock";
 "Romance" = "Romance";
@@ -603,7 +616,7 @@
 "Select All" = "Seleccionar todo";
 "September" = "Septiembre";
 "Settings" = "Ajustes";
-"Shape the volume, the bass and the filter of each song during the mix. The presets are starting points; move the points to make your own. With custom curves, the Sound choice is not used." = "Da forma al volumen, a los graves y al filtro de cada canción durante la mezcla. Los preajustes son un punto de partida; mueve los puntos para hacer los tuyos. Con curvas propias, la elección de sonido no se usa.";
+"Shape the volume, the bass and the filter of each song during the mix. The presets are starting points; move the points to make your own. With custom curves, the Sound choice is not used. Looping repeats the start of the song that is leaving and is ignored when the tempo match stretches it. Effects only act during the mix and fade out before it ends." = "Da forma al volumen, a los graves y al filtro de cada canción durante la mezcla. Los preajustes son un punto de partida; mueve los puntos para hacer los tuyos. Con curvas propias, la elección de sonido no se usa. El looping repite el principio de la canción que sale y se ignora si el ajuste de tempo la estira. Los efectos solo actúan durante la mezcla y se apagan antes de que acabe.";
 "Share" = "Compartir";
 "Share this album with others" = "Comparte este álbum con otras personas";
 "Share this playlist with others" = "Comparte esta lista de reproducción con otras personas";
@@ -667,6 +680,7 @@
 "Stats" = "Estadísticas";
 "Status" = "Estado";
 "Stop DJ" = "Parar DJ";
+"Stop Preview" = "Parar la escucha";
 "Stop hearing this artist?" = "¿Dejar de oír a este artista?";
 "Stream" = "Transmisión";
 "Style" = "Estilo";

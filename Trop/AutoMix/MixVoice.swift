@@ -35,7 +35,9 @@ enum MixRenderer {
     ///   Si hace falta, empieza a `incomingRatio` veces su velocidad y vuelve a la normal al final.
     /// `plainFade`: un fundido simple (la saliente baja por coseno y la entrante sube por seno, sin filtros ni intercambio de graves) en
     /// vez de la mezcla con filtros.
-    /// `curveTables`: las seis curvas del editor ya muestreadas (volumen, graves y filtro de la saliente y de la entrante; ver `MixCurves`). Con ellas
+    /// `effectKind` (0 nada, 1 eco, 2 reverb) y `loopBars` (compases de la saliente que se repiten, de `beatSeconds` s por pulso) solo se usan con
+    /// `curveTables`.
+    /// `curveTables`: las siete curvas del editor ya muestreadas (volumen, graves y filtro de la saliente y de la entrante, y el efecto; ver `MixCurves`). Con ellas
     /// la mezcla se hace por ese camino; sin ellas (`nil`), exactamente como siempre.
     /// `tailStream`: la entrante es larga (no cabe entera en el archivo de la mezcla): el archivo lleva solo unos segundos de ella
     /// detras de la mezcla (`Output.extra`) y mpv sigue luego con su direccion de internet desde ahi.
@@ -43,7 +45,8 @@ enum MixRenderer {
         outgoingURL: URL, outgoingStart: TimeInterval,
         incomingURL: URL, incomingStart: TimeInterval,
         duration: TimeInterval, outgoingRatio: Double, incomingRatio: Double,
-        tailStream: Bool = false, plainFade: Bool = false, curveTables: [[Double]]? = nil
+        tailStream: Bool = false, plainFade: Bool = false, curveTables: [[Double]]? = nil,
+        effectKind: Int = 0, loopBars: Int = 0, beatSeconds: Double = 0.5
     ) -> Output? {
         // Misma frecuencia de muestreo que la saliente, para que mpv no tenga que cambiar de formato al encadenar.
         let rate = sampleRate(of: outgoingURL)
@@ -93,13 +96,18 @@ enum MixRenderer {
         guard let outputSource = reads.outgoing, let incomingSource = reads.incoming else { return nil }
 
         // Saliente en el tiempo de la mezcla.
-        let outgoing: [[Float]]
+        var outgoing: [[Float]]
         if stretchOut {
             outgoing = TimeStretch.render(input: outputSource, start: outPad, frames: frames) {
                 AutoMixMath.outgoingRate(ratio: outgoingRatio, progress: $0)
             }.output
         } else {
             outgoing = slice(outputSource, from: outPad, count: frames)
+        }
+        // Looping: se repite un trozo del principio de la saliente durante toda la mezcla. Solo si la saliente no cambia de tempo (con el
+        // estirado los compases no miden lo mismo a lo largo de la mezcla y la vuelta no casaria).
+        if curveTables != nil, loopBars > 0, !stretchOut {
+            applyLoop(&outgoing, loopFrames: Int(Double(loopBars * 4) * beatSeconds * rate), rate: rate)
         }
 
         // Entrante en el tiempo de la mezcla, y donde de su cancion acaba la parte mezclada.
@@ -137,15 +145,17 @@ enum MixRenderer {
             // Pre-rodaje: los filtros arrancaban en cero justo en el primer instante de la mezcla, con la cancion ya sonando, y
             // eso es un escalon (un "pop" seco al empezar). Se les pasa antes el trozo de la saliente anterior al corte (el
             // colchon de `outPad`) para que empiecen ya en marcha.
-            let startFilter = (curveTables?.count == 6 ? lookup(curveTables![4], 0) : sweepCurve(0))
+            let startFilter = ((curveTables?.count ?? 0) >= 6 ? lookup(curveTables![4], 0) : sweepCurve(0))
             lowpass.setLowPass(cutoff: exponential(20_000, 200, startFilter), rate: rate)
             for k in 0..<min(outPad, outputSource[channel].count) {
                 let warmed = lowpass.process(Double(outputSource[channel][k]))
                 _ = outSplit.process(warmed)
             }
+            var echo = EchoLine(delaySamples: Int(beatSeconds * 0.75 * rate))
+            var reverb = ReverbLine(rate: rate)
             for i in 0..<frames {
                 let progress = Double(i) / Double(frames)
-                if let t = curveTables, t.count == 6 {
+                if let t = curveTables, t.count >= 6 {
                     // Mezcla con las curvas del editor: volumen de toda la cancion x (graves x su ganancia + el resto).
                     if i % 64 == 0 {
                         lowpass.setLowPass(cutoff: exponential(20_000, 200, lookup(t[4], progress)), rate: rate)
@@ -158,7 +168,18 @@ enum MixRenderer {
                     let filteredOut = lowpass.process(Double(outgoing[channel][i]))
                     let outBassPart = outSplit.process(filteredOut)
                     let outRestPart = filteredOut - outBassPart
-                    let outSample = (outBassPart * outBassGain + outRestPart) * outVolume
+                    let dry = (outBassPart * outBassGain + outRestPart) * outVolume
+                    // Efecto sobre la saliente (eco o reverb): sigue sonando aunque el volumen baje, y se apaga solo en el ultimo ~18 % de la
+                    // mezcla para no dejar una cola que se corte de golpe cuando entra la entrante.
+                    var wet = 0.0
+                    if effectKind == 1 {
+                        wet = echo.process(filteredOut) * 0.9
+                    } else if effectKind == 2 {
+                        wet = reverb.process(filteredOut) * 0.25
+                    }
+                    let effectAmount = t.count >= 7 ? lookup(t[6], progress) : 0
+                    let effectFade = min(1, (1 - progress) / 0.18)
+                    let outSample = dry + wet * effectAmount * effectFade
                     let x = Double(incoming[channel][i])
                     let inBassPart = inSplit.process(x)
                     let inRestPart = highpass.process(x - inBassPart)
@@ -428,6 +449,83 @@ enum MixRenderer {
     }
 
     // MARK: - Filtros (biquad RBJ) y curvas
+
+    /// Eco: lo que sono hace un retardo (con realimentacion). `process` mete la muestra y devuelve la repeticion.
+    private struct EchoLine {
+        private var buffer: [Float]
+        private var index = 0
+
+        init(delaySamples: Int) {
+            buffer = [Float](repeating: 0, count: max(delaySamples, 64))
+        }
+
+        mutating func process(_ x: Double) -> Double {
+            let delayed = Double(buffer[index])
+            buffer[index] = Float(x + delayed * 0.5)
+            index += 1
+            if index >= buffer.count { index = 0 }
+            return delayed
+        }
+    }
+
+    /// Reverb sencilla (Schroeder): cuatro peines en paralelo y dos pasa-todo en serie. La salida va ya a la cuarta parte de la suma de los
+    /// peines; quien la usa la baja todavia mas.
+    private struct ReverbLine {
+        private var combs: [[Float]]
+        private var combIndex: [Int]
+        private var allpasses: [[Float]]
+        private var allpassIndex: [Int]
+
+        init(rate: Double) {
+            let scale = rate / 44_100
+            combs = [1116, 1188, 1277, 1356].map { [Float](repeating: 0, count: max(Int(Double($0) * scale), 16)) }
+            combIndex = [0, 0, 0, 0]
+            allpasses = [556, 441].map { [Float](repeating: 0, count: max(Int(Double($0) * scale), 16)) }
+            allpassIndex = [0, 0]
+        }
+
+        mutating func process(_ x: Double) -> Double {
+            var sum = 0.0
+            for c in 0..<combs.count {
+                let delayed = Double(combs[c][combIndex[c]])
+                combs[c][combIndex[c]] = Float(x + delayed * 0.84)
+                combIndex[c] += 1
+                if combIndex[c] >= combs[c].count { combIndex[c] = 0 }
+                sum += delayed
+            }
+            var signal = sum * 0.25
+            for a in 0..<allpasses.count {
+                let delayed = Double(allpasses[a][allpassIndex[a]])
+                let output = -signal * 0.5 + delayed
+                allpasses[a][allpassIndex[a]] = Float(signal + delayed * 0.5)
+                allpassIndex[a] += 1
+                if allpassIndex[a] >= allpasses[a].count { allpassIndex[a] = 0 }
+                signal = output
+            }
+            return signal
+        }
+    }
+
+    /// Repite los primeros `loopFrames` de la saliente hasta el final de la mezcla, con un fundido de ~5 ms en cada vuelta (entre lo que
+    /// seguiria sonando y el principio del trozo) para que no haya un clic.
+    nonisolated private static func applyLoop(_ channels: inout [[Float]], loopFrames: Int, rate: Double) {
+        guard let first = channels.first else { return }
+        let frames = first.count
+        guard loopFrames > 256, loopFrames + 512 < frames else { return }
+        let fade = min(Int(0.005 * rate), loopFrames / 4)
+        for channel in 0..<channels.count {
+            let original = channels[channel]
+            for i in loopFrames..<frames {
+                let phase = i % loopFrames
+                if phase < fade {
+                    let t = Float(phase) / Float(fade)
+                    channels[channel][i] = original[loopFrames + phase] * (1 - t) + original[phase] * t
+                } else {
+                    channels[channel][i] = original[phase]
+                }
+            }
+        }
+    }
 
     private struct Biquad {
         var b0 = 1.0, b1 = 0.0, b2 = 0.0, a1 = 0.0, a2 = 0.0
