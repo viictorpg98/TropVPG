@@ -155,7 +155,8 @@ struct CoverWidgetView: View {
                 }
             }
         }
-        .tint(.white)
+        // Estilo plano: con el del sistema cada portada quedaba metida en un circulo gris con margen.
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
@@ -165,7 +166,7 @@ struct CoverWidgetView: View {
             Button(intent: WidgetPlayTrackIntent(videoId: track.id, songTitle: track.title, songArtist: track.artist)) {
                 square { coverImage(track) }
             }
-            .tint(.white)
+            .buttonStyle(.plain)
         case .dice:
             diceCell
         case .empty:

@@ -25,7 +25,10 @@ final class WidgetDataStore {
     }
 
     private var quickPicks: [Source] = []
+    private var recentSongs: [Source] = []
     private var episodes: [Source] = []
+    private var episodesFetchedAt = Date.distantPast
+    private var fetchingEpisodes = false
     private var task: Task<Void, Never>?
     private var lastSignature = ""
     private var lastWrite = Date.distantPast
@@ -46,6 +49,7 @@ final class WidgetDataStore {
         }
         // El Acceso rapido sale de la base de datos: se vuelve a leer sin esperar a que cambie el inicio.
         schedule()
+        fetchEpisodesIfNeeded()
     }
 
     private func reportShare() {
@@ -63,6 +67,7 @@ final class WidgetDataStore {
     func homeChanged(_ sections: [HomeSection]) {
         guard !sections.isEmpty else { return }
         var quick: [Source] = []
+        var recent: [Source] = []
         var eps: [Source] = []
         var anySongs: [Source] = []
         var seenEpisodes = Set<String>()
@@ -70,6 +75,10 @@ final class WidgetDataStore {
         for section in sections {
             if case .quickPicks(let items) = section, quick.isEmpty {
                 quick = Self.sources(from: items)
+            }
+            // "Volver a escuchar" / "Acceso rapido" de YouTube Music: rellena el widget de Acceso rapido si no hay canciones fijadas.
+            if case .keepListening(let items) = section, recent.isEmpty {
+                recent = Self.sources(from: items)
             }
             for item in section.items {
                 switch item {
@@ -84,8 +93,59 @@ final class WidgetDataStore {
         }
         // Sin la seccion de Selecciones rapidas (puede estar desactivada), se usan las primeras canciones del inicio.
         quickPicks = Array((quick.isEmpty ? anySongs : quick).prefix(8))
-        episodes = Array(eps.prefix(8))
+        recentSongs = Array(recent.prefix(8))
+        // Los episodios no suelen venir en la portada normal (estan en el chip Podcasts): solo se toman de aqui si aparecen.
+        if !eps.isEmpty { episodes = Array(eps.prefix(8)) }
         schedule()
+        fetchEpisodesIfNeeded()
+    }
+
+    // MARK: - Episodios (chip Podcasts)
+
+    private func fetchEpisodesIfNeeded() {
+        guard !fetchingEpisodes, Date().timeIntervalSince(episodesFetchedAt) > 1800 else { return }
+        fetchingEpisodes = true
+        Task { [weak self] in
+            let found = await self?.fetchPodcastEpisodes() ?? []
+            guard let self else { return }
+            self.fetchingEpisodes = false
+            // Si no salio nada (sin red, por ejemplo), se vuelve a intentar a los 5 minutos en vez de a la media hora.
+            self.episodesFetchedAt = found.isEmpty ? Date().addingTimeInterval(-1500) : Date()
+            if !found.isEmpty {
+                self.episodes = Array(found.prefix(8))
+                self.schedule()
+            }
+        }
+    }
+
+    /// "Tus nuevos episodios": estan en la portada del chip Podcasts del inicio de YouTube Music (se pide igual que "Pon Dormir").
+    private func fetchPodcastEpisodes() async -> [Source] {
+        guard NetworkMonitor.shared.hasConnection,
+              let json = try? await InnerTubeClient.tropShared.browse(browseId: "FEmusic_home"),
+              let page = HomePageParser.parseHomePage(from: json) else { return [] }
+        let chip = page.chips.first { chip in
+            chip.title.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil).lowercased().contains("podcast")
+        }
+        guard let chip, let params = chip.params,
+              let chipJson = try? await InnerTubeClient.tropShared.browse(
+                  browseId: "FEmusic_home", params: params, locale: .deviceLanguage
+              ),
+              let chipPage = HomePageParser.parseHomePage(from: chipJson, chipMode: true) else { return [] }
+        let newEpisodes = chipPage.sections.first {
+            $0.title.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil).lowercased().contains("episod")
+        }
+        let pool = newEpisodes.map { [$0] } ?? chipPage.sections
+        var seen = Set<String>()
+        var result: [Source] = []
+        for section in pool {
+            for item in section.items {
+                if case .episode = item, let source = Self.source(from: item), seen.insert(source.id).inserted {
+                    result.append(source)
+                }
+            }
+        }
+        PlaybackReport.record("widget: episodios del chip Podcasts: \(result.count)")
+        return result
     }
 
     private static func sources(from items: [YTItem]) -> [Source] {
@@ -119,11 +179,16 @@ final class WidgetDataStore {
         task?.cancel()
         let quick = quickPicks
         let eps = episodes
+        let recent = recentSongs
         task = Task { [weak self] in
             let entries = (try? await DatabaseService.shared.fetchSpeedDial(limit: 8)) ?? []
-            let dial = entries.map {
+            // Primero las canciones que has fijado en el Acceso rapido; si faltan, las de "Volver a escuchar" del inicio.
+            var dial = entries.map {
                 Source(id: $0.videoId, title: $0.title, artist: $0.artist, thumbnailUrl: $0.thumbnailUrl)
             }
+            var seenDial = Set(dial.map(\.id))
+            for source in recent where seenDial.insert(source.id).inserted { dial.append(source) }
+            dial = Array(dial.prefix(8))
             guard !Task.isCancelled else { return }
             await self?.write(quick: quick, dial: dial, episodes: eps)
         }
