@@ -38,13 +38,13 @@ struct SonarWidgetProvider: TimelineProvider {
 
 /// Como se confirma el toque (lo unico que cambia entre los tres widgets).
 enum SonarWidgetVariant {
-    /// Botones planos, sin efecto al pulsar: el que funciona.
+    /// Botones planos, sin efecto al pulsar (el de antes: sirve de referencia).
     case stable
-    /// Estilo de boton del sistema (da efecto al pulsar) pero con forma de rectangulo redondeado y fondo blanco suave, en vez del
-    /// circulo azul de antes.
-    case systemNeutral
-    /// Igual, pero pidiendo `.bordered` de forma explicita y con el naranja de Sonar como color.
-    case systemOrange
+    /// Widget negro y botones del sistema con fondo negro, o sea invisible: no se ven bloques, y al pulsar el boton se encoge y se
+    /// oscurece (es el efecto propio del sistema, que se vio en las grabaciones).
+    case systemBlack
+    /// Igual pero sobre el gris oscuro de siempre y con un fondo blanco muy suave en cada boton.
+    case systemSoft
 }
 
 struct SonarWidgetView: View {
@@ -101,19 +101,20 @@ struct SonarWidgetView: View {
                 tileLabel(symbol: symbol, title: title, top: top, bottom: bottom)
             }
             .buttonStyle(.plain)
-        case .systemNeutral:
-            Button(intent: intent) {
-                tileLabel(symbol: symbol, title: title, top: top, bottom: bottom)
-            }
-            .buttonBorderShape(.roundedRectangle(radius: 16))
-            .tint(.white)
-        case .systemOrange:
+        case .systemBlack:
             Button(intent: intent) {
                 tileLabel(symbol: symbol, title: title, top: top, bottom: bottom)
             }
             .buttonStyle(.bordered)
             .buttonBorderShape(.roundedRectangle(radius: 16))
-            .tint(Color(red: 1.00, green: 0.48, blue: 0.27))
+            .tint(.black)
+        case .systemSoft:
+            Button(intent: intent) {
+                tileLabel(symbol: symbol, title: title, top: top, bottom: bottom)
+            }
+            .buttonStyle(.bordered)
+            .buttonBorderShape(.roundedRectangle(radius: 16))
+            .tint(Color.white.opacity(0.10))
         }
     }
 
@@ -133,14 +134,17 @@ struct SonarWidgetView: View {
             }
         }
         .padding(6)
-        .containerBackground(Color(red: 0.08, green: 0.08, blue: 0.09), for: .widget)
+        .containerBackground(
+            variant == .systemBlack ? Color.black : Color(red: 0.08, green: 0.08, blue: 0.09),
+            for: .widget
+        )
     }
 }
 
 struct SonarWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "SonarWidget", provider: SonarWidgetProvider()) { _ in
-            SonarWidgetView(variant: .stable)
+            SonarWidgetView(variant: .systemBlack)
         }
         .configurationDisplayName("Sonar")
         .description("Mi mezcla, mezclar ahora, dado y Me gusta.")
@@ -153,10 +157,10 @@ struct SonarWidget: Widget {
 struct SonarWidgetTestA: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "SonarWidgetTestA", provider: SonarWidgetProvider()) { _ in
-            SonarWidgetView(variant: .systemNeutral)
+            SonarWidgetView(variant: .systemSoft)
         }
         .configurationDisplayName("Sonar · prueba A")
-        .description("Prueba: efecto del sistema, rectangular y blanco suave.")
+        .description("Prueba: gris oscuro con fondo blanco muy suave en cada boton.")
         .supportedFamilies([.systemSmall])
         .contentMarginsDisabled()
     }
@@ -165,10 +169,10 @@ struct SonarWidgetTestA: Widget {
 struct SonarWidgetTestB: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "SonarWidgetTestB", provider: SonarWidgetProvider()) { _ in
-            SonarWidgetView(variant: .systemOrange)
+            SonarWidgetView(variant: .stable)
         }
         .configurationDisplayName("Sonar · prueba B")
-        .description("Prueba: efecto del sistema, rectangular y naranja de Sonar.")
+        .description("Prueba: botones planos, sin efecto al pulsar (el de antes).")
         .supportedFamilies([.systemSmall])
         .contentMarginsDisabled()
     }
