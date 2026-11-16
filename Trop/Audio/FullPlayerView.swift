@@ -13,6 +13,7 @@ struct FullPlayerView: View {
     @Environment(SettingsStore.self) private var settings
     private let player = PlayerController.shared
     @Bindable private var np = NowPlaying.shared
+    private let dj = DJSettings.shared
     @State private var editingProgress: Float = 0
     @State private var isEditingSlider = false
     @GestureState(resetTransaction: Transaction(animation: .spring(response: 0.3, dampingFraction: 0.85)))
@@ -397,6 +398,21 @@ struct FullPlayerView: View {
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                         AutoMixEngine.shared.mixNow()
                     }
+                }
+
+                // DJ: una sesion que se enciende y se apaga aqui. Encendido, el boton se ilumina y las ondas se animan mientras habla.
+                PlayerPillButton(
+                    systemImage: dj.sessionActive ? "waveform" : "mic",
+                    title: "DJ",
+                    isActive: dj.sessionActive,
+                    accessibility: "DJ",
+                    pulses: dj.speaking
+                ) {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    let on = DJHost.shared.toggle()
+                    PlaybackNotice.shared.show(NSLocalizedString(
+                        on ? "DJ started. It will introduce songs as they play." : "DJ stopped.", comment: ""
+                    ))
                 }
 
                 PlayerPillButton(

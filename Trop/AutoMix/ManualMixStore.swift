@@ -60,3 +60,37 @@ final class ManualMixStore {
         UserDefaults.standard.set(styles, forKey: Self.defaultsKey)
     }
 }
+
+/// Guardar la transicion elegida para una pareja y aplicarla: si es la de la cancion que suena con la siguiente, se rehace el plan.
+@MainActor
+enum MixTransition {
+    /// Guarda la eleccion (`nil`: que decida AutoMix) y devuelve el texto que explica cuando se aplicara.
+    @discardableResult
+    static func apply(_ choice: ManualMixStore.Choice?, outId: String, inId: String) -> String {
+        ManualMixStore.shared.set(choice, outId: outId, inId: inId)
+        let np = NowPlaying.shared
+        let isNext = np.queueSongs.indices.contains(np.queueIndex) && np.queueIndex + 1 < np.queueSongs.count
+            && np.queueSongs[np.queueIndex].videoId == outId && np.queueSongs[np.queueIndex + 1].videoId == inId
+        guard SettingsStore.shared.autoMixEnabled else {
+            return NSLocalizedString("Saved, but AutoMix is off: turn it on in Settings to use it.", comment: "")
+        }
+        guard isNext else {
+            return NSLocalizedString("Saved for when these two songs play.", comment: "")
+        }
+        if AutoMixEngine.shared.isActive {
+            return NSLocalizedString("Saved. This mix is already prepared; it applies the next time these two play.", comment: "")
+        }
+        AutoMixEngine.shared.replan()
+        return NSLocalizedString("Saved for the next transition.", comment: "")
+    }
+
+    /// El nombre corto de lo elegido, para la etiqueta entre dos canciones ("Automatic" si no se ha tocado).
+    static func title(for choice: ManualMixStore.Choice?) -> String {
+        guard let choice else { return NSLocalizedString("Automatic", comment: "") }
+        switch choice.length {
+        case .short: return NSLocalizedString("Short Blend", comment: "")
+        case .medium: return NSLocalizedString("Medium Blend", comment: "")
+        case .long: return NSLocalizedString("Long Blend", comment: "")
+        }
+    }
+}

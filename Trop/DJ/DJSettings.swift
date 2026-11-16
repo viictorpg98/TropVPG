@@ -2,7 +2,9 @@
 //  DJSettings.swift
 //  Trop
 //
-//  Ajustes del DJ (el locutor que presenta las canciones): apagado por defecto. Se guardan aparte de `SettingsStore`.
+//  Ajustes del DJ (el locutor que presenta las canciones). La sesion de DJ (encendido/apagado) NO se guarda: empieza apagada cada
+//  vez que se abre la app y se enciende desde el reproductor, el menu de la cola o el Inicio. Lo demas se guarda aparte de
+//  `SettingsStore`.
 //
 
 import Foundation
@@ -13,15 +15,15 @@ import Observation
 final class DJSettings {
     static let shared = DJSettings()
 
-    private static let enabledKey = "dj.enabled"
     private static let everyKey = "dj.everySongs"
     private static let voiceKey = "dj.voiceId"
     private static let modelKey = "dj.useLanguageModel"
 
-    /// El DJ habla (apagado hasta que lo actives).
-    var enabled: Bool {
-        didSet { UserDefaults.standard.set(enabled, forKey: Self.enabledKey) }
-    }
+    /// Hay una sesion de DJ en marcha (no se guarda: al abrir la app empieza apagada). Lo cambia `DJHost`.
+    var sessionActive = false
+
+    /// El DJ esta hablando ahora mismo (el boton del reproductor se anima mientras tanto). Lo cambia `DJHost`.
+    var speaking = false
 
     /// Habla cada tantas canciones (la primera tras activarlo siempre).
     var everySongs: Int {
@@ -40,7 +42,6 @@ final class DJSettings {
 
     private init() {
         let defaults = UserDefaults.standard
-        enabled = defaults.bool(forKey: Self.enabledKey)
         let every = defaults.integer(forKey: Self.everyKey)
         everySongs = every > 0 ? every : 3
         voiceId = defaults.string(forKey: Self.voiceKey) ?? ""

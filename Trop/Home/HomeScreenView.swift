@@ -116,6 +116,10 @@ struct HomeScreenView: View {
                     )
                 }
 
+                if viewModel.selectedChip == nil {
+                    DJHomeCard()
+                }
+
                 if viewModel.isChipLoading {
                     chipLoadingPlaceholder
                 } else {

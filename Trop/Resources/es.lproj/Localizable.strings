@@ -5,6 +5,7 @@
 "%@ subscribers" = "%@ suscriptores";
 "%@: %@ (%d of %d good)" = "%@: %@ (%d de %d bien)";
 "%d duplicates removed." = "Se han quitado %d duplicados.";
+"%d s" = "%d s";
 "%d songs sorted." = "%d canciones ordenadas.";
 "%d songs sorted; %d still being analyzed." = "%d canciones ordenadas; %d aún se están analizando.";
 "%lld episode" = "%lld episodio";
@@ -18,7 +19,6 @@
 "-3s" = "-3s";
 "0 dB" = "0 dB";
 "2010s" = "Años 2010";
-"A host that introduces the songs: it lowers the music, says a short line over the start of the song and brings the music back. It is off until you turn it on." = "Un locutor que presenta las canciones: baja la música, dice una frase corta sobre el principio de la canción y vuelve a subirla. Está apagado hasta que lo actives.";
 "A mix is in progress. Try again in a moment." = "Hay una mezcla en marcha. Inténtalo en un momento.";
 "About" = "Acerca de";
 "Accent Color" = "Color de acento";
@@ -28,6 +28,7 @@
 "Activity Type" = "Tipo de actividad";
 "Add" = "Añadir";
 "Add Songs" = "Añadir canciones";
+"Add more songs to the queue to edit the mixes between them." = "Añade más canciones a la cola para editar las mezclas entre ellas.";
 "Add songs from the team's playlist page and they will show up here." = "Añade canciones desde la página de la lista del equipo y aparecerán aquí.";
 "Add to Playlist" = "Añadir a una lista de reproducción";
 "Add to Queue" = "Añadir a la cola";
@@ -44,6 +45,7 @@
 "All Results" = "Todos los resultados";
 "Ambient + atmospheric" = "Ambiental y atmosférico";
 "Analysing songs…" = "Analizando canciones…";
+"Analyzing the next songs to sort them… %d of %d ready." = "Analizando las siguientes canciones para ordenarlas… %d de %d listas.";
 "Analyzing the next songs. Try again in a minute." = "Analizando las siguientes canciones. Inténtalo en un minuto.";
 "Animated Artwork" = "Carátulas animadas";
 "Animated Artwork on Mobile Data" = "Carátulas animadas con datos móviles";
@@ -72,6 +74,7 @@
 "AutoMix" = "AutoMix";
 "AutoMix Learns From Your Ratings" = "AutoMix aprende de tus valoraciones";
 "Automatic" = "Automática";
+"Automatic lets AutoMix decide. The mix always starts and ends on the beat; the length changes how long the two songs overlap." = "Automática deja que decida AutoMix. La mezcla siempre empieza y acaba a tempo; la duración cambia cuánto se solapan las dos canciones.";
 "Autoplay Similar" = "Reproducción automática de similares";
 "Back" = "Atrás";
 "Bad mix" = "Mala mezcla";
@@ -140,6 +143,7 @@
 "Couldn't play this song. Skipping to the next one." = "No se ha podido reproducir esta canción. Paso a la siguiente.";
 "Couldn't play this. Try again." = "No se ha podido reproducir. Inténtalo de nuevo.";
 "Couldn't save the queue." = "No se ha podido guardar la cola.";
+"Couldn't start the mix." = "No se ha podido iniciar la mezcla.";
 "Country" = "País";
 "Covers and remixes" = "Versiones y remixes";
 "Create" = "Crear";
@@ -147,6 +151,8 @@
 "Create playlist" = "Crear lista de reproducción";
 "Customize Radio" = "Personalizar radio";
 "DJ" = "DJ";
+"DJ started. It will introduce songs as they play." = "DJ iniciado. Presentará las canciones según suenen.";
+"DJ stopped." = "DJ parado.";
 "DND" = "No molestar";
 "Daily Discover" = "Descubrimiento diario";
 "Daily Top Music Videos - %@" = "Videoclips más populares del día - %@";
@@ -186,6 +192,7 @@
 "Each mix you rate teaches AutoMix which kinds of mixes you like: how long they last and whether the tempo is matched, depending on how close the two songs are. It still tries other styles now and then, and a pair of songs you rated badly is not mixed the same way again." = "Cada mezcla que valoras le enseña a AutoMix que tipo de mezclas te gustan: cuanto duran y si se iguala el tempo, segun lo parecidas que sean las dos canciones. De vez en cuando prueba otros estilos, y una pareja de canciones que valoraste mal no se mezcla igual otra vez.";
 "Early" = "Pronto";
 "Edit" = "Editar";
+"Edit Mix" = "Editar mezclas";
 "Edit playlist" = "Editar lista de reproducción";
 "Education" = "Educación";
 "Electronic" = "Electrónica";
@@ -226,6 +233,7 @@
 "Forgotten favorites" = "Favoritas olvidadas";
 "Free Up Space Automatically" = "Liberar espacio automáticamente";
 "Fresh finds, old favorites" = "Novedades y favoritas de siempre";
+"From" = "De";
 "From the Community" = "De la comunidad";
 "From the community" = "De la comunidad";
 "Full-Width Artwork" = "Carátula a todo ancho";
@@ -334,6 +342,7 @@
 "Lyrics not found" = "Letra no encontrada";
 "March" = "Marzo";
 "Match Playlist" = "Lista del partido";
+"Match Tempo" = "Igualar tempo";
 "Maximum delay before scrobbling (30–360s)." = "Retraso máximo antes del scrobbling (30–360 s).";
 "May" = "Mayo";
 "Meditative sleep" = "Sueño meditativo";
@@ -345,9 +354,11 @@
 "Minimum Duration" = "Duración mínima";
 "Minimum Track Duration" = "Duración mínima de la canción";
 "Minutes" = "Minutos";
+"Mix" = "Mix";
 "Mix Streamed Songs on Mobile Data" = "Mezclar canciones en streaming con datos móviles";
 "Mix Timing" = "Momento de la mezcla";
 "Mix now" = "Mezclar";
+"Mix starts at" = "La mezcla empieza en";
 "Mixed for you" = "Mezclado para ti";
 "Mobile Data for Extras" = "Datos móviles para extras";
 "Mood & Genres" = "Estados de ánimo y géneros";
@@ -379,6 +390,7 @@
 "News" = "Noticias";
 "Next" = "Siguiente";
 "Next Transition" = "Próxima transición";
+"Next song enters at" = "La siguiente entra en";
 "No Downloads Yet" = "Aún no hay descargas";
 "No History" = "Sin historial";
 "No Playlists" = "Sin listas de reproducción";
@@ -398,6 +410,7 @@
 "No duplicates in the queue." = "No hay duplicados en la cola.";
 "No episodes found" = "No se encontraron episodios";
 "No hidden artists yet." = "Todavía no has ocultado ningún artista.";
+"No mix is possible between these two songs, so the normal transition will be used." = "No es posible mezclar estas dos canciones, así que se usará la transición normal.";
 "No playback has been recorded yet." = "Todavía no se ha registrado ninguna reproducción.";
 "No playlist data" = "Sin datos de la lista de reproducción";
 "No podcast data" = "Sin datos del pódcast";
@@ -405,6 +418,7 @@
 "No similar tracks" = "No hay canciones similares";
 "No songs found" = "No se encontraron canciones";
 "No songs yet" = "Todavía no hay canciones";
+"Not enough analyzed songs yet. Try again in a minute." = "Aún no hay suficientes canciones analizadas. Inténtalo en un minuto.";
 "Not enough of the song is left to mix." = "Queda muy poco de la canción para mezclar.";
 "Not logged in" = "Sesión no iniciada";
 "Nothing here" = "No hay nada aquí";
@@ -416,6 +430,7 @@
 "OK" = "Aceptar";
 "October" = "Octubre";
 "Off" = "Desactivado";
+"Off keeps each song at its own tempo. It only applies when both songs have a similar tempo." = "Desactivado, cada canción conserva su tempo. Solo se aplica cuando las dos tienen un tempo parecido.";
 "Offline" = "Sin conexión";
 "Offline Mix" = "Mezcla sin conexión";
 "Offline Mix Size" = "Tamaño de la mezcla";
@@ -424,6 +439,7 @@
 "Online" = "En línea";
 "Only your downloaded music is available." = "Solo está disponible la música descargada.";
 "Options" = "Opciones";
+"Overlap" = "Solape";
 "Party" = "Fiesta";
 "Party music" = "Música de fiesta";
 "Percent (30–95)" = "Porcentaje (30–95)";
@@ -528,6 +544,7 @@
 "Saved" = "Guardado";
 "Saved Episodes" = "Episodios guardados";
 "Saved for the next transition." = "Guardado para la próxima transición.";
+"Saved for when these two songs play." = "Guardado para cuando suenen estas dos canciones.";
 "Saved, but AutoMix is off: turn it on in Settings to use it." = "Guardado, pero AutoMix está apagado: actívalo en Ajustes para usarlo.";
 "Saved. This mix is already prepared; it applies the next time these two play." = "Guardado. Esta mezcla ya está preparada; se aplicará la próxima vez que suenen estas dos.";
 "Saving the queue…" = "Guardando la cola…";
@@ -600,11 +617,13 @@
 "Spotify Canvas" = "Spotify Canvas";
 "Spotify Login" = "Iniciar sesión en Spotify";
 "Standard (64–96 kbps)" = "Estándar (64–96 kbps)";
+"Start DJ" = "Iniciar DJ";
 "Start Radio" = "Iniciar radio";
 "Starts a mix of music you like." = "Empieza una mezcla de música que te gusta.";
 "State Template" = "Plantilla de estado";
 "Stats" = "Estadísticas";
 "Status" = "Estado";
+"Stop DJ" = "Parar DJ";
 "Stop hearing this artist?" = "¿Dejar de oír a este artista?";
 "Stream" = "Transmisión";
 "Style" = "Estilo";
@@ -632,19 +651,24 @@
 "Team playlist" = "Lista del equipo";
 "Technology" = "Tecnología";
 "Template" = "Plantilla";
+"Tempo" = "Tempo";
 "Test" = "Prueba";
 "Test an Introduction" = "Probar una presentación";
 "Testing…" = "Probando…";
 "Thanks!" = "¡Gracias!";
+"The DJ is a session: start it from the DJ button in the player, from the queue menu or from the Home screen. It lowers the music, says a short line over the start of a song and brings the music back." = "El DJ es una sesión: inícialo desde el botón DJ del reproductor, desde el menú de la cola o desde el Inicio. Baja la música, dice una frase corta sobre el principio de una canción y vuelve a subirla.";
+"The DJ is on. Tap to stop it." = "El DJ está encendido. Toca para pararlo.";
 "The country controls the region used for YouTube Music requests." = "El país controla la región que se usa en las peticiones a YouTube Music.";
 "The music will stop in %d minutes." = "La música se parará en %d minutos.";
 "The summary of this session (screens, network, freezes, CPU, memory, battery) and the latest events. Pull down to refresh." = "El resumen de esta sesión (pantallas, red, tirones, CPU, memoria, batería) y los últimos eventos. Desliza hacia abajo para actualizar.";
 "Theme" = "Tema";
 "Theme Mode" = "Modo del tema";
 "There is no next song to mix into." = "No hay una siguiente canción con la que mezclar.";
+"These songs are still being analyzed. The preview appears when they are ready." = "Estas canciones aún se están analizando. La vista previa aparece cuando estén listas.";
 "This permanently deletes all offline tracks from your device." = "Esto elimina de forma permanente todas las canciones sin conexión de tu dispositivo.";
 "This week" = "Esta semana";
 "Title" = "Título";
+"To" = "A";
 "Today" = "Hoy";
 "Top 100" = "Top 100";
 "Top 100 Music Videos %@" = "Top 100 videoclips %@";
@@ -656,6 +680,7 @@
 "Track Search History" = "Guardar historial de búsqueda";
 "Tracks" = "Canciones";
 "Tracks shorter than this will not be scrobbled (10–60s)." = "Las canciones más cortas que esto no se enviarán (10–60 s).";
+"Transition" = "Transición";
 "Treble Boost" = "Realce de agudos";
 "Treble Reducer" = "Reducción de agudos";
 "Trending" = "Tendencias";
@@ -711,6 +736,7 @@
 "Your New Episodes" = "Tus nuevos episodios";
 "Your Playlists" = "Tus listas de reproducción";
 "Your daily discover" = "Tu descubrimiento diario";
+"Your mix, with a host that introduces the songs." = "Tu mezcla, con un locutor que presenta las canciones.";
 "Your recent searches will appear here." = "Tus búsquedas recientes aparecerán aquí.";
 "Your shows" = "Tus pódcast";
 "long mixes" = "mezclas largas";

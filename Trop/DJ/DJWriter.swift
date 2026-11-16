@@ -89,7 +89,8 @@ enum DJWriter {
                     let session = LanguageModelSession(instructions: """
                     You are a warm, concise radio DJ introducing songs to a Spanish-speaking listener. \
                     Always answer in Spanish, in one or two short sentences, at most 30 words in total. \
-                    Use only the facts you are given. Never invent facts about the artist or the song. \
+                    Use only the facts you are given. Never invent or assume anything about the artist, the album, the \
+                    genre or the song that is not in the facts. Never say how a song makes people feel. \
                     No emojis, no quotation marks, no hashtags.
                     """)
                     // Una cadena con interpolacion (y no la variable sola) vale tanto si `respond` pide String como si pide Prompt.
@@ -125,16 +126,31 @@ enum DJWriter {
     }
 
     private static func makePrompt(for context: Context) -> String {
-        var facts = ["Song: \(context.title)", "Artist: \(context.artist)"]
+        var facts = ["Song title: \(context.title)", "Artist: \(context.artist)"]
         if let album = context.album, !album.isEmpty { facts.append("Album: \(album)") }
-        if let year = context.year { facts.append("Year: \(year)") }
+        if let year = context.year { facts.append("Release year: \(year)") }
         if let previousTitle = context.previousTitle {
-            facts.append("Previous song: \(previousTitle)" + (context.previousArtist.map { " by \($0)" } ?? ""))
+            facts.append("Song that just ended: \(previousTitle)" + (context.previousArtist.map { " by \($0)" } ?? ""))
         }
         return """
-        Introduce the song that has just started, in Spanish, like a friendly radio DJ.
+        The song below has just started playing. Introduce it to the listener in Spanish, in one or two short sentences.
+        It is currently \(partOfDay()) for the listener; you may greet or set the mood accordingly, but do not mention the date.
+        Use ONLY the facts listed here. Do not state anything else about the artist, the album, the genre, the lyrics, \
+        the mood of the song or its history, even if you think you know it. If you have little to say, just say the \
+        title and the artist in a friendly way.
+        Facts:
         \(facts.joined(separator: "\n"))
         """
+    }
+
+    /// "the morning", "the afternoon", "the evening" o "the night", segun la hora del movil.
+    private static func partOfDay() -> String {
+        switch Calendar.current.component(.hour, from: Date()) {
+        case 6..<13: return "the morning"
+        case 13..<20: return "the afternoon"
+        case 20..<24: return "the evening"
+        default: return "the night"
+        }
     }
 
     /// Quita comillas, saltos de linea y espacios de mas, y recorta si se alarga.

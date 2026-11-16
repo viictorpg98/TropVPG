@@ -2,7 +2,8 @@
 //  DJSettingsView.swift
 //  Trop
 //
-//  El DJ en su propia pantalla: activarlo, cada cuantas canciones habla, con que escribe, que voz usa y una prueba para oirlo.
+//  El DJ en su propia pantalla: cada cuantas canciones habla, con que escribe, que voz usa y una prueba para oirlo. Ya no se
+//  enciende aqui: es una sesion que se inicia desde el reproductor, el menu de la cola o el Inicio.
 //
 
 import SwiftUI
@@ -20,18 +21,17 @@ struct DJSettingsView: View {
     var body: some View {
         List {
             Section {
-                SettingsToggleRow("DJ", icon: "mic", isOn: $dj.enabled)
-            } footer: {
-                Text("A host that introduces the songs: it lowers the music, says a short line over the start of the song and brings the music back. It is off until you turn it on.")
-            }
-
-            Section {
                 Stepper(value: $dj.everySongs, in: 1...10) {
                     Text(String(format: NSLocalizedString("Speak every %d songs", comment: ""), dj.everySongs))
                 }
                 SettingsToggleRow("Write With Apple Intelligence", icon: "sparkles", isOn: $dj.useLanguageModel)
+            } header: {
+                Text("DJ")
             } footer: {
-                Text(modelStatus)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("The DJ is a session: start it from the DJ button in the player, from the queue menu or from the Home screen. It lowers the music, says a short line over the start of a song and brings the music back.")
+                    Text(modelStatus)
+                }
             }
 
             Section {

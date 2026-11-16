@@ -5,6 +5,7 @@
 "%@ subscribers" = "%@ subscribers";
 "%@: %@ (%d of %d good)" = "%@: %@ (%d of %d good)";
 "%d duplicates removed." = "%d duplicates removed.";
+"%d s" = "%d s";
 "%d songs sorted." = "%d songs sorted.";
 "%d songs sorted; %d still being analyzed." = "%d songs sorted; %d still being analyzed.";
 "%lld episode" = "%lld episode";
@@ -18,7 +19,6 @@
 "-3s" = "-3s";
 "0 dB" = "0 dB";
 "2010s" = "2010s";
-"A host that introduces the songs: it lowers the music, says a short line over the start of the song and brings the music back. It is off until you turn it on." = "A host that introduces the songs: it lowers the music, says a short line over the start of the song and brings the music back. It is off until you turn it on.";
 "A mix is in progress. Try again in a moment." = "A mix is in progress. Try again in a moment.";
 "About" = "About";
 "Accent Color" = "Accent Color";
@@ -28,6 +28,7 @@
 "Activity Type" = "Activity Type";
 "Add" = "Add";
 "Add Songs" = "Add Songs";
+"Add more songs to the queue to edit the mixes between them." = "Add more songs to the queue to edit the mixes between them.";
 "Add songs from the team's playlist page and they will show up here." = "Add songs from the team's playlist page and they will show up here.";
 "Add to Playlist" = "Add to Playlist";
 "Add to Queue" = "Add to Queue";
@@ -44,6 +45,7 @@
 "All Results" = "All Results";
 "Ambient + atmospheric" = "Ambient + atmospheric";
 "Analysing songs…" = "Analysing songs…";
+"Analyzing the next songs to sort them… %d of %d ready." = "Analyzing the next songs to sort them… %d of %d ready.";
 "Analyzing the next songs. Try again in a minute." = "Analyzing the next songs. Try again in a minute.";
 "Animated Artwork" = "Animated Artwork";
 "Animated Artwork on Mobile Data" = "Animated Artwork on Mobile Data";
@@ -72,6 +74,7 @@
 "AutoMix" = "AutoMix";
 "AutoMix Learns From Your Ratings" = "AutoMix Learns From Your Ratings";
 "Automatic" = "Automatic";
+"Automatic lets AutoMix decide. The mix always starts and ends on the beat; the length changes how long the two songs overlap." = "Automatic lets AutoMix decide. The mix always starts and ends on the beat; the length changes how long the two songs overlap.";
 "Autoplay Similar" = "Autoplay Similar";
 "Back" = "Back";
 "Bad mix" = "Bad mix";
@@ -140,6 +143,7 @@
 "Couldn't play this song. Skipping to the next one." = "Couldn't play this song. Skipping to the next one.";
 "Couldn't play this. Try again." = "Couldn't play this. Try again.";
 "Couldn't save the queue." = "Couldn't save the queue.";
+"Couldn't start the mix." = "Couldn't start the mix.";
 "Country" = "Country";
 "Covers and remixes" = "Covers and remixes";
 "Create" = "Create";
@@ -147,6 +151,8 @@
 "Create playlist" = "Create playlist";
 "Customize Radio" = "Customize Radio";
 "DJ" = "DJ";
+"DJ started. It will introduce songs as they play." = "DJ started. It will introduce songs as they play.";
+"DJ stopped." = "DJ stopped.";
 "DND" = "DND";
 "Daily Discover" = "Daily Discover";
 "Daily Top Music Videos - %@" = "Daily Top Music Videos - %@";
@@ -186,6 +192,7 @@
 "Each mix you rate teaches AutoMix which kinds of mixes you like: how long they last and whether the tempo is matched, depending on how close the two songs are. It still tries other styles now and then, and a pair of songs you rated badly is not mixed the same way again." = "Each mix you rate teaches AutoMix which kinds of mixes you like: how long they last and whether the tempo is matched, depending on how close the two songs are. It still tries other styles now and then, and a pair of songs you rated badly is not mixed the same way again.";
 "Early" = "Early";
 "Edit" = "Edit";
+"Edit Mix" = "Edit Mix";
 "Edit playlist" = "Edit playlist";
 "Education" = "Education";
 "Electronic" = "Electronic";
@@ -226,6 +233,7 @@
 "Forgotten favorites" = "Forgotten favorites";
 "Free Up Space Automatically" = "Free Up Space Automatically";
 "Fresh finds, old favorites" = "Fresh finds, old favorites";
+"From" = "From";
 "From the Community" = "From the Community";
 "From the community" = "From the community";
 "Full-Width Artwork" = "Full-Width Artwork";
@@ -334,6 +342,7 @@
 "Lyrics not found" = "Lyrics not found";
 "March" = "March";
 "Match Playlist" = "Match Playlist";
+"Match Tempo" = "Match Tempo";
 "Maximum delay before scrobbling (30–360s)." = "Maximum delay before scrobbling (30–360s).";
 "May" = "May";
 "Meditative sleep" = "Meditative sleep";
@@ -345,9 +354,11 @@
 "Minimum Duration" = "Minimum Duration";
 "Minimum Track Duration" = "Minimum Track Duration";
 "Minutes" = "Minutes";
+"Mix" = "Mix";
 "Mix Streamed Songs on Mobile Data" = "Mix Streamed Songs on Mobile Data";
 "Mix Timing" = "Mix Timing";
 "Mix now" = "Mix now";
+"Mix starts at" = "Mix starts at";
 "Mixed for you" = "Mixed for you";
 "Mobile Data for Extras" = "Mobile Data for Extras";
 "Mood & Genres" = "Mood & Genres";
@@ -379,6 +390,7 @@
 "News" = "News";
 "Next" = "Next";
 "Next Transition" = "Next Transition";
+"Next song enters at" = "Next song enters at";
 "No Downloads Yet" = "No Downloads Yet";
 "No History" = "No History";
 "No Playlists" = "No Playlists";
@@ -398,6 +410,7 @@
 "No duplicates in the queue." = "No duplicates in the queue.";
 "No episodes found" = "No episodes found";
 "No hidden artists yet." = "No hidden artists yet.";
+"No mix is possible between these two songs, so the normal transition will be used." = "No mix is possible between these two songs, so the normal transition will be used.";
 "No playback has been recorded yet." = "No playback has been recorded yet.";
 "No playlist data" = "No playlist data";
 "No podcast data" = "No podcast data";
@@ -405,6 +418,7 @@
 "No similar tracks" = "No similar tracks";
 "No songs found" = "No songs found";
 "No songs yet" = "No songs yet";
+"Not enough analyzed songs yet. Try again in a minute." = "Not enough analyzed songs yet. Try again in a minute.";
 "Not enough of the song is left to mix." = "Not enough of the song is left to mix.";
 "Not logged in" = "Not logged in";
 "Nothing here" = "Nothing here";
@@ -416,6 +430,7 @@
 "OK" = "OK";
 "October" = "October";
 "Off" = "Off";
+"Off keeps each song at its own tempo. It only applies when both songs have a similar tempo." = "Off keeps each song at its own tempo. It only applies when both songs have a similar tempo.";
 "Offline" = "Offline";
 "Offline Mix" = "Offline Mix";
 "Offline Mix Size" = "Offline Mix Size";
@@ -424,6 +439,7 @@
 "Online" = "Online";
 "Only your downloaded music is available." = "Only your downloaded music is available.";
 "Options" = "Options";
+"Overlap" = "Overlap";
 "Party" = "Party";
 "Party music" = "Party music";
 "Percent (30–95)" = "Percent (30–95)";
@@ -528,6 +544,7 @@
 "Saved" = "Saved";
 "Saved Episodes" = "Saved Episodes";
 "Saved for the next transition." = "Saved for the next transition.";
+"Saved for when these two songs play." = "Saved for when these two songs play.";
 "Saved, but AutoMix is off: turn it on in Settings to use it." = "Saved, but AutoMix is off: turn it on in Settings to use it.";
 "Saved. This mix is already prepared; it applies the next time these two play." = "Saved. This mix is already prepared; it applies the next time these two play.";
 "Saving the queue…" = "Saving the queue…";
@@ -600,11 +617,13 @@
 "Spotify Canvas" = "Spotify Canvas";
 "Spotify Login" = "Spotify Login";
 "Standard (64–96 kbps)" = "Standard (64–96 kbps)";
+"Start DJ" = "Start DJ";
 "Start Radio" = "Start Radio";
 "Starts a mix of music you like." = "Starts a mix of music you like.";
 "State Template" = "State Template";
 "Stats" = "Stats";
 "Status" = "Status";
+"Stop DJ" = "Stop DJ";
 "Stop hearing this artist?" = "Stop hearing this artist?";
 "Stream" = "Stream";
 "Style" = "Style";
@@ -632,19 +651,24 @@
 "Team playlist" = "Team playlist";
 "Technology" = "Technology";
 "Template" = "Template";
+"Tempo" = "Tempo";
 "Test" = "Test";
 "Test an Introduction" = "Test an Introduction";
 "Testing…" = "Testing…";
 "Thanks!" = "Thanks!";
+"The DJ is a session: start it from the DJ button in the player, from the queue menu or from the Home screen. It lowers the music, says a short line over the start of a song and brings the music back." = "The DJ is a session: start it from the DJ button in the player, from the queue menu or from the Home screen. It lowers the music, says a short line over the start of a song and brings the music back.";
+"The DJ is on. Tap to stop it." = "The DJ is on. Tap to stop it.";
 "The country controls the region used for YouTube Music requests." = "The country controls the region used for YouTube Music requests.";
 "The music will stop in %d minutes." = "The music will stop in %d minutes.";
 "The summary of this session (screens, network, freezes, CPU, memory, battery) and the latest events. Pull down to refresh." = "The summary of this session (screens, network, freezes, CPU, memory, battery) and the latest events. Pull down to refresh.";
 "Theme" = "Theme";
 "Theme Mode" = "Theme Mode";
 "There is no next song to mix into." = "There is no next song to mix into.";
+"These songs are still being analyzed. The preview appears when they are ready." = "These songs are still being analyzed. The preview appears when they are ready.";
 "This permanently deletes all offline tracks from your device." = "This permanently deletes all offline tracks from your device.";
 "This week" = "This week";
 "Title" = "Title";
+"To" = "To";
 "Today" = "Today";
 "Top 100" = "Top 100";
 "Top 100 Music Videos %@" = "Top 100 Music Videos %@";
@@ -656,6 +680,7 @@
 "Track Search History" = "Track Search History";
 "Tracks" = "Tracks";
 "Tracks shorter than this will not be scrobbled (10–60s)." = "Tracks shorter than this will not be scrobbled (10–60s).";
+"Transition" = "Transition";
 "Treble Boost" = "Treble Boost";
 "Treble Reducer" = "Treble Reducer";
 "Trending" = "Trending";
@@ -711,6 +736,7 @@
 "Your New Episodes" = "Your New Episodes";
 "Your Playlists" = "Your Playlists";
 "Your daily discover" = "Your daily discover";
+"Your mix, with a host that introduces the songs." = "Your mix, with a host that introduces the songs.";
 "Your recent searches will appear here." = "Your recent searches will appear here.";
 "Your shows" = "Your shows";
 "long mixes" = "long mixes";

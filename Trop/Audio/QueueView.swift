@@ -32,10 +32,15 @@ struct QueueView<ProgressSlider: View>: View {
     @State private var searchText = ""
     @State private var showSaveDialog = false
     @State private var playlistName = ""
+    @State private var showMixEditor = false
+    @State private var isSorting = false
 
     var body: some View {
         queueContent
             .simultaneousGesture(backSwipeGesture)
+            .sheet(isPresented: $showMixEditor) {
+                MixEditorView()
+            }
             .textPrompt(
                 "Save as Playlist",
                 isPresented: $showSaveDialog,
@@ -213,42 +218,13 @@ struct QueueView<ProgressSlider: View>: View {
         }
     }
 
-    /// Reordena lo que queda por sonar por tempo y tonalidad (solo las canciones ya analizadas; ver `QueueSmartOrder`).
+    /// Reordena lo que queda por sonar por tempo y tonalidad: pide analizar las siguientes, espera un poco y ordena (ver `QueueSmartOrder`).
     private func sortByTempoAndKey() {
-        let message: String
-        switch QueueSmartOrder.reorderUpcoming() {
-        case .nothingToOrder:
-            message = NSLocalizedString("Nothing left in the queue to sort.", comment: "")
-        case .mixInProgress:
-            message = NSLocalizedString("A mix is in progress. Try again in a moment.", comment: "")
-        case .done(let ordered, let pending):
-            if ordered < 2 {
-                message = NSLocalizedString("Analyzing the next songs. Try again in a minute.", comment: "")
-            } else if pending > 0 {
-                message = String(format: NSLocalizedString("%d songs sorted; %d still being analyzed.", comment: ""), ordered, pending)
-            } else {
-                message = String(format: NSLocalizedString("%d songs sorted.", comment: ""), ordered)
-            }
-        }
-        PlaybackNotice.shared.show(message)
-    }
-
-    /// El estilo de la mezcla entre la que suena y la siguiente (`nil`: que decida AutoMix otra vez).
-    private func setNextTransition(_ choice: ManualMixStore.Choice?) {
-        guard np.queueSongs.indices.contains(np.queueIndex), np.queueIndex + 1 < np.queueSongs.count else {
-            PlaybackNotice.shared.show(NSLocalizedString("There is no next song to mix into.", comment: ""))
-            return
-        }
-        let outId = np.queueSongs[np.queueIndex].videoId
-        let inId = np.queueSongs[np.queueIndex + 1].videoId
-        ManualMixStore.shared.set(choice, outId: outId, inId: inId)
-        if AutoMixEngine.shared.isActive {
-            PlaybackNotice.shared.show(NSLocalizedString("Saved. This mix is already prepared; it applies the next time these two play.", comment: ""))
-        } else if !SettingsStore.shared.autoMixEnabled {
-            PlaybackNotice.shared.show(NSLocalizedString("Saved, but AutoMix is off: turn it on in Settings to use it.", comment: ""))
-        } else {
-            AutoMixEngine.shared.replan()
-            PlaybackNotice.shared.show(NSLocalizedString("Saved for the next transition.", comment: ""))
+        guard !isSorting else { return }
+        isSorting = true
+        Task {
+            await QueueSmartOrder.sortAndAnnounce()
+            isSorting = false
         }
     }
 
@@ -286,14 +262,18 @@ struct QueueView<ProgressSlider: View>: View {
             } label: {
                 Label("Sort by BPM & Key", systemImage: "arrow.up.arrow.down")
             }
-            Menu {
-                Button("Automatic") { setNextTransition(nil) }
-                Button("Short Blend") { setNextTransition(ManualMixStore.Choice(length: .short, matchTempo: true)) }
-                Button("Medium Blend") { setNextTransition(ManualMixStore.Choice(length: .medium, matchTempo: true)) }
-                Button("Long Blend") { setNextTransition(ManualMixStore.Choice(length: .long, matchTempo: true)) }
-                Button("Keep Both Tempos") { setNextTransition(ManualMixStore.Choice(length: .medium, matchTempo: false)) }
+            Button {
+                showMixEditor = true
             } label: {
-                Label("Next Transition", systemImage: "wand.and.stars")
+                Label("Edit Mix", systemImage: "slider.horizontal.3")
+            }
+            Button {
+                let on = DJHost.shared.toggle()
+                PlaybackNotice.shared.show(NSLocalizedString(
+                    on ? "DJ started. It will introduce songs as they play." : "DJ stopped.", comment: ""
+                ))
+            } label: {
+                Label(LocalizedStringKey(DJSettings.shared.sessionActive ? "Stop DJ" : "Start DJ"), systemImage: "mic")
             }
             Button(role: .destructive) {
                 np.clearUpcoming()
@@ -558,7 +538,7 @@ struct QueueSongRow: View {
                 let baseSubtitle = song.duration > 0
                     ? (artistStr.isEmpty ? "" : artistStr + " · ") + DurationFormat.playbackTime(TimeInterval(song.duration))
                     : artistStr
-                let subtitle = [baseSubtitle, musicTag].filter { !$0.isEmpty }.joined(separator: " · ")
+                let subtitle = baseSubtitle
                 if !subtitle.isEmpty {
                     HStack(spacing: 4) {
                         if song.isExplicit { ExplicitBadge() }
@@ -570,7 +550,14 @@ struct QueueSongRow: View {
                 }
             }
 
-            Spacer()
+            Spacer(minLength: 4)
+
+            // Tempo y tonalidad a la derecha, con tamano fijo: el titulo y el artista se acortan, la etiqueta nunca.
+            if let badge = MusicBadge.make(for: song.videoId) {
+                badge
+                    .opacity(isPlayed ? 0.5 : 1)
+                    .fixedSize()
+            }
 
             Image(systemName: "line.3.horizontal")
                 .font(.system(size: 15, weight: .semibold))
@@ -588,13 +575,46 @@ struct QueueSongRow: View {
     private var titleColor: Color {
         isPlayed && !isCurrent ? Color.white.opacity(0.45) : .white
     }
+}
 
-    /// "128 BPM · 8A" (tempo y tonalidad en numeracion Camelot) cuando la cancion ya esta analizada; si no, nada.
-    private var musicTag: String {
-        guard let structure = TrackAnalysisStore.shared.structure(for: song.videoId), structure.bpm > 0 else { return "" }
-        var parts = ["\(Int(structure.bpm.rounded())) BPM"]
-        if let key = structure.key, let camelot = KeyDetector.camelot(key) { parts.append(camelot) }
-        return parts.joined(separator: " · ")
+/// La etiqueta de una cancion en la cola y en la pantalla Mix: el tempo y, debajo, la tonalidad Camelot sobre su color de la rueda.
+struct MusicBadge: View {
+    let bpm: Int
+    let camelot: String?
+    let number: Int
+    let isMinor: Bool
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 3) {
+            Text("\(bpm)")
+                .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                .foregroundStyle(.secondary)
+            if let camelot {
+                Text(camelot)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.black.opacity(0.85))
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(Self.color(number: number, isMinor: isMinor)))
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("\(bpm) BPM" + (camelot.map { " · \($0)" } ?? "")))
+    }
+
+    /// La etiqueta de una cancion ya analizada (`nil` si aun no se sabe su tempo).
+    static func make(for videoId: String) -> MusicBadge? {
+        guard let structure = TrackAnalysisStore.shared.structure(for: videoId), structure.bpm > 0 else { return nil }
+        let bpm = Int(structure.bpm.rounded())
+        guard let key = structure.key, let camelot = KeyDetector.camelot(key), let wheel = KeyDetector.wheelPosition(key) else {
+            return MusicBadge(bpm: bpm, camelot: nil, number: 0, isMinor: false)
+        }
+        return MusicBadge(bpm: bpm, camelot: camelot, number: wheel.number, isMinor: wheel.isMinor)
+    }
+
+    /// Cada numero de la rueda Camelot tiene su color; las menores (A) un poco mas oscuras que las mayores (B).
+    static func color(number: Int, isMinor: Bool) -> Color {
+        Color(hue: Double((number + 11) % 12) / 12, saturation: isMinor ? 0.6 : 0.5, brightness: isMinor ? 0.85 : 0.97)
     }
 }
 

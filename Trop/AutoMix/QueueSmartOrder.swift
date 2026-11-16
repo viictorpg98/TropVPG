@@ -4,8 +4,9 @@
 //
 //  "Ordenar por BPM y tonalidad": reordena lo que queda por sonar para que cada cancion encaje con la anterior (tempo parecido y
 //  tonalidad compatible en la rueda Camelot). La que suena y las ya sonadas no se tocan. Solo se ordenan las canciones ya
-//  analizadas; el resto queda al final, en su orden. Al pedirlo se manda analizar las 12 siguientes, asi que pulsarlo una segunda
-//  vez, un rato despues, ordena mas.
+//  analizadas; el resto queda al final, en su orden. `sortAndAnnounce` pide analizar las 25 siguientes y espera hasta ~30 s a que
+//  se vayan haciendo (con avisos de progreso) antes de ordenar; lo ya analizado queda guardado, asi que pulsarlo otra vez un
+//  rato despues ordena mas.
 //
 
 import Foundation
@@ -22,6 +23,70 @@ enum QueueSmartOrder {
     }
 
     private static let analyzeAhead = 12
+    /// Cuantas canciones siguientes se mandan analizar antes de ordenar, y lo mas que se espera a que se hagan.
+    private static let waitAhead = 25
+    private static let maxWaitSeconds = 30
+    private static var isSorting = false
+
+    /// Pide analizar las canciones siguientes, espera a que se vayan haciendo (con avisos) y ordena. Todo lo que pasa se avisa con
+    /// un mensaje; si ya hay una ordenacion en curso, no hace nada.
+    static func sortAndAnnounce() async {
+        guard !isSorting else { return }
+        isSorting = true
+        defer { isSorting = false }
+        let notice = PlaybackNotice.shared
+        let np = NowPlaying.shared
+        let store = TrackAnalysisStore.shared
+
+        guard np.queueSongs.indices.contains(np.queueIndex), np.queueIndex + 1 < np.queueSongs.count else {
+            notice.show(NSLocalizedString("Nothing left in the queue to sort.", comment: ""))
+            return
+        }
+        // Las canciones largas (mezclas de horas) no se analizan enteras: no se espera por ellas.
+        let ids = np.queueSongs[(np.queueIndex + 1)...].prefix(waitAhead).map(\.videoId).filter { !store.isLong($0) }
+
+        // Si ninguna de las que faltan por analizar se puede leer ahora (sin Wi-Fi y sin descargar), esperar no sirve de nada.
+        func missing() -> [String] { ids.filter { !store.isSettled($0) } }
+        let readable = missing().filter { AutoMixSource.isAvailable(videoId: $0) }
+        if !missing().isEmpty, readable.isEmpty {
+            PlaybackReport.record("cola: ordenar sin esperar (las canciones sin analizar no se pueden leer ahora: sin Wi-Fi ni descarga)")
+        } else if !missing().isEmpty {
+            notice.show(String(
+                format: NSLocalizedString("Analyzing the next songs to sort them… %d of %d ready.", comment: ""),
+                ids.count - missing().count, ids.count
+            ), duration: 8)
+            var seconds = 0
+            while seconds < maxWaitSeconds, !missing().isEmpty {
+                for id in missing() { store.request(id) }
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                seconds += 1
+                if seconds % 5 == 0, !missing().isEmpty {
+                    notice.show(String(
+                        format: NSLocalizedString("Analyzing the next songs to sort them… %d of %d ready.", comment: ""),
+                        ids.count - missing().count, ids.count
+                    ), duration: 8)
+                }
+            }
+            PlaybackReport.record("cola: espera de analisis acabada tras \(seconds) s (\(ids.count - missing().count) de \(ids.count) listas)")
+        }
+
+        let message: String
+        switch reorderUpcoming() {
+        case .nothingToOrder:
+            message = NSLocalizedString("Nothing left in the queue to sort.", comment: "")
+        case .mixInProgress:
+            message = NSLocalizedString("A mix is in progress. Try again in a moment.", comment: "")
+        case .done(let ordered, let pending):
+            if ordered < 2 {
+                message = NSLocalizedString("Not enough analyzed songs yet. Try again in a minute.", comment: "")
+            } else if pending > 0 {
+                message = String(format: NSLocalizedString("%d songs sorted; %d still being analyzed.", comment: ""), ordered, pending)
+            } else {
+                message = String(format: NSLocalizedString("%d songs sorted.", comment: ""), ordered)
+            }
+        }
+        notice.show(message)
+    }
 
     static func reorderUpcoming() -> Outcome {
         let np = NowPlaying.shared
