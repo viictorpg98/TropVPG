@@ -256,6 +256,29 @@ enum MixRenderer {
         return (text.contains("webm") || text.contains("opus")) ? 48_000 : 44_100
     }
 
+    /// La forma de onda de la cancion entera con `buckets` barras (0 a 1), para el editor de mezclas: se lee a 8 kHz y se toma, en cada barra,
+    /// el nivel (media de los valores absolutos) con una curva que realza lo suave. Devuelve tambien cuanto dura lo leido.
+    nonisolated static func detailedWaveform(url: URL, maxSeconds: TimeInterval, buckets: Int) -> (wave: [Float], seconds: Double)? {
+        guard buckets > 8, let pcm = decode(url: url, start: 0, seconds: maxSeconds, rate: 8_000, label: "onda con detalle"),
+              pcm[0].count > buckets else { return nil }
+        let count = pcm[0].count
+        let size = Double(count) / Double(buckets)
+        var levels = [Float](repeating: 0, count: buckets)
+        for bucket in 0..<buckets {
+            let from = Int(Double(bucket) * size)
+            let to = min(Int(Double(bucket + 1) * size), count)
+            guard to > from else { continue }
+            var sum: Float = 0
+            for i in from..<to { sum += (abs(pcm[0][i]) + abs(pcm[1][i])) * 0.5 }
+            levels[bucket] = sum / Float(to - from)
+        }
+        // Se normaliza con un valor alto (no el maximo, que un solo golpe fijaria demasiado arriba) y se realzan los pasajes suaves.
+        let sorted = levels.sorted()
+        let reference = max(sorted[min(Int(Double(sorted.count) * 0.97), sorted.count - 1)], 0.0001)
+        let wave = levels.map { min(pow($0 / reference, 0.7), 1) }
+        return (wave, Double(count) / 8_000)
+    }
+
     /// `seconds` s de `url` desde `start`, a `rate` Hz y en estereo.
     nonisolated private static func decode(
         url: URL, start: TimeInterval, seconds: TimeInterval, rate: Double, label: String = "audio"

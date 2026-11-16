@@ -392,16 +392,19 @@ struct MixTransitionEditor: View {
         // La forma de onda es la de la cancion entera (las canciones largas no la tienen aqui).
         let outWhole = store.structure(for: outgoing.videoId)
         let incWhole = store.structure(for: incoming.videoId)
+        // Si ya se leyo la onda con detalle (unas 1.500 barras), se usa esa; si no, la de 160 barras.
+        let outDetailed = DetailedWaveformStore.shared.entry(for: outgoing.videoId)
+        let incDetailed = DetailedWaveformStore.shared.entry(for: incoming.videoId)
 
         let outLow = max(Double(out.firstSoundMs) / 1000 + 15, 20)
         let outHigh = Double(out.musicEndMs) / 1000 - 8
         let inHigh = min(max(Double(inc.musicEndMs) / 1000 - 30, 0), 150)
         return Preview(
             plan: result?.plan,
-            outgoingWave: outWhole?.waveform,
-            incomingWave: incWhole?.waveform,
-            outgoingSeconds: store.knownDuration(outgoing.videoId) ?? Double(out.lastSoundMs) / 1000,
-            incomingSeconds: store.knownDuration(incoming.videoId) ?? Double(inc.lastSoundMs) / 1000,
+            outgoingWave: outDetailed?.wave ?? outWhole?.waveform,
+            incomingWave: incDetailed?.wave ?? incWhole?.waveform,
+            outgoingSeconds: outDetailed?.seconds ?? store.knownDuration(outgoing.videoId) ?? Double(out.lastSoundMs) / 1000,
+            incomingSeconds: incDetailed?.seconds ?? store.knownDuration(incoming.videoId) ?? Double(inc.lastSoundMs) / 1000,
             outgoingBpm: out.bpm,
             incomingBpm: inc.bpm,
             tempoMatters: inputs.style.context == "near",
@@ -456,6 +459,12 @@ struct MixTransitionEditor: View {
         }
         .navigationTitle("Transition")
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            // La onda con detalle de las dos (una lectura por cancion; despues sale de la memoria).
+            await DetailedWaveformStore.shared.load(outgoing.videoId)
+            await DetailedWaveformStore.shared.load(incoming.videoId)
+            refresh += 1
+        }
         .task {
             // Si alguna aun no esta analizada, se pide y se vuelve a mirar hasta que este.
             while !Task.isCancelled {
