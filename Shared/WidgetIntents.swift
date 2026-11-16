@@ -54,6 +54,28 @@ struct WidgetDiceIntent: AudioPlaybackIntent {
     }
 }
 
+/// "Radio": empieza la radio de la cancion que suena (la cola pasa a canciones parecidas; la actual sigue sonando). Si no suena nada,
+/// arranca "Para ti" para que el boton nunca se quede sin hacer nada.
+struct WidgetRadioIntent: AudioPlaybackIntent {
+    static let title: LocalizedStringResource = "Start Radio"
+    static let isDiscoverable = false
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        #if !WIDGET_EXTENSION
+        let np = NowPlaying.shared
+        if np.queueSongs.indices.contains(np.queueIndex) {
+            PlaybackQueue.startRadio(for: np.queueSongs[np.queueIndex])
+            // La radio se pide a YouTube en segundo plano: se mantiene viva la accion unos segundos para que termine.
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+        } else {
+            _ = await SonarMix.start()
+        }
+        #endif
+        return .result()
+    }
+}
+
 /// Una cancion o episodio concreto, desde una portada del widget de portadas: suena y sigue su radio.
 struct WidgetPlayTrackIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Play Song"

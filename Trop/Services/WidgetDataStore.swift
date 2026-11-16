@@ -93,9 +93,7 @@ final class WidgetDataStore {
 
     private func reloadButtonWidgets() {
         lastButtonsReload = Date()
-        for kind in ["SonarWidget", "SonarWidgetTestA", "SonarWidgetTestB"] {
-            WidgetCenter.shared.reloadTimelines(ofKind: kind)
-        }
+        WidgetCenter.shared.reloadTimelines(ofKind: "SonarWidget")
     }
 
     // MARK: - Datos del inicio
