@@ -1355,7 +1355,7 @@ extension PlayerController {
         center.nextTrackCommand.isEnabled = true
         center.nextTrackCommand.addTarget { _ in
             Log.player.info("REMOTE_COMMAND next fired")
-            Task { @MainActor in NowPlaying.shared.playNext() }
+            Task { @MainActor in DJSession.shared.next() }
             return .success
         }
 

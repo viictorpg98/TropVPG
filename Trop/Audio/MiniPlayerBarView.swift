@@ -278,7 +278,7 @@ struct MiniPlayerBarView: View {
 
             playPauseButton
 
-            Button(action: { np.playNext() }, label: {
+            Button(action: { DJSession.shared.next() }, label: {
                 Image(systemName: "forward.fill")
                     .font(.system(size: 17))
                     .foregroundStyle(np.hasNext ? titleColor : titleColor.opacity(0.35))
@@ -374,7 +374,7 @@ struct MiniPlayerBarView: View {
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 220_000_000)
             switch direction {
-            case .next: np.playNext()
+            case .next: DJSession.shared.next()
             case .previous: np.playPrevious()
             }
             withAnimation(nil) { dragOffset = 0 }

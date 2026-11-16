@@ -67,6 +67,18 @@ final class DJSession {
         AutoMixEngine.shared.replan()
     }
 
+    /// El usuario pide la siguiente (boton, deslizar la portada, pantalla de bloqueo o CarPlay). Con el DJ en marcha se pasa a ella con una
+    /// mezcla de AutoMix (como "Mezclar ya": empieza en unos segundos); sin el DJ, o si no se puede mezclar ahora, es el salto de siempre.
+    /// Un segundo toque mientras la mezcla se prepara salta de golpe.
+    func next() {
+        let np = NowPlaying.shared
+        if isActive, np.hasNext, np.isPlaying, AutoMixEngine.shared.mixNow() {
+            PlaybackReport.record("dj: siguiente pedido, se pasa a ella con una mezcla")
+            return
+        }
+        np.playNext()
+    }
+
     /// Lo llama `WaveformStore.songStarted`: una cancion empieza (tocar, saltar, relevo de AutoMix). Se aprovecha para ordenar sin esperar
     /// a la siguiente pasada.
     func songStarted(videoId: String) {

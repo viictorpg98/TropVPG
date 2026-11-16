@@ -119,7 +119,7 @@ struct QueueView<ProgressSlider: View>: View {
                         hasNext: np.hasNext,
                         onPrevious: { np.playPrevious() },
                         onPlayPause: { player.togglePlayPause() },
-                        onNext: { np.playNext() }
+                        onNext: { DJSession.shared.next() }
                     )
                 }
             }

@@ -337,7 +337,7 @@ struct FullPlayerView: View {
             hasNext: np.hasNext,
             onPrevious: { np.playPrevious() },
             onPlayPause: { player.togglePlayPause() },
-            onNext: { np.playNext() },
+            onNext: { DJSession.shared.next() },
             showsModes: true
         )
         .scaleEffect(isCompact ? 0.94 : 1)
@@ -457,7 +457,7 @@ struct FullPlayerView: View {
                 guard settings.artworkSwipeNavigation else { return }
                 guard abs(value.translation.width) > abs(value.translation.height) else { return }
                 if value.translation.width < -60, np.hasNext {
-                    np.playNext()
+                    DJSession.shared.next()
                     slideInArtwork(fromLeft: false)
                 } else if value.translation.width > 60, np.hasPrevious {
                     np.playPrevious()
