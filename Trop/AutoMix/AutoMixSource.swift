@@ -32,11 +32,15 @@ enum AutoMixSource {
     /// DESCARGA (otra cadena de clientes de YouTube), una sola vez por sesion y cancion (cada intento cuesta una tanda de peticiones).
     private static var useDownloadAddress = Set<String>()
     private static var triedDownloadAddress = Set<String>()
+    /// La direccion de descarga ya pedida de cada cancion (cada peticion cuesta una tanda de llamadas a YouTube); se reutiliza 20 minutos.
+    private static var downloadAddressCache: [String: (source: Source, date: Date)] = [:]
+    private static let downloadAddressLifetime: TimeInterval = 20 * 60
 
     /// El analisis o la preparacion de una mezcla no pudo leer esta cancion en streaming.
     static func noteReadFailure(videoId: String) {
         if useDownloadAddress.contains(videoId) {
             useDownloadAddress.remove(videoId)
+            downloadAddressCache[videoId] = nil
             PlaybackReport.record("automix: \(videoId) direccion de descarga: tampoco se pudo leer")
             return
         }
@@ -53,10 +57,18 @@ enum AutoMixSource {
         }
         guard streamingAllowed else { return nil }
         let wantsDownloadAddress = useDownloadAddress.contains(videoId)
+        if wantsDownloadAddress, let cached = downloadAddressCache[videoId],
+           Date().timeIntervalSince(cached.date) < downloadAddressLifetime {
+            return cached.source
+        }
         guard let result = try? await PlaybackManager.shared.resolve(videoId: videoId, forDownload: wantsDownloadAddress),
               let url = URL(string: result.streamUrl) else { return nil }
-        if wantsDownloadAddress { PlaybackReport.record("automix: \(videoId) direccion de descarga obtenida, se intenta leer con ella") }
-        return Source(url: url, isLocal: false, duration: result.duration.flatMap { $0 > 0 ? TimeInterval($0) : nil })
+        let source = Source(url: url, isLocal: false, duration: result.duration.flatMap { $0 > 0 ? TimeInterval($0) : nil })
+        if wantsDownloadAddress {
+            PlaybackReport.record("automix: \(videoId) direccion de descarga obtenida, se intenta leer con ella")
+            downloadAddressCache[videoId] = (source, Date())
+        }
+        return source
     }
 
     nonisolated static let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15" +

@@ -177,33 +177,53 @@ actor PlaybackManager {
         }
         let fullChain = request.chain
         request.chain = filteredChain(request.chain)
-        let result: PlaybackResult
-        if isLong {
-            result = try await resolveLongContent(videoId: videoId, request: request)
-        } else {
-            do {
-                result = try await StreamFallback.resolveFirstValid(
-                    request,
-                    using: InnerTubeClient.tropShared,
-                    providers: .tropLive
-                )
-            } catch {
-                // Sin los clientes descartados no hubo direccion: se prueba con todos.
-                guard request.chain.count != fullChain.count else { throw error }
-                request.chain = fullChain
-                result = try await StreamFallback.resolveFirstValid(
-                    request,
-                    using: InnerTubeClient.tropShared,
-                    providers: .tropLive
-                )
+        var resolved: PlaybackResult?
+        var firstError: Error?
+        do {
+            if isLong {
+                resolved = try await resolveLongContent(videoId: videoId, request: request)
+            } else {
+                do {
+                    resolved = try await StreamFallback.resolveFirstValid(
+                        request,
+                        using: InnerTubeClient.tropShared,
+                        providers: .tropLive
+                    )
+                } catch {
+                    // Sin los clientes descartados no hubo direccion: se prueba con todos.
+                    guard request.chain.count != fullChain.count else { throw error }
+                    request.chain = fullChain
+                    resolved = try await StreamFallback.resolveFirstValid(
+                        request,
+                        using: InnerTubeClient.tropShared,
+                        providers: .tropLive
+                    )
+                }
+            }
+        } catch {
+            firstError = error
+        }
+        // Ultimo recurso: si ningun cliente de reproduccion dio una direccion que sirva (YouTube pide entrar o rechaza el cliente), se prueba la
+        // cadena de DESCARGA, cuyas direcciones han resultado legibles por FFmpeg (lo que usa mpv) en canciones donde las normales dan 403.
+        var usedDownloadAddress = false
+        if resolved == nil, let firstError, !(firstError is CancellationError) {
+            PlaybackReport.record("pedir \(videoId): ningun cliente dio una direccion que sirva, se prueba la de descarga")
+            if let alternative = try? await resolveFromNetwork(videoId: videoId, preferredFormat: nil, forDownload: true) {
+                PlaybackReport.record("direccion de descarga de \(videoId): cliente \(alternative.clientName) (ultimo recurso)")
+                resolved = alternative
+                usedDownloadAddress = true
             }
         }
+        guard let result = resolved else { throw firstError ?? StreamError.allClientsFailed }
         PlaybackReport.record("direccion de \(videoId): cliente \(result.clientName) en \(Int(Date().timeIntervalSince(started) * 1000)) ms, \(result.mimeType)")
-        // Lo que funciona para un podcast no dice nada de la musica: no se recuerda.
-        if !isLong { UserDefaults.standard.set(result.clientName, forKey: Self.lastClientKey) }
+        // Lo que funciona para un podcast no dice nada de la musica: no se recuerda (ni lo que dio la cadena de descarga).
+        if !isLong, !usedDownloadAddress { UserDefaults.standard.set(result.clientName, forKey: Self.lastClientKey) }
         if isSuperseded(videoId, generation: generation) { return result }
         if await isNoLongerChosen(videoId, onlyIfCurrent: onlyIfCurrent) { return result }
         await playNetworkResult(result, videoId: videoId, startAt: startAt)
+        // Un fallo posterior de una direccion de DESCARGA no se atribuye a ningun cliente de reproduccion (no vetaria uno que funciona para
+        // otras canciones: `noteStreamFailure` mira `clientUsed`).
+        if usedDownloadAddress { clientUsed[videoId] = nil }
         return result
     }
 
