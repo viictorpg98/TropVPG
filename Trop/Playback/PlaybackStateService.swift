@@ -90,6 +90,8 @@ actor PlaybackStateService {
         if elapsed >= historyDurationThreshold, !hasRecordedPlayback {
             await firePlayback(videoId: videoId, playTimeMs: Int64(elapsed * 1000))
         } else if elapsed < historyDurationThreshold {
+            // Una cancion que se deja de oir entre los 2 y los 20 s es un salto: no entra en el historial (30 s o mas), asi que se apunta aparte.
+            if elapsed >= 2, elapsed < 20 { SkipLog.record(videoId: videoId) }
             Log.playbackState.debug(
                 "Elapsed \(String(format: "%.1f", elapsed))s below threshold \(self.historyDurationThreshold)s — skipping history recording"
             )

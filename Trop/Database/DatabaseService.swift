@@ -456,3 +456,65 @@ extension DatabaseService {
         }
     }
 }
+
+// MARK: - Escucha por cancion (para "Para ti")
+
+/// Lo que se sabe de lo escuchado de una cancion en el ultimo año (tabla `event`: una fila por reproduccion de 30 s o mas).
+struct ListeningStat: Sendable {
+    let entity: SongEntity
+    /// Reproducciones, cada una con mas peso cuanto mas reciente (la mitad a los ~80 dias).
+    let score: Double
+    let events: Int
+    /// Reproducciones empezadas entre las 23:00 y las 6:00.
+    let nightEvents: Int
+    let lastPlayed: Date
+}
+
+extension DatabaseService {
+    func fetchListeningStats(days: Int = 365, limit: Int = 300) async throws -> (stats: [ListeningStat], eventsRead: Int) {
+        try await dbPool.read { db -> (stats: [ListeningStat], eventsRead: Int) in
+            let now = Date()
+            let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: now) ?? Date.distantPast
+            let rows = try Row.fetchAll(db, sql: """
+                SELECT song_id, timestamp FROM event
+                WHERE timestamp > ?
+                ORDER BY timestamp DESC
+                LIMIT 8000
+                """, arguments: [cutoff])
+            struct Accumulator {
+                var score = 0.0
+                var events = 0
+                var night = 0
+                var last = Date.distantPast
+            }
+            var byId: [String: Accumulator] = [:]
+            let calendar = Calendar.current
+            for row in rows {
+                let id: String? = row["song_id"]
+                let timestamp: Date? = row["timestamp"]
+                guard let id, let timestamp else { continue }
+                var accumulator = byId[id] ?? Accumulator()
+                let ageDays = max(0, now.timeIntervalSince(timestamp)) / 86_400
+                accumulator.score += exp(-ageDays / 120)
+                accumulator.events += 1
+                let hour = calendar.component(.hour, from: timestamp)
+                if hour >= 23 || hour < 6 { accumulator.night += 1 }
+                accumulator.last = max(accumulator.last, timestamp)
+                byId[id] = accumulator
+            }
+            let topIds = byId.sorted { $0.value.score > $1.value.score }.prefix(limit).map { $0.key }
+            let songs = try Self.fetchSongMapByIds(topIds, db: db)
+            let stats = topIds.compactMap { id -> ListeningStat? in
+                guard let entity = songs[id], let accumulator = byId[id] else { return nil }
+                return ListeningStat(
+                    entity: entity,
+                    score: accumulator.score,
+                    events: accumulator.events,
+                    nightEvents: accumulator.night,
+                    lastPlayed: accumulator.last
+                )
+            }
+            return (stats, rows.count)
+        }
+    }
+}

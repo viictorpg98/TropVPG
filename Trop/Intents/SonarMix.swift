@@ -8,7 +8,8 @@ import UIKit
 
 /// "Pon música": empieza a sonar una mezcla de lo que le gusta a la persona, sin abrir pantallas.
 /// Orden de preferencia (el elegido por el usuario):
-/// 1. Con conexion: las canciones del inicio de YouTube Music (o la radio de una de ellas).
+/// 1. Con conexion (y el inicio respondiendo): la cola de `ParaTiMix` (70% lo que mas escuchas, 30% descubrimiento; ver ese archivo); si
+/// sale corta, las canciones del inicio al azar o la radio de una de ellas.
 /// 2. Canciones descargadas (suenan al instante desde el archivo; sin conexion van primero).
 /// 3. La ultima mezcla guardada (sin conexion, o si el inicio no responde).
 /// 4. Canciones que te gustan, guardadas en el dispositivo.
@@ -68,14 +69,56 @@ enum SonarMix {
         // canciones tuyas ("Volver a escuchar"...). Buscar "Mezclado para ti" exige varias peticiones mas, asi que eso se hace despues, en
         // segundo plano. Se espera hasta 10 s al audio de cada cancion (con reintentos de por medio) antes de pasar a la siguiente.
         if online {
+            // El historial local se lee y las radios de las semillas se piden MIENTRAS llega el inicio (se solapan).
+            let listening = (try? await DatabaseService.shared.fetchListeningStats()) ?? (stats: [], eventsRead: 0)
+            let profile = ParaTiMix.localProfile(stats: listening.stats, eventsRead: listening.eventsRead, now: Date())
+            var seeds = ParaTiMix.pickSeeds(from: profile.familiar)
+            var radioTask: Task<ParaTiMix.RadioResult, Never>?
+            if !seeds.isEmpty {
+                let seedList = seeds
+                radioTask = Task { await ParaTiMix.loadRadios(seedList) }
+            }
             let sections = await withTimeout(seconds: 10) { await loadHomeSections(deep: false) }
             trace(sections.map { "inicio cargado: \($0.count) secciones" } ?? "inicio: sin respuesta a tiempo")
             if let sections {
                 let songs = homeSongs(in: sections)
                 // Se guarda ya, para que la proxima vez (sin conexion) arranque al instante desde la mezcla guardada.
                 if songs.count >= 3 { saveCache(songs) }
+                // "Listen again" (el historial de tu cuenta): conocidas; y semillas si el historial local esta vacio.
+                let listenAgain = homeSongs(in: sections.filter { HomeSectionTitles.isKeepListening($0.title) })
+                if seeds.isEmpty {
+                    seeds = ParaTiMix.seedsFromListenAgain(listenAgain)
+                    if !seeds.isEmpty {
+                        let seedList = seeds
+                        radioTask = Task { await ParaTiMix.loadRadios(seedList) }
+                    }
+                }
+                let pendingRadios = radioTask
+                let radios = await withTimeout(seconds: 5) { () async -> ParaTiMix.RadioResult? in await pendingRadios?.value }
+                let merged = ParaTiMix.addListenAgain(to: profile.familiar, listenAgain: listenAgain)
+                let composition = ParaTiMix.compose(
+                    familiar: merged.list,
+                    radios: radios?.songs ?? [],
+                    saved: cachedMix() ?? [],
+                    recentlyPlayed: profile.recentlyPlayed
+                )
+                let discoveryCount = composition.isDiscovery.filter { $0 }.count
+                let firstSix = zip(composition.queue.prefix(6), composition.isDiscovery.prefix(6))
+                    .map { "\($0.1 ? "N" : "C") \(String($0.0.title.prefix(22)))" }
+                    .joined(separator: " | ")
+                let seedTitles = seeds.map { String($0.title.prefix(22)) }.joined(separator: ", ")
+                PlaybackReport.record(
+                    "para ti: \(profile.eventsRead) eventos leidos (\(profile.songsWithHistory) canciones), conocidas \(merged.list.count) "
+                        + "(sueño fuera \(profile.sleepExcluded), saltadas fuera \(profile.skipExcluded), Listen again nuevas \(merged.used) de \(listenAgain.count)), "
+                        + "semillas [\(seedTitles)] radios \(radios?.songs.count ?? 0) (cache \(radios?.cached ?? 0), pedidas \(radios?.fetched ?? 0)"
+                        + "\(radios == nil && radioTask != nil ? ", sin respuesta a tiempo" : "")), guardada \(cachedMix()?.count ?? 0) "
+                        + "-> cola \(composition.queue.count - discoveryCount) conocidas + \(discoveryCount) nuevas; primeras: \(firstSix)"
+                )
                 let started: Bool
-                if songs.count >= 3 {
+                if composition.queue.count >= 10 {
+                    ParaTiMix.rememberPicks(composition.queue)
+                    started = await play(composition.queue, context: "para ti", waitSeconds: 10)
+                } else if songs.count >= 3 {
                     started = await play(Array(songs.shuffled().prefix(40)), context: "canciones del inicio", waitSeconds: 10)
                 } else {
                     started = await playRadioOfAnySong(in: sections)
