@@ -23,8 +23,21 @@ actor PlaybackManager {
     /// o sacar la onda no vuelven a intentarlo hasta pasado un tiempo que crece con cada fallo (2, 4, 8... hasta 30 min).
     private var resolveFailures: [String: (count: Int, until: Date)] = [:]
     private static let lastClientKey = "playback.lastWorkingClient"
-    /// Clientes cuya direccion de esta cancion fallo al abrirse en el reproductor: el reintento de ESA cancion no los vuelve a usar.
-    private var excludedClients: [String: Set<String>] = [:]
+    /// Clientes cuya direccion de esta cancion fallo (al abrirse en el reproductor o con un error de entorno): el reintento de ESA cancion no
+    /// los vuelve a pedir durante 2 minutos (como Metrolist, que excluye el perfil fallido 120 s).
+    private var songExclusions: [String: [String: Date]] = [:]
+    /// Clientes con un error de entorno ("not a bot", "no longer supported", sin direccion ni cifrado...) en varias canciones: no se piden
+    /// durante 10 minutos (pasado el tiempo se vuelve a probar, y un solo fallo mas los enfria otra vez).
+    private var clientCooldowns: [String: Date] = [:]
+    private var environmentStrikes: [String: (count: Int, videos: Set<String>)] = [:]
+    private var lastCooldownProbe = Date.distantPast
+    /// Clientes que dieron alguna direccion (aunque no pasara la comprobacion) en la ultima resolucion de cada cancion: la pasada de DESCARGA
+    /// solo se las pide a ellos (solo cambia el formato; antes volvia a pedirselo todo a todos).
+    private var clientsWithAddress: [String: Set<String>] = [:]
+    /// Cliente de cuya DIRECCION DE DESCARGA suena la cancion (no se cuenta contra ningun cliente de reproduccion, pero se excluye 2 minutos).
+    private var downloadClientUsed: [String: String] = [:]
+    private static let cooldownSeconds: TimeInterval = 600
+    private static let exclusionSeconds: TimeInterval = 120
     /// Fallo que todavia no se ha contado contra el cliente: solo cuenta (y puede vetarlo 3 h) si otro cliente SI da una direccion
     /// que abre esa misma cancion; si ninguno sirve, el problema es la cancion y no el cliente.
     private var pendingClientFailure: [String: String] = [:]
@@ -174,54 +187,40 @@ actor PlaybackManager {
         let started = Date()
         let isLong = Self.isLong(await queueSong(for: videoId)) || requireValidation.contains(videoId)
         PlaybackReport.record("pedir \(videoId) largo=\(isLong)")
-        if !isLong, let last = UserDefaults.standard.string(forKey: Self.lastClientKey),
-           let index = request.chain.firstIndex(where: { $0.client.clientName == last }), index > 0 {
-            // Prueba primero el cliente que funciono la ultima vez: si los de delante fallan, cada fallo
-            // es una peticion de red perdida antes de que suene nada.
-            request.chain.insert(request.chain.remove(at: index), at: 0)
-        }
-        let fullChain = request.chain
-        request.chain = filteredChain(request.chain, videoId: videoId)
+        clientsWithAddress[videoId] = []
         var resolved: PlaybackResult?
         var firstError: Error?
         do {
-            if isLong {
-                resolved = try await resolveLongContent(videoId: videoId, request: request)
-            } else {
-                do {
-                    resolved = try await StreamFallback.resolveFirstValid(
-                        request,
-                        using: InnerTubeClient.tropShared,
-                        providers: .tropLive
-                    )
-                } catch {
-                    // Sin los clientes descartados no hubo direccion: se prueba con todos.
-                    guard request.chain.count != fullChain.count else { throw error }
-                    request.chain = fullChain
-                    resolved = try await StreamFallback.resolveFirstValid(
-                        request,
-                        using: InnerTubeClient.tropShared,
-                        providers: .tropLive
-                    )
-                }
-            }
+            resolved = try await resolveStaged(videoId: videoId, request: request, isLong: isLong, onlyClients: nil)
         } catch {
             firstError = error
         }
-        // Ultimo recurso: si ningun cliente de reproduccion dio una direccion que sirva (YouTube pide entrar o rechaza el cliente), se prueba la
-        // cadena de DESCARGA, cuyas direcciones han resultado legibles por FFmpeg (lo que usa mpv) en canciones donde las normales dan 403.
+        // Ultimo recurso: la cadena de DESCARGA, que prefiere el formato AAC (mp4) y no el opus (webm): en alguna cancion el uno da 403 y el otro
+        // no. Solo cambia el formato, asi que solo se pide a los clientes que SI dieron una direccion en la pasada anterior (antes se volvia a
+        // pedir todo a todos y se duplicaban las peticiones a YouTube en cada vuelta).
         var usedDownloadAddress = false
         if resolved == nil, let firstError, !(firstError is CancellationError) {
-            PlaybackReport.record("pedir \(videoId): ningun cliente dio una direccion que sirva, se prueba la de descarga")
-            if let alternative = try? await resolveFromNetwork(videoId: videoId, preferredFormat: nil, forDownload: true) {
-                PlaybackReport.record("direccion de descarga de \(videoId): cliente \(alternative.clientName) (ultimo recurso)")
-                resolved = alternative
-                usedDownloadAddress = true
+            let withAddress = clientsWithAddress[videoId] ?? []
+            if withAddress.isEmpty {
+                PlaybackReport.record("pedir \(videoId): ningun cliente dio direccion, no se prueba la de descarga (solo cambia el formato)")
+            } else {
+                PlaybackReport.record(
+                    "pedir \(videoId): ningun cliente dio una direccion que sirva, se prueba la de descarga con \(withAddress.sorted().joined(separator: ", "))"
+                )
+                var downloadRequest = StreamResolveRequest.download(videoId: videoId)
+                downloadRequest.options.audioQuality = SettingsStore.shared.audioQuality
+                downloadRequest.options.downloadQuality = SettingsStore.shared.downloadQuality
+                if let alternative = try? await resolveStaged(
+                    videoId: videoId, request: downloadRequest, isLong: isLong, onlyClients: withAddress
+                ) {
+                    PlaybackReport.record("direccion de descarga de \(videoId): cliente \(alternative.clientName) (ultimo recurso)")
+                    resolved = alternative
+                    usedDownloadAddress = true
+                }
             }
         }
         // Reintento tras un fallo al abrir: solo si OTRO cliente dio una direccion se cuenta el fallo contra el primero.
         let pendingClient = pendingClientFailure.removeValue(forKey: videoId)
-        excludedClients[videoId] = nil
         if let pendingClient {
             if let resolved, !usedDownloadAddress, resolved.clientName != pendingClient {
                 await countClientFailure(pendingClient, videoId: videoId)
@@ -231,14 +230,19 @@ actor PlaybackManager {
         }
         guard let result = resolved else { throw firstError ?? StreamError.allClientsFailed }
         PlaybackReport.record("direccion de \(videoId): cliente \(result.clientName) en \(Int(Date().timeIntervalSince(started) * 1000)) ms, \(result.mimeType)")
-        // Lo que funciona para un podcast no dice nada de la musica: no se recuerda (ni lo que dio la cadena de descarga).
-        if !isLong, !usedDownloadAddress { UserDefaults.standard.set(result.clientName, forKey: Self.lastClientKey) }
+        // Lo que funciona para un podcast no dice nada de la musica: no se recuerda (ni lo que dio la cadena de descarga ni el HLS).
+        if !isLong, !usedDownloadAddress, result.clientName != "HLS" { UserDefaults.standard.set(result.clientName, forKey: Self.lastClientKey) }
         if isSuperseded(videoId, generation: generation) { return result }
         if await isNoLongerChosen(videoId, onlyIfCurrent: onlyIfCurrent) { return result }
         await playNetworkResult(result, videoId: videoId, startAt: startAt)
         // Un fallo posterior de una direccion de DESCARGA no se atribuye a ningun cliente de reproduccion (no vetaria uno que funciona para
-        // otras canciones: `noteStreamFailure` mira `clientUsed`).
-        if usedDownloadAddress { clientUsed[videoId] = nil }
+        // otras canciones: `noteStreamFailure` mira `clientUsed`), pero si se excluye 2 minutos para esta cancion (`downloadClientUsed`).
+        if usedDownloadAddress {
+            clientUsed[videoId] = nil
+            downloadClientUsed[videoId] = result.clientName
+        } else {
+            downloadClientUsed[videoId] = nil
+        }
         return result
     }
 
@@ -292,59 +296,237 @@ actor PlaybackManager {
         return true
     }
 
-    /// Podcasts y contenidos largos: se prueban los clientes en su orden de siempre, pero comprobando
-    /// TODAS las direcciones antes de usarlas y apuntando en el informe que pasa con cada uno.
-    /// Con la cadena normal, WEB_REMIX y iOS se dan por buenos sin comprobar, y para podcasts WEB_REMIX
-    /// devuelve una direccion que el reproductor no puede cargar ("loading failed"): se tomaba por buena
-    /// y no se probaban los demas clientes.
-    private func resolveLongContent(videoId: String, request: StreamResolveRequest) async throws -> PlaybackResult {
-        if request.policy.useCache, let cached = await StreamCache.shared.get(videoId: videoId) {
-            return cached
-        }
-        let providers = StreamResolveProviders.tropLive
-        var tokenTask: Task<PoTokenResult?, Never>?
-        if request.chain.contains(where: { $0.client.useWebPoTokens }) {
-            tokenTask = Task { await providers.poTokenProvider?(videoId) }
-        }
-        defer { tokenTask?.cancel() }
+    // MARK: - Cadena de clientes de Sonar
 
-        var lastError: Error?
-        for entry in request.chain {
-            let started = Date()
-            func elapsed() -> Int { Int(Date().timeIntervalSince(started) * 1000) }
-            var options = request.options
-            if entry.client.useWebPoTokens, let tokenTask {
-                let minted = await tokenTask.value
-                options.poToken = minted?.playerRequestPoToken ?? options.poToken
-                options.streamingDataPoToken = minted?.streamingDataPoToken ?? options.streamingDataPoToken
-            }
-            do {
-                let result = try await StreamResolver.resolve(
-                    videoId: videoId,
-                    client: entry.client,
-                    using: InnerTubeClient.tropShared,
-                    options: options,
-                    providers: providers
-                )
-                let valid = await StreamResolver.validateStream(
-                    url: result.streamUrl,
-                    onStreamRejection: providers.onStreamRejection
-                )
-                PlaybackReport.record("\(entry.client.clientName): direccion \(valid ? "VALIDA" : "rechazada") (\(elapsed()) ms)")
-                guard valid else {
-                    lastError = StreamError.validationFailed(entry.client.clientName)
-                    continue
-                }
-                if request.policy.storeInCache {
-                    await StreamCache.shared.set(videoId: videoId, result: result)
-                }
-                return result
-            } catch {
-                PlaybackReport.record("\(entry.client.clientName): error \(error.localizedDescription) (\(elapsed()) ms)")
-                lastError = error
+    /// Una resolucion: recorre la cadena de Sonar (`SonarClients.chain`) y devuelve la primera direccion que pasa la comprobacion. Sustituye
+    /// al bucle de SwiftyTube (`StreamFallback.resolveFirstValid`) para poder: (1) apuntar por que falla cada cliente y no volver a pedirselo
+    /// durante un rato, (2) comprobar la direccion como la abre el reproductor y (3) meter el audio HLS entre los clientes.
+    private func resolveStaged(
+        videoId: String,
+        request: StreamResolveRequest,
+        isLong: Bool,
+        onlyClients: Set<String>?
+    ) async throws -> PlaybackResult {
+        if request.policy.useCache, let cached = await StreamCache.shared.get(videoId: videoId) { return cached }
+        var entries = SonarClients.chain
+        if !isLong, let last = UserDefaults.standard.string(forKey: Self.lastClientKey),
+           let index = entries.firstIndex(where: { $0.isClient && $0.name == last }), index > 0 {
+            // Prueba primero el cliente que funciono la ultima vez: cada fallo de los de delante es una peticion perdida antes de que suene nada.
+            entries.insert(entries.remove(at: index), at: 0)
+        }
+        var usable = usableEntries(entries, videoId: videoId, allowVetoed: false, ignoreCooldowns: false, onlyNames: onlyClients)
+        if usable.isEmpty, !clientCooldowns.isEmpty, Date().timeIntervalSince(lastCooldownProbe) > 60 {
+            // Todos los clientes estan enfriados: se prueba una vez por minuto (puede que YouTube ya haya dejado de rechazarnos).
+            lastCooldownProbe = Date()
+            usable = usableEntries(entries, videoId: videoId, allowVetoed: false, ignoreCooldowns: true, onlyNames: onlyClients)
+            if !usable.isEmpty {
+                PlaybackReport.record("cadena de \(videoId): todos los clientes estan enfriados, se prueba una vez por minuto")
             }
         }
+        do {
+            return try await runEntries(usable, videoId: videoId, request: request)
+        } catch {
+            if error is CancellationError { throw error }
+            // Solo ahora se prueban los clientes descartados 3 h (y NUNCA los enfriados ni los excluidos en esta cancion).
+            let vetoed = avoidedClientNames()
+            let limit = onlyClients.map { vetoed.intersection($0) } ?? vetoed
+            let extra = usableEntries(entries, videoId: videoId, allowVetoed: true, ignoreCooldowns: false, onlyNames: limit)
+            guard !limit.isEmpty, !extra.isEmpty else { throw error }
+            PlaybackReport.record("cadena de \(videoId): sin los clientes descartados 3 h no hubo direccion, se prueba solo con ellos")
+            return try await runEntries(extra, videoId: videoId, request: request)
+        }
+    }
+
+    /// La cadena sin los clientes enfriados, los excluidos en esta cancion y (si `allowVetoed` es falso) los descartados 3 h. Si no queda
+    /// ninguno, la lista sale vacia: NUNCA se vuelve a la cadena entera (cuando todos dicen "not a bot" las exclusiones tienen que seguir).
+    private func usableEntries(
+        _ entries: [SonarClients.ChainEntry],
+        videoId: String,
+        allowVetoed: Bool,
+        ignoreCooldowns: Bool,
+        onlyNames: Set<String>?
+    ) -> [SonarClients.ChainEntry] {
+        let now = Date()
+        clientCooldowns = clientCooldowns.filter { $0.value > now }
+        var blocked = Set<String>()
+        if !ignoreCooldowns { blocked.formUnion(clientCooldowns.keys) }
+        if let excluded = songExclusions[videoId]?.filter({ $0.value > now }), !excluded.isEmpty {
+            songExclusions[videoId] = excluded
+            blocked.formUnion(excluded.keys)
+        } else {
+            songExclusions[videoId] = nil
+        }
+        if !allowVetoed { blocked.formUnion(avoidedClientNames()) }
+        return entries.filter { entry in
+            if let onlyNames, !onlyNames.contains(entry.name) { return false }
+            return !blocked.contains(entry.name)
+        }
+    }
+
+    private func runEntries(
+        _ entries: [SonarClients.ChainEntry],
+        videoId: String,
+        request: StreamResolveRequest
+    ) async throws -> PlaybackResult {
+        let providers = StreamResolveProviders.tropLive
+        PlaybackReport.record("cadena de \(videoId): \(entries.isEmpty ? "(vacia)" : entries.map(\.name).joined(separator: " > "))")
+        var lastError: Error?
+        var nonAAC: PlaybackResult?
+        var tokenTask: Task<PoTokenResult?, Never>?
+        defer { tokenTask?.cancel() }
+        var asked = 0
+        for entry in entries {
+            try Task.checkCancellation()
+            switch entry {
+            case .hls:
+                let hls = await SonarHLS.resolve(videoId: videoId)
+                asked += hls.requests
+                PlaybackReport.record("HLS de \(videoId): \(hls.hadManifest ? "con lista de audio" : "sin lista HLS (la cancion no la ofrece)")")
+                if let result = hls.result {
+                    if request.policy.storeInCache { await StreamCache.shared.set(videoId: videoId, result: result) }
+                    PlaybackReport.record("pedir \(videoId): resuelta con HLS tras \(asked) peticiones /player")
+                    return result
+                }
+                // Sin lista HLS no se vuelve a preguntar en esta cancion (cada pregunta son dos peticiones /player).
+                if !hls.hadManifest { excludeForSong(videoId, client: "HLS") }
+                if lastError == nil { lastError = StreamError.noStreams }
+            case .client(let item):
+                let client = item.client
+                let name = client.clientName
+                var options = request.options
+                if client.useWebPoTokens {
+                    if tokenTask == nil {
+                        let id = videoId
+                        tokenTask = Task { await providers.poTokenProvider?(id) }
+                    }
+                    if let tokenTask {
+                        let minted = await tokenTask.value
+                        options.poToken = minted?.playerRequestPoToken ?? options.poToken
+                        options.streamingDataPoToken = minted?.streamingDataPoToken ?? options.streamingDataPoToken
+                    }
+                }
+                let attemptStart = Date()
+                asked += 1
+                do {
+                    let result = try await StreamResolver.resolve(
+                        videoId: videoId,
+                        client: client,
+                        using: InnerTubeClient.tropShared,
+                        options: options,
+                        providers: providers
+                    )
+                    clientsWithAddress[videoId, default: []].insert(name)
+                    let check = await Self.checkAddress(result.streamUrl)
+                    let ms = Int(Date().timeIntervalSince(attemptStart) * 1000)
+                    let head = check.head.map(String.init) ?? "-"
+                    let deep = check.deep.map(String.init) ?? "-"
+                    PlaybackReport.record("\(name): direccion \(check.valid ? "VALIDA" : "RECHAZADA") (inicio \(head), 1,1 MB \(deep)) \(ms) ms")
+                    guard check.valid else {
+                        if check.rejected {
+                            await providers.onStreamRejection?()
+                            if client.useWebPoTokens, result.streamUrl.contains("pot="), await PoTokenSource.shared.invalidate() {
+                                PlaybackReport.record("token: 403 con token en \(name), se crea un generador nuevo")
+                            }
+                        }
+                        lastError = StreamError.validationFailed(name)
+                        continue
+                    }
+                    if request.policy.preferAAC {
+                        let mime = result.mimeType.lowercased()
+                        if !(mime.contains("mp4a") || mime.contains("aac")) {
+                            if nonAAC == nil { nonAAC = result }
+                            continue
+                        }
+                    } else if request.policy.storeInCache {
+                        await StreamCache.shared.set(videoId: videoId, result: result)
+                    }
+                    environmentStrikes[name] = nil
+                    PlaybackReport.record("pedir \(videoId): resuelta con \(name) tras \(asked) peticiones /player")
+                    return result
+                } catch {
+                    let nsError = error as NSError
+                    if error is CancellationError || (nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled) {
+                        throw CancellationError()
+                    }
+                    let ms = Int(Date().timeIntervalSince(attemptStart) * 1000)
+                    PlaybackReport.record("\(name): error \(error.localizedDescription) (\(ms) ms)")
+                    noteClientError(name, error: error, videoId: videoId)
+                    lastError = error
+                }
+            }
+        }
+        if request.policy.preferAAC, let nonAAC {
+            PlaybackReport.record("pedir \(videoId): resuelta con \(nonAAC.clientName) (sin AAC) tras \(asked) peticiones /player")
+            return nonAAC
+        }
+        if request.policy.expiredCacheFallback, let expired = await StreamCache.shared.getExpired(videoId: videoId) {
+            PlaybackReport.record("pedir \(videoId): ningun cliente dio direccion, se usa la ultima guardada (puede haber caducado)")
+            return expired
+        }
+        PlaybackReport.record("pedir \(videoId): ningun cliente sirvio tras \(asked) peticiones /player")
         throw lastError ?? StreamError.allClientsFailed
+    }
+
+    /// Un error de entorno no es de la cancion sino de lo que YouTube deja hacer a este cliente desde esta red o sesion: "not a bot", "no
+    /// longer supported", formatos sin direccion ni cifrado (SABR), "page needs to be reloaded" o el descifrado roto. Se excluye en esta cancion
+    /// 2 minutos de inmediato y, si pasa en 3 intentos de 2 canciones distintas, el cliente se enfria 10 minutos. Los fallos "blandos" (el
+    /// "No streaming data" de VISIONOS, que a veces si da direccion) se siguen pidiendo en cada reintento.
+    private func noteClientError(_ name: String, error: Error, videoId: String) {
+        let text = error.localizedDescription.lowercased()
+        let environment = error is CipherError || text.contains("not a bot") || text.contains("no longer supported")
+            || text.contains("no direct stream url") || text.contains("needs to be reloaded")
+        guard environment else { return }
+        excludeForSong(videoId, client: name)
+        var strike = environmentStrikes[name] ?? (count: 0, videos: [])
+        strike.count += 1
+        strike.videos.insert(videoId)
+        environmentStrikes[name] = strike
+        if strike.count >= 3, strike.videos.count >= 2, clientCooldowns[name] == nil {
+            clientCooldowns[name] = Date().addingTimeInterval(Self.cooldownSeconds)
+            environmentStrikes[name] = (count: 2, videos: strike.videos)
+            PlaybackReport.record("cliente \(name): enfriado 10 min (error de entorno en \(strike.videos.count) canciones)")
+        } else {
+            PlaybackReport.record("cliente \(name): error de entorno, excluido 2 min en \(videoId) (aviso \(strike.count))")
+        }
+    }
+
+    private func excludeForSong(_ videoId: String, client: String) {
+        songExclusions[videoId, default: [:]][client] = Date().addingTimeInterval(Self.exclusionSeconds)
+        if songExclusions.count > 200 {
+            let now = Date()
+            songExclusions = songExclusions.filter { entry in entry.value.contains { $0.value > now } }
+        }
+    }
+
+    private struct AddressCheck: Sendable {
+        let valid: Bool
+        let rejected: Bool
+        let head: Int?
+        let deep: Int?
+    }
+
+    /// Comprueba una direccion como la abrira el reproductor, con su mismo User-Agent: una peticion al INICIO del archivo (la que antes se
+    /// hacia sola) y otra a 1,1 MB. YouTube sirve sin token el primer megabyte, asi que una direccion con token malo pasaba la comprobacion del
+    /// inicio y luego mpv recibia el 403 al pedir mas. 416 = el archivo es mas corto que el punto de prueba (vale).
+    private static func checkAddress(_ address: String) async -> AddressCheck {
+        guard let url = URL(string: address) else { return AddressCheck(valid: false, rejected: false, head: nil, deep: nil) }
+        async let head = rangeStatus(url, range: "bytes=0-1023")
+        async let deep = rangeStatus(url, range: "bytes=1100000-1100999")
+        let (headStatus, deepStatus) = await (head, deep)
+        let rejected = headStatus == 403 || deepStatus == 403
+        let headOK = headStatus.map { (200 ... 299).contains($0) } ?? false
+        // Sin respuesta de la prueba profunda (tiempo agotado, mala cobertura) se da por buena si el inicio lo fue.
+        let deepOK = deepStatus.map { (200 ... 299).contains($0) || $0 == 416 } ?? true
+        return AddressCheck(valid: headOK && deepOK && !rejected, rejected: rejected, head: headStatus, deep: deepStatus)
+    }
+
+    private static func rangeStatus(_ url: URL, range: String) async -> Int? {
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 6
+        request.setValue(range, forHTTPHeaderField: "Range")
+        request.setValue(SonarClients.playerUserAgent, forHTTPHeaderField: "User-Agent")
+        guard let (_, response) = try? await URLSession.shared.data(for: request) else { return nil }
+        return (response as? HTTPURLResponse)?.statusCode
     }
 
     private static func isLong(_ song: SongItem?) -> Bool {
@@ -412,22 +594,22 @@ actor PlaybackManager {
         return Set(live.keys)
     }
 
-    /// La cadena sin los clientes descartados (si no quedara ninguno, la entera).
-    private func filteredChain(_ chain: [FallbackClient], videoId: String? = nil) -> [FallbackClient] {
-        var avoided = avoidedClientNames()
-        if let videoId, let excluded = excludedClients[videoId] { avoided.formUnion(excluded) }
-        let kept = chain.filter { !avoided.contains($0.client.clientName) }
-        return kept.isEmpty ? chain : kept
-    }
-
-    /// El reproductor no pudo abrir la direccion de esta cancion (403...): el cliente que la dio se deja de usar durante 3 horas
-    /// y se olvidan las direcciones guardadas (pueden ser del mismo cliente).
+    /// El reproductor no pudo abrir la direccion de esta cancion (403...): el cliente que la dio no se vuelve a pedir en esta cancion durante
+    /// 2 minutos y se olvidan las direcciones guardadas (pueden ser del mismo cliente). Si la direccion llevaba token, se crea un generador de
+    /// tokens nuevo (como Metrolist tras un 403 de CDN).
     func noteStreamFailure(videoId: String) async {
+        if clientUsed[videoId] == nil, let download = downloadClientUsed[videoId] {
+            await StreamCache.shared.remove(videoId: videoId)
+            excludeForSong(videoId, client: download)
+            PlaybackReport.record("cliente \(download): la direccion de descarga de \(videoId) no abrio, se excluye 2 min en esta cancion")
+            return
+        }
         guard let name = clientUsed[videoId] else { return }
         // Los videos subidos por usuarios (UGC) dan 403 por ser ellos, no por el cliente: no cuentan para vetarlo (si no,
         // una sola cancion UGC dejaba sin WEB_REMIX a todas las demas durante 3 horas).
         if await queueSong(for: videoId)?.musicVideoType == "MUSIC_VIDEO_TYPE_UGC" {
             await StreamCache.shared.remove(videoId: videoId)
+            excludeForSong(videoId, client: name)
             PlaybackReport.record("cliente \(name): fallo de \(videoId) (UGC), no cuenta para descartar al cliente")
             return
         }
@@ -435,9 +617,12 @@ actor PlaybackManager {
         // El reintento de esta cancion no vuelve a usar ese cliente. Pero NO se cuenta aun contra el cliente: si ninguno otro abre la
         // cancion, el problema es la cancion (antes, un par de canciones sin metadatos que daban 403 en todos los clientes dejaban sin
         // WEB_REMIX a todas las demas 3 horas).
-        excludedClients[videoId, default: []].insert(name)
+        excludeForSong(videoId, client: name)
         pendingClientFailure[videoId] = name
-        PlaybackReport.record("cliente \(name): fallo de \(videoId), se pide con otro; solo se descartara si otro cliente la abre")
+        PlaybackReport.record("cliente \(name): fallo de \(videoId), se pide con otro (excluido 2 min en esta cancion); solo se descartara si otro cliente la abre")
+        if SonarClients.tokenClientNames.contains(name), await PoTokenSource.shared.invalidate() {
+            PlaybackReport.record("token: la direccion de \(name) dio 403 en el reproductor, se crea un generador nuevo")
+        }
     }
 
     /// Otro cliente SI abrio la cancion que le fallo a `name`. Un fallo suelto (un corte de red...) no veta al cliente: hace falta un
@@ -582,14 +767,7 @@ actor PlaybackManager {
         request.options.preferredFormat = preferredFormat
         request.options.audioQuality = SettingsStore.shared.audioQuality
         request.options.downloadQuality = SettingsStore.shared.downloadQuality
-        if !forDownload { request.chain = filteredChain(request.chain, videoId: videoId) }
-        if Self.isLong(await queueSong(for: videoId)) || requireValidation.contains(videoId) {
-            return try await resolveLongContent(videoId: videoId, request: request)
-        }
-        return try await StreamFallback.resolveFirstValid(
-            request,
-            using: InnerTubeClient.tropShared,
-            providers: .tropLive
-        )
+        let isLong = Self.isLong(await queueSong(for: videoId)) || requireValidation.contains(videoId)
+        return try await resolveStaged(videoId: videoId, request: request, isLong: isLong, onlyClients: nil)
     }
 }

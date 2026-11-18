@@ -7,12 +7,11 @@ import Foundation
 import UIKit
 
 /// "Pon música": empieza a sonar una mezcla de lo que le gusta a la persona, sin abrir pantallas.
-/// Orden de preferencia:
-/// 0. Canciones descargadas (suenan al instante desde el archivo; luego sigue la mezcla guardada).
-/// 1. La ultima mezcla guardada (arranca sin esperar a la red; se refresca despues).
-/// 2. La primera lista de "Mezclado para ti" de YouTube Music (tu Supermix o similar).
-/// 3. La radio de una cancion cualquiera de tu inicio.
-/// 4. Sin red: canciones que te gustan, guardadas en el dispositivo.
+/// Orden de preferencia (el elegido por el usuario):
+/// 1. Con conexion: las canciones del inicio de YouTube Music (o la radio de una de ellas).
+/// 2. Canciones descargadas (suenan al instante desde el archivo; sin conexion van primero).
+/// 3. La ultima mezcla guardada (sin conexion, o si el inicio no responde).
+/// 4. Canciones que te gustan, guardadas en el dispositivo.
 ///
 /// La accion no termina hasta que el audio esta sonando: si devolviera el control antes, iOS podria
 /// suspender la app y la musica empezaria "al rato" (y Siri diria que hubo un problema).
@@ -61,7 +60,39 @@ enum SonarMix {
         await prepareSession()
         trace("sesion cargada")
 
-        // 0) Lo mas rapido: canciones descargadas. Suenan desde el archivo, sin red.
+        // Orden elegido por el usuario: CON conexion manda el inicio de YouTube; las descargadas van primero solo sin conexion (o si el inicio no
+        // responde). Antes iban siempre primero y "Para ti" parecia ignorar el inicio.
+        let online = NetworkMonitor.shared.hasConnection
+
+        // 1) Con conexion, el inicio de YouTube Music. Con limite de tiempo: solo la primera pagina del inicio (una peticion), que ya trae
+        // canciones tuyas ("Volver a escuchar"...). Buscar "Mezclado para ti" exige varias peticiones mas, asi que eso se hace despues, en
+        // segundo plano. Se espera hasta 10 s al audio de cada cancion (con reintentos de por medio) antes de pasar a la siguiente.
+        if online {
+            let sections = await withTimeout(seconds: 10) { await loadHomeSections(deep: false) }
+            trace(sections.map { "inicio cargado: \($0.count) secciones" } ?? "inicio: sin respuesta a tiempo")
+            if let sections {
+                let songs = homeSongs(in: sections)
+                // Se guarda ya, para que la proxima vez (sin conexion) arranque al instante desde la mezcla guardada.
+                if songs.count >= 3 { saveCache(songs) }
+                let started: Bool
+                if songs.count >= 3 {
+                    started = await play(Array(songs.shuffled().prefix(40)), context: "canciones del inicio", waitSeconds: 10)
+                } else {
+                    started = await playRadioOfAnySong(in: sections)
+                }
+                if started {
+                    Task {
+                        await refreshCache()
+                        trace("mezcla refrescada (en segundo plano)")
+                    }
+                    return true
+                }
+            }
+        } else {
+            trace("sin conexion: se salta el inicio")
+        }
+
+        // 2) Canciones descargadas (sin conexion, o con conexion si el inicio no dio nada). Suenan desde el archivo, sin red.
         let downloaded = await downloadedSongs()
         trace("descargadas: \(downloaded.count)")
         if !downloaded.isEmpty {
@@ -84,36 +115,7 @@ enum SonarMix {
             }
         }
 
-        // 1) Con conexion, el inicio de YouTube Music MANDA sobre la mezcla guardada (orden elegido por el usuario: descargadas, inicio
-        // si hay conexion, mezcla guardada si no, y al final tus Me gusta). Con limite de tiempo: solo la primera pagina del inicio
-        // (una peticion), que ya trae canciones tuyas ("Volver a escuchar"...). Buscar "Mezclado para ti" exige varias peticiones mas,
-        // asi que eso se hace despues, en segundo plano.
-        if NetworkMonitor.shared.hasConnection {
-            let sections = await withTimeout(seconds: 10) { await loadHomeSections(deep: false) }
-            trace(sections.map { "inicio cargado: \($0.count) secciones" } ?? "inicio: sin respuesta a tiempo")
-            if let sections {
-                let songs = homeSongs(in: sections)
-                // Se guarda ya, para que la proxima vez (sin conexion) arranque al instante desde la mezcla guardada.
-                if songs.count >= 3 { saveCache(songs) }
-                let started: Bool
-                if songs.count >= 3 {
-                    started = await play(Array(songs.shuffled().prefix(40)), context: "canciones del inicio")
-                } else {
-                    started = await playRadioOfAnySong(in: sections)
-                }
-                if started {
-                    Task {
-                        await refreshCache()
-                        trace("mezcla refrescada (en segundo plano)")
-                    }
-                    return true
-                }
-            }
-        } else {
-            trace("sin conexion: se salta el inicio")
-        }
-
-        // 2) Sin conexion (o el inicio no respondio a tiempo): la ultima mezcla guardada, sin esperar a la red.
+        // 3) Sin conexion (o el inicio no respondio a tiempo): la ultima mezcla guardada, sin esperar a la red.
         let cachedSongs = cachedMix()
         trace("mezcla guardada: \(cachedSongs?.count ?? 0) canciones")
         if let cached = cachedSongs, await play(cached.shuffled(), context: "mezcla guardada") {
@@ -124,7 +126,7 @@ enum SonarMix {
             return true
         }
 
-        // 3) Lo ultimo: canciones que te gustan, guardadas en el dispositivo.
+        // 4) Lo ultimo: canciones que te gustan, guardadas en el dispositivo.
         return await playLikedSongs()
     }
 
@@ -187,7 +189,7 @@ enum SonarMix {
     /// resolver una cancion por red, ya este listo.
     private static func warmUpTokens(videoId: String) async {
         guard !videoId.isEmpty else { return }
-        _ = try? await PoTokenGenerator.shared.generate(videoId: videoId, sessionId: PlaybackManager.sessionId)
+        _ = try? await PoTokenSource.shared.generate(videoId: videoId, sessionId: PlaybackManager.sessionId)
     }
 
     // MARK: - Reproduccion
@@ -195,7 +197,7 @@ enum SonarMix {
     /// Pone la cola y espera a que la primera cancion este sonando.
     /// Prueba hasta 3 canciones de la cola y solo da por bueno el intento cuando el audio avanza de
     /// verdad: que mpv acepte la orden de cargar no significa que se oiga algo.
-    private static func play(_ songs: [SongItem], context: String) async -> Bool {
+    private static func play(_ songs: [SongItem], context: String, waitSeconds: Double = 6) async -> Bool {
         guard !songs.isEmpty else { return false }
         trace("\(context): reproductor antes: \(PlayerController.shared.diagnosticSnapshot())")
 
@@ -212,11 +214,11 @@ enum SonarMix {
                 continue
             }
 
-            if await waitForAudio(seconds: 6) {
+            if await waitForAudio(seconds: waitSeconds) {
                 trace("\(context): audio confirmado")
                 return true
             }
-            trace("\(context): SIN audio tras 6 s -> \(PlayerController.shared.diagnosticSnapshot())")
+            trace("\(context): SIN audio tras \(Int(waitSeconds)) s -> \(PlayerController.shared.diagnosticSnapshot())")
             // Antes del siguiente intento, se reactiva la sesion de audio.
             PlayerController.shared.assertAudioSession()
         }
@@ -497,7 +499,16 @@ enum SonarMix {
             musicVideoType: isEpisode ? "MUSIC_VIDEO_TYPE_PODCAST_EPISODE" : nil
         )
         trace("widget: \(title)")
-        guard await play([song], context: "widget") else { return false }
+        // Tarea en segundo plano (como `start`): sin ella, si la cancion tarda (reintentos de la cadena de clientes) la accion termina, la app
+        // puede quedar suspendida con la pantalla de inicio delante y la cancion no llega a sonar hasta que se abre la app. Se espera hasta 20 s
+        // al audio: cubre los reintentos acotados de `NowPlaying` (12 intentos, unos 17 s de espera).
+        let backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "SonarWidgetPlay")
+        defer {
+            if backgroundTask != .invalid {
+                UIApplication.shared.endBackgroundTask(backgroundTask)
+            }
+        }
+        guard await play([song], context: "widget", waitSeconds: 20) else { return false }
         PlaybackQueue.startRadio(for: song)
         return true
     }

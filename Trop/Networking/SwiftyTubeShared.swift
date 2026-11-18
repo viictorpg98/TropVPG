@@ -39,7 +39,7 @@ extension StreamResolveProviders {
     static var tropLive: StreamResolveProviders {
         var providers = StreamResolveProviders.live
         providers.poTokenProvider = { videoId in
-            try? await PoTokenGenerator.shared.generate(
+            try? await PoTokenSource.shared.generate(
                 videoId: videoId,
                 sessionId: PlaybackManager.sessionId
             )

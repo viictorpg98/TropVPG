@@ -113,6 +113,8 @@ final class NowPlaying {
     var isBusyResolving: Bool { isResolvingNext }
     /// Timestamps of the last mid-play failure per videoId, to bound retries.
     private var lastFailureAt: [String: Date] = [:]
+    /// Fallos seguidos de carga de cada cancion (ver `recoverFromPlaybackFailure`).
+    private var failureStreak: [String: Int] = [:]
     /// Canciones seguidas que se han saltado por no poder reproducirse (se para a las 3 para no recorrer toda la cola).
     private var unplayableSkips = 0
     private var lastUnplayableSkip = Date.distantPast
@@ -1022,22 +1024,42 @@ final class NowPlaying {
             if hasNext { playNext(automatic: true) } else { continueWithDownloadedMusic() }
             return
         }
-        if let last = lastFailureAt[videoId], Date().timeIntervalSince(last) < 30 {
-            PlaybackReport.record("reproductor: \(videoId) fallo otra vez en menos de 30 s, no se reintenta")
+        // Reintentos acotados (decision del usuario): hasta `maxRecoveryAttempts` seguidos, con una espera que crece (0, 0,3 s... 3 s), y luego
+        // se pasa a la siguiente. Antes el freno de 30 s se borraba en cuanto la direccion se pedia bien (no cuando la cancion sonaba), asi que
+        // si el reproductor la rechazaba una y otra vez el bucle no tenia fin ni espera. Una racha termina si pasan mas de 90 s sin fallos.
+        let now = Date()
+        if let last = lastFailureAt[videoId], now.timeIntervalSince(last) < 90 {
+            failureStreak[videoId, default: 0] += 1
+        } else {
+            failureStreak[videoId] = 1
+        }
+        lastFailureAt[videoId] = now
+        let streak = failureStreak[videoId] ?? 1
+        if streak > Self.recoveryBackoff.count {
+            PlaybackReport.record("reproductor: \(videoId) fallo \(streak - 1) veces seguidas, se pasa a la siguiente")
+            failureStreak[videoId] = nil
+            lastFailureAt[videoId] = nil
             isPlaying = false
             skipUnplayable(videoId)
             return
         }
-        lastFailureAt[videoId] = Date()
+        let wait = Self.recoveryBackoff[streak - 1]
         // Si el fallo fue a mitad de la cancion, se retoma por donde iba (con un segundo de margen).
         let resumeAt = currentTime > 5 ? currentTime - 1 : 0
-        PlaybackReport.record("reproductor: \(videoId) no cargo, se pide de nuevo comprobando todas las direcciones")
+        PlaybackReport.record("reproductor: \(videoId) no cargo (intento \(streak) de \(Self.recoveryBackoff.count)), se pide de nuevo tras \(wait) s")
         isPlaying = false
         Log.nowPlaying.notice("Stream failed mid-play, re-resolving \(videoId)")
         // Con la pantalla bloqueada el audio parado deja dormir a la app: se pide tiempo para que la recuperacion termine.
         let recoveryTime = beginRecoveryTime("sonar-recover")
         Task {
             defer { self.endRecoveryTime(recoveryTime) }
+            if wait > 0 { try? await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000)) }
+            // Se comprueba antes de cada reintento (y no solo tras la espera): si ya suena otra cancion, este rescate ya no pinta nada.
+            guard self.videoId == videoId else {
+                PlaybackReport.record("reproductor: se abandona el reintento de \(videoId), ahora es \(self.videoId ?? "ninguna")")
+                self.failureStreak[videoId] = nil
+                return
+            }
             await PlayerConfigStore.shared.notifyStreamRejection()
             await PlaybackManager.shared.noteStreamFailure(videoId: videoId)
             await StreamCache.shared.remove(videoId: videoId)
@@ -1046,18 +1068,21 @@ final class NowPlaying {
             await PlaybackManager.shared.requireValidatedChain(for: videoId)
             do {
                 try await PlaybackManager.shared.resolveAndPlay(videoId: videoId, startAt: resumeAt)
-                // Success – allow future retries for this video
-                _ = await MainActor.run { self.lastFailureAt.removeValue(forKey: videoId) }
+                // La racha NO se borra aqui: pedir bien la direccion no es que suene. Si el reproductor la rechaza otra vez, cuenta.
             } catch {
                 Log.nowPlaying.error("Mid-play recovery failed: \(error)")
-                self.trackLoadFinished(videoId: videoId)
-                if self.videoId == videoId {
-                    isPlaying = false
-                    if !(error is CancellationError) { self.skipUnplayable(videoId) }
+                guard !(error is CancellationError), self.videoId == videoId else {
+                    self.trackLoadFinished(videoId: videoId)
+                    return
                 }
+                // Ningun cliente dio una direccion que sirva ahora mismo: es otro intento fallido de la racha (YouTube suele acabar dando una).
+                self.recoverFromPlaybackFailure(videoId: videoId)
             }
         }
     }
+
+    /// Esperas (segundos) antes de cada reintento de una cancion que no carga; su longitud es el maximo de reintentos (12, unos 17 s de espera).
+    private static let recoveryBackoff: [Double] = [0, 0.3, 0.3, 0.5, 0.5, 1, 1, 1, 2, 2, 2, 3]
 
     static func artworkURL(for videoId: String) -> String {
         ArtworkURLs.fallback(for: videoId)
