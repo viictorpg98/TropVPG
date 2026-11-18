@@ -125,7 +125,7 @@ enum SonarMix {
 
     /// Espera el resultado de `work`, pero como mucho `seconds`; pasado ese tiempo devuelve `nil`
     /// (el trabajo sigue en segundo plano, pero ya no se espera).
-    private static func withTimeout<T>(seconds: Double, _ work: @escaping () async -> T?) async -> T? {
+    static func withTimeout<T>(seconds: Double, _ work: @escaping () async -> T?) async -> T? {
         await withCheckedContinuation { (continuation: CheckedContinuation<T?, Never>) in
             var finished = false
             let finish: (T?) -> Void = { value in
@@ -319,6 +319,14 @@ enum SonarMix {
             continuation = next
         }
         return sections
+    }
+
+    /// El inicio de YouTube Music (solo la primera pagina, con limite de 10 s) para el boton "Actualizar" del widget, que no tiene
+    /// pantalla. `nil` sin conexion o si la peticion falla.
+    static func homeSectionsForWidget() async -> [HomePage.Section]? {
+        await prepareSession()
+        guard NetworkMonitor.shared.hasConnection else { return nil }
+        return await withTimeout(seconds: 10) { await loadHomeSections(deep: false) }
     }
 
     private static func mixedForYou(in sections: [HomePage.Section]) -> HomePage.Section? {

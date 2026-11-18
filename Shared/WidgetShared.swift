@@ -25,12 +25,11 @@ struct WidgetTrack: Codable, Hashable {
     var episode: Bool?
 }
 
-/// Lo que ensena el widget de portadas: la app lo reescribe cuando cambia el inicio.
+/// Lo que ensenan los widgets de portadas: la app lo reescribe cuando cambia el inicio. Son RESERVAS de unas 16 canciones por lista: cada widget ensena un grupo de 4 y va cambiando de grupo con el paso del tiempo, sin abrir la app.
 struct WidgetSnapshot: Codable {
     var updated: Date
     var quickPicks: [WidgetTrack]
     var speedDial: [WidgetTrack]
-    var episodes: [WidgetTrack]
 }
 
 /// Marca de que la app llego a escribir en la carpeta compartida (sirve para saber si el reparto funciona).
@@ -40,11 +39,11 @@ struct WidgetProbe: Codable {
     var bundleId: String
 }
 
-/// La cancion que suena y si te gusta: el boton "Me gusta" del widget se ve distinto cuando ya la tiene marcada.
-struct WidgetNowPlaying: Codable {
-    var videoId: String?
-    var liked: Bool
-    var updated: Date
+/// El estado de los botones del widget: hoy, si el DJ esta encendido (el boton se ve distinto). Los campos son opcionales para leer
+/// sin problema lo que dejo una version anterior.
+struct WidgetButtonState: Codable {
+    var dj: Bool?
+    var updated: Date?
 }
 
 /// En que punto esta el reparto de datos, tal como lo ve el widget.
@@ -158,18 +157,18 @@ enum WidgetShared {
         return try? decoder().decode(WidgetProbe.self, from: data)
     }
 
-    private static let nowPlayingName = "widget-nowplaying.json"
+    private static let buttonStateName = "widget-state.json"
 
-    static func writeNowPlaying(_ value: WidgetNowPlaying, in base: URL) {
+    static func writeButtonState(_ value: WidgetButtonState, in base: URL) {
         if let data = try? encoder().encode(value) {
-            try? data.write(to: base.appendingPathComponent(nowPlayingName), options: .atomic)
+            try? data.write(to: base.appendingPathComponent(buttonStateName), options: .atomic)
         }
     }
 
-    static func loadNowPlaying() -> WidgetNowPlaying? {
+    static func loadButtonState() -> WidgetButtonState? {
         guard let base = resolved?.url,
-              let data = try? Data(contentsOf: base.appendingPathComponent(nowPlayingName)) else { return nil }
-        return try? decoder().decode(WidgetNowPlaying.self, from: data)
+              let data = try? Data(contentsOf: base.appendingPathComponent(buttonStateName)) else { return nil }
+        return try? decoder().decode(WidgetButtonState.self, from: data)
     }
 
     /// El estado completo, para que el widget enseñe datos o diga que falla.

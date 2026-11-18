@@ -537,15 +537,13 @@ final class HomeViewModel {
     private func mapServerSection(_ section: HomePage.Section, index: Int) -> HomeSection {
         // Sin mayusculas ni acentos, y en español o en ingles (con un chip YouTube manda los titulos en el idioma del movil).
         let title = section.title.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
-        if title.contains("quick pick") || title.contains("selecciones rapidas") {
+        if HomeSectionTitles.isQuickPicks(section.title) {
             if !SettingsStore.shared.showQuickPicks {
                 return .quickPicks(items: [])
             }
             return .quickPicks(items: section.items)
         }
-        if title.contains("listen again") || title.contains("keep listening") || title.contains("volver a escuchar")
-            || title.contains("vuelve a escuchar")
-            || title.contains("acceso rapido") || title.contains("speed dial") || title.contains("quick access") {
+        if HomeSectionTitles.isKeepListening(section.title) {
             return .keepListening(items: section.items)
         }
         if title.contains("forgotten") || title.contains("favorite") || title.contains("favoritos olvidados") {

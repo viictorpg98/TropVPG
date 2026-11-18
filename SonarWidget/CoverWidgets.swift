@@ -2,13 +2,16 @@
 //  CoverWidgets.swift
 //  SonarWidget
 //
-//  Tres widgets de portadas, como el de YouTube Music: tus Selecciones rapidas, tu Acceso rapido (con el dado) y tus nuevos
-//  episodios. Al tocar una portada suena esa cancion con su radio. Los datos y las portadas los deja la app en una carpeta
-//  compartida (Shared/WidgetShared.swift); si el sistema no da esa carpeta al widget, enseña el motivo en vez de las portadas.
+//  Tres widgets de portadas: Selecciones rapidas (dos, A y B, de 4 portadas cada uno) y Acceso rapido (4 portadas). Al tocar una
+//  portada suena esa cancion con su radio. Los datos y las portadas los deja la app en una carpeta compartida
+//  (Shared/WidgetShared.swift); si el sistema no da esa carpeta al widget, enseña el motivo en vez de las portadas.
 //  En CarPlay solo sale la version pequena; en la pantalla de inicio tambien la mediana.
 //
-//  Canciones: cuadricula de portadas cuadradas con el titulo abajo. Podcasts: miniaturas anchas (se ven casi enteras: solo se
-//  recorta un poco arriba y abajo) con el titulo del episodio; 2 en la pequena (una sobre otra) y 4 en la mediana (2x2).
+//  Cada lista es una RESERVA de unas 16 canciones; el widget enseña un grupo de 4 y pasa al siguiente cada media hora (el grupo sale
+//  de la hora del reloj, no de un contador: A y B nunca enseñan el mismo grupo y no hace falta abrir la app). El boton "Actualizar" del
+//  widget de botones baraja la reserva y recarga estos widgets.
+//
+//  Al tocar, la portada se encoge como los botones redondos del widget de botones (mismo estilo del sistema, con tinte transparente).
 //
 
 import AppIntents
@@ -22,6 +25,9 @@ struct CoverEntry: TimelineEntry {
     let state: WidgetShareState
 }
 
+/// Cuanto dura cada grupo de portadas en pantalla.
+private let coverRotationSeconds: TimeInterval = 1800
+
 struct CoverProvider: TimelineProvider {
     func placeholder(in context: Context) -> CoverEntry {
         CoverEntry(date: Date(), state: .noData(groupId: "", appWrote: true))
@@ -32,58 +38,67 @@ struct CoverProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<CoverEntry>) -> Void) {
-        // La app avisa al widget cuando escribe datos nuevos; ademas se relee cada media hora.
-        let entry = CoverEntry(date: Date(), state: WidgetShared.state())
-        completion(Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(1800))))
+        // Una entrada por cada media hora de las proximas 4 horas: cada una enseña su grupo de portadas aunque la app este cerrada. La app
+        // ademas avisa cuando escribe datos nuevos.
+        let state = WidgetShared.state()
+        let now = Date()
+        let slotStart = Date(timeIntervalSince1970: (now.timeIntervalSince1970 / coverRotationSeconds).rounded(.down) * coverRotationSeconds)
+        var entries = [CoverEntry(date: now, state: state)]
+        for step in 1...8 {
+            entries.append(CoverEntry(date: slotStart.addingTimeInterval(Double(step) * coverRotationSeconds), state: state))
+        }
+        completion(Timeline(entries: entries, policy: .after(entries.last?.date ?? now.addingTimeInterval(3600))))
     }
 }
 
 /// Que lista ensena cada widget.
 enum CoverKind {
-    case quickPicks
+    case quickPicksA
+    case quickPicksB
     case speedDial
-    case episodes
 
     func tracks(in snapshot: WidgetSnapshot) -> [WidgetTrack] {
         switch self {
-        case .quickPicks: return snapshot.quickPicks
+        case .quickPicksA, .quickPicksB: return snapshot.quickPicks
         case .speedDial: return snapshot.speedDial
-        case .episodes: return snapshot.episodes
         }
     }
 
-    /// El Acceso rapido lleva el dado en la cuarta casilla.
-    var hasDice: Bool { self == .speedDial }
-
-    /// Los episodios llevan miniaturas anchas (16:9), no portadas cuadradas.
-    var isWide: Bool { self == .episodes }
+    /// Las 4 canciones que toca ensenar a esa hora. La reserva se parte en grupos de 4; el grupo sale de la hora del reloj (cambia cada
+    /// media hora). El segundo widget de Selecciones rapidas va con medio ciclo de diferencia para no repetir el grupo del primero.
+    /// Si el ultimo grupo queda corto, se completa con las primeras de la lista.
+    func visibleTracks(in snapshot: WidgetSnapshot, at date: Date) -> [WidgetTrack] {
+        let all = tracks(in: snapshot)
+        guard all.count > 4 else { return all }
+        let groups = (all.count + 3) / 4
+        let slot = Int((date.timeIntervalSince1970 / coverRotationSeconds).rounded(.down))
+        let offset = self == .quickPicksB ? groups / 2 : 0
+        let group = (((slot + offset) % groups) + groups) % groups
+        return (0..<4).map { all[(group * 4 + $0) % all.count] }
+    }
 
     var emptyMessageEs: String {
         switch self {
-        case .quickPicks: return "Abre Sonar para cargar tus Selecciones rápidas"
+        case .quickPicksA, .quickPicksB: return "Abre Sonar para cargar tus Selecciones rápidas"
         case .speedDial: return "Fija canciones en tu Acceso rápido desde Sonar"
-        case .episodes: return "No hay episodios nuevos en tu inicio"
         }
     }
 
     var emptyMessageEn: String {
         switch self {
-        case .quickPicks: return "Open Sonar to load your Quick Picks"
+        case .quickPicksA, .quickPicksB: return "Open Sonar to load your Quick Picks"
         case .speedDial: return "Pin songs to your Speed Dial in Sonar"
-        case .episodes: return "No new episodes on your home"
         }
     }
 }
 
 private enum CoverCell: Identifiable {
     case track(WidgetTrack)
-    case dice
     case empty(Int)
 
     var id: String {
         switch self {
         case .track(let track): return "t-" + track.id
-        case .dice: return "dice"
         case .empty(let index): return "e-\(index)"
         }
     }
@@ -100,36 +115,28 @@ struct CoverWidgetView: View {
     }
 
     private static let plateColor = Color(red: 0.16, green: 0.16, blue: 0.18)
-    /// Esquinas concentricas con las del widget (unos 24 pt) menos el margen de 9 pt.
-    private static let cornerRadius: CGFloat = 16
-    private static let gap: CGFloat = 8
-    private static let margin: CGFloat = 9
+    /// Esquinas concentricas con las del widget (unos 24 pt) menos el margen.
+    private static let cornerRadius: CGFloat = 14
+    /// Poco hueco entre portadas y poco margen: el boton del sistema (el que da el efecto al pulsar) ya añade su propio espacio alrededor.
+    private static let gap: CGFloat = 2
+    private static let margin: CGFloat = 5
 
     // MARK: Casillas
 
-    /// Cuantas casillas lleva cada widget: 4 (2x2 o 4 en fila), salvo episodios pequeños, que son 2 apilados.
-    private var slots: Int {
-        if kind.isWide && family != .systemMedium { return 2 }
-        return 4
-    }
-
     private func cells(for snapshot: WidgetSnapshot) -> [CoverCell] {
-        let tracks = kind.tracks(in: snapshot)
-        let realSlots = kind.hasDice ? slots - 1 : slots
-        var result: [CoverCell] = tracks.prefix(realSlots).map { .track($0) }
+        var result: [CoverCell] = kind.visibleTracks(in: snapshot, at: entry.date).map { .track($0) }
         var filler = 0
-        while result.count < realSlots {
+        while result.count < 4 {
             result.append(.empty(filler))
             filler += 1
         }
-        if kind.hasDice { result.append(.dice) }
         return result
     }
 
     private func placeholder() -> some View {
         ZStack {
             Self.plateColor
-            Image(systemName: kind.isWide ? "mic.fill" : "music.note")
+            Image(systemName: "music.note")
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.35))
         }
@@ -161,54 +168,22 @@ struct CoverWidgetView: View {
     }
 
     /// Casilla de portada con su titulo. La imagen va en una capa y el titulo en otra, las dos sobre una base que ya tiene el
-    /// tamaño de la casilla: asi la imagen (que llena y se sale) no agranda la capa del titulo. Antes iban juntas en un ZStack y
-    /// el titulo se maquetaba tan ancho como la imagen y salia cortado por los lados, sin puntos suspensivos.
-    private func coverTile(_ track: WidgetTrack, isSquare: Bool, lines: Int) -> some View {
-        Group {
-            if isSquare {
-                Color.clear.aspectRatio(1, contentMode: .fit)
-            } else {
-                Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-        }
-        .overlay { coverImage(track) }
-        .overlay(alignment: .bottom) { titleScrim(track.title, lines: lines, size: isSquare ? 9 : 10) }
-        .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
+    /// tamaño de la casilla: asi la imagen (que llena y se sale) no agranda la capa del titulo. `contentShape` hace que TODA la casilla
+    /// sea tocable: el hueco transparente de la base no lo era y a veces el toque no hacia nada segun la zona.
+    private func coverTile(_ track: WidgetTrack) -> some View {
+        Color.clear
+            .aspectRatio(1, contentMode: .fit)
+            .overlay { coverImage(track) }
+            .overlay(alignment: .bottom) { titleScrim(track.title, lines: 2, size: 9) }
+            .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
     }
 
-    /// Casilla cuadrada: el contenido llena el cuadrado y se recorta con esquinas redondeadas.
     private func square<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         Color.clear
             .aspectRatio(1, contentMode: .fit)
             .overlay(content())
             .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
-    }
-
-    /// Casilla que ocupa todo el hueco que le toque (miniaturas anchas): la imagen llena el hueco y recorta lo que sobra.
-    private func flexible<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        Color.clear
-            .overlay(content())
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
-    }
-
-    private var diceCell: some View {
-        Button(intent: WidgetDiceIntent()) {
-            // Toda la casilla es el dado: relleno con el degradado de la marca y el dado grande en el centro.
-            square {
-                ZStack {
-                    LinearGradient(
-                        colors: [Color(red: 1.00, green: 0.69, blue: 0.30), Color(red: 1.00, green: 0.38, blue: 0.30)],
-                        startPoint: .top, endPoint: .bottom
-                    )
-                    Image(systemName: "dice.fill")
-                        .font(.system(size: 34, weight: .bold))
-                        .foregroundStyle(Color(red: 0.08, green: 0.08, blue: 0.09))
-                }
-            }
-        }
-        // Estilo plano: con el del sistema cada portada quedaba metida en un circulo gris con margen.
-        .buttonStyle(.plain)
     }
 
     @ViewBuilder
@@ -220,10 +195,15 @@ struct CoverWidgetView: View {
             songDuration: track.duration ?? 0,
             isEpisode: track.episode ?? false
         )
+        // El estilo `.bordered` con tinte transparente da el efecto de pulsar del sistema (se encoge) sin pintar ningun aro; el mismo
+        // que el de los botones redondos del widget de botones.
         Button(intent: intent) {
-            coverTile(track, isSquare: !kind.isWide, lines: 2)
+            coverTile(track)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.roundedRectangle(radius: Self.cornerRadius))
+        .controlSize(.mini)
+        .tint(.clear)
     }
 
     @ViewBuilder
@@ -231,14 +211,8 @@ struct CoverWidgetView: View {
         switch cell {
         case .track(let track):
             trackCell(track)
-        case .dice:
-            diceCell
         case .empty:
-            if kind.isWide {
-                flexible { placeholder() }
-            } else {
-                square { placeholder() }
-            }
+            square { placeholder() }
         }
     }
 
@@ -246,13 +220,7 @@ struct CoverWidgetView: View {
 
     private func grid(_ cells: [CoverCell]) -> some View {
         Group {
-            if kind.isWide && family != .systemMedium {
-                // Podcasts pequeño: dos miniaturas, una sobre otra, a todo el ancho.
-                VStack(spacing: Self.gap) {
-                    cell(cells[0])
-                    cell(cells[1])
-                }
-            } else if family == .systemMedium && !kind.isWide {
+            if family == .systemMedium {
                 HStack(spacing: Self.gap) {
                     ForEach(cells) { self.cell($0) }
                 }
@@ -318,7 +286,7 @@ struct CoverWidgetView: View {
                 )
             }
         case .ready(let snapshot):
-            if kind.tracks(in: snapshot).isEmpty && !kind.hasDice {
+            if kind.tracks(in: snapshot).isEmpty {
                 message(kind.emptyMessageEs, kind.emptyMessageEn)
             } else {
                 grid(cells(for: snapshot))
@@ -336,10 +304,23 @@ struct CoverWidgetView: View {
 struct SonarQuickPicksWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "SonarQuickPicks", provider: CoverProvider()) { entry in
-            CoverWidgetView(entry: entry, kind: .quickPicks)
+            CoverWidgetView(entry: entry, kind: .quickPicksA)
         }
         .configurationDisplayName("Sonar · Selecciones rápidas")
-        .description("Portadas de tus Selecciones rápidas: toca una y suena.")
+        .description("Portadas de tus Selecciones rápidas: toca una y suena. Cambian solas cada media hora.")
+        .supportedFamilies([.systemSmall, .systemMedium])
+        .contentMarginsDisabled()
+    }
+}
+
+/// El segundo widget de Selecciones rapidas: otras 4 portadas distintas a las del primero.
+struct SonarQuickPicksBWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "SonarQuickPicksB", provider: CoverProvider()) { entry in
+            CoverWidgetView(entry: entry, kind: .quickPicksB)
+        }
+        .configurationDisplayName("Sonar · Selecciones rápidas 2")
+        .description("Otras portadas de tus Selecciones rápidas, distintas a las del primer widget.")
         .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()
     }
@@ -351,19 +332,7 @@ struct SonarSpeedDialWidget: Widget {
             CoverWidgetView(entry: entry, kind: .speedDial)
         }
         .configurationDisplayName("Sonar · Acceso rápido")
-        .description("Portadas de tu Acceso rápido y el dado.")
-        .supportedFamilies([.systemSmall, .systemMedium])
-        .contentMarginsDisabled()
-    }
-}
-
-struct SonarEpisodesWidget: Widget {
-    var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "SonarEpisodes", provider: CoverProvider()) { entry in
-            CoverWidgetView(entry: entry, kind: .episodes)
-        }
-        .configurationDisplayName("Sonar · Podcasts")
-        .description("Tus nuevos episodios: toca uno y suena.")
+        .description("Portadas de tu Acceso rápido: toca una y suena. Cambian solas cada media hora.")
         .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()
     }

@@ -4,8 +4,13 @@
 //
 //  Widget pequeno de Sonar con cuatro botones: un circulo de color con su nombre debajo. Sale en la galeria de widgets del iPhone
 //  y, en iOS 26, tambien en CarPlay (Ajustes > General > CarPlay > tu coche > Personalizar).
-//  Las acciones estan en Shared/WidgetIntents.swift y las ejecuta la app. "Me gusta" cambia de aspecto cuando la cancion que
-//  suena ya te gusta (la app deja ese dato en la carpeta compartida: Shared/WidgetShared.swift).
+//  Botones: Para ti (tu mezcla), Mezclar (pasar a la siguiente con AutoMix), DJ (encender o apagar) y Actualizar (cambia las portadas de
+//  los demas widgets). Las acciones estan en Shared/WidgetIntents.swift y las ejecuta la app.
+//
+//  El boton DJ se ve ENCENDIDO o APAGADO sin lugar a dudas, y no solo por el color (en los modos tintado o transparente del iPhone
+//  el color se aplana): encendido es un circulo verde relleno con un aro blanco alrededor y el texto "DJ · ON"; apagado es un circulo
+//  oscuro con borde fino, el simbolo apagado y el texto "DJ · OFF" en gris. El dato lo deja la app en la carpeta compartida
+//  (Shared/WidgetShared.swift).
 //
 //  El efecto de pulsar es el del sistema: el boton se encoge. Para que se encoja SOLO el circulo (y no un bloque entero con su
 //  nombre), el boton es solo el circulo y el nombre va debajo, fuera del boton. El boton usa `.bordered` con tinte transparente:
@@ -19,17 +24,17 @@ import WidgetKit
 
 struct SonarWidgetEntry: TimelineEntry {
     let date: Date
-    /// La cancion que suena ya te gusta (dato de la app).
-    let liked: Bool
+    /// El DJ esta encendido (dato de la app).
+    let dj: Bool
 }
 
 struct SonarWidgetProvider: TimelineProvider {
     private func entry() -> SonarWidgetEntry {
-        SonarWidgetEntry(date: Date(), liked: WidgetShared.loadNowPlaying()?.liked ?? false)
+        SonarWidgetEntry(date: Date(), dj: WidgetShared.loadButtonState()?.dj ?? false)
     }
 
     func placeholder(in context: Context) -> SonarWidgetEntry {
-        SonarWidgetEntry(date: Date(), liked: false)
+        SonarWidgetEntry(date: Date(), dj: false)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (SonarWidgetEntry) -> Void) {
@@ -37,7 +42,7 @@ struct SonarWidgetProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<SonarWidgetEntry>) -> Void) {
-        // La app recarga el widget cuando cambia la cancion o su Me gusta; ademas se relee cada hora: con "nunca", algunos widgets
+        // La app recarga el widget cuando el DJ se enciende o se apaga; ademas se relee cada hora: con "nunca", algunos widgets
         // interactivos dejaban de responder tras horas parados (un hilo del foro de Apple lo cuenta).
         completion(Timeline(entries: [entry()], policy: .after(Date().addingTimeInterval(3600))))
     }
@@ -60,30 +65,48 @@ struct SonarWidgetView: View {
 
     private static let plateColor = Color(red: 0.16, green: 0.16, blue: 0.18)
     private static let iconInk = Color(red: 0.08, green: 0.08, blue: 0.09)
+    private static let djOnTop = Color(red: 0.30, green: 0.88, blue: 0.48)
+    private static let djOnBottom = Color(red: 0.10, green: 0.68, blue: 0.40)
 
     /// Lo que se encoge al pulsar: el circulo de color con su icono. Sin margen invisible de mas: el propio estilo del boton ya
     /// añade su zona tocable, y asi el nombre de debajo cabe entero.
-    private func circle(symbol: String, top: Color, bottom: Color, inverted: Bool) -> some View {
+    private func circle(symbol: String, top: Color, bottom: Color) -> some View {
         ZStack {
             Circle()
-                .fill(
-                    inverted
-                        ? AnyShapeStyle(Color.white)
-                        : AnyShapeStyle(LinearGradient(colors: [top, bottom], startPoint: .top, endPoint: .bottom))
-                )
+                .fill(LinearGradient(colors: [top, bottom], startPoint: .top, endPoint: .bottom))
             Image(systemName: symbol)
                 .font(.system(size: 20, weight: .bold))
-                .foregroundStyle(inverted ? bottom : Self.iconInk)
+                .foregroundStyle(Self.iconInk)
         }
         .frame(width: 42, height: 42)
     }
 
-    private func tile<I: AppIntent>(
-        _ intent: I, symbol: String, title: String, top: Color, bottom: Color, inverted: Bool = false
+    /// El circulo del boton DJ. Encendido: aro blanco grueso + circulo verde relleno dentro. Apagado: circulo oscuro con un borde fino y
+    /// el simbolo atenuado. Se distinguen por forma (aro o no) y por brillo, no solo por el tono.
+    private func djCircle(on: Bool) -> some View {
+        ZStack {
+            if on {
+                Circle().strokeBorder(Color.white, lineWidth: 3)
+                Circle()
+                    .fill(LinearGradient(colors: [Self.djOnTop, Self.djOnBottom], startPoint: .top, endPoint: .bottom))
+                    .padding(6)
+            } else {
+                Circle().fill(Color(red: 0.24, green: 0.24, blue: 0.27))
+                Circle().strokeBorder(Color.white.opacity(0.35), lineWidth: 1)
+            }
+            Image(systemName: "power")
+                .font(.system(size: 19, weight: .bold))
+                .foregroundStyle(on ? Self.iconInk : Color.white.opacity(0.55))
+        }
+        .frame(width: 42, height: 42)
+    }
+
+    private func tile<I: AppIntent, Face: View>(
+        _ intent: I, title: String, titleColor: Color = .white, @ViewBuilder face: () -> Face
     ) -> some View {
         VStack(spacing: 0) {
             Button(intent: intent) {
-                circle(symbol: symbol, top: top, bottom: bottom, inverted: inverted)
+                face()
             }
             .buttonStyle(.bordered)
             .buttonBorderShape(.circle)
@@ -92,7 +115,7 @@ struct SonarWidgetView: View {
             // El nombre va fuera del boton: asi no se encoge con el.
             Text(title)
                 .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white)
+                .foregroundStyle(titleColor)
                 .shadow(color: .black.opacity(0.55), radius: 2, y: 1)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
@@ -105,20 +128,27 @@ struct SonarWidgetView: View {
     var body: some View {
         Grid(horizontalSpacing: showsBackground ? 0 : 6, verticalSpacing: showsBackground ? 0 : 6) {
             GridRow {
-                tile(WidgetMixIntent(), symbol: "waveform", title: label("Para ti", "For you"),
-                     top: Color(red: 1.00, green: 0.48, blue: 0.27), bottom: Color(red: 1.00, green: 0.27, blue: 0.33))
-                tile(WidgetMixNowIntent(), symbol: "arrow.triangle.merge", title: label("Mezclar", "Mix now"),
-                     top: Color(red: 1.00, green: 0.54, blue: 0.30), bottom: Color(red: 1.00, green: 0.35, blue: 0.29))
+                tile(WidgetMixIntent(), title: label("Para ti", "For you")) {
+                    circle(symbol: "waveform",
+                           top: Color(red: 1.00, green: 0.48, blue: 0.27), bottom: Color(red: 1.00, green: 0.27, blue: 0.33))
+                }
+                tile(WidgetMixNowIntent(), title: label("Mezclar", "Mix now")) {
+                    circle(symbol: "arrow.triangle.merge",
+                           top: Color(red: 1.00, green: 0.54, blue: 0.30), bottom: Color(red: 1.00, green: 0.35, blue: 0.29))
+                }
             }
             GridRow {
-                tile(WidgetRadioIntent(), symbol: "dot.radiowaves.left.and.right", title: "Radio",
-                     top: Color(red: 1.00, green: 0.69, blue: 0.30), bottom: Color(red: 1.00, green: 0.48, blue: 0.27))
-                // Si la cancion que suena ya te gusta: circulo blanco con el pulgar relleno y "Te gusta".
-                tile(WidgetLikeIntent(),
-                     symbol: entry.liked ? "hand.thumbsup.fill" : "hand.thumbsup",
-                     title: entry.liked ? label("Te gusta", "Liked") : label("Me gusta", "Like"),
-                     top: Color(red: 1.00, green: 0.35, blue: 0.35), bottom: Color(red: 1.00, green: 0.23, blue: 0.42),
-                     inverted: entry.liked)
+                tile(
+                    WidgetDJIntent(),
+                    title: entry.dj ? "DJ · ON" : "DJ · OFF",
+                    titleColor: entry.dj ? .white : Color.white.opacity(0.55)
+                ) {
+                    djCircle(on: entry.dj)
+                }
+                tile(WidgetRefreshIntent(), title: label("Actualizar", "Refresh")) {
+                    circle(symbol: "arrow.clockwise",
+                           top: Color(red: 1.00, green: 0.69, blue: 0.30), bottom: Color(red: 1.00, green: 0.48, blue: 0.27))
+                }
             }
         }
         .padding(4)
@@ -132,7 +162,7 @@ struct SonarWidget: Widget {
             SonarWidgetView(entry: entry)
         }
         .configurationDisplayName("Sonar")
-        .description("Para ti, mezclar ahora, radio de la canción y Me gusta.")
+        .description("Para ti, mezclar ahora, DJ (encendido o apagado) y actualizar los demás widgets.")
         .supportedFamilies([.systemSmall])
         // Sin los margenes por defecto (unos 16 pt): el contenido ocupa casi todo el widget, con su propio margen pequeno.
         .contentMarginsDisabled()
@@ -144,7 +174,7 @@ struct SonarWidgetBundle: WidgetBundle {
     var body: some Widget {
         SonarWidget()
         SonarQuickPicksWidget()
+        SonarQuickPicksBWidget()
         SonarSpeedDialWidget()
-        SonarEpisodesWidget()
     }
 }

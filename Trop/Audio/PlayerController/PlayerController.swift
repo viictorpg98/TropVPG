@@ -1451,8 +1451,6 @@ extension PlayerController {
         let np = NowPlaying.shared
         let liked = np.videoId.map { LikeStore.shared.isLiked(videoId: $0) } ?? false
         center.likeCommand.isActive = liked
-        // El boton "Me gusta" del widget tambien enseña si la cancion que suena ya te gusta.
-        WidgetDataStore.shared.nowPlayingChanged(videoId: np.videoId, liked: liked)
         let isPodcast = np.musicVideoType == "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
         center.skipForwardCommand.isEnabled = isPodcast
         center.skipBackwardCommand.isEnabled = isPodcast

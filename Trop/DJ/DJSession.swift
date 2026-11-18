@@ -43,6 +43,8 @@ final class DJSession {
     func start() {
         guard !isActive else { return }
         DJSettings.shared.sessionActive = true
+        // El boton DJ del widget (pantalla de inicio y CarPlay) tiene que enseñar que esta encendido.
+        WidgetDataStore.shared.djChanged(true)
         lastAnalyzedCount = -1
         knownUpcoming = []
         hasSortedOnce = false
@@ -62,6 +64,7 @@ final class DJSession {
     func stop() {
         guard isActive else { return }
         DJSettings.shared.sessionActive = false
+        WidgetDataStore.shared.djChanged(false)
         loop?.cancel()
         loop = nil
         PlaybackReport.record("dj: sesion parada")

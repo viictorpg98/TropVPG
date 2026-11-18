@@ -2,10 +2,12 @@
 //  WidgetDataStore.swift
 //  Trop
 //
-//  Deja en la carpeta compartida con el widget lo que enseñan sus portadas: tus Selecciones rapidas, tu Acceso rapido y los
-//  nuevos episodios, con las portadas ya descargadas y reducidas (el widget no puede bajarlas ni leer la base de datos).
-//  Se actualiza cuando cambia el inicio y al volver a la app. Nunca se guardan cookies ni datos de la cuenta, solo titulos,
-//  artistas, identificadores y portadas.
+//  Deja en la carpeta compartida con el widget lo que enseñan sus portadas: tus Selecciones rapidas y tu Acceso rapido, con las
+//  portadas ya descargadas y reducidas (el widget no puede bajarlas ni leer la base de datos). Son RESERVAS de unas 16 canciones por
+//  lista: cada widget ensena un grupo de 4 y va pasando de grupo con el tiempo (ver `CoverProvider`), asi que no se ve
+//  siempre lo mismo. Se actualiza cuando cambia el inicio, al volver a la app y con el boton "Actualizar" del widget de botones.
+//  Tambien guarda si el DJ esta encendido (para que su boton lo enseñe). Nunca se guardan cookies ni datos de la cuenta, solo
+//  titulos, artistas, identificadores y portadas.
 //
 
 import Foundation
@@ -16,7 +18,7 @@ import WidgetKit
 final class WidgetDataStore {
     static let shared = WidgetDataStore()
 
-    /// Lo minimo de una cancion o episodio para el widget (valores simples: se pasan fuera del hilo principal).
+    /// Lo minimo de una cancion para el widget (valores simples: se pasan fuera del hilo principal).
     struct Source: Hashable, Sendable {
         let id: String
         let title: String
@@ -26,14 +28,15 @@ final class WidgetDataStore {
         let isEpisode: Bool
     }
 
+    /// Cuantas canciones se guardan por lista: 4 grupos de 4 (el widget enseña un grupo cada vez).
+    private static let poolSize = 16
+
     private var quickPicks: [Source] = []
     private var recentSongs: [Source] = []
-    private var episodes: [Source] = []
-    private var episodesFetchedAt = Date.distantPast
-    private var fetchingEpisodes = false
     private var task: Task<Void, Never>?
     private var lastSignature = ""
     private var lastWrite = Date.distantPast
+    private var refreshing = false
 
     private init() {}
 
@@ -49,9 +52,10 @@ final class WidgetDataStore {
         if let found = WidgetShared.resolved {
             WidgetShared.writeProbe(groupId: found.id, bundleId: Bundle.main.bundleIdentifier ?? "", in: found.url)
         }
+        // La app acaba de abrirse o de volver: si el DJ se quedo "encendido" en el dato de la ultima vez, se corrige.
+        syncDJState()
         // El Acceso rapido sale de la base de datos: se vuelve a leer sin esperar a que cambie el inicio.
-        schedule()
-        fetchEpisodesIfNeeded()
+        schedule(force: false)
     }
 
     private func reportShare() {
@@ -63,31 +67,47 @@ final class WidgetDataStore {
         )
     }
 
-    // MARK: - Cancion que suena (boton "Me gusta")
+    // MARK: - Boton DJ
 
-    private var lastNowPlaying: (id: String?, liked: Bool)?
+    private var lastDJ: Bool?
     private var lastButtonsReload = Date.distantPast
     private var buttonsReloadTask: Task<Void, Never>?
 
-    /// Lo llama el reproductor cuando cambia la cancion o su Me gusta: deja el dato en la carpeta compartida y recarga los widgets
-    /// de botones. El sistema limita las recargas, asi que como mucho se pide una cada 15 s (si hay mas cambios seguidos, se juntan).
-    func nowPlayingChanged(videoId: String?, liked: Bool) {
-        if let last = lastNowPlaying, last.id == videoId, last.liked == liked { return }
-        lastNowPlaying = (videoId, liked)
+    /// Lo llama `DJSession` al encender o apagar el DJ: deja el dato en la carpeta compartida y recarga el widget de botones para que
+    /// el boton se vea encendido o apagado. El sistema limita las recargas, asi que como mucho se pide una cada 5 s (si hay mas
+    /// cambios seguidos, se juntan y queda el ultimo).
+    func djChanged(_ on: Bool) {
+        guard lastDJ != on else { return }
+        lastDJ = on
         guard let found = WidgetShared.resolved else { return }
-        WidgetShared.writeNowPlaying(
-            WidgetNowPlaying(videoId: videoId, liked: liked, updated: Date()), in: found.url
-        )
+        WidgetShared.writeButtonState(WidgetButtonState(dj: on, updated: Date()), in: found.url)
         let sinceLast = Date().timeIntervalSince(lastButtonsReload)
         buttonsReloadTask?.cancel()
-        if sinceLast >= 15 {
+        if sinceLast >= 5 {
             reloadButtonWidgets()
         } else {
             buttonsReloadTask = Task { [weak self] in
-                try? await Task.sleep(nanoseconds: UInt64((15 - sinceLast) * 1_000_000_000))
+                try? await Task.sleep(nanoseconds: UInt64((5 - sinceLast) * 1_000_000_000))
                 guard !Task.isCancelled else { return }
                 self?.reloadButtonWidgets()
             }
+        }
+    }
+
+    /// El DJ no se guarda entre aperturas: si iOS cerro la app con el DJ encendido, el dato de la carpeta compartida seguiria diciendo
+    /// "encendido". Al arrancar se vuelve a escribir lo real.
+    private func syncDJState() {
+        let active = DJSession.shared.isActive
+        if lastDJ == nil {
+            lastDJ = active
+            guard let found = WidgetShared.resolved else { return }
+            let stored = WidgetShared.loadButtonState()?.dj
+            if stored != active {
+                WidgetShared.writeButtonState(WidgetButtonState(dj: active, updated: Date()), in: found.url)
+                reloadButtonWidgets()
+            }
+        } else {
+            djChanged(active)
         }
     }
 
@@ -103,9 +123,7 @@ final class WidgetDataStore {
         guard !sections.isEmpty else { return }
         var quick: [Source] = []
         var recent: [Source] = []
-        var eps: [Source] = []
         var anySongs: [Source] = []
-        var seenEpisodes = Set<String>()
         var seenSongs = Set<String>()
         for section in sections {
             if case .quickPicks(let items) = section, quick.isEmpty {
@@ -116,71 +134,58 @@ final class WidgetDataStore {
                 recent = Self.sources(from: items)
             }
             for item in section.items {
-                switch item {
-                case .episode:
-                    if let source = Self.source(from: item), seenEpisodes.insert(source.id).inserted { eps.append(source) }
-                case .song:
-                    if let source = Self.source(from: item), seenSongs.insert(source.id).inserted { anySongs.append(source) }
-                default:
-                    break
+                if case .song = item, let source = Self.source(from: item), seenSongs.insert(source.id).inserted {
+                    anySongs.append(source)
                 }
             }
         }
         // Sin la seccion de Selecciones rapidas (puede estar desactivada), se usan las primeras canciones del inicio.
-        quickPicks = Array((quick.isEmpty ? anySongs : quick).prefix(8))
-        recentSongs = Array(recent.prefix(8))
-        // Los episodios no suelen venir en la portada normal (estan en el chip Podcasts): solo se toman de aqui si aparecen.
-        if !eps.isEmpty { episodes = Array(eps.prefix(8)) }
-        schedule()
-        fetchEpisodesIfNeeded()
+        setPools(quick: quick.isEmpty ? anySongs : quick, recent: recent)
+        schedule(force: false)
     }
 
-    // MARK: - Episodios (chip Podcasts)
-
-    private func fetchEpisodesIfNeeded() {
-        guard !fetchingEpisodes, Date().timeIntervalSince(episodesFetchedAt) > 1800 else { return }
-        fetchingEpisodes = true
-        Task { [weak self] in
-            let found = await self?.fetchPodcastEpisodes() ?? []
-            guard let self else { return }
-            self.fetchingEpisodes = false
-            // Si no salio nada (sin red, por ejemplo), se vuelve a intentar a los 5 minutos en vez de a la media hora.
-            self.episodesFetchedAt = found.isEmpty ? Date().addingTimeInterval(-1500) : Date()
-            if !found.isEmpty {
-                self.episodes = Array(found.prefix(8))
-                self.schedule()
-            }
-        }
+    private func setPools(quick: [Source], recent: [Source]) {
+        quickPicks = Array(Self.deduplicated(quick).prefix(Self.poolSize))
+        recentSongs = Array(Self.deduplicated(recent).prefix(Self.poolSize))
     }
 
-    /// "Tus nuevos episodios": estan en la portada del chip Podcasts del inicio de YouTube Music (se pide igual que "Pon Dormir").
-    private func fetchPodcastEpisodes() async -> [Source] {
-        guard NetworkMonitor.shared.hasConnection,
-              let json = try? await InnerTubeClient.tropShared.browse(browseId: "FEmusic_home"),
-              let page = HomePageParser.parseHomePage(from: json) else { return [] }
-        let chip = page.chips.first { chip in
-            chip.title.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil).lowercased().contains("podcast")
-        }
-        guard let chip, let params = chip.params,
-              let chipJson = try? await InnerTubeClient.tropShared.browse(
-                  browseId: "FEmusic_home", params: params, locale: .deviceLanguage
-              ),
-              let chipPage = HomePageParser.parseHomePage(from: chipJson, chipMode: true) else { return [] }
-        let newEpisodes = chipPage.sections.first {
-            $0.title.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil).lowercased().contains("episod")
-        }
-        let pool = newEpisodes.map { [$0] } ?? chipPage.sections
-        var seen = Set<String>()
-        var result: [Source] = []
-        for section in pool {
-            for item in section.items {
-                if case .episode = item, let source = Self.source(from: item), seen.insert(source.id).inserted {
-                    result.append(source)
+    // MARK: - Boton "Actualizar"
+
+    /// El boton "Actualizar" del widget de botones: vuelve a pedir el inicio de YouTube Music (una peticion, con limite de 10 s), baraja
+    /// de nuevo las reservas y reescribe las portadas aunque nada haya cambiado. Sin conexion, solo las baraja.
+    func refresh() async {
+        guard !refreshing else { return }
+        refreshing = true
+        defer { refreshing = false }
+        // Una escritura en curso (por un cambio del inicio) podria borrar portadas que esta escritura acaba de usar: se cancela.
+        task?.cancel()
+        var fetched = 0
+        if let sections = await SonarMix.homeSectionsForWidget() {
+            var quick: [Source] = []
+            var recent: [Source] = []
+            var anySongs: [Source] = []
+            for section in sections {
+                let items = Self.sources(from: section.items)
+                if HomeSectionTitles.isQuickPicks(section.title), quick.isEmpty {
+                    quick = items
+                } else if HomeSectionTitles.isKeepListening(section.title), recent.isEmpty {
+                    recent = items
                 }
+                anySongs.append(contentsOf: items)
             }
+            fetched = quick.count + recent.count
+            if fetched > 0 { setPools(quick: quick.isEmpty ? anySongs : quick, recent: recent) }
         }
-        PlaybackReport.record("widget: episodios del chip Podcasts: \(result.count)")
-        return result
+        PlaybackReport.record("widget: actualizar (inicio: \(fetched) canciones, selecciones \(quickPicks.count), acceso rapido \(recentSongs.count))")
+        // Con o sin datos nuevos, siempre se baraja otra vez: el boton tiene que notarse.
+        quickPicks.shuffle()
+        recentSongs.shuffle()
+        await writeNow(force: true, reshuffle: true)
+    }
+
+    private static func deduplicated(_ sources: [Source]) -> [Source] {
+        var seen = Set<String>()
+        return sources.filter { seen.insert($0.id).inserted }
     }
 
     private static func sources(from items: [YTItem]) -> [Source] {
@@ -214,74 +219,83 @@ final class WidgetDataStore {
 
     // MARK: - Escribir
 
-    private func schedule() {
+    private func schedule(force: Bool) {
         task?.cancel()
-        let quick = quickPicks
-        let eps = episodes
-        let recent = recentSongs
         task = Task { [weak self] in
-            let entries = (try? await DatabaseService.shared.fetchSpeedDial(limit: 8)) ?? []
-            // Primero las canciones que has fijado en el Acceso rapido; si faltan, las de "Volver a escuchar" del inicio.
-            var dial = entries.map {
-                Source(
-                    id: $0.videoId, title: $0.title, artist: $0.artist, thumbnailUrl: $0.thumbnailUrl,
-                    duration: $0.duration, isEpisode: false
-                )
-            }
-            var seenDial = Set(dial.map(\.id))
-            for source in recent where seenDial.insert(source.id).inserted { dial.append(source) }
-            dial = Array(dial.prefix(8))
-            guard !Task.isCancelled else { return }
-            await self?.write(quick: quick, dial: dial, episodes: eps)
+            await self?.writeNow(force: force, reshuffle: false)
         }
     }
 
-    private func write(quick: [Source], dial: [Source], episodes: [Source]) async {
+    /// Junta lo fijado en el Acceso rapido con "Volver a escuchar" y escribe las tres listas.
+    private func writeNow(force: Bool, reshuffle: Bool) async {
+        let quick = quickPicks
+        let recent = recentSongs
+        let entries = (try? await DatabaseService.shared.fetchSpeedDial(limit: Self.poolSize)) ?? []
+        // Primero las canciones que has fijado en el Acceso rapido; si faltan, las de "Volver a escuchar" del inicio.
+        var dial = entries.map {
+            Source(
+                id: $0.videoId, title: $0.title, artist: $0.artist, thumbnailUrl: $0.thumbnailUrl,
+                duration: $0.duration, isEpisode: false
+            )
+        }
+        var seenDial = Set(dial.map(\.id))
+        for source in recent where seenDial.insert(source.id).inserted { dial.append(source) }
+        // Con "Actualizar" tambien se baraja lo fijado: si no, el Acceso rapido ensenaria siempre lo mismo.
+        if reshuffle { dial.shuffle() }
+        dial = Array(dial.prefix(Self.poolSize))
+        guard !Task.isCancelled else { return }
+        await write(quick: quick, dial: dial, force: force)
+    }
+
+    private func write(quick: [Source], dial: [Source], force: Bool) async {
         guard let found = WidgetShared.resolved else { return }
-        // Lo mismo que ya se escribio hace poco: no se vuelve a descargar nada.
-        let signature = [quick, dial, episodes].map { $0.map(\.id).joined(separator: ",") }.joined(separator: "|")
-        if signature == lastSignature, Date().timeIntervalSince(lastWrite) < 600 { return }
+        // Lo mismo que ya se escribio hace poco: no se vuelve a descargar nada (salvo si se fuerza, como con "Actualizar").
+        let signature = [quick, dial].map { $0.map(\.id).joined(separator: ",") }.joined(separator: "|")
+        if !force, signature == lastSignature, Date().timeIntervalSince(lastWrite) < 600 { return }
+        // La app puede haber arrancado en segundo plano (al pulsar un boton) sin haber leido aun el inicio, o sin red: las listas vacias
+        // NO deben borrar lo que el widget ya enseña. Con las dos vacias no hay nada que escribir.
+        let existing = WidgetShared.loadSnapshot()
+        if quick.isEmpty, dial.isEmpty, existing != nil { return }
 
         let coversDirectory = WidgetShared.coversDirectory(in: found.url)
         try? FileManager.default.createDirectory(at: coversDirectory, withIntermediateDirectories: true)
 
-        var kept = Set<String>()
-        let quickTracks = await tracks(from: quick, in: coversDirectory, kept: &kept)
-        let dialTracks = await tracks(from: dial, in: coversDirectory, kept: &kept)
-        let episodeTracks = await tracks(from: episodes, in: coversDirectory, kept: &kept)
+        var quickTracks: [WidgetTrack] = []
+        if !quick.isEmpty { quickTracks = await tracks(from: quick, in: coversDirectory) }
+        var dialTracks: [WidgetTrack] = []
+        if !dial.isEmpty { dialTracks = await tracks(from: dial, in: coversDirectory) }
         guard !Task.isCancelled else { return }
+        // Una lista vacia conserva la que habia en disco (con "Actualizar" y sin datos nuevos, solo se baraja).
+        if quickTracks.isEmpty, let old = existing?.quickPicks, !old.isEmpty { quickTracks = force ? old.shuffled() : old }
+        if dialTracks.isEmpty, let old = existing?.speedDial, !old.isEmpty { dialTracks = force ? old.shuffled() : old }
 
-        // Se borran las portadas que ya no usa ninguna lista.
+        // Se borran las portadas que ya no usa ninguna lista (las de las listas conservadas cuentan como usadas).
+        var kept = Set<String>()
+        for track in quickTracks + dialTracks {
+            if let cover = track.cover { kept.insert(cover) }
+        }
         if let files = try? FileManager.default.contentsOfDirectory(atPath: coversDirectory.path) {
             for file in files where !kept.contains(file) {
                 try? FileManager.default.removeItem(at: coversDirectory.appendingPathComponent(file))
             }
         }
 
-        let snapshot = WidgetSnapshot(
-            updated: Date(),
-            quickPicks: quickTracks,
-            speedDial: dialTracks,
-            episodes: episodeTracks
-        )
+        let snapshot = WidgetSnapshot(updated: Date(), quickPicks: quickTracks, speedDial: dialTracks)
         do {
             try WidgetShared.save(snapshot, in: found.url)
             lastSignature = signature
             lastWrite = Date()
-            PlaybackReport.record(
-                "widget: datos escritos (selecciones \(quickTracks.count), acceso rapido \(dialTracks.count), episodios \(episodeTracks.count))"
-            )
+            PlaybackReport.record("widget: datos escritos (selecciones \(quickTracks.count), acceso rapido \(dialTracks.count))")
             WidgetCenter.shared.reloadAllTimelines()
         } catch {
             PlaybackReport.record("widget: no se pudo escribir los datos: \(error.localizedDescription)")
         }
     }
 
-    private func tracks(from sources: [Source], in directory: URL, kept: inout Set<String>) async -> [WidgetTrack] {
+    private func tracks(from sources: [Source], in directory: URL) async -> [WidgetTrack] {
         var result: [WidgetTrack] = []
         for source in sources {
             let name = await Self.coverFile(for: source, in: directory)
-            if let name { kept.insert(name) }
             result.append(
                 WidgetTrack(
                     id: source.id, title: source.title, artist: source.artist, cover: name,
@@ -294,7 +308,7 @@ final class WidgetDataStore {
 
     // MARK: - Portadas
 
-    /// Google redimensiona la portada con "=w226-h226...": se pide de 480 px (las miniaturas de podcast son anchas y salen a ~150 pt).
+    /// Google redimensiona la portada con "=w226-h226...": se pide de 480 px.
     nonisolated private static func sizedURL(_ raw: String) -> URL? {
         let sized = raw.replacingOccurrences(of: "=w\\d+-h\\d+", with: "=w480-h480", options: .regularExpression)
         return URL(string: sized)
@@ -330,7 +344,7 @@ final class WidgetDataStore {
         }
     }
 
-    /// WidgetKit no acepta imagenes grandes: se reducen a 240 px como maximo.
+    /// WidgetKit no acepta imagenes grandes: se reducen a 480 px como maximo.
     nonisolated private static func downscaled(_ image: UIImage, maxSide: CGFloat) -> UIImage {
         let size = image.size
         let longest = max(size.width, size.height)

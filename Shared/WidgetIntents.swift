@@ -12,7 +12,7 @@
 
 import AppIntents
 
-/// "Mi mezcla": la misma que "Arranca mi mezcla en Sonar".
+/// "Para ti": la misma mezcla que "Arranca mi mezcla en Sonar".
 struct WidgetMixIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "My Mix"
     static let isDiscoverable = false
@@ -40,37 +40,40 @@ struct WidgetMixNowIntent: AudioPlaybackIntent {
     }
 }
 
-/// "El dado": una cancion al azar del inicio y del Acceso rapido, con su radio (como el dado del inicio).
-struct WidgetDiceIntent: AudioPlaybackIntent {
-    static let title: LocalizedStringResource = "Surprise Me"
+/// "DJ": enciende o apaga la sesion de DJ (la misma tarjeta del Inicio). Al encenderla, si no suena nada, arranca tu mezcla; si algo ya
+/// suena, el DJ se une a lo que haya en la cola. El boton del widget se recarga solo (`WidgetDataStore.djChanged`).
+struct WidgetDJIntent: AudioPlaybackIntent {
+    static let title: LocalizedStringResource = "DJ"
     static let isDiscoverable = false
 
     @MainActor
     func perform() async throws -> some IntentResult {
         #if !WIDGET_EXTENSION
-        _ = await SonarMix.playRandomPick()
+        let dj = DJSession.shared
+        if dj.isActive {
+            dj.stop()
+            return .result()
+        }
+        dj.start()
+        let np = NowPlaying.shared
+        if !(np.isPlaying && np.queueSongs.indices.contains(np.queueIndex)) {
+            let started = await SonarMix.start()
+            if !started { dj.stop() }
+        }
         #endif
         return .result()
     }
 }
 
-/// "Radio": empieza la radio de la cancion que suena (la cola pasa a canciones parecidas; la actual sigue sonando). Si no suena nada,
-/// arranca "Para ti" para que el boton nunca se quede sin hacer nada.
-struct WidgetRadioIntent: AudioPlaybackIntent {
-    static let title: LocalizedStringResource = "Start Radio"
+/// "Actualizar": vuelve a pedir el inicio y cambia las portadas de los demas widgets (Selecciones rapidas y Acceso rapido).
+struct WidgetRefreshIntent: AudioPlaybackIntent {
+    static let title: LocalizedStringResource = "Refresh"
     static let isDiscoverable = false
 
     @MainActor
     func perform() async throws -> some IntentResult {
         #if !WIDGET_EXTENSION
-        let np = NowPlaying.shared
-        if np.queueSongs.indices.contains(np.queueIndex) {
-            PlaybackQueue.startRadio(for: np.queueSongs[np.queueIndex])
-            // La radio se pide a YouTube en segundo plano: se mantiene viva la accion unos segundos para que termine.
-            try? await Task.sleep(nanoseconds: 3_000_000_000)
-        } else {
-            _ = await SonarMix.start()
-        }
+        await WidgetDataStore.shared.refresh()
         #endif
         return .result()
     }
@@ -112,28 +115,6 @@ struct WidgetPlayTrackIntent: AudioPlaybackIntent {
         _ = await SonarMix.playTrack(
             videoId: videoId, title: songTitle, artist: songArtist, duration: songDuration, isEpisode: isEpisode
         )
-        #endif
-        return .result()
-    }
-}
-
-/// "Me gusta" a la cancion que suena. Solo marca: si ya te gustaba, no la quita (un toque de mas en el coche no la desmarca).
-struct WidgetLikeIntent: AudioPlaybackIntent {
-    static let title: LocalizedStringResource = "Like This Song"
-    static let isDiscoverable = false
-
-    @MainActor
-    func perform() async throws -> some IntentResult {
-        #if !WIDGET_EXTENSION
-        let np = NowPlaying.shared
-        if np.queueSongs.indices.contains(np.queueIndex) {
-            let song = np.queueSongs[np.queueIndex]
-            if !LikeStore.shared.isLiked(videoId: song.videoId) {
-                await LikeStore.shared.toggle(song: song)
-            }
-            // El widget se recarga al terminar esta accion: el dato tiene que estar ya escrito para que se vea marcado.
-            WidgetDataStore.shared.nowPlayingChanged(videoId: song.videoId, liked: LikeStore.shared.isLiked(videoId: song.videoId))
-        }
         #endif
         return .result()
     }
