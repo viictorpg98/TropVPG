@@ -96,7 +96,7 @@ struct SonarWidgetView: View {
             }
             Image(systemName: "power")
                 .font(.system(size: 19, weight: .bold))
-                .foregroundStyle(on ? Self.iconInk : Color.white.opacity(0.55))
+                .foregroundStyle(on ? Self.iconInk : Color.white.opacity(0.8))
         }
         .frame(width: 42, height: 42)
     }
@@ -141,7 +141,7 @@ struct SonarWidgetView: View {
                 tile(
                     WidgetDJIntent(),
                     title: entry.dj ? "DJ · ON" : "DJ · OFF",
-                    titleColor: entry.dj ? .white : Color.white.opacity(0.55)
+                    titleColor: entry.dj ? .white : Color.white.opacity(0.78)
                 ) {
                     djCircle(on: entry.dj)
                 }

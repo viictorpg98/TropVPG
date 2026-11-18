@@ -84,7 +84,36 @@ enum SonarMix {
             }
         }
 
-        // 1) Ultima mezcla guardada: sin esperar a la red.
+        // 1) Con conexion, el inicio de YouTube Music MANDA sobre la mezcla guardada (orden elegido por el usuario: descargadas, inicio
+        // si hay conexion, mezcla guardada si no, y al final tus Me gusta). Con limite de tiempo: solo la primera pagina del inicio
+        // (una peticion), que ya trae canciones tuyas ("Volver a escuchar"...). Buscar "Mezclado para ti" exige varias peticiones mas,
+        // asi que eso se hace despues, en segundo plano.
+        if NetworkMonitor.shared.hasConnection {
+            let sections = await withTimeout(seconds: 10) { await loadHomeSections(deep: false) }
+            trace(sections.map { "inicio cargado: \($0.count) secciones" } ?? "inicio: sin respuesta a tiempo")
+            if let sections {
+                let songs = homeSongs(in: sections)
+                // Se guarda ya, para que la proxima vez (sin conexion) arranque al instante desde la mezcla guardada.
+                if songs.count >= 3 { saveCache(songs) }
+                let started: Bool
+                if songs.count >= 3 {
+                    started = await play(Array(songs.shuffled().prefix(40)), context: "canciones del inicio")
+                } else {
+                    started = await playRadioOfAnySong(in: sections)
+                }
+                if started {
+                    Task {
+                        await refreshCache()
+                        trace("mezcla refrescada (en segundo plano)")
+                    }
+                    return true
+                }
+            }
+        } else {
+            trace("sin conexion: se salta el inicio")
+        }
+
+        // 2) Sin conexion (o el inicio no respondio a tiempo): la ultima mezcla guardada, sin esperar a la red.
         let cachedSongs = cachedMix()
         trace("mezcla guardada: \(cachedSongs?.count ?? 0) canciones")
         if let cached = cachedSongs, await play(cached.shuffled(), context: "mezcla guardada") {
@@ -95,31 +124,7 @@ enum SonarMix {
             return true
         }
 
-        // 2) Con red y con limite de tiempo: solo la primera pagina del inicio (una peticion), que ya
-        // trae canciones tuyas ("Volver a escuchar"...). Buscar "Mezclado para ti" exige varias
-        // peticiones mas, asi que eso se hace despues, en segundo plano.
-        let sections = await withTimeout(seconds: 10) { await loadHomeSections(deep: false) }
-        trace(sections.map { "inicio cargado: \($0.count) secciones" } ?? "inicio: sin respuesta a tiempo")
-        if let sections {
-            let songs = homeSongs(in: sections)
-            // Se guarda ya, para que la proxima vez arranque al instante desde la mezcla guardada.
-            if songs.count >= 3 { saveCache(songs) }
-            let started: Bool
-            if songs.count >= 3 {
-                started = await play(Array(songs.shuffled().prefix(40)), context: "canciones del inicio")
-            } else {
-                started = await playRadioOfAnySong(in: sections)
-            }
-            if started {
-                Task {
-                    await refreshCache()
-                    trace("mezcla refrescada (en segundo plano)")
-                }
-                return true
-            }
-        }
-
-        // 3) Sin red o sin respuesta: canciones que te gustan, guardadas en el dispositivo.
+        // 3) Lo ultimo: canciones que te gustan, guardadas en el dispositivo.
         return await playLikedSongs()
     }
 

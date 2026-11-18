@@ -28,8 +28,11 @@ final class WidgetDataStore {
         let isEpisode: Bool
     }
 
-    /// Cuantas canciones se guardan por lista: 4 grupos de 4 (el widget enseña un grupo cada vez).
-    private static let poolSize = 16
+    /// Cuantas canciones se guardan por lista (el widget enseña un grupo de 4 cada vez): Selecciones rapidas 20 (5 grupos, que se reparten
+    /// entre los dos widgets) y Acceso rapido 24 (6 grupos).
+    private static let quickPoolSize = 20
+    private static let dialPoolSize = 24
+    private static let lastShownKey = "widget.lastShown"
 
     private var quickPicks: [Source] = []
     private var recentSongs: [Source] = []
@@ -145,14 +148,15 @@ final class WidgetDataStore {
     }
 
     private func setPools(quick: [Source], recent: [Source]) {
-        quickPicks = Array(Self.deduplicated(quick).prefix(Self.poolSize))
-        recentSongs = Array(Self.deduplicated(recent).prefix(Self.poolSize))
+        quickPicks = Array(Self.deduplicated(quick).prefix(Self.quickPoolSize))
+        recentSongs = Array(Self.deduplicated(recent).prefix(Self.dialPoolSize))
     }
 
     // MARK: - Boton "Actualizar"
 
-    /// El boton "Actualizar" del widget de botones: vuelve a pedir el inicio de YouTube Music (una peticion, con limite de 10 s), baraja
-    /// de nuevo las reservas y reescribe las portadas aunque nada haya cambiado. Sin conexion, solo las baraja.
+    /// El boton "Actualizar" del widget de botones: vuelve a pedir el inicio de YouTube Music (una peticion, con limite de 10 s), y reescribe
+    /// las portadas aunque nada haya cambiado, poniendo en lo que los widgets enseñan ahora las canciones que llevan mas tiempo sin salir
+    /// (`arranged`). Sin conexion, hace lo mismo con las reservas que ya hay.
     func refresh() async {
         guard !refreshing else { return }
         refreshing = true
@@ -177,10 +181,7 @@ final class WidgetDataStore {
             if fetched > 0 { setPools(quick: quick.isEmpty ? anySongs : quick, recent: recent) }
         }
         PlaybackReport.record("widget: actualizar (inicio: \(fetched) canciones, selecciones \(quickPicks.count), acceso rapido \(recentSongs.count))")
-        // Con o sin datos nuevos, siempre se baraja otra vez: el boton tiene que notarse.
-        quickPicks.shuffle()
-        recentSongs.shuffle()
-        await writeNow(force: true, reshuffle: true)
+        await writeNow(force: true)
     }
 
     private static func deduplicated(_ sources: [Source]) -> [Source] {
@@ -222,16 +223,17 @@ final class WidgetDataStore {
     private func schedule(force: Bool) {
         task?.cancel()
         task = Task { [weak self] in
-            await self?.writeNow(force: force, reshuffle: false)
+            await self?.writeNow(force: force)
         }
     }
 
-    /// Junta lo fijado en el Acceso rapido con "Volver a escuchar" y escribe las tres listas.
-    private func writeNow(force: Bool, reshuffle: Bool) async {
+    /// Junta lo fijado en el Acceso rapido, "Volver a escuchar" y tu historial local, y escribe las dos listas.
+    private func writeNow(force: Bool) async {
         let quick = quickPicks
         let recent = recentSongs
-        let entries = (try? await DatabaseService.shared.fetchSpeedDial(limit: Self.poolSize)) ?? []
-        // Primero las canciones que has fijado en el Acceso rapido; si faltan, las de "Volver a escuchar" del inicio.
+        let entries = (try? await DatabaseService.shared.fetchSpeedDial(limit: Self.dialPoolSize)) ?? []
+        // Primero las canciones que has fijado en el Acceso rapido; luego las de "Volver a escuchar" del inicio y, para que haya variedad
+        // aunque no fijes nada, canciones de tu historial local (recientes y mas escuchadas, mezcladas).
         var dial = entries.map {
             Source(
                 id: $0.videoId, title: $0.title, artist: $0.artist, thumbnailUrl: $0.thumbnailUrl,
@@ -240,11 +242,55 @@ final class WidgetDataStore {
         }
         var seenDial = Set(dial.map(\.id))
         for source in recent where seenDial.insert(source.id).inserted { dial.append(source) }
-        // Con "Actualizar" tambien se baraja lo fijado: si no, el Acceso rapido ensenaria siempre lo mismo.
-        if reshuffle { dial.shuffle() }
-        dial = Array(dial.prefix(Self.poolSize))
+        for source in await localHistory() where seenDial.insert(source.id).inserted { dial.append(source) }
+        // Las canciones de Selecciones rapidas no se repiten en Acceso rapido (siempre que a este le queden suficientes).
+        let quickIds = Set(quick.map(\.id))
+        let withoutQuick = dial.filter { !quickIds.contains($0.id) }
+        if withoutQuick.count >= 4 { dial = withoutQuick }
+        dial = Array(dial.prefix(Self.dialPoolSize))
         guard !Task.isCancelled else { return }
         await write(quick: quick, dial: dial, force: force)
+    }
+
+    /// Canciones de tu historial local (las de los ultimos 60 dias y las mas escuchadas) con portada, sin episodios ni artistas ocultos.
+    private func localHistory() async -> [Source] {
+        let recent = (try? await DatabaseService.shared.fetchRecentSongs(days: 60, limit: 30)) ?? []
+        let top = (try? await DatabaseService.shared.fetchTopSongs(limit: 30)) ?? []
+        var seen = Set<String>()
+        var result: [Source] = []
+        for entity in (recent + top).shuffled() where !entity.isEpisode && entity.thumbnailUrl != nil && seen.insert(entity.id).inserted {
+            let song = SongItem(entity: entity)
+            if HiddenArtists.shared.isHidden(song) { continue }
+            if let source = Self.source(from: .song(song)) { result.append(source) }
+        }
+        return result
+    }
+
+    // MARK: - Que canciones salen con "Actualizar"
+
+    private func lastShownTimes() -> [String: Double] {
+        let all = (UserDefaults.standard.dictionary(forKey: Self.lastShownKey) as? [String: Double]) ?? [:]
+        let cutoff = Date().timeIntervalSince1970 - 14 * 86_400
+        return all.filter { $0.value > cutoff }
+    }
+
+    /// Reordena una lista para que en las posiciones que los widgets ensenan AHORA (`visible`) queden las canciones que mas tiempo llevan
+    /// sin salir (las que nunca han salido, primero, al azar), y apunta cuando sale cada una. Asi pulsar "Actualizar" no repite lo que acabas
+    /// de ver y, antes de repetir una, pasan todas las demas. El resto de posiciones se llena en el mismo orden (de mas antiguas a mas
+    /// recientes), y por eso las siguientes rotaciones por reloj tambien traen canciones que llevan tiempo sin salir.
+    private func arranged(_ tracks: [WidgetTrack], visible: [Int], times: inout [String: Double], at date: Date) -> [WidgetTrack] {
+        guard tracks.count > 4 else { return tracks }
+        let snapshot = times
+        let ranked = tracks.shuffled().sorted { (snapshot[$0.id] ?? 0) < (snapshot[$1.id] ?? 0) }
+        var order: [Int] = []
+        var taken = Set<Int>()
+        for position in visible where position < tracks.count && taken.insert(position).inserted { order.append(position) }
+        for position in 0..<tracks.count where !taken.contains(position) { order.append(position) }
+        var result = tracks
+        for (rank, position) in order.enumerated() { result[position] = ranked[rank] }
+        let stamp = date.timeIntervalSince1970
+        for position in visible where position < result.count { times[result[position].id] = stamp }
+        return result
     }
 
     private func write(quick: [Source], dial: [Source], force: Bool) async {
@@ -265,9 +311,23 @@ final class WidgetDataStore {
         var dialTracks: [WidgetTrack] = []
         if !dial.isEmpty { dialTracks = await tracks(from: dial, in: coversDirectory) }
         guard !Task.isCancelled else { return }
-        // Una lista vacia conserva la que habia en disco (con "Actualizar" y sin datos nuevos, solo se baraja).
-        if quickTracks.isEmpty, let old = existing?.quickPicks, !old.isEmpty { quickTracks = force ? old.shuffled() : old }
-        if dialTracks.isEmpty, let old = existing?.speedDial, !old.isEmpty { dialTracks = force ? old.shuffled() : old }
+        // Una lista vacia conserva la que habia en disco.
+        if quickTracks.isEmpty, let old = existing?.quickPicks, !old.isEmpty { quickTracks = old }
+        if dialTracks.isEmpty, let old = existing?.speedDial, !old.isEmpty { dialTracks = old }
+        // "Actualizar": en lo que los widgets enseñan ahora se ponen canciones que llevan tiempo sin salir.
+        if force {
+            let now = Date()
+            var times = lastShownTimes()
+            let visibleA = WidgetRotation.visibleIndices(count: quickTracks.count, date: now, second: false)
+            let visibleB = WidgetRotation.visibleIndices(count: quickTracks.count, date: now, second: true)
+            quickTracks = arranged(quickTracks, visible: visibleA + visibleB, times: &times, at: now)
+            dialTracks = arranged(
+                dialTracks,
+                visible: WidgetRotation.visibleIndices(count: dialTracks.count, date: now, second: false),
+                times: &times, at: now
+            )
+            UserDefaults.standard.set(times, forKey: Self.lastShownKey)
+        }
 
         // Se borran las portadas que ya no usa ninguna lista (las de las listas conservadas cuentan como usadas).
         var kept = Set<String>()

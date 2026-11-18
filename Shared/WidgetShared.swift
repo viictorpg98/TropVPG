@@ -39,6 +39,26 @@ struct WidgetProbe: Codable {
     var bundleId: String
 }
 
+/// Como rotan las portadas: una lista (la reserva) se parte en grupos de 4 y cada widget ensena un grupo que cambia cada media hora, segun el
+/// reloj. La usan el widget (para saber que ensenar) y la app (para saber que se esta viendo y poner ahi canciones nuevas al "Actualizar").
+enum WidgetRotation {
+    static let seconds: TimeInterval = 1800
+
+    static func slot(_ date: Date) -> Int {
+        Int((date.timeIntervalSince1970 / seconds).rounded(.down))
+    }
+
+    /// Las posiciones de una lista de `count` canciones que ensena un widget en `date`. El segundo widget de Selecciones rapidas (`second`)
+    /// va con medio ciclo de diferencia para no repetir el grupo del primero. Si el ultimo grupo queda corto se completa con las primeras.
+    static func visibleIndices(count: Int, date: Date, second: Bool) -> [Int] {
+        guard count > 4 else { return Array(0..<count) }
+        let groups = (count + 3) / 4
+        let offset = second ? groups / 2 : 0
+        let group = (((slot(date) + offset) % groups) + groups) % groups
+        return (0..<4).map { (group * 4 + $0) % count }
+    }
+}
+
 /// El estado de los botones del widget: hoy, si el DJ esta encendido (el boton se ve distinto). Los campos son opcionales para leer
 /// sin problema lo que dejo una version anterior.
 struct WidgetButtonState: Codable {

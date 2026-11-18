@@ -25,9 +25,6 @@ struct CoverEntry: TimelineEntry {
     let state: WidgetShareState
 }
 
-/// Cuanto dura cada grupo de portadas en pantalla.
-private let coverRotationSeconds: TimeInterval = 1800
-
 struct CoverProvider: TimelineProvider {
     func placeholder(in context: Context) -> CoverEntry {
         CoverEntry(date: Date(), state: .noData(groupId: "", appWrote: true))
@@ -42,10 +39,10 @@ struct CoverProvider: TimelineProvider {
         // ademas avisa cuando escribe datos nuevos.
         let state = WidgetShared.state()
         let now = Date()
-        let slotStart = Date(timeIntervalSince1970: (now.timeIntervalSince1970 / coverRotationSeconds).rounded(.down) * coverRotationSeconds)
+        let slotStart = Date(timeIntervalSince1970: Double(WidgetRotation.slot(now)) * WidgetRotation.seconds)
         var entries = [CoverEntry(date: now, state: state)]
         for step in 1...8 {
-            entries.append(CoverEntry(date: slotStart.addingTimeInterval(Double(step) * coverRotationSeconds), state: state))
+            entries.append(CoverEntry(date: slotStart.addingTimeInterval(Double(step) * WidgetRotation.seconds), state: state))
         }
         completion(Timeline(entries: entries, policy: .after(entries.last?.date ?? now.addingTimeInterval(3600))))
     }
@@ -69,12 +66,7 @@ enum CoverKind {
     /// Si el ultimo grupo queda corto, se completa con las primeras de la lista.
     func visibleTracks(in snapshot: WidgetSnapshot, at date: Date) -> [WidgetTrack] {
         let all = tracks(in: snapshot)
-        guard all.count > 4 else { return all }
-        let groups = (all.count + 3) / 4
-        let slot = Int((date.timeIntervalSince1970 / coverRotationSeconds).rounded(.down))
-        let offset = self == .quickPicksB ? groups / 2 : 0
-        let group = (((slot + offset) % groups) + groups) % groups
-        return (0..<4).map { all[(group * 4 + $0) % all.count] }
+        return WidgetRotation.visibleIndices(count: all.count, date: date, second: self == .quickPicksB).map { all[$0] }
     }
 
     var emptyMessageEs: String {
@@ -117,9 +109,12 @@ struct CoverWidgetView: View {
     private static let plateColor = Color(red: 0.16, green: 0.16, blue: 0.18)
     /// Esquinas concentricas con las del widget (unos 24 pt) menos el margen.
     private static let cornerRadius: CGFloat = 14
-    /// Poco hueco entre portadas y poco margen: el boton del sistema (el que da el efecto al pulsar) ya añade su propio espacio alrededor.
-    private static let gap: CGFloat = 2
-    private static let margin: CGFloat = 5
+    private static let gap: CGFloat = 6
+    private static let margin: CGFloat = 7
+    /// El estilo `.bordered` del sistema (el que da el efecto de pulsar) añade unos 10 pt de margen alrededor del contenido del boton
+    /// (medido en el video del usuario con `.mini`): la portada se dibuja 10 pt mas grande por cada lado (relleno negativo) para que
+    /// llene toda la casilla en vez de quedar encogida y separada de las demas.
+    private static let buttonInset: CGFloat = 10
 
     // MARK: Casillas
 
@@ -160,10 +155,11 @@ struct CoverWidgetView: View {
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 7)
-            .padding(.top, 16)
+            .shadow(color: .black.opacity(0.6), radius: 2, y: 1)
+            .padding(.top, 22)
             .padding(.bottom, 5)
             .background(
-                LinearGradient(colors: [.clear, Color.black.opacity(0.78)], startPoint: .top, endPoint: .bottom)
+                LinearGradient(colors: [.clear, Color.black.opacity(0.9)], startPoint: .top, endPoint: .bottom)
             )
     }
 
@@ -198,7 +194,7 @@ struct CoverWidgetView: View {
         // El estilo `.bordered` con tinte transparente da el efecto de pulsar del sistema (se encoge) sin pintar ningun aro; el mismo
         // que el de los botones redondos del widget de botones.
         Button(intent: intent) {
-            coverTile(track)
+            coverTile(track).padding(-Self.buttonInset)
         }
         .buttonStyle(.bordered)
         .buttonBorderShape(.roundedRectangle(radius: Self.cornerRadius))
