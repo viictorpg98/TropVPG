@@ -498,7 +498,11 @@ final class HomeViewModel {
            SettingsStore.shared.showQuickPicks, !hasQuickPicksServerSection() {
             savedQuickPicks = [cached.section]
         }
-        let all = cachedLocalSections + serverSections + savedQuickPicks + cachedPhase2Sections
+        // Cada seccion lleva apuntado si viene de YouTube: si trae canciones, manda sobre la propia de la app (que solo es el relleno
+        // cuando YouTube no la trae), aunque la propia tenga mas.
+        var all: [TaggedSection] = cachedLocalSections.map { TaggedSection(section: $0, fromServer: false) }
+        all += (serverSections + savedQuickPicks).map { TaggedSection(section: $0, fromServer: true) }
+        all += cachedPhase2Sections.map { TaggedSection(section: $0, fromServer: false) }
         let merged = orderSections(all)
         homeSections = stable ? stabilized(merged, freshContent: freshContent) : merged
         // El widget de portadas enseña lo mismo que el inicio (solo la portada normal: arriba, con un chip, ya se ha vuelto).
@@ -559,25 +563,35 @@ final class HomeViewModel {
         return .homePageSection(section, index: index)
     }
 
-    private func orderSections(_ sections: [HomeSection]) -> [HomeSection] {
-        let filtered = sections.compactMap { section -> HomeSection? in
-            let f = applyFilters(section)
-            if case .quickPicks = f { return f }
-            return f.items.isEmpty ? nil : f
+    private struct TaggedSection {
+        let section: HomeSection
+        let fromServer: Bool
+    }
+
+    private func orderSections(_ sections: [TaggedSection]) -> [HomeSection] {
+        let filtered = sections.compactMap { entry -> TaggedSection? in
+            let f = applyFilters(entry.section)
+            if case .quickPicks = f { return TaggedSection(section: f, fromServer: entry.fromServer) }
+            return f.items.isEmpty ? nil : TaggedSection(section: f, fromServer: entry.fromServer)
         }
 
-        var byId: [String: HomeSection] = [:]
-        for section in filtered {
-            if let existing = byId[section.id] {
-                if section.items.count > existing.items.count {
-                    byId[section.id] = section
+        var byId: [String: TaggedSection] = [:]
+        for entry in filtered {
+            if let existing = byId[entry.section.id] {
+                // Una seccion de YouTube con canciones gana a la propia; entre secciones del mismo origen gana la que tiene mas.
+                let replaces: Bool
+                if entry.fromServer != existing.fromServer {
+                    replaces = entry.fromServer && !entry.section.items.isEmpty
+                } else {
+                    replaces = entry.section.items.count > existing.section.items.count
                 }
+                if replaces { byId[entry.section.id] = entry }
             } else {
-                byId[section.id] = section
+                byId[entry.section.id] = entry
             }
         }
 
-        return byId.values.sorted { a, b in
+        return byId.values.map(\.section).sorted { a, b in
             sectionWeight(a) > sectionWeight(b)
         }
     }

@@ -42,6 +42,7 @@ final class WidgetDataStore {
     private var fetchedQuick: [Source] = []
     private var fetchedRecent: [Source] = []
     private var lastServerFetch = Date.distantPast
+    private var lastServerSuccess = Date.distantPast
     private var fetchingServer = false
     private var task: Task<Void, Never>?
     private var lastSignature = ""
@@ -171,7 +172,12 @@ final class WidgetDataStore {
         defer { refreshing = false }
         // Una escritura en curso (por un cambio del inicio) podria borrar portadas que esta escritura acaba de usar: se cancela.
         task?.cancel()
-        let fetched = await fetchServerLists()
+        // Pulsarlo varias veces seguidas no vuelve a pedir 5 paginas del inicio cada vez: si hay una lista de YouTube de hace menos de 10
+        // minutos se reutiliza (la variedad la dan los Me gusta al azar y `arranged`).
+        var fetched = 0
+        if fetchedQuick.isEmpty || Date().timeIntervalSince(lastServerSuccess) > 600 {
+            fetched = await fetchServerLists()
+        }
         PlaybackReport.record(
             "widget: actualizar (de YouTube: \(fetched) canciones; selecciones \(fetchedQuick.isEmpty ? quickPicks.count : fetchedQuick.count), acceso rapido \(fetchedRecent.isEmpty ? recentSongs.count : fetchedRecent.count))"
         )
@@ -185,7 +191,9 @@ final class WidgetDataStore {
         guard !fetchingServer, Date().timeIntervalSince(lastServerFetch) > 1800 else { return }
         Task { [weak self] in
             guard let self else { return }
-            if await self.fetchServerLists() > 0 { self.schedule(force: false) }
+            _ = await self.fetchServerLists()
+            // Con o sin datos nuevos: hasta ahora las escrituras esperaban a esto (ver `writeNow`).
+            self.schedule(force: false)
         }
     }
 
@@ -200,6 +208,7 @@ final class WidgetDataStore {
             return 0
         }
         lastServerFetch = Date()
+        lastServerSuccess = Date()
         var quick: [Source] = []
         var recent: [Source] = []
         for section in sections {
@@ -286,6 +295,9 @@ final class WidgetDataStore {
         // dejo "Actualizar" no se desordena al abrir la app. Con "Actualizar" siempre se sigue adelante.
         let baseSignature = [quickBase, recent, dial].map { $0.map(\.id).sorted().joined(separator: ",") }.joined(separator: "|")
         if !force, baseSignature == UserDefaults.standard.string(forKey: Self.baseSignatureKey), WidgetShared.loadSnapshot() != nil { return }
+        // Al abrir la app, hasta que no se sepa que trae YouTube (la peticion esta en marcha o no ha empezado) no se escribe nada si ya hay datos:
+        // si no, se escribian Me gusta al azar encima de la lista de YouTube y luego otra vez al llegar. Al terminar la peticion se escribe.
+        if !force, fetchedQuick.isEmpty, fetchingServer || lastServerFetch == .distantPast, WidgetShared.loadSnapshot() != nil { return }
 
         // Si Selecciones rapidas trae menos de 20, se completa con tus Me gusta (con "Actualizar", otros al azar).
         var quick = quickBase
