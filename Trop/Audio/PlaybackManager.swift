@@ -23,6 +23,11 @@ actor PlaybackManager {
     /// o sacar la onda no vuelven a intentarlo hasta pasado un tiempo que crece con cada fallo (2, 4, 8... hasta 30 min).
     private var resolveFailures: [String: (count: Int, until: Date)] = [:]
     private static let lastClientKey = "playback.lastWorkingClient"
+    /// Clientes cuya direccion de esta cancion fallo al abrirse en el reproductor: el reintento de ESA cancion no los vuelve a usar.
+    private var excludedClients: [String: Set<String>] = [:]
+    /// Fallo que todavia no se ha contado contra el cliente: solo cuenta (y puede vetarlo 3 h) si otro cliente SI da una direccion
+    /// que abre esa misma cancion; si ninguno sirve, el problema es la cancion y no el cliente.
+    private var pendingClientFailure: [String: String] = [:]
     /// Desde esta duracion un contenido se trata como "largo" (podcasts, directos grabados...).
     private static let longContentSeconds = 20 * 60
 
@@ -176,7 +181,7 @@ actor PlaybackManager {
             request.chain.insert(request.chain.remove(at: index), at: 0)
         }
         let fullChain = request.chain
-        request.chain = filteredChain(request.chain)
+        request.chain = filteredChain(request.chain, videoId: videoId)
         var resolved: PlaybackResult?
         var firstError: Error?
         do {
@@ -212,6 +217,16 @@ actor PlaybackManager {
                 PlaybackReport.record("direccion de descarga de \(videoId): cliente \(alternative.clientName) (ultimo recurso)")
                 resolved = alternative
                 usedDownloadAddress = true
+            }
+        }
+        // Reintento tras un fallo al abrir: solo si OTRO cliente dio una direccion se cuenta el fallo contra el primero.
+        let pendingClient = pendingClientFailure.removeValue(forKey: videoId)
+        excludedClients[videoId] = nil
+        if let pendingClient {
+            if let resolved, !usedDownloadAddress, resolved.clientName != pendingClient {
+                await countClientFailure(pendingClient, videoId: videoId)
+            } else {
+                PlaybackReport.record("cliente \(pendingClient): el fallo de \(videoId) no se cuenta (ningun otro cliente la abrio: es la cancion, no el cliente)")
             }
         }
         guard let result = resolved else { throw firstError ?? StreamError.allClientsFailed }
@@ -398,8 +413,9 @@ actor PlaybackManager {
     }
 
     /// La cadena sin los clientes descartados (si no quedara ninguno, la entera).
-    private func filteredChain(_ chain: [FallbackClient]) -> [FallbackClient] {
-        let avoided = avoidedClientNames()
+    private func filteredChain(_ chain: [FallbackClient], videoId: String? = nil) -> [FallbackClient] {
+        var avoided = avoidedClientNames()
+        if let videoId, let excluded = excludedClients[videoId] { avoided.formUnion(excluded) }
         let kept = chain.filter { !avoided.contains($0.client.clientName) }
         return kept.isEmpty ? chain : kept
     }
@@ -415,13 +431,22 @@ actor PlaybackManager {
             PlaybackReport.record("cliente \(name): fallo de \(videoId) (UGC), no cuenta para descartar al cliente")
             return
         }
-        // Un fallo suelto (un corte de red...) no veta al cliente: hace falta un segundo fallo suyo en 15 minutos. El primero
-        // solo hace que se vuelva a pedir la direccion de esa cancion.
+        await StreamCache.shared.remove(videoId: videoId)
+        // El reintento de esta cancion no vuelve a usar ese cliente. Pero NO se cuenta aun contra el cliente: si ninguno otro abre la
+        // cancion, el problema es la cancion (antes, un par de canciones sin metadatos que daban 403 en todos los clientes dejaban sin
+        // WEB_REMIX a todas las demas 3 horas).
+        excludedClients[videoId, default: []].insert(name)
+        pendingClientFailure[videoId] = name
+        PlaybackReport.record("cliente \(name): fallo de \(videoId), se pide con otro; solo se descartara si otro cliente la abre")
+    }
+
+    /// Otro cliente SI abrio la cancion que le fallo a `name`. Un fallo suelto (un corte de red...) no veta al cliente: hace falta un
+    /// segundo fallo suyo en 15 minutos.
+    private func countClientFailure(_ name: String, videoId: String) async {
         let now = Date()
         var recent = (clientFailures[name] ?? []).filter { now.timeIntervalSince($0) < 900 }
         recent.append(now)
         clientFailures[name] = recent
-        await StreamCache.shared.remove(videoId: videoId)
         guard recent.count >= 2 else {
             PlaybackReport.record("cliente \(name): primer fallo de \(videoId), todavia no se descarta")
             return
@@ -434,7 +459,7 @@ actor PlaybackManager {
             UserDefaults.standard.removeObject(forKey: Self.lastClientKey)
         }
         await StreamCache.shared.clear()
-        PlaybackReport.record("cliente \(name) descartado 3 h: su direccion de \(videoId) no se pudo abrir en el reproductor")
+        PlaybackReport.record("cliente \(name) descartado 3 h: su direccion de \(videoId) no se pudo abrir en el reproductor y otro cliente si")
     }
 
     private func clearInflight(key: String) {
@@ -557,7 +582,7 @@ actor PlaybackManager {
         request.options.preferredFormat = preferredFormat
         request.options.audioQuality = SettingsStore.shared.audioQuality
         request.options.downloadQuality = SettingsStore.shared.downloadQuality
-        if !forDownload { request.chain = filteredChain(request.chain) }
+        if !forDownload { request.chain = filteredChain(request.chain, videoId: videoId) }
         if Self.isLong(await queueSong(for: videoId)) || requireValidation.contains(videoId) {
             return try await resolveLongContent(videoId: videoId, request: request)
         }
