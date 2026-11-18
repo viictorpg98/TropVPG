@@ -256,9 +256,15 @@ final class WidgetDataStore {
     private func localHistory() async -> [Source] {
         let recent = (try? await DatabaseService.shared.fetchRecentSongs(days: 60, limit: 30)) ?? []
         let top = (try? await DatabaseService.shared.fetchTopSongs(limit: 30)) ?? []
+        // Sin barajar (se llamaria en cada apertura y la lista cambiaria sola): recientes y mas escuchadas alternadas. La variedad la da `arranged`.
+        var mixed: [SongEntity] = []
+        for index in 0..<max(recent.count, top.count) {
+            if index < recent.count { mixed.append(recent[index]) }
+            if index < top.count { mixed.append(top[index]) }
+        }
         var seen = Set<String>()
         var result: [Source] = []
-        for entity in (recent + top).shuffled() where !entity.isEpisode && entity.thumbnailUrl != nil && seen.insert(entity.id).inserted {
+        for entity in mixed where !entity.isEpisode && entity.thumbnailUrl != nil && seen.insert(entity.id).inserted {
             let song = SongItem(entity: entity)
             if HiddenArtists.shared.isHidden(song) { continue }
             if let source = Self.source(from: .song(song)) { result.append(source) }
@@ -296,12 +302,18 @@ final class WidgetDataStore {
     private func write(quick: [Source], dial: [Source], force: Bool) async {
         guard let found = WidgetShared.resolved else { return }
         // Lo mismo que ya se escribio hace poco: no se vuelve a descargar nada (salvo si se fuerza, como con "Actualizar").
-        let signature = [quick, dial].map { $0.map(\.id).joined(separator: ",") }.joined(separator: "|")
+        let signature = [quick, dial].map { $0.map(\.id).sorted().joined(separator: ",") }.joined(separator: "|")
         if !force, signature == lastSignature, Date().timeIntervalSince(lastWrite) < 600 { return }
         // La app puede haber arrancado en segundo plano (al pulsar un boton) sin haber leido aun el inicio, o sin red: las listas vacias
         // NO deben borrar lo que el widget ya enseña. Con las dos vacias no hay nada que escribir.
         let existing = WidgetShared.loadSnapshot()
         if !force, quick.isEmpty, dial.isEmpty, existing != nil { return }
+        // Mismas canciones que las ya escritas (aunque en otro orden): no se toca nada, asi lo que dejo "Actualizar" se conserva al abrir la app.
+        if !force, let existing,
+           quick.isEmpty || Set(existing.quickPicks.map(\.id)) == Set(quick.map(\.id)),
+           dial.isEmpty || Set(existing.speedDial.map(\.id)) == Set(dial.map(\.id)) {
+            return
+        }
 
         let coversDirectory = WidgetShared.coversDirectory(in: found.url)
         try? FileManager.default.createDirectory(at: coversDirectory, withIntermediateDirectories: true)
