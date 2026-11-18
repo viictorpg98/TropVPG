@@ -206,7 +206,9 @@ enum SonarMix {
             NowPlaying.shared.setQueue(songs, startIndex: index)
             trace("\(context): intento \(index + 1), pidiendo la cancion")
             do {
-                let result = try await PlaybackManager.shared.resolveAndPlay(videoId: song.videoId)
+                // Con una sola cancion (el widget) la carga reintenta por su cuenta si ningun cliente da direccion a la primera; con una cola
+                // (Para ti) es mejor pasar a la siguiente cancion que esperar a la primera.
+                let result = try await PlaybackManager.shared.resolveAndPlay(videoId: song.videoId, bounded: songs.count == 1)
                 trace("\(context): ordenada (cliente \(result.clientName))")
             } catch {
                 trace("\(context): fallo al resolver (\(error.localizedDescription))")

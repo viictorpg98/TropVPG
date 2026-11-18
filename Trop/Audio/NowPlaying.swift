@@ -1067,7 +1067,8 @@ final class NowPlaying {
             // (si no, podia repetir la misma direccion mala del mismo cliente).
             await PlaybackManager.shared.requireValidatedChain(for: videoId)
             do {
-                try await PlaybackManager.shared.resolveAndPlay(videoId: videoId, startAt: resumeAt)
+                // `bounded: false`: esta recuperacion ya tiene sus reintentos acotados (la racha); sin esto se multiplicarian.
+                try await PlaybackManager.shared.resolveAndPlay(videoId: videoId, startAt: resumeAt, bounded: false)
                 // La racha NO se borra aqui: pedir bien la direccion no es que suene. Si el reproductor la rechaza otra vez, cuenta.
             } catch {
                 Log.nowPlaying.error("Mid-play recovery failed: \(error)")

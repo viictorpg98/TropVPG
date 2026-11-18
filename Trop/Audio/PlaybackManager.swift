@@ -55,7 +55,7 @@ actor PlaybackManager {
     /// medio minuto; si mientras tanto se eligio otra, esta ya no se pone a sonar (antes pisaba a la nueva: la pantalla
     /// ensenaba una y sonaba otra).
     @discardableResult
-    func resolveAndPlay(videoId: String, startAt: TimeInterval = 0, onlyIfCurrent: Bool = false) async throws -> PlaybackResult {
+    func resolveAndPlay(videoId: String, startAt: TimeInterval = 0, onlyIfCurrent: Bool = false, bounded: Bool = true) async throws -> PlaybackResult {
         let generation = restartGeneration[videoId, default: 0]
         if onlyIfCurrent { cancelSupersededResolutions(keeping: videoId) }
         await MainActor.run { SponsorBlockIntegration.shared.warm(for: videoId) }
@@ -128,7 +128,7 @@ actor PlaybackManager {
         }
 
         let task = Task { [self] in
-            try await resolveAndPlayFromNetwork(videoId: videoId, startAt: startAt, onlyIfCurrent: onlyIfCurrent, generation: generation)
+            try await resolveWithRetries(videoId: videoId, startAt: startAt, onlyIfCurrent: onlyIfCurrent, generation: generation, bounded: bounded)
         }
         inflightResolutions[videoId] = task
         playingResolutions.insert(videoId)
@@ -174,6 +174,40 @@ actor PlaybackManager {
         }
     }
 
+    /// Esperas (segundos) antes de cada reintento cuando NINGUN cliente da una direccion que sirva a la primera (11 reintentos, 12 intentos en
+    /// total, unos 15 s de espera): YouTube suele acabar dando una (VISIONOS acierta a veces). Es el mismo limite que los reintentos de
+    /// `NowPlaying` cuando el reproductor rechaza la direccion. `bounded: false` lo desactiva (los que ya reintentan por su cuenta).
+    private static let firstResolveBackoff: [Double] = [0.3, 0.3, 0.5, 0.5, 1, 1, 1, 2, 2, 2, 3]
+
+    private func resolveWithRetries(
+        videoId: String,
+        startAt: TimeInterval,
+        onlyIfCurrent: Bool,
+        generation: Int,
+        bounded: Bool
+    ) async throws -> PlaybackResult {
+        var retries = 0
+        while true {
+            do {
+                return try await resolveAndPlayFromNetwork(videoId: videoId, startAt: startAt, onlyIfCurrent: onlyIfCurrent, generation: generation)
+            } catch {
+                let nsError = error as NSError
+                let cancelled = error is CancellationError || (nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled)
+                guard bounded, !cancelled, retries < Self.firstResolveBackoff.count else { throw error }
+                // Sin conexion no hay nada que reintentar.
+                guard await MainActor.run(body: { NetworkMonitor.shared.hasConnection }) else { throw error }
+                let wait = Self.firstResolveBackoff[retries]
+                retries += 1
+                PlaybackReport.record("pedir \(videoId): sin direccion que sirva, reintento \(retries + 1) de \(Self.firstResolveBackoff.count + 1) tras \(wait) s")
+                try await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000))
+                // Antes de cada reintento: si se reinicio la carga o se eligio otra cancion, este ya no cuenta (sin esto, un intento viejo podia
+                // ponerse a sonar encima de la cancion nueva).
+                if restartGeneration[videoId, default: 0] != generation { throw CancellationError() }
+                if await isNoLongerChosen(videoId, onlyIfCurrent: true) { throw CancellationError() }
+            }
+        }
+    }
+
     /// Runs the client fallback chain for playback. Only called once per
     /// videoId by `resolveAndPlay`, which owns the in-flight dedup entry.
     private func resolveAndPlayFromNetwork(
@@ -191,7 +225,7 @@ actor PlaybackManager {
         var resolved: PlaybackResult?
         var firstError: Error?
         do {
-            resolved = try await resolveStaged(videoId: videoId, request: request, isLong: isLong, onlyClients: nil)
+            resolved = try await resolveStaged(videoId: videoId, request: request, isLong: isLong, onlyClients: nil, allowHLS: true)
         } catch {
             firstError = error
         }
@@ -305,10 +339,13 @@ actor PlaybackManager {
         videoId: String,
         request: StreamResolveRequest,
         isLong: Bool,
-        onlyClients: Set<String>?
+        onlyClients: Set<String>?,
+        allowHLS: Bool = false
     ) async throws -> PlaybackResult {
+        await resetHealthIfNetworkChanged()
         if request.policy.useCache, let cached = await StreamCache.shared.get(videoId: videoId) { return cached }
-        var entries = SonarClients.chain
+        // El audio HLS solo lo usa la reproduccion: una descarga, el analisis de AutoMix o la onda recibirian una lista m3u8 en vez del audio.
+        var entries = SonarClients.chain.filter { allowHLS || $0.isClient }
         if !isLong, let last = UserDefaults.standard.string(forKey: Self.lastClientKey),
            let index = entries.firstIndex(where: { $0.isClient && $0.name == last }), index > 0 {
             // Prueba primero el cliente que funciono la ultima vez: cada fallo de los de delante es una peticion perdida antes de que suene nada.
@@ -335,6 +372,22 @@ actor PlaybackManager {
             PlaybackReport.record("cadena de \(videoId): sin los clientes descartados 3 h no hubo direccion, se prueba solo con ellos")
             return try await runEntries(extra, videoId: videoId, request: request)
         }
+    }
+
+    /// Los fallos de los clientes dependen de la red (el aviso "not a bot" es de la IP): al cambiar de red (Wi-Fi a datos...) se olvidan los
+    /// enfriamientos y las exclusiones, como hace Metrolist, que apunta los fallos por red.
+    private var networkChangeSeen = Date.distantPast
+
+    private func resetHealthIfNetworkChanged() async {
+        let changedAt = await MainActor.run { NetworkMonitor.shared.lastInterfaceChangeAt }
+        guard changedAt > networkChangeSeen else { return }
+        networkChangeSeen = changedAt
+        guard !clientCooldowns.isEmpty || !songExclusions.isEmpty || !environmentStrikes.isEmpty else { return }
+        clientCooldowns = [:]
+        songExclusions = [:]
+        environmentStrikes = [:]
+        lastCooldownProbe = .distantPast
+        PlaybackReport.record("red: cambio de red, se olvidan los clientes enfriados y excluidos")
     }
 
     /// La cadena sin los clientes enfriados, los excluidos en esta cancion y (si `allowVetoed` es falso) los descartados 3 h. Si no queda
@@ -383,7 +436,7 @@ actor PlaybackManager {
                 asked += hls.requests
                 PlaybackReport.record("HLS de \(videoId): \(hls.hadManifest ? "con lista de audio" : "sin lista HLS (la cancion no la ofrece)")")
                 if let result = hls.result {
-                    if request.policy.storeInCache { await StreamCache.shared.set(videoId: videoId, result: result) }
+                    // El HLS no se guarda en la cache de direcciones (`resolve()` de otros usos se lo encontraria).
                     PlaybackReport.record("pedir \(videoId): resuelta con HLS tras \(asked) peticiones /player")
                     return result
                 }
