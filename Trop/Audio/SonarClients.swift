@@ -90,16 +90,16 @@ enum SonarClients {
         }
     }
 
-    /// Orden: primero los que no necesitan token ni cifrado, luego los de token, el HLS de iOS y, el ultimo, WEB_REMIX (el que da direcciones
-    /// que la comprobacion da por buenas y luego el reproductor rechaza con 403).
+    /// Orden (segun el informe de la build 186): VISIONOS (directo, sin token), el HLS de iOS (ganaba las 5 veces que se llego a el, en 1-2 s),
+    /// y despues los que usan cifrado o token, que casi siempre dan 403 (TVHTML5 siempre; MWEB a ratos), y WEB_REMIX el ultimo.
     static var chain: [ChainEntry] {
         [
             .client(FallbackClient(client: visionOS102, skipValidation: false)),
             .client(FallbackClient(client: .visionOS, skipValidation: false)),
+            .hls,
             .client(FallbackClient(client: tvSamsung, skipValidation: false)),
             .client(FallbackClient(client: mweb, skipValidation: false)),
             .client(FallbackClient(client: tvSimply, skipValidation: false)),
-            .hls,
             .client(FallbackClient(client: .webRemix, skipValidation: false))
         ]
     }

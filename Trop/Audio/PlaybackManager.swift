@@ -480,6 +480,9 @@ actor PlaybackManager {
                             if client.useWebPoTokens, result.streamUrl.contains("pot="), await PoTokenSource.shared.invalidate() {
                                 PlaybackReport.record("token: 403 con token en \(name), se crea un generador nuevo")
                             }
+                            // Una direccion rechazada con 403 cuenta como golpe: TVHTML5 daba 403 en el primer byte en TODAS las canciones
+                            // y gastaba una peticion y 0,35 s en cada una. Un acierto (direccion valida) borra los golpes.
+                            registerStrike(name, videoId: videoId, reason: "direccion rechazada con 403")
                         }
                         lastError = StreamError.validationFailed(name)
                         continue
@@ -530,6 +533,12 @@ actor PlaybackManager {
             || text.contains("no direct stream url") || text.contains("needs to be reloaded")
         guard environment else { return }
         excludeForSong(videoId, client: name)
+        registerStrike(name, videoId: videoId, reason: "error de entorno (excluido 2 min en la cancion)")
+    }
+
+    /// Un golpe contra un cliente: a los 3, en al menos 2 canciones distintas y sin ningun acierto entre medias, se enfria 10 minutos (despues
+    /// de enfriarse, un solo golpe mas lo vuelve a enfriar).
+    private func registerStrike(_ name: String, videoId: String, reason: String) {
         var strike = environmentStrikes[name] ?? (count: 0, videos: [])
         strike.count += 1
         strike.videos.insert(videoId)
@@ -537,9 +546,9 @@ actor PlaybackManager {
         if strike.count >= 3, strike.videos.count >= 2, clientCooldowns[name] == nil {
             clientCooldowns[name] = Date().addingTimeInterval(Self.cooldownSeconds)
             environmentStrikes[name] = (count: 2, videos: strike.videos)
-            PlaybackReport.record("cliente \(name): enfriado 10 min (error de entorno en \(strike.videos.count) canciones)")
+            PlaybackReport.record("cliente \(name): enfriado 10 min (\(reason) en \(strike.videos.count) canciones)")
         } else {
-            PlaybackReport.record("cliente \(name): error de entorno, excluido 2 min en \(videoId) (aviso \(strike.count))")
+            PlaybackReport.record("cliente \(name): \(reason) en \(videoId) (aviso \(strike.count))")
         }
     }
 

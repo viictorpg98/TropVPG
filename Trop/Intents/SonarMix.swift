@@ -82,8 +82,7 @@ enum SonarMix {
                 }
                 if started {
                     Task {
-                        await refreshCache()
-                        trace("mezcla refrescada (en segundo plano)")
+                        await refreshCacheIfStale()
                     }
                     return true
                 }
@@ -108,8 +107,7 @@ enum SonarMix {
                 Task {
                     await warmUpTokens(videoId: seed)
                     trace("tokens listos (en segundo plano)")
-                    await refreshCache()
-                    trace("mezcla refrescada (en segundo plano)")
+                    await refreshCacheIfStale()
                 }
                 return true
             }
@@ -120,8 +118,7 @@ enum SonarMix {
         trace("mezcla guardada: \(cachedSongs?.count ?? 0) canciones")
         if let cached = cachedSongs, await play(cached.shuffled(), context: "mezcla guardada") {
             Task {
-                await refreshCache()
-                trace("mezcla refrescada (en segundo plano)")
+                await refreshCacheIfStale()
             }
             return true
         }
@@ -373,6 +370,22 @@ enum SonarMix {
             return SongItem.from(renderer)
         }
         return songs.count >= 3 ? songs : nil
+    }
+
+    private static let lastRefreshKey = "sonarMix.lastRefresh"
+
+    /// Despues de arrancar, la mezcla guardada se refresca en segundo plano como mucho cada 30 minutos. Cada refresco son unas 6 peticiones (el
+    /// inicio entero, la lista "Mezclado para ti" y mas) y con "Para ti" tocado varias veces seguidas (informe 186) se repetia cada 6 s. La mezcla
+    /// guardada ya se actualiza con las canciones de la primera pagina del inicio en cada arranque.
+    private static func refreshCacheIfStale() async {
+        let last = UserDefaults.standard.object(forKey: lastRefreshKey) as? Date ?? .distantPast
+        guard Date().timeIntervalSince(last) > 1800 else {
+            trace("mezcla guardada: refresco reciente, no se repite")
+            return
+        }
+        UserDefaults.standard.set(Date(), forKey: lastRefreshKey)
+        await refreshCache()
+        trace("mezcla refrescada (en segundo plano)")
     }
 
     /// Vuelve a pedir la mezcla y la guarda, para que la proxima vez arranque al instante.

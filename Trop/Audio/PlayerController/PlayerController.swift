@@ -561,6 +561,8 @@ extension PlayerController {
             let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty {
                 if trimmed.range(of: "primitive restart", options: .caseInsensitive) != nil { return }
+                // El HLS de YouTube avisa "keepalive request failed" decenas de veces por cancion (suena bien): llenaba el informe.
+                if trimmed.range(of: "keepalive request failed", options: .caseInsensitive) != nil { return }
                 // La misma linea seguida (p. ej. un error que se repite 100 veces por segundo) solo se apunta la primera vez.
                 if trimmed == Self.lastMpvLine, Date().timeIntervalSince(Self.lastMpvLineAt) < 5 { return }
                 Self.lastMpvLine = trimmed
