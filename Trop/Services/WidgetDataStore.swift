@@ -255,7 +255,7 @@ final class WidgetDataStore {
         // La app puede haber arrancado en segundo plano (al pulsar un boton) sin haber leido aun el inicio, o sin red: las listas vacias
         // NO deben borrar lo que el widget ya enseña. Con las dos vacias no hay nada que escribir.
         let existing = WidgetShared.loadSnapshot()
-        if quick.isEmpty, dial.isEmpty, existing != nil { return }
+        if !force, quick.isEmpty, dial.isEmpty, existing != nil { return }
 
         let coversDirectory = WidgetShared.coversDirectory(in: found.url)
         try? FileManager.default.createDirectory(at: coversDirectory, withIntermediateDirectories: true)
