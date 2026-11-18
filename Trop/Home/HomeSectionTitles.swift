@@ -20,6 +20,13 @@ enum HomeSectionTitles {
         return value.contains("quick pick") || value.contains("selecciones rapidas")
     }
 
+    /// "Long listens" (canciones muy largas): los widgets no las usan para completar Selecciones rapidas. La traduccion al español es una
+    /// suposicion (no se ha visto el titulo en español).
+    static func isLongListens(_ title: String) -> Bool {
+        let value = plain(title)
+        return value.contains("long listen") || value.contains("escuchas largas")
+    }
+
     static func isKeepListening(_ title: String) -> Bool {
         let value = plain(title)
         return value.contains("listen again") || value.contains("keep listening") || value.contains("volver a escuchar")

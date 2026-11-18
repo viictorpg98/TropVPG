@@ -111,10 +111,6 @@ struct CoverWidgetView: View {
     private static let cornerRadius: CGFloat = 14
     private static let gap: CGFloat = 6
     private static let margin: CGFloat = 7
-    /// El estilo `.bordered` del sistema (el que da el efecto de pulsar) añade unos 10 pt de margen alrededor del contenido del boton
-    /// (medido en el video del usuario con `.mini`): la portada se dibuja 10 pt mas grande por cada lado (relleno negativo) para que
-    /// llene toda la casilla en vez de quedar encogida y separada de las demas.
-    private static let buttonInset: CGFloat = 10
 
     // MARK: Casillas
 
@@ -166,24 +162,24 @@ struct CoverWidgetView: View {
     /// Casilla de portada con su titulo. La imagen va en una capa y el titulo en otra, las dos sobre una base que ya tiene el
     /// tamaño de la casilla: asi la imagen (que llena y se sale) no agranda la capa del titulo. `contentShape` hace que TODA la casilla
     /// sea tocable: el hueco transparente de la base no lo era y a veces el toque no hacia nada segun la zona.
-    private func coverTile(_ track: WidgetTrack) -> some View {
+    private func coverTile(_ track: WidgetTrack, side: CGFloat) -> some View {
         Color.clear
-            .aspectRatio(1, contentMode: .fit)
+            .frame(width: side, height: side)
             .overlay { coverImage(track) }
             .overlay(alignment: .bottom) { titleScrim(track.title, lines: 2, size: 9) }
             .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
     }
 
-    private func square<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+    private func square<Content: View>(side: CGFloat, @ViewBuilder _ content: () -> Content) -> some View {
         Color.clear
-            .aspectRatio(1, contentMode: .fit)
+            .frame(width: side, height: side)
             .overlay(content())
             .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
     }
 
     @ViewBuilder
-    private func trackCell(_ track: WidgetTrack) -> some View {
+    private func trackCell(_ track: WidgetTrack, side: CGFloat) -> some View {
         let intent = WidgetPlayTrackIntent(
             videoId: track.id,
             songTitle: track.title,
@@ -192,46 +188,51 @@ struct CoverWidgetView: View {
             isEpisode: track.episode ?? false
         )
         // El estilo `.bordered` con tinte transparente da el efecto de pulsar del sistema (se encoge) sin pintar ningun aro; el mismo
-        // que el de los botones redondos del widget de botones.
+        // que el de los botones redondos del widget de botones. La portada tiene un tamaño fijo (`side`) y el boton se recoloca en una
+        // casilla de ese mismo tamaño: asi lo que se ve no depende del relleno que el estilo `.bordered` añada por dentro (antes, con un
+        // relleno negativo supuesto, las portadas se solapaban).
         Button(intent: intent) {
-            coverTile(track).padding(-Self.buttonInset)
+            coverTile(track, side: side)
         }
         .buttonStyle(.bordered)
         .buttonBorderShape(.roundedRectangle(radius: Self.cornerRadius))
         .controlSize(.mini)
         .tint(.clear)
+        .frame(width: side, height: side)
+        .contentShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
     }
 
     @ViewBuilder
-    private func cell(_ cell: CoverCell) -> some View {
+    private func cell(_ cell: CoverCell, side: CGFloat) -> some View {
         switch cell {
         case .track(let track):
-            trackCell(track)
+            trackCell(track, side: side)
         case .empty:
-            square { placeholder() }
+            square(side: side) { placeholder() }
         }
     }
 
     // MARK: Diseño
 
+    /// El lado de las casillas sale de lo que quepa en ANCHO y en ALTO (el widget pequeño es algo mas ancho que alto: con casillas
+    /// cuadradas segun el ancho no cabian en el alto y se pisaban). Siempre son 4 casillas: 2x2 en el pequeño, 1x4 en el mediano.
     private func grid(_ cells: [CoverCell]) -> some View {
-        Group {
-            if family == .systemMedium {
-                HStack(spacing: Self.gap) {
-                    ForEach(cells) { self.cell($0) }
-                }
-            } else {
-                Grid(horizontalSpacing: Self.gap, verticalSpacing: Self.gap) {
-                    GridRow {
-                        cell(cells[0])
-                        cell(cells[1])
-                    }
-                    GridRow {
-                        cell(cells[2])
-                        cell(cells[3])
+        GeometryReader { proxy in
+            let columns = family == .systemMedium ? 4 : 2
+            let rows = family == .systemMedium ? 1 : 2
+            let freeWidth = proxy.size.width - Self.gap * CGFloat(columns - 1)
+            let freeHeight = proxy.size.height - Self.gap * CGFloat(rows - 1)
+            let side = max(0, min(freeWidth / CGFloat(columns), freeHeight / CGFloat(rows)).rounded(.down))
+            VStack(spacing: Self.gap) {
+                ForEach(0..<rows, id: \.self) { row in
+                    HStack(spacing: Self.gap) {
+                        ForEach(0..<columns, id: \.self) { column in
+                            self.cell(cells[row * columns + column], side: side)
+                        }
                     }
                 }
             }
+            .frame(width: proxy.size.width, height: proxy.size.height)
         }
     }
 

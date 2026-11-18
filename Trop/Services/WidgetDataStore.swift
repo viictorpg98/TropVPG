@@ -32,6 +32,8 @@ final class WidgetDataStore {
     /// entre los dos widgets) y Acceso rapido 24 (6 grupos).
     private static let quickPoolSize = 20
     private static let dialPoolSize = 24
+    /// Reserva de canciones de relleno de YouTube (se eligen 20 como maximo; con "Actualizar", otras al azar de las 40).
+    private static let fillPoolSize = 40
     private static let lastShownKey = "widget.lastShown"
     private static let baseSignatureKey = "widget.baseSignature"
 
@@ -41,9 +43,14 @@ final class WidgetDataStore {
     /// Las listas que el propio widget pide a YouTube (el inicio de la app puede ensenar menos): Selecciones rapidas suele traer ~20.
     private var fetchedQuick: [Source] = []
     private var fetchedRecent: [Source] = []
+    /// Canciones de las demas secciones del inicio de YouTube (repartidas una a una entre ellas), para completar Selecciones rapidas
+    /// cuando YouTube no la manda o trae menos de 20.
+    private var fetchedFill: [Source] = []
     private var lastServerFetch = Date.distantPast
     private var lastServerSuccess = Date.distantPast
-    private var fetchingServer = false
+    /// La peticion del inicio de YouTube en marcha (una sola a la vez: la comparten la apertura de la app y "Actualizar").
+    private var serverTask: Task<Int, Never>?
+    private var fetchingServer: Bool { serverTask != nil }
     private var task: Task<Void, Never>?
     private var lastSignature = ""
     private var lastWrite = Date.distantPast
@@ -174,12 +181,16 @@ final class WidgetDataStore {
         task?.cancel()
         // Pulsarlo varias veces seguidas no vuelve a pedir 5 paginas del inicio cada vez: si hay una lista de YouTube de hace menos de 10
         // minutos se reutiliza (la variedad la dan los Me gusta al azar y `arranged`).
-        var fetched = 0
-        if fetchedQuick.isEmpty || Date().timeIntervalSince(lastServerSuccess) > 600 {
-            fetched = await fetchServerLists()
+        let age = Date().timeIntervalSince(lastServerSuccess)
+        let origin: String
+        if age > 600 {
+            let count = await startServerFetch().value
+            origin = "de YouTube: \(count) canciones"
+        } else {
+            origin = "lista reutilizada, de hace \(Int(age / 60)) min"
         }
         PlaybackReport.record(
-            "widget: actualizar (de YouTube: \(fetched) canciones; selecciones \(fetchedQuick.isEmpty ? quickPicks.count : fetchedQuick.count), acceso rapido \(fetchedRecent.isEmpty ? recentSongs.count : fetchedRecent.count))"
+            "widget: actualizar (\(origin); selecciones: YouTube \(fetchedQuick.count) + relleno \(fetchedFill.count), acceso rapido \(fetchedRecent.isEmpty ? recentSongs.count : fetchedRecent.count))"
         )
         await writeNow(force: true)
     }
@@ -189,20 +200,31 @@ final class WidgetDataStore {
     /// Al abrir la app, como mucho cada 30 minutos (cada peticion son varias paginas del inicio).
     private func fetchServerListsIfNeeded() {
         guard !fetchingServer, Date().timeIntervalSince(lastServerFetch) > 1800 else { return }
+        // La peticion se crea AQUI, sin esperar: si la app avisa dos veces seguidas de que esta activa, la segunda ya la encuentra en marcha.
+        let request = startServerFetch()
         Task { [weak self] in
-            guard let self else { return }
-            _ = await self.fetchServerLists()
+            _ = await request.value
             // Con o sin datos nuevos: hasta ahora las escrituras esperaban a esto (ver `writeNow`).
-            self.schedule(force: false)
+            self?.schedule(force: false)
         }
+    }
+
+    /// Lanza la peticion del inicio de YouTube, o devuelve la que ya esta en marcha (asi no salen dos a la vez, ni al abrir la app ni al
+    /// pulsar "Actualizar" justo despues de que un toque en el widget arranque la app).
+    private func startServerFetch() -> Task<Int, Never> {
+        if let running = serverTask { return running }
+        let request = Task { [weak self] () -> Int in
+            await self?.fetchServerLists() ?? 0
+        }
+        serverTask = request
+        return request
     }
 
     /// Pide el inicio de YouTube (con las paginas que haga falta para dar con Selecciones rapidas) y se queda con sus dos listas de
     /// canciones, sin las que has marcado como "no me gusta", de artistas ocultos o explicitas si las ocultas. Devuelve cuantas canciones
     /// salieron. Sin conexion o con fallo no toca lo que ya habia y vuelve a intentarlo a los 5 minutos.
     private func fetchServerLists() async -> Int {
-        fetchingServer = true
-        defer { fetchingServer = false }
+        defer { serverTask = nil }
         guard let sections = await SonarMix.homeSectionsForWidget() else {
             lastServerFetch = Date().addingTimeInterval(-1500)
             return 0
@@ -211,18 +233,38 @@ final class WidgetDataStore {
         lastServerSuccess = Date()
         var quick: [Source] = []
         var recent: [Source] = []
+        // Canciones de las demas secciones (una lista por seccion), para completar Selecciones rapidas. Se dejan fuera "Volver a escuchar"
+        // (es del Acceso rapido) y "Escuchas largas" (por su titulo; no se recorta nada por duracion).
+        var otherSections: [[Source]] = []
         for section in sections {
             let items = section.items.filter { Self.allowed($0) }
-            if HomeSectionTitles.isQuickPicks(section.title), quick.isEmpty {
-                quick = Self.sources(from: items)
-            } else if HomeSectionTitles.isKeepListening(section.title), recent.isEmpty {
-                recent = Self.sources(from: items)
+            if HomeSectionTitles.isQuickPicks(section.title) {
+                if quick.isEmpty { quick = Self.sources(from: items) }
+            } else if HomeSectionTitles.isKeepListening(section.title) {
+                if recent.isEmpty { recent = Self.sources(from: items) }
+            } else if !HomeSectionTitles.isLongListens(section.title) {
+                let songs = Self.songSources(from: items)
+                if !songs.isEmpty { otherSections.append(songs) }
             }
         }
-        PlaybackReport.record("widget: inicio de YouTube pedido: selecciones rapidas \(quick.count), acceso rapido \(recent.count) (de \(sections.count) secciones)")
+        // Reparto una a una entre las secciones (la primera de cada una, luego la segunda...), sin las que ya estan en Selecciones o en
+        // Acceso rapido: asi el relleno mezcla lo que YouTube te propone en vez de ser una sola seccion.
+        var fill: [Source] = []
+        var used = Set(quick.map(\.id)).union(recent.map(\.id))
+        var position = 0
+        while fill.count < Self.fillPoolSize, otherSections.contains(where: { position < $0.count }) {
+            for list in otherSections where position < list.count && fill.count < Self.fillPoolSize {
+                if used.insert(list[position].id).inserted { fill.append(list[position]) }
+            }
+            position += 1
+        }
+        PlaybackReport.record(
+            "widget: inicio de YouTube pedido: selecciones rapidas \(quick.count), acceso rapido \(recent.count), relleno \(fill.count) de \(otherSections.count) secciones (de \(sections.count) secciones)"
+        )
         if !quick.isEmpty { fetchedQuick = Array(Self.deduplicated(quick).prefix(Self.quickPoolSize)) }
         if !recent.isEmpty { fetchedRecent = Array(Self.deduplicated(recent).prefix(Self.dialPoolSize)) }
-        return quick.count + recent.count
+        if !fill.isEmpty { fetchedFill = fill }
+        return quick.count + recent.count + fill.count
     }
 
     /// Los mismos filtros que el inicio: "no me gusta", artistas ocultos y explicitas si estan ocultas.
@@ -241,6 +283,14 @@ final class WidgetDataStore {
 
     private static func sources(from items: [YTItem]) -> [Source] {
         items.compactMap { source(from: $0) }
+    }
+
+    /// Solo canciones (ni episodios, ni albumes, ni listas) y con portada, como el relleno con tus Me gusta.
+    private static func songSources(from items: [YTItem]) -> [Source] {
+        items.compactMap { item in
+            guard case .song = item, let found = source(from: item), !found.isEpisode, found.thumbnailUrl != nil else { return nil }
+            return found
+        }
     }
 
     private static func source(from item: YTItem) -> Source? {
@@ -279,8 +329,18 @@ final class WidgetDataStore {
 
     /// Junta lo fijado en el Acceso rapido, "Volver a escuchar" y tu historial local, y escribe las dos listas.
     private func writeNow(force: Bool) async {
-        // Selecciones rapidas: la lista de YouTube que ha pedido el widget (suele traer ~20) y, si no hay, la del inicio de la app.
-        let quickBase = fetchedQuick.isEmpty ? quickPicks : fetchedQuick
+        // Selecciones rapidas: la de YouTube que ha pedido el widget; si trae menos de 20 (o no la manda), se completa con canciones de las
+        // demas secciones del inicio de YouTube (con "Actualizar", otras al azar de la reserva) y luego, abajo, con tus Me gusta. Sin nada de
+        // YouTube (sin conexion) se usa la lista del inicio de la app.
+        var quickBase = fetchedQuick
+        if quickBase.count < Self.quickPoolSize {
+            let have = Set(quickBase.map(\.id))
+            var extra = fetchedFill.filter { !have.contains($0.id) }
+            if force { extra.shuffle() }
+            quickBase += extra.prefix(Self.quickPoolSize - quickBase.count)
+        }
+        let noYouTubeLists = fetchedQuick.isEmpty && fetchedFill.isEmpty
+        if noYouTubeLists { quickBase = quickPicks }
         let recent = fetchedRecent.isEmpty ? recentSongs : fetchedRecent
         let entries = (try? await DatabaseService.shared.fetchSpeedDial(limit: Self.dialPoolSize)) ?? []
         // Primero las canciones que has fijado en el Acceso rapido; luego las de "Volver a escuchar" y, para que haya variedad aunque no
@@ -293,11 +353,14 @@ final class WidgetDataStore {
         }
         // Si lo que viene de YouTube y lo fijado es lo mismo que la ultima vez, no se hace nada (ni base de datos ni descargas): asi lo que
         // dejo "Actualizar" no se desordena al abrir la app. Con "Actualizar" siempre se sigue adelante.
-        let baseSignature = [quickBase, recent, dial].map { $0.map(\.id).sorted().joined(separator: ",") }.joined(separator: "|")
+        // La firma usa TODA la reserva de relleno (no los 20 elegidos, que con "Actualizar" son al azar): si no, al abrir la app se reescribiria
+        // lo que dejo "Actualizar".
+        let signatureQuick = noYouTubeLists ? quickPicks : fetchedQuick + fetchedFill
+        let baseSignature = [signatureQuick, recent, dial].map { $0.map(\.id).sorted().joined(separator: ",") }.joined(separator: "|")
         if !force, baseSignature == UserDefaults.standard.string(forKey: Self.baseSignatureKey), WidgetShared.loadSnapshot() != nil { return }
         // Al abrir la app, hasta que no se sepa que trae YouTube (la peticion esta en marcha o no ha empezado) no se escribe nada si ya hay datos:
         // si no, se escribian Me gusta al azar encima de la lista de YouTube y luego otra vez al llegar. Al terminar la peticion se escribe.
-        if !force, fetchedQuick.isEmpty, fetchingServer || lastServerFetch == .distantPast, WidgetShared.loadSnapshot() != nil { return }
+        if !force, noYouTubeLists, fetchingServer || lastServerFetch == .distantPast, WidgetShared.loadSnapshot() != nil { return }
 
         // Si Selecciones rapidas trae menos de 20, se completa con tus Me gusta (con "Actualizar", otros al azar).
         var quick = quickBase
