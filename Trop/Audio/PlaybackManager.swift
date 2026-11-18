@@ -680,6 +680,11 @@ actor PlaybackManager {
         // cancion, el problema es la cancion (antes, un par de canciones sin metadatos que daban 403 en todos los clientes dejaban sin
         // WEB_REMIX a todas las demas 3 horas).
         excludeForSong(videoId, client: name)
+        // Un cliente cuya direccion acaba de rechazar el reproductor deja de ser "el ultimo que funciono": en el informe 186 MWEB se guardo asi
+        // y las 4 canciones siguientes empezaron por el, cada una con un token, una peticion y 0,35 s perdidos.
+        if UserDefaults.standard.string(forKey: Self.lastClientKey) == name {
+            UserDefaults.standard.removeObject(forKey: Self.lastClientKey)
+        }
         pendingClientFailure[videoId] = name
         PlaybackReport.record("cliente \(name): fallo de \(videoId), se pide con otro (excluido 2 min en esta cancion); solo se descartara si otro cliente la abre")
         if SonarClients.tokenClientNames.contains(name), await PoTokenSource.shared.invalidate() {
