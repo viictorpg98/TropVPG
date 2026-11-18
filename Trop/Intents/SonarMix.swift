@@ -326,12 +326,26 @@ enum SonarMix {
         return sections
     }
 
-    /// El inicio de YouTube Music (solo la primera pagina, con limite de 10 s) para el boton "Actualizar" del widget, que no tiene
-    /// pantalla. `nil` sin conexion o si la peticion falla.
+    /// El inicio de YouTube Music para los widgets (que no tienen pantalla): la primera pagina y, si todavia no sale "Selecciones rapidas"
+    /// (YouTube la suele poner en las paginas siguientes), hasta 4 paginas mas. Limite de 20 s en total. `nil` sin conexion o si falla.
     static func homeSectionsForWidget() async -> [HomePage.Section]? {
         await prepareSession()
         guard NetworkMonitor.shared.hasConnection else { return nil }
-        return await withTimeout(seconds: 10) { await loadHomeSections(deep: false) }
+        return await withTimeout(seconds: 20) { () async -> [HomePage.Section]? in
+            guard let json = try? await InnerTubeClient.tropShared.browse(browseId: "FEmusic_home"),
+                  let page = HomePageParser.parseHomePage(from: json) else { return nil }
+            var sections = page.sections
+            var continuation = page.continuation
+            var attempts = 0
+            while attempts < 4, !sections.contains(where: { HomeSectionTitles.isQuickPicks($0.title) }), let token = continuation {
+                attempts += 1
+                guard let json = try? await InnerTubeClient.tropShared.browse(continuation: token),
+                      let (more, next) = HomePageParser.parseContinuationSections(from: json) else { break }
+                sections.append(contentsOf: more)
+                continuation = next
+            }
+            return sections
+        }
     }
 
     private static func mixedForYou(in sections: [HomePage.Section]) -> HomePage.Section? {

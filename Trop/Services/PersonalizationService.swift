@@ -52,21 +52,21 @@ actor PersonalizationService {
         var items: [YTItem] = []
         var recentSongs: [SongEntity] = []
 
-        if let fetched = try? await db.fetchRecentSongs(days: 30, limit: 6) {
+        if let fetched = try? await db.fetchRecentSongs(days: 30, limit: 12) {
             recentSongs = fetched
-            for song in fetched where items.count < 8 {
+            for song in fetched where items.count < 12 {
                 items.append(.song(SongItem(entity: song)))
             }
         }
 
         if let albums = try? await db.fetchAlbums(limit: 4) {
-            for album in albums where items.count < 12 {
+            for album in albums where items.count < 16 {
                 items.append(.album(AlbumItem(entity: album)))
             }
         }
 
         if let artists = try? await db.fetchArtists(limit: 4) {
-            for artist in artists where items.count < 16 {
+            for artist in artists where items.count < 20 {
                 items.append(.artist(ArtistItem(entity: artist)))
             }
         }
@@ -90,7 +90,7 @@ actor PersonalizationService {
     }
 
     func buildForgottenFavorites() async -> HomeSection {
-        guard let songs = try? await db.fetchForgottenFavorites(days: 60, limit: 10), !songs.isEmpty else {
+        guard let songs = try? await db.fetchForgottenFavorites(days: 60, limit: 20), !songs.isEmpty else {
             return .forgottenFavorites(items: [])
         }
         let initialItems = songs.toSongItems().map(YTItem.song)
@@ -104,7 +104,7 @@ actor PersonalizationService {
     }
 
     private func enrichForgottenFavorites() async {
-        guard let songs = try? await db.fetchForgottenFavorites(days: 60, limit: 10) else { return }
+        guard let songs = try? await db.fetchForgottenFavorites(days: 60, limit: 20) else { return }
         let toEnrich = songs.filter { $0.title.isEmpty }.prefix(3)
         guard !toEnrich.isEmpty else { return }
         var didEnrich = false

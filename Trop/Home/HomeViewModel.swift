@@ -514,6 +514,13 @@ final class HomeViewModel {
             let changed = signature.filter { lastPublishedSignature[$0.key] != $0.value }.keys.sorted()
             lastPublishedIds = ids
             lastPublishedSignature = signature
+            // Cuantas canciones trae cada seccion y de donde sale (YouTube o las propias de la app): asi se ve si lo de YouTube llega completo.
+            let fromServer = (homePage?.sections ?? []).map { "\($0.title.isEmpty ? "-" : $0.title)(\($0.items.count))" }
+            let own = cachedLocalSections.map { "\($0.id)(\($0.items.count))" }
+            let shown = homeSections.map { "\($0.id)(\($0.items.count))" }
+            PlaybackReport.record(
+                "inicio: de YouTube [\(fromServer.joined(separator: ", "))] propias [\(own.joined(separator: ", "))] se ven [\(shown.joined(separator: ", "))]"
+            )
             PlaybackReport.record(
                 "inicio: lista publicada a los \(LaunchClock.ms()) ms (\(ids.count) secciones, cambian: \(changed.joined(separator: " ")))"
             )

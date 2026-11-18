@@ -3,7 +3,7 @@
 //  Trop
 //
 //  Deja en la carpeta compartida con el widget lo que enseñan sus portadas: tus Selecciones rapidas y tu Acceso rapido, con las
-//  portadas ya descargadas y reducidas (el widget no puede bajarlas ni leer la base de datos). Son RESERVAS de unas 16 canciones por
+//  portadas ya descargadas y reducidas (el widget no puede bajarlas ni leer la base de datos). Son RESERVAS de unas 20 canciones por
 //  lista: cada widget ensena un grupo de 4 y va pasando de grupo con el tiempo (ver `CoverProvider`), asi que no se ve
 //  siempre lo mismo. Se actualiza cuando cambia el inicio, al volver a la app y con el boton "Actualizar" del widget de botones.
 //  Tambien guarda si el DJ esta encendido (para que su boton lo enseñe). Nunca se guardan cookies ni datos de la cuenta, solo
@@ -33,9 +33,16 @@ final class WidgetDataStore {
     private static let quickPoolSize = 20
     private static let dialPoolSize = 24
     private static let lastShownKey = "widget.lastShown"
+    private static let baseSignatureKey = "widget.baseSignature"
 
+    /// Lo que ensena el inicio de la app (Selecciones rapidas puede ser la local de 20 canciones al azar de tus Me gusta, o la de YouTube).
     private var quickPicks: [Source] = []
     private var recentSongs: [Source] = []
+    /// Las listas que el propio widget pide a YouTube (el inicio de la app puede ensenar menos): Selecciones rapidas suele traer ~20.
+    private var fetchedQuick: [Source] = []
+    private var fetchedRecent: [Source] = []
+    private var lastServerFetch = Date.distantPast
+    private var fetchingServer = false
     private var task: Task<Void, Never>?
     private var lastSignature = ""
     private var lastWrite = Date.distantPast
@@ -59,6 +66,7 @@ final class WidgetDataStore {
         syncDJState()
         // El Acceso rapido sale de la base de datos: se vuelve a leer sin esperar a que cambie el inicio.
         schedule(force: false)
+        fetchServerListsIfNeeded()
     }
 
     private func reportShare() {
@@ -154,7 +162,7 @@ final class WidgetDataStore {
 
     // MARK: - Boton "Actualizar"
 
-    /// El boton "Actualizar" del widget de botones: vuelve a pedir el inicio de YouTube Music (una peticion, con limite de 10 s), y reescribe
+    /// El boton "Actualizar" del widget de botones: vuelve a pedir el inicio de YouTube Music (las paginas que hagan falta para dar con Selecciones rapidas, 20 s como maximo), y reescribe
     /// las portadas aunque nada haya cambiado, poniendo en lo que los widgets enseñan ahora las canciones que llevan mas tiempo sin salir
     /// (`arranged`). Sin conexion, hace lo mismo con las reservas que ya hay.
     func refresh() async {
@@ -163,25 +171,58 @@ final class WidgetDataStore {
         defer { refreshing = false }
         // Una escritura en curso (por un cambio del inicio) podria borrar portadas que esta escritura acaba de usar: se cancela.
         task?.cancel()
-        var fetched = 0
-        if let sections = await SonarMix.homeSectionsForWidget() {
-            var quick: [Source] = []
-            var recent: [Source] = []
-            var anySongs: [Source] = []
-            for section in sections {
-                let items = Self.sources(from: section.items)
-                if HomeSectionTitles.isQuickPicks(section.title), quick.isEmpty {
-                    quick = items
-                } else if HomeSectionTitles.isKeepListening(section.title), recent.isEmpty {
-                    recent = items
-                }
-                anySongs.append(contentsOf: items)
-            }
-            fetched = quick.count + recent.count
-            if fetched > 0 { setPools(quick: quick.isEmpty ? anySongs : quick, recent: recent) }
-        }
-        PlaybackReport.record("widget: actualizar (inicio: \(fetched) canciones, selecciones \(quickPicks.count), acceso rapido \(recentSongs.count))")
+        let fetched = await fetchServerLists()
+        PlaybackReport.record(
+            "widget: actualizar (de YouTube: \(fetched) canciones; selecciones \(fetchedQuick.isEmpty ? quickPicks.count : fetchedQuick.count), acceso rapido \(fetchedRecent.isEmpty ? recentSongs.count : fetchedRecent.count))"
+        )
         await writeNow(force: true)
+    }
+
+    // MARK: - Listas pedidas a YouTube por el widget
+
+    /// Al abrir la app, como mucho cada 30 minutos (cada peticion son varias paginas del inicio).
+    private func fetchServerListsIfNeeded() {
+        guard !fetchingServer, Date().timeIntervalSince(lastServerFetch) > 1800 else { return }
+        Task { [weak self] in
+            guard let self else { return }
+            if await self.fetchServerLists() > 0 { self.schedule(force: false) }
+        }
+    }
+
+    /// Pide el inicio de YouTube (con las paginas que haga falta para dar con Selecciones rapidas) y se queda con sus dos listas de
+    /// canciones, sin las que has marcado como "no me gusta", de artistas ocultos o explicitas si las ocultas. Devuelve cuantas canciones
+    /// salieron. Sin conexion o con fallo no toca lo que ya habia y vuelve a intentarlo a los 5 minutos.
+    private func fetchServerLists() async -> Int {
+        fetchingServer = true
+        defer { fetchingServer = false }
+        guard let sections = await SonarMix.homeSectionsForWidget() else {
+            lastServerFetch = Date().addingTimeInterval(-1500)
+            return 0
+        }
+        lastServerFetch = Date()
+        var quick: [Source] = []
+        var recent: [Source] = []
+        for section in sections {
+            let items = section.items.filter { Self.allowed($0) }
+            if HomeSectionTitles.isQuickPicks(section.title), quick.isEmpty {
+                quick = Self.sources(from: items)
+            } else if HomeSectionTitles.isKeepListening(section.title), recent.isEmpty {
+                recent = Self.sources(from: items)
+            }
+        }
+        PlaybackReport.record("widget: inicio de YouTube pedido: selecciones rapidas \(quick.count), acceso rapido \(recent.count) (de \(sections.count) secciones)")
+        if !quick.isEmpty { fetchedQuick = Array(Self.deduplicated(quick).prefix(Self.quickPoolSize)) }
+        if !recent.isEmpty { fetchedRecent = Array(Self.deduplicated(recent).prefix(Self.dialPoolSize)) }
+        return quick.count + recent.count
+    }
+
+    /// Los mismos filtros que el inicio: "no me gusta", artistas ocultos y explicitas si estan ocultas.
+    private static func allowed(_ item: YTItem) -> Bool {
+        if case .song(let song) = item {
+            if LikeStore.shared.disliked.contains(song.videoId) { return false }
+            if SettingsStore.shared.hideExplicit && song.isExplicit { return false }
+        }
+        return !HiddenArtists.shared.blocks(item)
     }
 
     private static func deduplicated(_ sources: [Source]) -> [Source] {
@@ -229,17 +270,30 @@ final class WidgetDataStore {
 
     /// Junta lo fijado en el Acceso rapido, "Volver a escuchar" y tu historial local, y escribe las dos listas.
     private func writeNow(force: Bool) async {
-        let quick = quickPicks
-        let recent = recentSongs
+        // Selecciones rapidas: la lista de YouTube que ha pedido el widget (suele traer ~20) y, si no hay, la del inicio de la app.
+        let quickBase = fetchedQuick.isEmpty ? quickPicks : fetchedQuick
+        let recent = fetchedRecent.isEmpty ? recentSongs : fetchedRecent
         let entries = (try? await DatabaseService.shared.fetchSpeedDial(limit: Self.dialPoolSize)) ?? []
-        // Primero las canciones que has fijado en el Acceso rapido; luego las de "Volver a escuchar" del inicio y, para que haya variedad
-        // aunque no fijes nada, canciones de tu historial local (recientes y mas escuchadas, mezcladas).
+        // Primero las canciones que has fijado en el Acceso rapido; luego las de "Volver a escuchar" y, para que haya variedad aunque no
+        // fijes nada, canciones de tu historial local (recientes y mas escuchadas, alternadas).
         var dial = entries.map {
             Source(
                 id: $0.videoId, title: $0.title, artist: $0.artist, thumbnailUrl: $0.thumbnailUrl,
                 duration: $0.duration, isEpisode: false
             )
         }
+        // Si lo que viene de YouTube y lo fijado es lo mismo que la ultima vez, no se hace nada (ni base de datos ni descargas): asi lo que
+        // dejo "Actualizar" no se desordena al abrir la app. Con "Actualizar" siempre se sigue adelante.
+        let baseSignature = [quickBase, recent, dial].map { $0.map(\.id).sorted().joined(separator: ",") }.joined(separator: "|")
+        if !force, baseSignature == UserDefaults.standard.string(forKey: Self.baseSignatureKey), WidgetShared.loadSnapshot() != nil { return }
+
+        // Si Selecciones rapidas trae menos de 20, se completa con tus Me gusta (con "Actualizar", otros al azar).
+        var quick = quickBase
+        if quick.count < Self.quickPoolSize {
+            let have = Set(quick.map(\.id))
+            quick += await likedFill(excluding: have, count: Self.quickPoolSize - quick.count, shuffled: force)
+        }
+        guard !Task.isCancelled else { return }
         var seenDial = Set(dial.map(\.id))
         for source in recent where seenDial.insert(source.id).inserted { dial.append(source) }
         for source in await localHistory() where seenDial.insert(source.id).inserted { dial.append(source) }
@@ -249,7 +303,21 @@ final class WidgetDataStore {
         if withoutQuick.count >= 4 { dial = withoutQuick }
         dial = Array(dial.prefix(Self.dialPoolSize))
         guard !Task.isCancelled else { return }
-        await write(quick: quick, dial: dial, force: force)
+        await write(quick: quick, dial: dial, force: force, baseSignature: baseSignature)
+    }
+
+    /// Canciones de tus Me gusta (con portada, sin episodios, "no me gusta" ni artistas ocultos) para completar Selecciones rapidas.
+    private func likedFill(excluding ids: Set<String>, count: Int, shuffled: Bool) async -> [Source] {
+        guard count > 0, let liked = try? await DatabaseService.shared.fetchLikedSongs() else { return [] }
+        var pool = liked.filter { !$0.isEpisode && $0.thumbnailUrl != nil && !ids.contains($0.id) }
+        if shuffled { pool.shuffle() }
+        var result: [Source] = []
+        for entity in pool where result.count < count {
+            let song = SongItem(entity: entity)
+            guard Self.allowed(.song(song)) else { continue }
+            if let source = Self.source(from: .song(song)) { result.append(source) }
+        }
+        return result
     }
 
     /// Canciones de tu historial local (las de los ultimos 60 dias y las mas escuchadas) con portada, sin episodios ni artistas ocultos.
@@ -299,7 +367,7 @@ final class WidgetDataStore {
         return result
     }
 
-    private func write(quick: [Source], dial: [Source], force: Bool) async {
+    private func write(quick: [Source], dial: [Source], force: Bool, baseSignature: String) async {
         guard let found = WidgetShared.resolved else { return }
         // Lo mismo que ya se escribio hace poco: no se vuelve a descargar nada (salvo si se fuerza, como con "Actualizar").
         let signature = [quick, dial].map { $0.map(\.id).sorted().joined(separator: ",") }.joined(separator: "|")
@@ -357,6 +425,7 @@ final class WidgetDataStore {
             try WidgetShared.save(snapshot, in: found.url)
             lastSignature = signature
             lastWrite = Date()
+            UserDefaults.standard.set(baseSignature, forKey: Self.baseSignatureKey)
             PlaybackReport.record("widget: datos escritos (selecciones \(quickTracks.count), acceso rapido \(dialTracks.count))")
             WidgetCenter.shared.reloadAllTimelines()
         } catch {

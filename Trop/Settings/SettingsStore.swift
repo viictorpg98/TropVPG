@@ -649,7 +649,7 @@ final class SettingsStore {
         artworkSwipeNavigation = true
         hideExplicit = Self.load(Keys.hideExplicit, default: false)
         showQuickPicks = true
-        topListsLength = 8
+        topListsLength = 20
         contentCountry = Self.loadString(Keys.contentCountry, default: Locale.current.region?.identifier ?? "US")
         disabledLyricsProviders = Set(d.stringArray(forKey: Keys.disabledLyricsProviders) ?? [])
         let history = Self.load(Keys.saveHistory, default: Self.load(Keys.trackPlayHistory, default: true))
