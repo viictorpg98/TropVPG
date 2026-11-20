@@ -25,6 +25,10 @@
 	<array>
 		<string>audio</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Sonar usa el micrófono para que le digas por voz qué quieres escuchar. / Sonar uses the microphone so you can say what you want to listen to.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Sonar reconoce tu voz para buscar lo que pides. / Sonar recognizes your voice to search for what you ask.</string>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 	<key>UILaunchScreen</key>

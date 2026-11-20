@@ -10,6 +10,7 @@ import SwiftUI
 struct PlayerSettingsView: View {
     @Environment(\.settingsStore) private var settings
     @State private var skipSegments = SponsorBlock.isEnabled
+    @State private var voiceBusy = false
 
     var body: some View {
         @Bindable var settings = settings
@@ -40,6 +41,24 @@ struct PlayerSettingsView: View {
                 Text("Player")
             } footer: {
                 Text("Infinite Playback keeps similar songs coming when the queue ends. Smart Shuffle puts songs you heard in the last days at the end and keeps two songs by the same artist from playing back to back. With Mobile Data for Extras off, animated covers, video preload and AutoMix on streamed songs only use Wi-Fi.")
+            }
+
+            Section {
+                Button {
+                    voiceBusy = true
+                    Task {
+                        await VoiceSearch.requestPermissions()
+                        await VoiceSearch.run(source: "ajustes")
+                        voiceBusy = false
+                    }
+                } label: {
+                    Label("Try Voice Search", systemImage: "mic")
+                }
+                .disabled(voiceBusy)
+            } header: {
+                Text("Voice Search")
+            } footer: {
+                Text("Asks for microphone and speech permission, then asks what you want to listen to and searches for it. The Sonar · Voz widget does the same from the Home Screen or CarPlay; what happens in each step is saved in the report.")
             }
         }
         .sonarSettingsList()

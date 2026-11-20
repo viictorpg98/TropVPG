@@ -119,3 +119,18 @@ struct WidgetPlayTrackIntent: AudioPlaybackIntent {
         return .result()
     }
 }
+
+/// "Voz": pregunta por voz "¿Qué quieres escuchar?", reconoce lo que dices y lo busca como en el buscador. EXPERIMENTO pensado para CarPlay:
+/// iOS puede negarse a abrir el microfono sin la app abierta; el informe ("voz: ...") dice que paso en cada paso (ver `VoiceSearch`).
+struct WidgetVoiceIntent: AudioPlaybackIntent {
+    static let title: LocalizedStringResource = "Voice Search"
+    static let isDiscoverable = false
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        #if !WIDGET_EXTENSION
+        await VoiceSearch.run(source: "widget")
+        #endif
+        return .result()
+    }
+}
