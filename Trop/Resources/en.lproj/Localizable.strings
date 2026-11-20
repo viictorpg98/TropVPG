@@ -120,6 +120,8 @@
 "Client" = "Client";
 "Close" = "Close";
 "Closest matches to this song" = "Closest matches to this song";
+"Cloud Voice" = "Cloud Voice";
+"Cloud Voice footer" = "Sonar can answer with a more natural AI voice from Speechify (free plan). Paste your API key from the Speechify dashboard, tap Test and use Next Voice until you like one. If there is no connection, it takes too long or the free quota runs out, Sonar uses the iPhone voice. What Sonar says is sent to Speechify, and each sentence is saved on the phone so it is only generated once. The key stays on this phone.";
 "Comedy" = "Comedy";
 "Community playlists" = "Community playlists";
 "Commute" = "Commute";
@@ -429,6 +431,7 @@
 "New releases" = "New releases";
 "News" = "News";
 "Next" = "Next";
+"Next Cloud Voice" = "Next Voice";
 "Next Transition" = "Next Transition";
 "Next song enters at" = "Next song enters at";
 "No Downloads Yet" = "No Downloads Yet";
@@ -664,6 +667,7 @@
 "Sort the Queue" = "Sort the Queue";
 "Sound" = "Sound";
 "Source" = "Source";
+"Speechify API Key" = "Speechify API Key";
 "Speed Dial" = "Speed Dial";
 "Spirituality" = "Spirituality";
 "SponsorBlock" = "SponsorBlock";
@@ -708,6 +712,7 @@
 "Template" = "Template";
 "Tempo" = "Tempo";
 "Test" = "Test";
+"Test Cloud Voice" = "Test Cloud Voice";
 "Thanks!" = "Thanks!";
 "The DJ is a session: start it from the DJ button in the player, from the queue menu or from the Home screen. While it is on, it sorts the next songs so they fit together (tempo and key) and mixes each song into the next at its natural exit, near the end of the last chorus, with a longer blend when the two songs match well. To move on earlier, press Next: it mixes into the next song straight away. Long songs and podcasts play in full. Mixes between songs that are not downloaded need Wi-Fi, or mobile data allowed in the AutoMix settings." = "The DJ is a session: start it from the DJ button in the player, from the queue menu or from the Home screen. While it is on, it sorts the next songs so they fit together (tempo and key) and mixes each song into the next at its natural exit, near the end of the last chorus, with a longer blend when the two songs match well. To move on earlier, press Next: it mixes into the next song straight away. Long songs and podcasts play in full. Mixes between songs that are not downloaded need Wi-Fi, or mobile data allowed in the AutoMix settings.";
 "The DJ is on. Tap to stop it." = "The DJ is on. Tap to stop it.";

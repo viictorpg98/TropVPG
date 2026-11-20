@@ -149,6 +149,21 @@ enum VoiceSearch {
         return microphone && speech == .authorized
     }
 
+    /// Las frases que no cambian: se dejan generadas de antemano (Ajustes > Probar la voz en la nube) para que suenen al instante.
+    static var fixedPhrases: [String] {
+        [
+            phrase("¿Qué quieres escuchar?", "What do you want to listen to?"),
+            phrase("No te he oído. ¿Qué quieres escuchar?", "I didn't hear you. What do you want to listen to?"),
+            phrase("Sigo sin oírte. Inténtalo otra vez.", "I still can't hear you. Try again."),
+            phrase("No puedo usar el micrófono desde aquí.", "I can't use the microphone from here."),
+            phrase("Abre Sonar y activa la voz en Ajustes.", "Open Sonar and turn on voice in Settings.")
+        ]
+    }
+
+    static var sampleSentence: String {
+        phrase("Hola, soy Sonar. Poniendo Bad Bunny.", "Hi, I'm Sonar. Playing Bad Bunny.")
+    }
+
     // MARK: - Flujo
 
     private enum ListenResult {
@@ -457,6 +472,7 @@ private final class Speaker: NSObject, AVSpeechSynthesizerDelegate, @unchecked S
     private let synthesizer = AVSpeechSynthesizer()
     private var continuation: CheckedContinuation<Void, Never>?
     private var loggedVoice = false
+    private let clip = ClipPlayer()
 
     /// La voz mas natural que haya instalada para el idioma del movil: Premium > Mejorada > Normal, y a igualdad la de la misma region (es-ES). Se
     /// descartan las voces de novedad. Se pueden bajar mejores en Ajustes de iOS > Accesibilidad > Contenido hablado > Voces.
@@ -473,6 +489,15 @@ private final class Speaker: NSObject, AVSpeechSynthesizerDelegate, @unchecked S
     }
 
     func speak(_ text: String) async {
+        // La voz de la nube (si esta puesta); si falla, tarda o no hay red, la del sistema.
+        if CloudVoice.isConfigured {
+            let started = Date()
+            if let audio = await CloudVoice.audio(for: text), await clip.play(audio) {
+                VoiceLog.add("dicho con la voz de la nube (\(Int(Date().timeIntervalSince(started) * 1000)) ms hasta terminar)")
+                return
+            }
+            VoiceLog.add("la voz de la nube no pudo: se usa la del sistema")
+        }
         let utterance = AVSpeechUtterance(string: text)
         let voice = Self.bestVoice()
         utterance.voice = voice

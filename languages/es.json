@@ -798,5 +798,10 @@
   "Try Voice Search": "Probar la búsqueda por voz",
   "Voice Search": "Búsqueda por voz",
   "Asks for microphone and speech permission, then asks what you want to listen to and searches for it. The Sonar · Voz widget does the same from the Home Screen or CarPlay; what happens in each step is saved in the report.": "Pide permiso de micrófono y de reconocimiento de voz, y luego pregunta qué quieres escuchar y lo busca. El widget «Sonar · Voz» hace lo mismo desde la pantalla de inicio o CarPlay; lo que pasa en cada paso queda apuntado en el informe.",
-  "Copy Last Voice Attempt": "Copiar el último intento de voz"
+  "Copy Last Voice Attempt": "Copiar el último intento de voz",
+  "Cloud Voice": "Voz en la nube",
+  "Speechify API Key": "Clave de API de Speechify",
+  "Test Cloud Voice": "Probar la voz en la nube",
+  "Next Cloud Voice": "Siguiente voz",
+  "Cloud Voice footer": "Sonar puede responder con una voz de IA más natural de Speechify (plan gratuito). Pega tu clave de API del panel de Speechify, pulsa Probar y usa Siguiente voz hasta que te guste una. Si no hay conexión, tarda demasiado o se acaba el cupo gratis, Sonar usa la voz del iPhone. Lo que dice Sonar se envía a Speechify, y cada frase se guarda en el móvil para generarla una sola vez. La clave se queda en este móvil."
 }

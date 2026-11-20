@@ -798,5 +798,10 @@
   "Try Voice Search": "Try Voice Search",
   "Voice Search": "Voice Search",
   "Asks for microphone and speech permission, then asks what you want to listen to and searches for it. The Sonar · Voz widget does the same from the Home Screen or CarPlay; what happens in each step is saved in the report.": "Asks for microphone and speech permission, then asks what you want to listen to and searches for it. The Sonar · Voz widget does the same from the Home Screen or CarPlay; what happens in each step is saved in the report.",
-  "Copy Last Voice Attempt": "Copy Last Voice Attempt"
+  "Copy Last Voice Attempt": "Copy Last Voice Attempt",
+  "Cloud Voice": "Cloud Voice",
+  "Speechify API Key": "Speechify API Key",
+  "Test Cloud Voice": "Test Cloud Voice",
+  "Next Cloud Voice": "Next Voice",
+  "Cloud Voice footer": "Sonar can answer with a more natural AI voice from Speechify (free plan). Paste your API key from the Speechify dashboard, tap Test and use Next Voice until you like one. If there is no connection, it takes too long or the free quota runs out, Sonar uses the iPhone voice. What Sonar says is sent to Speechify, and each sentence is saved on the phone so it is only generated once. The key stays on this phone."
 }

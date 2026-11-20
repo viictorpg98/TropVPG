@@ -12,6 +12,11 @@ struct PlayerSettingsView: View {
     @State private var skipSegments = SponsorBlock.isEnabled
     @State private var voiceBusy = false
     @State private var lastVoiceAttempt = VoiceLog.text
+    @AppStorage(CloudVoice.enabledKey) private var cloudVoiceEnabled = false
+    @State private var cloudKey = CloudVoice.apiKey
+    @State private var cloudStatus = CloudVoice.status
+    @State private var cloudVoiceName = CloudVoice.voiceName
+    @State private var cloudBusy = false
 
     var body: some View {
         @Bindable var settings = settings
@@ -69,6 +74,59 @@ struct PlayerSettingsView: View {
                 Text("Voice Search")
             } footer: {
                 Text("Asks for microphone and speech permission, then asks what you want to listen to and searches for it. The Sonar · Voz widget does the same from the Home Screen or CarPlay; what happens in each step is saved in the report.")
+            }
+
+            Section {
+                Toggle("Cloud Voice", isOn: $cloudVoiceEnabled)
+                SecureField("Speechify API Key", text: $cloudKey)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .onChange(of: cloudKey) {
+                        CloudVoice.apiKey = cloudKey
+                    }
+                if !cloudVoiceName.isEmpty {
+                    Text(verbatim: cloudVoiceName)
+                        .foregroundStyle(.secondary)
+                }
+                Button {
+                    cloudBusy = true
+                    Task {
+                        if let audio = await CloudVoice.audio(for: VoiceSearch.sampleSentence) {
+                            _ = await ClipPlayer().play(audio)
+                            await CloudVoice.prewarm(VoiceSearch.fixedPhrases)
+                        }
+                        cloudStatus = CloudVoice.status
+                        cloudVoiceName = CloudVoice.voiceName
+                        cloudBusy = false
+                    }
+                } label: {
+                    Label("Test Cloud Voice", systemImage: "speaker.wave.2")
+                }
+                .disabled(cloudBusy || cloudKey.isEmpty)
+                Button {
+                    cloudBusy = true
+                    Task {
+                        _ = await CloudVoice.nextVoice()
+                        if let audio = await CloudVoice.audio(for: VoiceSearch.sampleSentence) {
+                            _ = await ClipPlayer().play(audio)
+                        }
+                        cloudStatus = CloudVoice.status
+                        cloudVoiceName = CloudVoice.voiceName
+                        cloudBusy = false
+                    }
+                } label: {
+                    Label("Next Cloud Voice", systemImage: "forward")
+                }
+                .disabled(cloudBusy || cloudKey.isEmpty)
+                if !cloudStatus.isEmpty {
+                    Text(verbatim: cloudStatus)
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Cloud Voice")
+            } footer: {
+                Text("Cloud Voice footer")
             }
         }
         .sonarSettingsList()
