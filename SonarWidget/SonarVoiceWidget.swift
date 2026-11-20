@@ -8,6 +8,7 @@
 //  CarPlay > tu coche > Personalizar), con el mismo estilo de boton que el widget de botones.
 //
 
+import ActivityKit
 import AppIntents
 import SwiftUI
 import WidgetKit
@@ -84,5 +85,41 @@ struct SonarVoiceWidget: Widget {
         .description("Di qué quieres escuchar y Sonar lo busca y lo pone. Experimento para CarPlay.")
         .supportedFamilies([.systemSmall])
         .contentMarginsDisabled()
+    }
+}
+
+/// La Live Activity "Escuchando…" (pantalla de bloqueo y Dynamic Island). Dura lo que dura la escucha.
+struct SonarVoiceActivityWidget: Widget {
+    private var spanish: Bool {
+        Locale.preferredLanguages.first?.hasPrefix("es") ?? false
+    }
+
+    var body: some WidgetConfiguration {
+        ActivityConfiguration(for: VoiceActivityAttributes.self) { _ in
+            HStack(spacing: 10) {
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(Color(red: 0.36, green: 0.80, blue: 1.00))
+                Text(spanish ? "Sonar: escuchando…" : "Sonar: listening…")
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+                Spacer()
+            }
+            .padding(14)
+            .activityBackgroundTint(Color.black)
+        } dynamicIsland: { _ in
+            DynamicIsland {
+                DynamicIslandExpandedRegion(.center) {
+                    Text(spanish ? "Escuchando…" : "Listening…")
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                }
+            } compactLeading: {
+                Image(systemName: "mic.fill")
+            } compactTrailing: {
+                EmptyView()
+            } minimal: {
+                Image(systemName: "mic.fill")
+            }
+        }
     }
 }

@@ -25,6 +25,8 @@
 	<array>
 		<string>audio</string>
 	</array>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Sonar usa el micrófono para que le digas por voz qué quieres escuchar. / Sonar uses the microphone so you can say what you want to listen to.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

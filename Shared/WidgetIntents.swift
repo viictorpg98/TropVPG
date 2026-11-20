@@ -122,7 +122,10 @@ struct WidgetPlayTrackIntent: AudioPlaybackIntent {
 
 /// "Voz": pregunta por voz "¿Qué quieres escuchar?", reconoce lo que dices y lo busca como en el buscador. EXPERIMENTO pensado para CarPlay:
 /// iOS puede negarse a abrir el microfono sin la app abierta; el informe ("voz: ...") dice que paso en cada paso (ver `VoiceSearch`).
-struct WidgetVoiceIntent: AudioPlaybackIntent {
+/// Segun la documentacion de Apple, `AudioRecordingIntent` es lo que permite grabar audio desde un boton (con el indicador de grabacion) y exige
+/// una Live Activity mientras se graba; `LiveActivityIntent` hace que el sistema arranque la app SIN abrirla y deje iniciar esa Live Activity
+/// (el mismo esquema que usan las apps de dictado con el boton de accion y el Centro de control).
+struct WidgetVoiceIntent: AudioRecordingIntent, LiveActivityIntent {
     static let title: LocalizedStringResource = "Voice Search"
     static let isDiscoverable = false
 

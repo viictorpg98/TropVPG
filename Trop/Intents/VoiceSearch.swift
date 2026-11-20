@@ -4,15 +4,19 @@
 //
 //  "¿Qué quieres escuchar?": la busqueda por voz del boton del widget "Sonar · Voz" (pensada para CarPlay, sin abrir la app).
 //
-//  Es un EXPERIMENTO: iOS suele negarse a abrir el microfono desde segundo plano (error `!rec`, 561145187) y el reconocimiento de voz en
-//  segundo plano no esta soportado oficialmente. Cada paso apunta en el informe una linea "voz: ..." con lo que paso (app abierta o en segundo
-//  plano, permisos, sesion de audio, microfono, reconocedor, texto oido, errores con dominio y codigo) para saber si iOS lo deja pasar.
+//  Como se hace (segun la documentacion de Apple): el boton ejecuta `WidgetVoiceIntent`, que es `AudioRecordingIntent` (lo que permite abrir el
+//  microfono desde un boton, con el indicador de grabacion) y `LiveActivityIntent` (el sistema arranca la app SIN abrirla y deja iniciar la Live
+//  Activity que Apple exige mientras se graba; si no hay, la grabacion se para). Es el esquema de las apps de dictado con el boton de accion.
+//  Lo que NO esta comprobado es que funcione desde un widget en CarPlay: por eso es un EXPERIMENTO y cada paso apunta en el informe una linea
+//  "voz: ..." (app abierta o en segundo plano, permisos, Live Activity, sesion de audio, microfono, reconocedor, texto oido, errores con dominio
+//  y codigo).
 //
 //  Flujo: pausa la musica si sonaba → pregunta por voz → abre el microfono y reconoce (termina cuando callas, maximo ~9 s) → busca lo oido
 //  como en el buscador (`SonarMix.playSong`: primero entre las descargadas, luego YouTube Music) → suena. Si no se oye nada o falla, lo dice
 //  y reanuda lo que sonaba. El microfono se cierra siempre y la sesion de audio vuelve a la de reproduccion.
 //
 
+import ActivityKit
 import AVFoundation
 import Foundation
 import Speech
@@ -21,6 +25,32 @@ import UIKit
 @MainActor
 enum VoiceSearch {
     private static var running = false
+    private static var activity: Activity<VoiceActivityAttributes>?
+
+    /// Apple exige una Live Activity mientras se graba (si no, la grabacion se para). Se inicia justo antes de preguntar y se cierra al terminar de
+    /// escuchar. Si no se puede iniciar se apunta el motivo en el informe y se sigue (para ver que hace iOS).
+    private static func startActivity() {
+        let info = ActivityAuthorizationInfo()
+        log("Live Activity: permitidas \(info.areActivitiesEnabled)")
+        guard info.areActivitiesEnabled else { return }
+        do {
+            activity = try Activity.request(
+                attributes: VoiceActivityAttributes(startedAt: Date()),
+                content: ActivityContent(state: VoiceActivityAttributes.ContentState(phase: "listening"), staleDate: nil),
+                pushType: nil
+            )
+            log("Live Activity: iniciada")
+        } catch {
+            log("Live Activity: ERROR \(describe(error))")
+        }
+    }
+
+    private static func endActivity() async {
+        guard let current = activity else { return }
+        activity = nil
+        await current.end(nil, dismissalPolicy: .immediate)
+        log("Live Activity: cerrada")
+    }
 
     private static func log(_ text: String) {
         PlaybackReport.record("voz: \(text)")
@@ -110,6 +140,8 @@ enum VoiceSearch {
             return
         }
 
+        startActivity()
+        defer { Task { @MainActor in await endActivity() } }
         let wasPlaying = NowPlaying.shared.isPlaying
         if wasPlaying { PlayerController.shared.setPaused(true) }
         var startedSomething = false
@@ -119,6 +151,7 @@ enum VoiceSearch {
 
         await speaker.speak(phrase("¿Qué quieres escuchar?", "What do you want to listen to?"))
         let result = await listen()
+        await endActivity()
         // Se cierra el microfono y vuelve la sesion de reproduccion antes de buscar.
         PlayerController.shared.assertAudioSession()
 
