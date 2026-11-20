@@ -248,7 +248,7 @@ enum VoiceSearch {
     // MARK: - Flujo
 
     private enum ListenResult {
-        case heard(String)
+        case heard(String, [String])
         case silence
         case failed
     }
@@ -301,22 +301,305 @@ enum VoiceSearch {
             await speaker.speak(pick(micFailVariants))
         case .silence:
             await speaker.speak(pick(giveUpVariants))
-        case .heard(let spoken):
-            let query = normalized(spoken)
-            log("busqueda: \"\(query)\" (oido: \"\(spoken)\")")
-            guard let target = await SonarMix.resolveVoiceRequest(query) else {
-                log("sin resultado")
-                await speaker.speak(fill(pick(notFoundVariants), ["{q}": query]))
-                break
+        case .heard(let spoken, let alternatives):
+            if let match = VoiceCommands.detect(best: spoken, alternatives: alternatives) {
+                let others = alternatives.filter { $0 != spoken }.prefix(3).map { "\"\($0)\"" }.joined(separator: ", ")
+                log("orden: \"\(spoken)\" (alternativas \(others)) -> \(match.command), \(match.exact ? "exacta" : "aproximada con \"\(match.source)\"")")
+                played = await handleCommand(match, wasPlaying: wasPlaying, speaker: speaker)
+            } else {
+                log("orden: ninguna; se busca como cancion")
+                played = await searchAndPlay(spoken, speaker: speaker)
             }
-            log("encontrado: \(target.kind) \"\(target.title)\" (\(target.songs.count) canciones, cola \(target.asQueue))")
-            await speaker.speak(announcement(for: target))
-            let started = await SonarMix.playVoiceTarget(target)
-            log("el reproductor \(started ? "arranco" : "NO arranco")")
-            played = started
-            if started { await updateActivity(phase: "playing") }
+            if played { await updateActivity(phase: "playing") }
             log("accion: termina tras \(String(format: "%.1f", Date().timeIntervalSince(runStarted))) s; \(memoryLeft)")
             startHeartbeat()
+        }
+    }
+
+    /// Buscar lo dicho como en el buscador y ponerlo. `true` si suena.
+    private static func searchAndPlay(_ spoken: String, speaker: Speaker) async -> Bool {
+        let query = normalized(spoken)
+        log("busqueda: \"\(query)\" (oido: \"\(spoken)\")")
+        guard let target = await SonarMix.resolveVoiceRequest(query) else {
+            log("sin resultado")
+            await speaker.speak(fill(pick(notFoundVariants), ["{q}": query]))
+            return false
+        }
+        log("encontrado: \(target.kind) \"\(target.title)\" (\(target.songs.count) canciones, cola \(target.asQueue))")
+        await speaker.speak(announcement(for: target))
+        let started = await SonarMix.playVoiceTarget(target)
+        log("el reproductor \(started ? "arranco" : "NO arranco")")
+        return started
+    }
+
+    // MARK: - Ordenes
+
+    private static let downloadsOKVariants = Variants(
+        key: "cmd-downloads",
+        es: ["Poniendo tus descargas.", "Ahí van tus descargas.", "Marchando tus descargas."],
+        en: ["Playing your downloads.", "Here come your downloads.", "Coming up, your downloads."]
+    )
+    private static let forYouOKVariants = Variants(
+        key: "cmd-foryou",
+        es: ["Poniendo tu mezcla.", "Ahí va Para ti.", "Marchando tu mezcla."],
+        en: ["Playing your mix.", "Here goes For You.", "Coming up, your mix."]
+    )
+    private static let likedOKVariants = Variants(
+        key: "cmd-liked",
+        es: ["Poniendo tus Me gusta.", "Ahí van tus favoritas.", "Marchando tus Me gusta."],
+        en: ["Playing your liked songs.", "Here come your favourites.", "Coming up, your liked songs."]
+    )
+    private static let randomOKVariants = Variants(
+        key: "cmd-random",
+        es: ["Ahí va una sorpresa.", "Te pongo algo al azar.", "Algo al azar, marchando."],
+        en: ["Here's a surprise.", "Putting on something random.", "Something random, coming up."]
+    )
+    private static let quickOKVariants = Variants(
+        key: "cmd-quick",
+        es: ["Poniendo tus selecciones rápidas.", "Ahí van tus selecciones rápidas."],
+        en: ["Playing your quick picks.", "Here come your quick picks."]
+    )
+    private static let categoryOKVariants = Variants(
+        key: "cmd-category",
+        es: ["Poniendo {c}.", "Ahí va {c}.", "Marchando {c}."],
+        en: ["Playing {c}.", "Here goes {c}.", "Coming up, {c}."]
+    )
+    private static let djOnVariants = Variants(
+        key: "cmd-dj-on",
+        es: ["Activando el DJ.", "DJ activado.", "Vamos con el DJ."],
+        en: ["Turning the DJ on.", "DJ on.", "Let's go with the DJ."]
+    )
+    private static let djOffVariants = Variants(
+        key: "cmd-dj-off",
+        es: ["Apagando el DJ.", "DJ apagado.", "Vale, sin DJ."],
+        en: ["Turning the DJ off.", "DJ off.", "Okay, no DJ."]
+    )
+    private static let djAlreadyOnVariants = Variants(
+        key: "cmd-dj-already-on",
+        es: ["El DJ ya está activado."],
+        en: ["The DJ is already on."]
+    )
+    private static let djAlreadyOffVariants = Variants(
+        key: "cmd-dj-already-off",
+        es: ["El DJ ya estaba apagado."],
+        en: ["The DJ was already off."]
+    )
+    private static let mixOKVariants = Variants(
+        key: "cmd-mix",
+        es: ["Mezclando.", "Mezclando ahora.", "Vamos con la mezcla."],
+        en: ["Mixing.", "Mixing now.", "Let's mix."]
+    )
+    private static let nothingToMixVariants = Variants(
+        key: "cmd-nomix",
+        es: ["No hay nada que mezclar ahora."],
+        en: ["There is nothing to mix right now."]
+    )
+    private static let nowArtistVariants = Variants(
+        key: "cmd-now-artist",
+        es: ["Suena {t}, de {a}.", "Esto es {t}, de {a}.", "Estás escuchando {t}, de {a}."],
+        en: ["This is {t} by {a}.", "You're listening to {t} by {a}.", "Now playing {t} by {a}."]
+    )
+    private static let nowOnlyVariants = Variants(
+        key: "cmd-now",
+        es: ["Suena {t}.", "Esto es {t}.", "Estás escuchando {t}."],
+        en: ["This is {t}.", "You're listening to {t}.", "Now playing {t}."]
+    )
+    private static let nothingPlayingVariants = Variants(
+        key: "cmd-nothing",
+        es: ["Ahora mismo no suena nada."],
+        en: ["Nothing is playing right now."]
+    )
+    private static let timerSetVariants = Variants(
+        key: "cmd-timer",
+        es: ["Te apago la música en {d}.", "Vale, paro la música en {d}.", "Música apagada en {d}."],
+        en: ["I'll stop the music in {d}.", "Okay, stopping the music in {d}.", "Music off in {d}."]
+    )
+    private static let timerCancelledVariants = Variants(
+        key: "cmd-timer-cancel",
+        es: ["Temporizador cancelado.", "Vale, sin temporizador."],
+        en: ["Timer cancelled.", "Okay, no timer."]
+    )
+    private static let timerNoMinutesVariants = Variants(
+        key: "cmd-timer-nomin",
+        es: ["No he entendido cuántos minutos. Prueba, por ejemplo: apágalo en treinta minutos."],
+        en: ["I didn't catch how many minutes. Try, for example: stop it in thirty minutes."]
+    )
+    private static let noDownloadsVariants = Variants(
+        key: "cmd-nodownloads",
+        es: ["No tienes canciones descargadas."],
+        en: ["You have no downloaded songs."]
+    )
+    private static let couldNotVariants = Variants(
+        key: "cmd-couldnot",
+        es: ["No he podido ponerlo.", "No me ha dejado ponerlo."],
+        en: ["I couldn't play it.", "I wasn't able to play it."]
+    )
+    private static let confirmNoVariants = Variants(
+        key: "cmd-confirm-no",
+        es: ["Vale, no hago nada.", "De acuerdo, lo dejo."],
+        en: ["Okay, I won't do anything.", "Alright, never mind."]
+    )
+    private static let confirmUnclearVariants = Variants(
+        key: "cmd-confirm-unclear",
+        es: ["No te he entendido, así que no hago nada."],
+        en: ["I didn't understand, so I won't do anything."]
+    )
+
+    private static let yesWords: Set<String> = [
+        "si", "sii", "vale", "claro", "venga", "dale", "ok", "okay", "adelante", "correcto", "yes", "yeah", "sure", "yep"
+    ]
+    private static let noWords: Set<String> = ["no", "nada", "cancela", "cancelar", "nope", "stop"]
+
+    /// Ejecuta la orden; si no salio exacta, pregunta antes. Devuelve `true` si ha quedado sonando algo.
+    private static func handleCommand(_ match: VoiceCommandMatch, wasPlaying: Bool, speaker: Speaker) async -> Bool {
+        if !match.exact, match.command.needsConfirmation {
+            guard await confirm(match.command, speaker: speaker) else { return false }
+        }
+        return await execute(match.command, wasPlaying: wasPlaying, speaker: speaker)
+    }
+
+    private static func question(for command: VoiceCommand) -> String {
+        switch command {
+        case .downloads: return phrase("¿Pongo tus descargas?", "Shall I play your downloads?")
+        case .forYou: return phrase("¿Pongo tu mezcla Para ti?", "Shall I play your For You mix?")
+        case .liked: return phrase("¿Pongo tus Me gusta?", "Shall I play your liked songs?")
+        case .random: return phrase("¿Pongo algo al azar?", "Shall I play something random?")
+        case .quickPicks: return phrase("¿Pongo tus selecciones rápidas?", "Shall I play your quick picks?")
+        case .mix: return phrase("¿Mezclo ahora?", "Shall I mix now?")
+        case .nowPlaying: return ""
+        case .cancelTimer: return phrase("¿Cancelo el temporizador?", "Shall I cancel the timer?")
+        case .dj(let on):
+            if on == true { return phrase("¿Activo el DJ?", "Shall I turn the DJ on?") }
+            if on == false { return phrase("¿Apago el DJ?", "Shall I turn the DJ off?") }
+            return phrase("¿Cambio el DJ?", "Shall I toggle the DJ?")
+        case .sleepTimer(let minutes):
+            let duration = VoiceCommands.spokenDuration(minutes ?? 0, spanish: spanish)
+            return phrase("¿Te apago la música en \(duration)?", "Shall I stop the music in \(duration)?")
+        case .category(let category):
+            let label = VoiceCommands.label(for: category, spanish: spanish)
+            return phrase("¿Pongo \(label)?", "Shall I play \(label)?")
+        }
+    }
+
+    /// Pregunta "¿Activo el DJ?" y espera un si o un no (escucha corta). Solo se usa si la orden no salio clara.
+    private static func confirm(_ command: VoiceCommand, speaker: Speaker) async -> Bool {
+        await speaker.speak(question(for: command))
+        let answer = await listen(quick: true)
+        restorePlaybackSession()
+        guard case .heard(let said, let alternatives) = answer else {
+            log("confirmacion: sin respuesta")
+            await speaker.speak(pick(confirmUnclearVariants))
+            return false
+        }
+        let heard = Set(([said] + alternatives).flatMap { VoiceCommands.words($0) })
+        let yes = !heard.isDisjoint(with: yesWords)
+        let no = !heard.isDisjoint(with: noWords)
+        log("confirmacion: \"\(said)\" -> \(yes && !no ? "si" : (no ? "no" : "sin entender"))")
+        if yes, !no { return true }
+        await speaker.speak(pick(no ? confirmNoVariants : confirmUnclearVariants))
+        return false
+    }
+
+    /// Hace la orden. `true` si queda sonando algo nuevo; con `false`, la musica que sonaba antes se reanuda al terminar la busqueda.
+    private static func execute(_ command: VoiceCommand, wasPlaying: Bool, speaker: Speaker) async -> Bool {
+        func resumeMusic() {
+            if wasPlaying { PlayerController.shared.setPaused(false) }
+        }
+        switch command {
+        case .downloads:
+            await speaker.speak(pick(downloadsOKVariants))
+            if await SonarMix.playDownloads() { return true }
+            await speaker.speak(pick(noDownloadsVariants))
+            return false
+        case .forYou:
+            await speaker.speak(pick(forYouOKVariants))
+            if await SonarMix.start() { return true }
+            await speaker.speak(pick(couldNotVariants))
+            return false
+        case .liked:
+            await speaker.speak(pick(likedOKVariants))
+            if await SonarMix.playLiked() { return true }
+            await speaker.speak(pick(couldNotVariants))
+            return false
+        case .random:
+            await speaker.speak(pick(randomOKVariants))
+            if await SonarMix.playRandomPick() { return true }
+            await speaker.speak(pick(couldNotVariants))
+            return false
+        case .quickPicks:
+            await speaker.speak(pick(quickOKVariants))
+            if await SonarMix.playQuickPicks() { return true }
+            await speaker.speak(pick(couldNotVariants))
+            return false
+        case .category(let category):
+            let label = VoiceCommands.label(for: category, spanish: spanish)
+            await speaker.speak(fill(pick(categoryOKVariants), ["{c}": label]))
+            if await SonarMix.playCategory(keywords: category.keywords) != nil { return true }
+            // El inicio de YouTube Music no tiene ese boton: se busca como una cancion cualquiera, con su radio.
+            if let target = await SonarMix.resolveVoiceRequest(VoiceCommands.fallbackSearch(for: category, spanish: spanish)),
+               await SonarMix.playVoiceTarget(target) {
+                return true
+            }
+            await speaker.speak(pick(couldNotVariants))
+            return false
+        case .dj(let on):
+            let dj = DJSession.shared
+            let wantOn = on ?? !dj.isActive
+            if wantOn == dj.isActive {
+                await speaker.speak(pick(wantOn ? djAlreadyOnVariants : djAlreadyOffVariants))
+                return false
+            }
+            await speaker.speak(pick(wantOn ? djOnVariants : djOffVariants))
+            resumeMusic()
+            try? await Task.sleep(nanoseconds: 800_000_000)
+            if wantOn {
+                dj.start()
+                let np = NowPlaying.shared
+                if !(np.isPlaying && np.queueSongs.indices.contains(np.queueIndex)) {
+                    if !(await SonarMix.start()) {
+                        dj.stop()
+                        await speaker.speak(pick(couldNotVariants))
+                        return false
+                    }
+                }
+            } else {
+                dj.stop()
+            }
+            return true
+        case .mix:
+            await speaker.speak(pick(mixOKVariants))
+            resumeMusic()
+            try? await Task.sleep(nanoseconds: 800_000_000)
+            if AutoMixEngine.shared.mixNow() { return true }
+            await speaker.speak(pick(nothingToMixVariants))
+            return wasPlaying
+        case .nowPlaying:
+            let np = NowPlaying.shared
+            guard np.queueSongs.indices.contains(np.queueIndex) else {
+                await speaker.speak(pick(nothingPlayingVariants))
+                return false
+            }
+            let song = np.queueSongs[np.queueIndex]
+            let title = spokenText(song.title)
+            if let artist = song.artists.first?.name {
+                await speaker.speak(fill(pick(nowArtistVariants), ["{t}": title, "{a}": spokenText(artist)]))
+            } else {
+                await speaker.speak(fill(pick(nowOnlyVariants), ["{t}": title]))
+            }
+            return false
+        case .sleepTimer(let minutes):
+            guard let minutes, minutes > 0 else {
+                await speaker.speak(pick(timerNoMinutesVariants))
+                return false
+            }
+            await speaker.speak(fill(pick(timerSetVariants), ["{d}": VoiceCommands.spokenDuration(minutes, spanish: spanish)]))
+            SleepTimer.shared.start(minutes: minutes)
+            resumeMusic()
+            return wasPlaying
+        case .cancelTimer:
+            SleepTimer.shared.cancel()
+            await speaker.speak(pick(timerCancelledVariants))
+            return false
         }
     }
 
@@ -340,6 +623,10 @@ enum VoiceSearch {
     /// (la voz las deletrea) y sin pasar de ~60 caracteres.
     private static func spokenText(_ raw: String) -> String {
         var text = raw.replacingOccurrences(of: "\\s*[\\(\\[][^\\)\\]]*[\\)\\]]", with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces)
+        // Sin simbolos ni emojis ("<3", "♥"...): la voz los lee como "menor que tres".
+        text = text.replacingOccurrences(of: "<3", with: "")
+            .replacingOccurrences(of: "[^\\p{L}\\p{N}\\s',.!?&:\\-]", with: "", options: .regularExpression)
             .trimmingCharacters(in: .whitespaces)
         if text.isEmpty { text = raw }
         if text == text.uppercased() { text = text.lowercased() }
@@ -366,10 +653,14 @@ enum VoiceSearch {
 
     /// Un latido por segundo durante 70 s tras acabar la accion (solo al fichero): la ultima linea que quede es el momento en que el proceso murio,
     /// si murio. Dice si la cancion avanza, el estado de la app y cuanto tiempo en segundo plano le queda.
+    private static var heartbeatTask: Task<Void, Never>?
+
     private static func startHeartbeat() {
-        Task { @MainActor in
+        heartbeatTask?.cancel()
+        heartbeatTask = Task { @MainActor in
             for second in 1...70 {
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
+                if Task.isCancelled { return }
                 let remaining = UIApplication.shared.backgroundTimeRemaining
                 let limit = remaining > 1000 ? "sin limite" : String(format: "%.0f s", remaining)
                 let session = AVAudioSession.sharedInstance()
@@ -414,6 +705,11 @@ enum VoiceSearch {
 
     /// Palabras que ayudan al reconocedor con nombres de artistas y canciones: primero los artistas (de lo que mas escuchas y de lo descargado) y
     /// luego los titulos. Apple recomienda no pasar mas de unos cientos.
+    private static let commandStrings = [
+        "DJ", "descargas", "mis descargas", "mezcla", "mezclar", "temporizador", "Para ti", "me gusta", "aleatorio", "selecciones rápidas",
+        "qué suena", "activa el DJ", "apaga el DJ", "para dormir"
+    ]
+
     private static func contextualStrings() async -> [String] {
         let top = (try? await DatabaseService.shared.fetchTopSongs(limit: 40)) ?? []
         let downloaded = await DownloadManager.shared.fetchAll().map { SongItem(entity: $0) }
@@ -430,7 +726,7 @@ enum VoiceSearch {
         return Array(result.prefix(100))
     }
 
-    private static func listen() async -> ListenResult {
+    private static func listen(quick: Bool = false) async -> ListenResult {
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(.playAndRecord, mode: .default, options: [.allowBluetooth, .defaultToSpeaker])
@@ -460,16 +756,23 @@ enum VoiceSearch {
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
         request.requiresOnDeviceRecognition = recognizer.supportsOnDeviceRecognition
-        request.contextualStrings = await contextualStrings()
+        // Respuesta corta (si/no): solo esas palabras. Si no, las ordenes, los artistas y los titulos.
+        if quick {
+            request.contextualStrings = ["sí", "no", "vale", "claro", "venga", "cancela", "yes", "no", "sure"]
+        } else {
+            let learned = await contextualStrings()
+            request.contextualStrings = commandStrings + learned
+        }
 
         let listener = Listener()
         // Estos dos cierres los llama iOS desde otros hilos (el del audio y el del reconocedor): se crean como @Sendable, sin quedar atados al hilo
         // principal de esta funcion.
         let resultHandler: @Sendable (SFSpeechRecognitionResult?, Error?) -> Void = { result, error in
             let text = result?.bestTranscription.formattedString
+            let alternatives = result?.transcriptions.map(\.formattedString)
             let isFinal = result?.isFinal ?? false
             let failure = error.map { $0 as NSError }
-            Task { @MainActor in listener.update(text: text, isFinal: isFinal, error: failure) }
+            Task { @MainActor in listener.update(text: text, alternatives: alternatives, isFinal: isFinal, error: failure) }
         }
         let task = recognizer.recognitionTask(with: request, resultHandler: resultHandler)
         log("reconocedor: tarea creada")
@@ -500,16 +803,19 @@ enum VoiceSearch {
             return .failed
         }
 
-        // Termina cuando callas (1,4 s sin cambios en el texto), a los 6 s sin oir nada o a los 9 s.
+        // Termina cuando callas (1,4 s sin cambios en el texto), a los 6 s sin oir nada o a los 9 s. La respuesta corta (si/no): 1 s, 4 s y 5 s.
+        let silenceGap = quick ? 1.0 : 1.4
+        let noTextLimit = quick ? 4.0 : 6.0
+        let maxSeconds = quick ? 5.0 : 9.0
         let started = Date()
         while true {
             try? await Task.sleep(nanoseconds: 200_000_000)
             if listener.finished { break }
             let elapsed = Date().timeIntervalSince(started)
             let hasText = !listener.latest.isEmpty
-            if hasText, Date().timeIntervalSince(listener.changedAt) > 1.4 { break }
-            if !hasText, elapsed > 6 { break }
-            if elapsed > 9 { break }
+            if hasText, Date().timeIntervalSince(listener.changedAt) > silenceGap { break }
+            if !hasText, elapsed > noTextLimit { break }
+            if elapsed > maxSeconds { break }
         }
         request.endAudio()
         let waitStarted = Date()
@@ -528,7 +834,7 @@ enum VoiceSearch {
             if let error = listener.error, !(error.domain == "kAFAssistantErrorDomain" && error.code == 1110) { return .failed }
             return .silence
         }
-        return .heard(text)
+        return .heard(text, listener.alternatives)
     }
 }
 
@@ -541,7 +847,10 @@ private final class Listener {
     var finished = false
     var changedAt = Date()
 
-    func update(text: String?, isFinal: Bool, error: NSError?) {
+    var alternatives: [String] = []
+
+    func update(text: String?, alternatives: [String]?, isFinal: Bool, error: NSError?) {
+        if let alternatives, !alternatives.isEmpty { self.alternatives = alternatives }
         if let text, text != latest {
             if latest.isEmpty { VoiceLog.add("primer texto parcial: \"\(text)\"") }
             latest = text

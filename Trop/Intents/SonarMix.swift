@@ -563,13 +563,33 @@ enum SonarMix {
         }
         trace("pedido por voz: cancion \(chosen?.title ?? "sin resultado")")
         guard let chosen else { return downloadedMatch.map(songTarget) }
-        var target = songTarget(chosen)
+        // Si la cancion elegida lleva poco de lo que se dijo y otra de las primeras lleva mas (titulo + artista), se prefiere esa: YouTube Music a
+        // veces pone como mejor resultado otra cancion del mismo artista.
+        func coverage(_ song: SongItem) -> Int {
+            let text = searchWords(song.title + " " + song.artists.map(\.name).joined(separator: " ")).joined(separator: " ")
+            return words.filter { text.contains($0) }.count
+        }
+        var final = allSongs.first { $0.videoId == chosen.videoId } ?? chosen
+        var finalScore = coverage(final)
+        for candidate in allSongs.prefix(8) where coverage(candidate) > finalScore {
+            final = candidate
+            finalScore = coverage(candidate)
+        }
+        if final.videoId != chosen.videoId { trace("pedido por voz: se prefiere \(final.title) (\(finalScore) palabras) a \(chosen.title)") }
+        var target = songTarget(final)
         // La tarjeta del mejor resultado no trae el artista: se toma de la misma cancion en la lista de canciones de la busqueda.
         if target.artist == nil {
-            let key = searchWords(chosen.title).joined(separator: " ")
+            let key = searchWords(final.title).joined(separator: " ")
             target.artist = allSongs.first { searchWords($0.title).joined(separator: " ") == key && !$0.artists.isEmpty }?.artists.first?.name
         }
         return target
+    }
+
+    /// "Mis descargas": tus canciones descargadas, barajadas (la primera no es una de las ultimas con las que ya se arranco).
+    static func playDownloads() async -> Bool {
+        let songs = await variedOrder(await downloadedSongs())
+        guard !songs.isEmpty else { return false }
+        return await play(Array(songs.prefix(60)), context: "descargas")
     }
 
     /// Sus canciones mas conocidas (las de la busqueda); si salen menos de 4 suyas, la primera con su radio.
