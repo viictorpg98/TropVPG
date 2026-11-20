@@ -166,6 +166,7 @@ enum VoiceSearch {
         running = true
         defer { running = false }
         VoiceLog.beginAttempt(source: source)
+        let runStarted = Date()
         let age = String(format: "%.0f s", Date().timeIntervalSince(launchedAt))
         log("empieza (\(source), \(appState)); proceso con \(age) de vida; microfono \(microphoneStatus), voz \(speechStatus); \(memoryLeft)")
 
@@ -218,7 +219,7 @@ enum VoiceSearch {
             log("el reproductor \(started ? "arranco" : "NO arranco")")
             played = started
             if started { await updateActivity(phase: "playing") }
-            log("accion: termina; \(memoryLeft)")
+            log("accion: termina tras \(String(format: "%.1f", Date().timeIntervalSince(runStarted))) s; \(memoryLeft)")
             startHeartbeat()
         }
     }
