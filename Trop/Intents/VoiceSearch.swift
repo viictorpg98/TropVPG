@@ -155,7 +155,7 @@ enum VoiceSearch {
         let result = await listen()
         await endActivity()
         // Se cierra el microfono y vuelve la sesion de reproduccion antes de buscar.
-        PlayerController.shared.assertAudioSession()
+        restorePlaybackSession()
 
         switch result {
         case .failed:
@@ -167,11 +167,36 @@ enum VoiceSearch {
             log("busqueda: \"\(query)\" (oido: \"\(spoken)\")")
             if let found = await SonarMix.playSong(named: query) {
                 startedSomething = true
-                log("suena: \(found.title)")
+                log("el reproductor acepto: \(found.title)")
+                await verifyPlayback()
             } else {
                 log("sin resultado")
                 await speaker.speak(phrase("No he encontrado eso.", "I couldn't find that."))
             }
+        }
+    }
+
+    /// Vuelve a la sesion de audio de reproduccion apuntando el resultado: iOS puede negar activarla desde segundo plano, y entonces la cancion
+    /// "suena" para el reproductor pero no se oye.
+    private static func restorePlaybackSession() {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(.playback, mode: .default, policy: .longFormAudio)
+            try session.setActive(true)
+            log("sesion de reproduccion: activa (\(appState))")
+        } catch {
+            log("sesion de reproduccion: ERROR \(describe(error)) (\(appState))")
+            PlayerController.shared.assertAudioSession()
+        }
+    }
+
+    /// Comprueba que la cancion suena DE VERDAD (a los 1 y 3 s): si el reproductor avanza y por donde sale el audio.
+    private static func verifyPlayback() async {
+        for seconds in [1, 3] {
+            try? await Task.sleep(nanoseconds: UInt64(seconds == 1 ? 1_000_000_000 : 2_000_000_000))
+            let session = AVAudioSession.sharedInstance()
+            let outputs = session.currentRoute.outputs.map { $0.portType.rawValue }.joined(separator: ",")
+            log("a los \(seconds) s: reproductor avanza \(PlayerController.shared.isAudioAdvancing), sesion \(session.category.rawValue), salida [\(outputs)], \(appState)")
         }
     }
 
@@ -299,7 +324,11 @@ enum VoiceSearch {
         }
         let text = (listener.final ?? listener.latest).trimmingCharacters(in: .whitespacesAndNewlines)
         log("oido: \"\(text)\" (parcial \"\(listener.latest)\", \(String(format: "%.1f", Date().timeIntervalSince(started))) s)")
-        if text.isEmpty { return listener.error != nil ? .failed : .silence }
+        if text.isEmpty {
+            // "No speech detected" (kAFAssistantErrorDomain 1110) es que no dijiste nada, no un fallo del microfono.
+            if let error = listener.error, !(error.domain == "kAFAssistantErrorDomain" && error.code == 1110) { return .failed }
+            return .silence
+        }
         return .heard(text)
     }
 }

@@ -124,8 +124,10 @@ struct WidgetPlayTrackIntent: AudioPlaybackIntent {
 /// iOS puede negarse a abrir el microfono sin la app abierta; el informe ("voz: ...") dice que paso en cada paso (ver `VoiceSearch`).
 /// Segun la documentacion de Apple, `AudioRecordingIntent` es lo que permite grabar audio desde un boton (con el indicador de grabacion) y exige
 /// una Live Activity mientras se graba; `LiveActivityIntent` hace que el sistema arranque la app SIN abrirla y deje iniciar esa Live Activity
-/// (el mismo esquema que usan las apps de dictado con el boton de accion y el Centro de control).
-struct WidgetVoiceIntent: AudioRecordingIntent, LiveActivityIntent {
+/// (el mismo esquema que usan las apps de dictado con el boton de accion y el Centro de control). Tambien es `AudioPlaybackIntent`: con solo
+/// las otras dos, el sistema no dejaba arrancar la musica desde segundo plano al terminar de escuchar (se oia la pregunta y se reconocia la voz,
+/// pero la cancion no sonaba y la app se cerraba).
+struct WidgetVoiceIntent: AudioRecordingIntent, LiveActivityIntent, AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Voice Search"
     static let isDiscoverable = false
 
