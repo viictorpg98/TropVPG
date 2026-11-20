@@ -118,11 +118,16 @@ enum CloudVoice {
         return ranked.sorted { $0.1 < $1.1 }.map { $0.0 }
     }
 
+    /// Voz por defecto si existe (probada en la web por el usuario). Con "Siguiente voz" se puede cambiar.
+    private static let preferredVoiceId = "lola"
+
     private static func currentVoiceId(fetchVoices: Bool) async -> String? {
         if let saved = UserDefaults.standard.string(forKey: voiceIdKey), !saved.isEmpty { return saved }
         // Dentro de la busqueda por voz no se pide la lista (una peticion mas con el coche en marcha): la elige Ajustes > Probar.
         guard fetchVoices else { return nil }
-        guard let first = await voices().first else {
+        // La voz que prefiere el usuario (Lola) si esta en la lista; si no, la que recomienda Speechify.
+        let all = await voices()
+        guard let first = all.first(where: { $0.id == preferredVoiceId }) ?? all.first else {
             setStatus("no se encontro ninguna voz en \(locale) (revisa la clave)")
             return nil
         }
