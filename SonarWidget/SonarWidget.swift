@@ -4,8 +4,8 @@
 //
 //  Widget pequeno de Sonar con cuatro botones: un circulo de color con su nombre debajo. Sale en la galeria de widgets del iPhone
 //  y, en iOS 26, tambien en CarPlay (Ajustes > General > CarPlay > tu coche > Personalizar).
-//  Botones: Para ti (tu mezcla), Mezclar (pasar a la siguiente con AutoMix), DJ (encender o apagar) y Actualizar (cambia las portadas de
-//  los demas widgets). Las acciones estan en Shared/WidgetIntents.swift y las ejecuta la app.
+//  Botones: Para ti (tu mezcla), Mezclar (pasar a la siguiente con AutoMix), DJ (encender o apagar) y Voz (di que quieres escuchar). El boton
+//  de actualizar las portadas de los demas widgets esta en su propio widget (SonarRefreshWidget.swift). Las acciones estan en Shared/WidgetIntents.swift y las ejecuta la app.
 //
 //  El boton DJ se ve ENCENDIDO o APAGADO sin lugar a dudas, y no solo por el color (en los modos tintado o transparente del iPhone
 //  el color se aplana): encendido es un circulo verde relleno con un aro blanco alrededor y el texto "DJ · ON"; apagado es un circulo
@@ -145,9 +145,9 @@ struct SonarWidgetView: View {
                 ) {
                     djCircle(on: entry.dj)
                 }
-                tile(WidgetRefreshIntent(), title: label("Actualizar", "Refresh")) {
-                    circle(symbol: "arrow.clockwise",
-                           top: Color(red: 1.00, green: 0.69, blue: 0.30), bottom: Color(red: 1.00, green: 0.48, blue: 0.27))
+                tile(WidgetVoiceListenIntent(), title: label("Voz", "Voice")) {
+                    circle(symbol: "mic.fill",
+                           top: Color(red: 0.36, green: 0.80, blue: 1.00), bottom: Color(red: 0.22, green: 0.52, blue: 0.98))
                 }
             }
         }
@@ -162,7 +162,7 @@ struct SonarWidget: Widget {
             SonarWidgetView(entry: entry)
         }
         .configurationDisplayName("Sonar")
-        .description("Para ti, mezclar ahora, DJ (encendido o apagado) y actualizar los demás widgets.")
+        .description("Para ti, mezclar ahora, DJ (encendido o apagado) y voz: di qué quieres escuchar.")
         .supportedFamilies([.systemSmall])
         // Sin los margenes por defecto (unos 16 pt): el contenido ocupa casi todo el widget, con su propio margen pequeno.
         .contentMarginsDisabled()
@@ -176,7 +176,7 @@ struct SonarWidgetBundle: WidgetBundle {
         SonarQuickPicksWidget()
         SonarQuickPicksBWidget()
         SonarSpeedDialWidget()
-        SonarVoiceWidget()
+        SonarRefreshWidget()
         SonarVoiceActivityWidget()
     }
 }

@@ -4,15 +4,16 @@
 //
 //  "¿Qué quieres escuchar?": la busqueda por voz del boton del widget "Sonar · Voz" (pensada para CarPlay, sin abrir la app).
 //
-//  Como se hace (segun la documentacion de Apple): el boton ejecuta `WidgetVoiceIntent`, que es `AudioRecordingIntent` (lo que permite abrir el
+//  Como se hace (segun la documentacion de Apple): el boton ejecuta `WidgetVoiceListenIntent`, que es `AudioRecordingIntent` (lo que permite abrir el
 //  microfono desde un boton, con el indicador de grabacion) y `LiveActivityIntent` (el sistema arranca la app SIN abrirla y deja iniciar la Live
 //  Activity que Apple exige mientras se graba; si no hay, la grabacion se para). Es el esquema de las apps de dictado con el boton de accion.
 //  Lo que NO esta comprobado es que funcione desde un widget en CarPlay: por eso es un EXPERIMENTO y cada paso apunta en el informe una linea
 //  "voz: ..." (app abierta o en segundo plano, permisos, Live Activity, sesion de audio, microfono, reconocedor, texto oido, errores con dominio
 //  y codigo).
 //
-//  EXPERIMENTO ACTUAL: la app se cerraba a los 2-3 s de empezar a sonar la cancion. Hay tres botones (variantes de intent, ver
-//  Shared/WidgetIntents.swift) y, tras acabar la accion, un latido por segundo en el registro: la ultima linea marca cuando murio el proceso.
+//  Se hace en DOS intents encadenados (lo que funciono en las pruebas del 20-11-2026): `WidgetVoiceListenIntent` (grabacion + Live Activity) solo
+//  escucha y devuelve `WidgetPlayQueryIntent` (solo AudioPlaybackIntent), que es quien pone la cancion. Cuando una misma intent grababa y reproducia,
+//  el proceso moria a los 2-3 s de empezar a sonar. Sin la escucha con Live Activity el microfono ni siquiera se abre (error avfaudio 2003329396).
 //
 //  Flujo: pausa la musica si sonaba → pregunta por voz → abre el microfono y reconoce (termina cuando callas, maximo ~9 s) → busca lo oido
 //  como en el buscador (`SonarMix.playSong`: primero entre las descargadas, luego YouTube Music) → suena. Si no se oye nada o falla, lo dice
@@ -56,12 +57,6 @@ enum VoiceSearch {
         log("Live Activity: cerrada")
     }
 
-    private static func updateActivity(phase: String) async {
-        guard let current = activity else { return }
-        await current.update(ActivityContent(state: VoiceActivityAttributes.ContentState(phase: phase), staleDate: nil))
-        log("Live Activity: fase \(phase)")
-    }
-
     /// Cierra las Live Activities que quedaron colgadas (la app se cerro con "Escuchando…" o "Reproduciendo…" en pantalla). Solo las de hace mas de
     /// un minuto: si el arranque de la app coincide con una busqueda en marcha, no se toca la suya.
     static func endOrphanedActivities() async {
@@ -69,16 +64,6 @@ enum VoiceSearch {
             await orphan.end(nil, dismissalPolicy: .immediate)
             log("Live Activity colgada cerrada", report: false)
         }
-    }
-
-    /// Que hacer con la Live Activity en cada variante del boton (experimento).
-    enum ActivityMode {
-        /// Sin Live Activity (el boton 3: solo `AudioPlaybackIntent`).
-        case none
-        /// Se cierra al terminar de escuchar (la version anterior).
-        case endAfterListening
-        /// Sigue en pantalla ("Reproduciendo…") unos 30 s despues de empezar a sonar.
-        case keepThroughPlayback
     }
 
     /// Cada linea va al informe y a un fichero que se fuerza a disco al momento (`VoiceLog`): la app puede cerrarse en mitad de la escucha.
@@ -158,10 +143,9 @@ enum VoiceSearch {
         case failed
     }
 
-    /// `source`: nombre del intento en el registro. `playInside`: false = solo escucha y devuelve lo oido (la cadena del boton 2 lo pone luego con otro
-    /// intent). Devuelve lo que se buscara (ya sin "pon...") si se oyo algo.
-    @discardableResult
-    static func run(source: String, activity mode: ActivityMode = .endAfterListening, playInside: Bool = true) async -> String? {
+    /// Pregunta, escucha y devuelve lo que se buscara (ya sin "pon...") si se oyo algo. NO pone la cancion: la pone `playChained`, en otro intent.
+    /// `source`: nombre del intento en el registro.
+    static func run(source: String) async -> String? {
         guard !running else {
             log("ya hay una busqueda en marcha")
             return nil
@@ -179,21 +163,18 @@ enum VoiceSearch {
             return nil
         }
 
-        if mode != .none { startActivity() }
-        var keepActivity = false
-        defer {
-            if !keepActivity { Task { @MainActor in await endActivity() } }
-        }
+        startActivity()
+        defer { Task { @MainActor in await endActivity() } }
         let wasPlaying = NowPlaying.shared.isPlaying
         if wasPlaying { PlayerController.shared.setPaused(true) }
-        var startedSomething = false
+        var handedOver = false
         defer {
-            if !startedSomething, wasPlaying { PlayerController.shared.setPaused(false) }
+            if !handedOver, wasPlaying { PlayerController.shared.setPaused(false) }
         }
 
         await speaker.speak(phrase("¿Qué quieres escuchar?", "What do you want to listen to?"))
         let result = await listen()
-        if mode != .keepThroughPlayback { await endActivity() }
+        await endActivity()
         // Se cierra el microfono y vuelve la sesion de reproduccion antes de buscar.
         restorePlaybackSession()
         log("tras escuchar: \(memoryLeft)")
@@ -206,37 +187,14 @@ enum VoiceSearch {
         case .heard(let spoken):
             let query = normalized(spoken)
             log("busqueda: \"\(query)\" (oido: \"\(spoken)\")")
-            guard playInside else {
-                startedSomething = true  // el otro intent pone la cancion: no se reanuda la anterior
-                log("accion: termina (solo escucha); la cadena pone la cancion")
-                return query
-            }
-            if let found = await SonarMix.playSong(named: query) {
-                startedSomething = true
-                log("el reproductor acepto: \(found.title)")
-                if mode == .keepThroughPlayback {
-                    await updateActivity(phase: "playing")
-                    keepActivity = true
-                    let kept = activity
-                    activity = nil
-                    Task { @MainActor in
-                        try? await Task.sleep(nanoseconds: 30_000_000_000)
-                        await kept?.end(nil, dismissalPolicy: .immediate)
-                        log("Live Activity: cerrada a los 30 s")
-                    }
-                }
-                log("accion: termina (\(mode)); \(memoryLeft)")
-                startHeartbeat()
-                return query
-            } else {
-                log("sin resultado")
-                await speaker.speak(phrase("No he encontrado eso.", "I couldn't find that."))
-            }
+            handedOver = true  // el otro intent pone la cancion: no se reanuda la anterior
+            log("accion: termina (solo escucha); la cadena pone la cancion")
+            return query
         }
         return nil
     }
 
-    /// La segunda mitad de la cadena del boton 2: el intent que recibe lo oido y lo pone. Apunta si el sistema de verdad lo ejecuta y en que estado.
+    /// La segunda mitad: el intent que recibe lo oido y lo pone. Apunta si el sistema de verdad lo ejecuta y en que estado.
     static func playChained(_ query: String) async {
         log("cadena: empieza (\(appState)); busqueda \"\(query)\"; \(memoryLeft)")
         guard !query.isEmpty else {
@@ -267,11 +225,11 @@ enum VoiceSearch {
         }
     }
 
-    /// Un latido por segundo durante 45 s tras acabar la accion (solo al fichero): la ultima linea que quede es el momento en que el proceso murio,
+    /// Un latido por segundo durante 20 s tras acabar la accion (solo al fichero): la ultima linea que quede es el momento en que el proceso murio,
     /// si murio. Dice si la cancion avanza, el estado de la app y cuanto tiempo en segundo plano le queda.
     private static func startHeartbeat() {
         Task { @MainActor in
-            for second in 1...45 {
+            for second in 1...20 {
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
                 let remaining = UIApplication.shared.backgroundTimeRemaining
                 let limit = remaining > 1000 ? "sin limite" : String(format: "%.0f s", remaining)
@@ -279,7 +237,7 @@ enum VoiceSearch {
                 let outputs = session.currentRoute.outputs.map { $0.portType.rawValue }.joined(separator: ",")
                 log("latido \(second): avanza \(PlayerController.shared.isAudioAdvancing), \(appState), segundo plano \(limit), \(memoryLeft), salida [\(outputs)]", report: false)
             }
-            log("latidos: fin (el proceso siguio vivo 45 s)")
+            log("latidos: fin (el proceso siguio vivo 20 s)")
         }
     }
 

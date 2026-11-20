@@ -49,7 +49,10 @@ struct PlayerSettingsView: View {
                     voiceBusy = true
                     Task {
                         await VoiceSearch.requestPermissions()
-                        await VoiceSearch.run(source: "ajustes")
+                        // Los mismos dos pasos que el widget: escuchar y luego poner.
+                        if let query = await VoiceSearch.run(source: "ajustes") {
+                            await VoiceSearch.playChained(query)
+                        }
                         lastVoiceAttempt = VoiceLog.text
                         voiceBusy = false
                     }
