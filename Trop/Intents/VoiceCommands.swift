@@ -105,7 +105,8 @@ enum VoiceCommands {
     private static let forYouAliases = ["parati", "mimezcla", "mimusica", "paratimezcla", "mimezclaparati", "foryou", "mymix", "mymusic"]
     private static let downloadsAliases = [
         "descargas", "misdescargas", "descargado", "descargada", "descargadas", "descargados", "musicadescargada", "cancionesdescargadas",
-        "misdescargadas", "sinconexion", "sinred", "offline", "downloads", "mydownloads", "downloaded"
+        "misdescargadas", "mimusicadescargada", "mismusicasdescargadas", "sinconexion", "sinred", "offline", "downloads", "mydownloads",
+        "downloaded"
     ]
     private static let likedAliases = [
         "megusta", "mismegusta", "megustan", "quemegustan", "quemegusta", "favoritas", "misfavoritas", "misfavoritos", "favoritos",
@@ -153,7 +154,8 @@ enum VoiceCommands {
         let compact = core.joined()
 
         // El DJ (se oye de muchas formas: "di yei", "de jota"...).
-        if hit(compact, djAliases, fuzzy: fuzzy) {
+        // "de jota" se oye mucho para "DJ", pero "de" es una palabra de relleno y se habria quitado: se mira aparte.
+        if hit(compact, djAliases, fuzzy: fuzzy) || (compact == "jota" && tokenSet.contains("de")) {
             if !tokenSet.isDisjoint(with: offVerbs), tokenSet.isDisjoint(with: ["on"]) { return .dj(on: false) }
             if !tokenSet.isDisjoint(with: onVerbs) { return .dj(on: true) }
             return .dj(on: nil)
