@@ -15,10 +15,9 @@ struct SearchSection: Identifiable {
 
 enum SearchParser {
 
-    static func parseSearchResults(from json: [String: Any]) -> [SearchSection] {
-        guard let contents = json["contents"] as? [String: Any] else { return [] }
-
-        let sectionList: [[String: Any]]?
+    /// Las secciones de la respuesta de busqueda (en las dos formas en que YouTube Music las manda).
+    private static func sectionListContents(from json: [String: Any]) -> [[String: Any]]? {
+        guard let contents = json["contents"] as? [String: Any] else { return nil }
 
         if let tabbed = contents["tabbedSearchResultsRenderer"] as? [String: Any],
            let tabs = tabbed["tabs"] as? [[String: Any]],
@@ -26,16 +25,27 @@ enum SearchParser {
            let tabRenderer = firstTab["tabRenderer"] as? [String: Any],
            let content = tabRenderer["content"] as? [String: Any],
            let slr = content["sectionListRenderer"] as? [String: Any] {
-
-            sectionList = slr["contents"] as? [[String: Any]]
-
-        } else if let slr = contents["sectionListRenderer"] as? [String: Any] {
-            sectionList = slr["contents"] as? [[String: Any]]
-        } else {
-            sectionList = nil
+            return slr["contents"] as? [[String: Any]]
         }
+        if let slr = contents["sectionListRenderer"] as? [String: Any] {
+            return slr["contents"] as? [[String: Any]]
+        }
+        return nil
+    }
 
-        guard let list = sectionList else { return [] }
+    /// El "mejor resultado" (la tarjeta de arriba): cancion, artista, album... segun lo que YouTube Music considere que se pidio. `nil` si no hay
+    /// tarjeta. No depende del titulo de la seccion (que sale traducido segun el idioma).
+    static func topResult(from json: [String: Any]) -> YTItem? {
+        for sectionDict in sectionListContents(from: json) ?? [] {
+            if let cardShelf = sectionDict["musicCardShelfRenderer"] as? [String: Any] {
+                return parseTopResult(from: cardShelf)
+            }
+        }
+        return nil
+    }
+
+    static func parseSearchResults(from json: [String: Any]) -> [SearchSection] {
+        guard let list = sectionListContents(from: json) else { return [] }
 
         var allSections: [SearchSection] = []
 

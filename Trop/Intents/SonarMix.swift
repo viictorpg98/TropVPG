@@ -482,6 +482,121 @@ enum SonarMix {
         text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil).lowercased()
     }
 
+    // MARK: - Pedido por voz
+
+    /// Lo que se pondra por voz, ya decidido pero sin sonar todavia (asi se puede decir "Poniendo X" antes de empezar).
+    struct VoiceTarget {
+        enum Kind { case song, artist, album }
+        var kind: Kind
+        var title: String
+        var artist: String?
+        var songs: [SongItem]
+        /// `true`: `songs` es la cola entera (artista, album). `false`: suena `songs[0]` y sigue con su radio.
+        var asQueue: Bool
+    }
+
+    /// Decide que poner para lo que se dijo, como el buscador: una cancion descargada cuyo titulo lleva todo lo pedido gana (vale sin red); si no, manda
+    /// el "mejor resultado" de YouTube Music: artista = sus canciones mas conocidas, album = el album entero, y lo demas = la cancion mas parecida.
+    static func resolveVoiceRequest(_ query: String) async -> VoiceTarget? {
+        let words = searchWords(query)
+        guard !words.isEmpty else { return nil }
+        await prepareSession()
+        trace("pedido por voz: \(query)")
+
+        func songTarget(_ song: SongItem) -> VoiceTarget {
+            VoiceTarget(kind: .song, title: song.title, artist: song.artists.first?.name, songs: [song], asQueue: false)
+        }
+
+        let downloadedMatch = bestDownloadedMatch(words, in: await downloadedSongs())
+        if let match = downloadedMatch {
+            let title = searchWords(match.title).joined(separator: " ")
+            if words.allSatisfy({ title.contains($0) }) {
+                trace("pedido por voz: encontrada entre las descargadas")
+                return songTarget(match)
+            }
+        }
+        guard NetworkMonitor.shared.hasConnection, let raw = try? await SearchService.shared.search(query: query) else {
+            return downloadedMatch.map(songTarget)
+        }
+        let sections = SearchParser.parseSearchResults(from: raw)
+        let top = SearchParser.topResult(from: raw)
+        switch top {
+        case .artist(let artist)?:
+            if let target = artistTarget(named: artist.name, in: sections) {
+                trace("pedido por voz: mejor resultado = artista \(artist.name)")
+                return target
+            }
+        case .album(let album)?:
+            if let target = await albumTarget(album) {
+                trace("pedido por voz: mejor resultado = album \(target.title)")
+                return target
+            }
+        default:
+            break
+        }
+
+        var chosen: SongItem?
+        if case .song(let topSong)? = top {
+            let all = sections.flatMap(\.items).compactMap { item -> SongItem? in
+                if case .song(let song) = item { return song }
+                return nil
+            }
+            chosen = all.first { $0.videoId == topSong.videoId } ?? topSong
+        }
+        if chosen == nil {
+            let preferred = sections.first { $0.title.lowercased().contains("song") || $0.title.lowercased().contains("canci") }
+            for section in ([preferred].compactMap { $0 } + sections) {
+                for item in section.items {
+                    if case .song(let song) = item { chosen = song; break }
+                }
+                if chosen != nil { break }
+            }
+        }
+        trace("pedido por voz: cancion \(chosen?.title ?? "sin resultado")")
+        return chosen.map(songTarget) ?? downloadedMatch.map(songTarget)
+    }
+
+    /// Sus canciones mas conocidas (las de la busqueda); si salen menos de 4 suyas, la primera con su radio.
+    private static func artistTarget(named name: String, in sections: [SearchSection]) -> VoiceTarget? {
+        let words = searchWords(name)
+        var seen = Set<String>()
+        var byArtist: [SongItem] = []
+        var others: [SongItem] = []
+        for section in sections {
+            for item in section.items {
+                guard case .song(let song) = item, seen.insert(song.videoId).inserted else { continue }
+                let artists = searchWords(song.artists.map(\.name).joined(separator: " ")).joined(separator: " ")
+                if words.allSatisfy({ artists.contains($0) }) {
+                    byArtist.append(song)
+                } else {
+                    others.append(song)
+                }
+            }
+        }
+        guard let first = byArtist.first ?? others.first else { return nil }
+        if byArtist.count >= 4 {
+            return VoiceTarget(kind: .artist, title: name, artist: nil, songs: Array(byArtist.prefix(25)), asQueue: true)
+        }
+        return VoiceTarget(kind: .artist, title: name, artist: nil, songs: [first], asQueue: false)
+    }
+
+    private static func albumTarget(_ album: AlbumItem) async -> VoiceTarget? {
+        guard let json = try? await InnerTubeClient.tropShared.browse(browseId: album.browseId) else { return nil }
+        let info = AlbumDetailViewModel.parseAlbumDetail(from: json, browseId: album.browseId)
+        guard !info.songs.isEmpty else { return nil }
+        return VoiceTarget(kind: .album, title: info.title, artist: info.artists.first?.name, songs: info.songs, asQueue: true)
+    }
+
+    /// Pone lo decidido por `resolveVoiceRequest`. `true` si el audio llega a avanzar.
+    static func playVoiceTarget(_ target: VoiceTarget) async -> Bool {
+        if target.asQueue {
+            return await play(target.songs, context: target.kind == .album ? "album" : "artista")
+        }
+        guard let song = target.songs.first else { return false }
+        PlaybackQueue.playSingleWithRadio(song, log: Log.nowPlaying)
+        return await waitForAudio(seconds: 8)
+    }
+
     /// "Pon [artista]": sus canciones mas conocidas (las de la busqueda de YouTube Music) y, si salen pocas, la radio
     /// de la primera. Devuelve el nombre del artista, o `nil` si no encuentra nada.
     static func playArtist(named query: String) async -> String? {

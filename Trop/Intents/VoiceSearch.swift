@@ -188,7 +188,13 @@ enum VoiceSearch {
         }
 
         await speaker.speak(phrase("¿Qué quieres escuchar?", "What do you want to listen to?"))
-        let result = await listen()
+        var result = await listen()
+        // Si no te oye, pregunta una vez mas antes de rendirse (con el coche en marcha no se vuelve a pulsar el boton).
+        if case .silence = result {
+            log("silencio: se vuelve a preguntar")
+            await speaker.speak(phrase("No te he oído. ¿Qué quieres escuchar?", "I didn't hear you. What do you want to listen to?"))
+            result = await listen()
+        }
         // Se cierra el microfono y vuelve la sesion de reproduccion antes de buscar.
         restorePlaybackSession()
         log("tras escuchar: \(memoryLeft)")
@@ -197,20 +203,42 @@ enum VoiceSearch {
         case .failed:
             await speaker.speak(phrase("No puedo usar el micrófono desde aquí.", "I can't use the microphone from here."))
         case .silence:
-            await speaker.speak(phrase("No te he oído.", "I didn't hear you."))
+            await speaker.speak(phrase("Sigo sin oírte. Inténtalo otra vez.", "I still can't hear you. Try again."))
         case .heard(let spoken):
             let query = normalized(spoken)
             log("busqueda: \"\(query)\" (oido: \"\(spoken)\")")
-            if let found = await SonarMix.playSong(named: query) {
-                played = true
-                log("el reproductor acepto: \(found.title)")
-                await updateActivity(phase: "playing")
-                log("accion: termina; \(memoryLeft)")
-                startHeartbeat()
-            } else {
+            guard let target = await SonarMix.resolveVoiceRequest(query) else {
                 log("sin resultado")
-                await speaker.speak(phrase("No he encontrado eso.", "I couldn't find that."))
+                await speaker.speak(phrase("No he encontrado «\(query)».", "I couldn't find \"\(query)\"."))
+                break
             }
+            log("encontrado: \(target.kind) \"\(target.title)\" (\(target.songs.count) canciones, cola \(target.asQueue))")
+            await speaker.speak(announcement(for: target))
+            let started = await SonarMix.playVoiceTarget(target)
+            log("el reproductor \(started ? "arranco" : "NO arranco")")
+            played = started
+            if started { await updateActivity(phase: "playing") }
+            log("accion: termina; \(memoryLeft)")
+            startHeartbeat()
+        }
+    }
+
+    /// Lo que se dice antes de empezar. Los titulos en MAYUSCULAS se pasan a minusculas: si no, la voz los deletrea.
+    private static func announcement(for target: SonarMix.VoiceTarget) -> String {
+        func readable(_ text: String) -> String {
+            text == text.uppercased() ? text.lowercased() : text
+        }
+        let title = readable(target.title)
+        switch target.kind {
+        case .song:
+            if let artist = target.artist {
+                return phrase("Poniendo \(title), de \(readable(artist)).", "Playing \(title) by \(readable(artist)).")
+            }
+            return phrase("Poniendo \(title).", "Playing \(title).")
+        case .artist:
+            return phrase("Poniendo \(title).", "Playing \(title).")
+        case .album:
+            return phrase("Poniendo el álbum \(title).", "Playing the album \(title).")
         }
     }
 
@@ -261,16 +289,20 @@ enum VoiceSearch {
 
     // MARK: - Escuchar
 
-    /// Palabras que ayudan al reconocedor con nombres de artistas y canciones (las que mas escuchas).
+    /// Palabras que ayudan al reconocedor con nombres de artistas y canciones: primero los artistas (de lo que mas escuchas y de lo descargado) y
+    /// luego los titulos. Apple recomienda no pasar mas de unos cientos.
     private static func contextualStrings() async -> [String] {
         let top = (try? await DatabaseService.shared.fetchTopSongs(limit: 40)) ?? []
+        let downloaded = await DownloadManager.shared.fetchAll().map { SongItem(entity: $0) }
+        var artists: [String] = top.compactMap(\.artistName)
+        artists += downloaded.flatMap { $0.artists.map(\.name) }
+        var titles: [String] = top.map(\.title)
+        titles += downloaded.map(\.title)
         var seen = Set<String>()
         var result: [String] = []
-        for song in top {
-            for text in [song.artistName, song.title] {
-                guard let text, !text.isEmpty, seen.insert(text).inserted else { continue }
-                result.append(text)
-            }
+        for text in artists + titles {
+            guard !text.isEmpty, seen.insert(text).inserted else { continue }
+            result.append(text)
         }
         return Array(result.prefix(100))
     }
@@ -423,10 +455,30 @@ private final class OnceFlag: @unchecked Sendable {
 private final class Speaker: NSObject, AVSpeechSynthesizerDelegate, @unchecked Sendable {
     private let synthesizer = AVSpeechSynthesizer()
     private var continuation: CheckedContinuation<Void, Never>?
+    private var loggedVoice = false
+
+    /// La voz mas natural que haya instalada para el idioma del movil: Premium > Mejorada > Normal, y a igualdad la de la misma region (es-ES). Se
+    /// descartan las voces de novedad. Se pueden bajar mejores en Ajustes de iOS > Accesibilidad > Contenido hablado > Voces.
+    static func bestVoice() -> AVSpeechSynthesisVoice? {
+        let language = Locale.preferredLanguages.first ?? "es-ES"
+        let prefix = String(language.prefix(2))
+        let candidates = AVSpeechSynthesisVoice.speechVoices().filter {
+            $0.language.hasPrefix(prefix) && ($0.identifier.hasPrefix("com.apple.voice.") || $0.identifier.hasPrefix("com.apple.ttsbundle."))
+        }
+        func rank(_ voice: AVSpeechSynthesisVoice) -> Int {
+            voice.quality.rawValue * 10 + (voice.language == language ? 1 : 0)
+        }
+        return candidates.max { rank($0) < rank($1) } ?? AVSpeechSynthesisVoice(language: language)
+    }
 
     func speak(_ text: String) async {
         let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: Locale.preferredLanguages.first ?? "es-ES")
+        let voice = Self.bestVoice()
+        utterance.voice = voice
+        if !loggedVoice {
+            loggedVoice = true
+            VoiceLog.add("voz de lectura: \(voice?.name ?? "la del sistema") (calidad \(voice?.quality.rawValue ?? 0))")
+        }
         synthesizer.delegate = self
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             self.continuation = continuation
