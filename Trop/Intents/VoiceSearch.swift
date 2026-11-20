@@ -302,10 +302,13 @@ enum VoiceSearch {
         case .silence:
             await speaker.speak(pick(giveUpVariants))
         case .heard(let spoken, let alternatives):
+            // Todo lo que devolvio el reconocedor, para ajustar las ordenes con datos reales (con reconocimiento en el dispositivo puede traer solo una).
+            let others = alternatives.filter { $0 != spoken }.prefix(4).map { "\"\($0)\"" }.joined(separator: ", ")
+            log("transcripciones: \(alternatives.count) en total; mejor \"\(spoken)\"; otras [\(others)]")
             if let match = VoiceCommands.detect(best: spoken, alternatives: alternatives) {
-                let others = alternatives.filter { $0 != spoken }.prefix(3).map { "\"\($0)\"" }.joined(separator: ", ")
-                log("orden: \"\(spoken)\" (alternativas \(others)) -> \(match.command), \(match.exact ? "exacta" : "aproximada con \"\(match.source)\"")")
-                played = await handleCommand(match, wasPlaying: wasPlaying, speaker: speaker)
+                let how = match.exact ? "exacta" : "aproximada con \"\(match.source)\""
+                log("orden: \(match.command), \(how)")
+                played = await handleCommand(match, spoken: spoken, wasPlaying: wasPlaying, speaker: speaker)
             } else {
                 log("orden: ninguna; se busca como cancion")
                 played = await searchAndPlay(spoken, speaker: speaker)
@@ -451,11 +454,26 @@ enum VoiceSearch {
     private static let noWords: Set<String> = ["no", "nada", "cancela", "cancelar", "nope", "stop"]
 
     /// Ejecuta la orden; si no salio exacta, pregunta antes. Devuelve `true` si ha quedado sonando algo.
-    private static func handleCommand(_ match: VoiceCommandMatch, wasPlaying: Bool, speaker: Speaker) async -> Bool {
+    private static func handleCommand(_ match: VoiceCommandMatch, spoken: String, wasPlaying: Bool, speaker: Speaker) async -> Bool {
         if !match.exact, match.command.needsConfirmation {
-            guard await confirm(match.command, speaker: speaker) else { return false }
+            switch await confirm(match.command, speaker: speaker) {
+            case .yes:
+                break
+            case .no:
+                // Un "no" a "¿Pongo música de fiesta?" suele ser que querias una cancion con ese nombre: se busca como tal.
+                if match.command.couldBeSongTitle { return await searchAndPlay(spoken, speaker: speaker) }
+                await speaker.speak(pick(confirmNoVariants))
+                return false
+            case .unclear:
+                await speaker.speak(pick(confirmUnclearVariants))
+                return false
+            }
         }
         return await execute(match.command, wasPlaying: wasPlaying, speaker: speaker)
+    }
+
+    private enum Confirmation {
+        case yes, no, unclear
     }
 
     private static func question(for command: VoiceCommand) -> String {
@@ -482,22 +500,20 @@ enum VoiceSearch {
     }
 
     /// Pregunta "¿Activo el DJ?" y espera un si o un no (escucha corta). Solo se usa si la orden no salio clara.
-    private static func confirm(_ command: VoiceCommand, speaker: Speaker) async -> Bool {
+    private static func confirm(_ command: VoiceCommand, speaker: Speaker) async -> Confirmation {
         await speaker.speak(question(for: command))
         let answer = await listen(quick: true)
         restorePlaybackSession()
         guard case .heard(let said, let alternatives) = answer else {
             log("confirmacion: sin respuesta")
-            await speaker.speak(pick(confirmUnclearVariants))
-            return false
+            return .unclear
         }
         let heard = Set(([said] + alternatives).flatMap { VoiceCommands.words($0) })
         let yes = !heard.isDisjoint(with: yesWords)
         let no = !heard.isDisjoint(with: noWords)
-        log("confirmacion: \"\(said)\" -> \(yes && !no ? "si" : (no ? "no" : "sin entender"))")
-        if yes, !no { return true }
-        await speaker.speak(pick(no ? confirmNoVariants : confirmUnclearVariants))
-        return false
+        let result: Confirmation = (yes && !no) ? .yes : (no ? .no : .unclear)
+        log("confirmacion: \"\(said)\" -> \(result)")
+        return result
     }
 
     /// Hace la orden. `true` si queda sonando algo nuevo; con `false`, la musica que sonaba antes se reanuda al terminar la busqueda.

@@ -4,7 +4,7 @@
 //
 //  Ordenes por voz ("mis descargas", "activa el DJ", "apagalo en media hora"...) que se reconocen ANTES de buscar una cancion. Solo cuenta como
 //  orden si lo que dijiste ES la orden entera (con "pon", "activa", "por favor" y articulos de sobra): "pon DJ Snake" o "pon Mezcla de Quevedo"
-//  llevan mas palabras y se buscan como cancion. Para forzar la busqueda se puede empezar por "busca" o "la cancion".
+//  llevan mas palabras y se buscan como cancion. Para forzar la busqueda se puede empezar por "busca".
 //
 //  Como no fallar con las palabras cortas ("DJ", "mezcla"): se miran TODAS las transcripciones que devuelve el reconocedor, no solo la mejor, y se
 //  admite una letra de diferencia en las palabras largas. Si la orden solo sale de una alternativa o de una coincidencia aproximada, Sonar
@@ -27,6 +27,14 @@ enum VoiceCommand: Equatable {
     /// `minutes`: `nil` si se pidio el temporizador pero no se entendio el tiempo.
     case sleepTimer(minutes: Int?)
     case category(SonarCategory)
+
+    /// Si la orden se confirmo con un "no", puede que en realidad fuera una cancion ("Dormir", "Me gusta", "Fiestas"): se busca como tal.
+    var couldBeSongTitle: Bool {
+        switch self {
+        case .downloads, .forYou, .liked, .random, .quickPicks, .mix, .category: return true
+        case .nowPlaying, .cancelTimer, .dj, .sleepTimer: return false
+        }
+    }
 
     /// Preguntar antes de hacerlo si la orden no salio exacta. "Que suena" no cambia nada: no hace falta.
     var needsConfirmation: Bool {
@@ -92,7 +100,13 @@ enum VoiceCommands {
         "activa", "activar", "enciende", "encender", "arranca", "arrancar", "inicia", "iniciar", "empieza", "empezar", "pon", "ponme",
         "poner", "start", "on", "enable"
     ]
-    private static let timerWords: Set<String> = ["temporizador", "timer", "cuenta", "atras"]
+    private static let timerWords: Set<String> = ["temporizador", "timer"]
+    /// Todo lo que puede decirse en una frase de temporizador; si hay una palabra mas, es otra cosa (una cancion, por ejemplo).
+    private static let timerVocabulary: Set<String> = [
+        "en", "de", "y", "media", "medio", "cuarto", "hora", "horas", "minuto", "minutos", "min", "mins", "hour", "hours", "minute",
+        "minutes", "musica", "music", "half", "an", "in", "for", "sleep", "duermete", "duerme", "apagalo", "apagame", "paralo",
+        "temporizador", "timer", "cuenta", "atras", "cancela", "cancelar", "anula", "anular", "cancel", "elimina", "borra", "mi", "mis"
+    ]
     private static let cancelWords: Set<String> = [
         "cancela", "cancelar", "anula", "anular", "quita", "quitar", "desactiva", "desactivar", "elimina", "borra", "cancel"
     ]
@@ -136,17 +150,20 @@ enum VoiceCommands {
         guard !tokens.isEmpty, tokens.count <= 10 else { return nil }
         let tokenSet = Set(tokens)
 
-        // Temporizador: cancelarlo o programarlo.
-        if !tokenSet.isDisjoint(with: timerWords) {
-            if !tokenSet.isDisjoint(with: cancelWords) { return .cancelTimer }
-            return .sleepTimer(minutes: minutes(in: tokens))
-        }
-        let hasTimeUnit = !tokenSet.isDisjoint(with: ["minuto", "minutos", "min", "mins", "minute", "minutes", "hora", "horas", "hour", "hours"])
-        if hasTimeUnit, !tokenSet.isDisjoint(with: ["apagalo", "apagame", "apaga", "apagar", "duermete", "duerme", "para", "paralo", "stop", "sleep"]) {
-            if let amount = minutes(in: tokens) { return .sleepTimer(minutes: amount) }
-        }
-        if tokenSet.contains("duermete") || (tokenSet.contains("sleep") && tokenSet.contains("in")) {
-            return .sleepTimer(minutes: minutes(in: tokens))
+        // Temporizador: cancelarlo o programarlo. Solo si TODAS las palabras son del temporizador ("pon No Mires Atras" no lo es).
+        let isTimerPhrase = tokens.allSatisfy { fillers.contains($0) || timerVocabulary.contains($0) || number($0) != nil }
+        if isTimerPhrase {
+            let hasTimerWord = !tokenSet.isDisjoint(with: timerWords) || (tokenSet.contains("cuenta") && tokenSet.contains("atras"))
+            if hasTimerWord {
+                if !tokenSet.isDisjoint(with: cancelWords) { return .cancelTimer }
+                return .sleepTimer(minutes: minutes(in: tokens))
+            }
+            let hasTimeUnit = !tokenSet.isDisjoint(with: ["minuto", "minutos", "min", "mins", "minute", "minutes", "hora", "horas", "hour", "hours"])
+            let hasStopVerb = !tokenSet.isDisjoint(with: ["apagalo", "apagame", "apaga", "apagar", "duermete", "duerme", "paralo", "stop", "sleep"])
+            if hasTimeUnit, hasStopVerb, let amount = minutes(in: tokens) { return .sleepTimer(minutes: amount) }
+            if tokenSet.contains("duermete") || (tokenSet.contains("sleep") && tokenSet.contains("in")) {
+                return .sleepTimer(minutes: minutes(in: tokens))
+            }
         }
 
         let core = tokens.filter { !fillers.contains($0) }
@@ -174,7 +191,7 @@ enum VoiceCommands {
         }
 
         // Categorias ("algo para dormir").
-        let categoryCore = core.filter { !["para", "for", "to", "me", "mi", "musica", "music", "relajante", "cancion", "canciones", "temas"].contains($0) }
+        let categoryCore = core.filter { !["para", "for", "to", "me", "mi", "musica", "music", "cancion", "canciones", "temas"].contains($0) }
         if !categoryCore.isEmpty {
             let categoryCompact = categoryCore.joined()
             for (category, aliases) in categoryAliases where hit(categoryCompact, aliases, fuzzy: fuzzy) {
