@@ -40,11 +40,11 @@ struct SonarVoiceActivityWidget: Widget {
                         .font(.system(size: 16, weight: .semibold, design: .rounded))
                 }
             } compactLeading: {
-                Image(systemName: "mic.fill")
+                Image(systemName: context.state.phase == "playing" ? "waveform" : "mic.fill")
             } compactTrailing: {
                 EmptyView()
             } minimal: {
-                Image(systemName: "mic.fill")
+                Image(systemName: context.state.phase == "playing" ? "waveform" : "mic.fill")
             }
         }
     }
