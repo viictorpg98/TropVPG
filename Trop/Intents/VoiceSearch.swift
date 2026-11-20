@@ -149,15 +149,96 @@ enum VoiceSearch {
         return microphone && speech == .authorized
     }
 
+    // MARK: - Frases (con varias versiones, para que no suene siempre igual)
+
+    private struct Variants {
+        let key: String
+        let es: [String]
+        let en: [String]
+    }
+
+    private static let questionVariants = Variants(
+        key: "question",
+        es: [
+            "¿Qué quieres escuchar?", "¿Qué te pongo?", "Dime, ¿qué te apetece escuchar?", "¿Qué ponemos?",
+            "Te escucho. ¿Qué pongo?", "¿Qué música quieres?"
+        ],
+        en: [
+            "What do you want to listen to?", "What can I play for you?", "Tell me, what do you feel like hearing?",
+            "What shall we play?", "I'm listening. What should I play?", "What music do you want?"
+        ]
+    )
+    private static let retryVariants = Variants(
+        key: "retry",
+        es: ["No te he oído. ¿Qué quieres escuchar?", "Perdona, no te he oído. ¿Qué pongo?", "¿Cómo dices? No te he oído."],
+        en: ["I didn't hear you. What do you want to listen to?", "Sorry, I didn't catch that. What should I play?", "Pardon? I didn't hear you."]
+    )
+    private static let giveUpVariants = Variants(
+        key: "giveup",
+        es: ["Sigo sin oírte. Inténtalo otra vez.", "Sigue sin llegarme nada. Prueba otra vez."],
+        en: ["I still can't hear you. Try again.", "I'm still not getting anything. Try again."]
+    )
+    private static let micFailVariants = Variants(
+        key: "micfail",
+        es: ["No puedo usar el micrófono desde aquí.", "El micrófono no me deja escucharte desde aquí."],
+        en: ["I can't use the microphone from here.", "The microphone won't let me listen from here."]
+    )
+    private static let notFoundVariants = Variants(
+        key: "notfound",
+        es: ["No he encontrado «{q}».", "No encuentro nada de «{q}».", "Lo siento, no he encontrado «{q}»."],
+        en: ["I couldn't find \"{q}\".", "I can't find anything for \"{q}\".", "Sorry, I couldn't find \"{q}\"."]
+    )
+    private static let songWithArtistVariants = Variants(
+        key: "song-artist",
+        es: [
+            "Poniendo {t}, de {a}.", "Ahí va {t}, de {a}.", "Marchando {t}, de {a}.", "Te pongo {t}, de {a}.",
+            "Vamos con {t}, de {a}.", "Aquí tienes {t}, de {a}."
+        ],
+        en: [
+            "Playing {t} by {a}.", "Here goes {t} by {a}.", "Coming up, {t} by {a}.", "Putting on {t} by {a}.",
+            "Let's go with {t} by {a}.", "Here you go: {t} by {a}."
+        ]
+    )
+    private static let songOnlyVariants = Variants(
+        key: "song",
+        es: ["Poniendo {t}.", "Ahí va {t}.", "Marchando {t}.", "Te pongo {t}.", "Vamos con {t}."],
+        en: ["Playing {t}.", "Here goes {t}.", "Coming up, {t}.", "Putting on {t}.", "Let's go with {t}."]
+    )
+    private static let artistVariants = Variants(
+        key: "artist",
+        es: ["Poniendo lo mejor de {t}.", "Te pongo a {t}.", "Ahí va {t}.", "Marchando un poco de {t}."],
+        en: ["Playing the best of {t}.", "Putting on {t}.", "Here goes {t}.", "Coming up, some {t}."]
+    )
+    private static let albumWithArtistVariants = Variants(
+        key: "album-artist",
+        es: ["Poniendo el álbum {t}, de {a}.", "Ahí va el álbum {t}, de {a}.", "Marchando el álbum {t}, de {a}."],
+        en: ["Playing the album {t} by {a}.", "Here goes the album {t} by {a}.", "Coming up, the album {t} by {a}."]
+    )
+    private static let albumOnlyVariants = Variants(
+        key: "album",
+        es: ["Poniendo el álbum {t}.", "Ahí va el álbum {t}.", "Marchando el álbum {t}."],
+        en: ["Playing the album {t}.", "Here goes the album {t}.", "Coming up, the album {t}."]
+    )
+
+    /// Una de las versiones, al azar y sin repetir la ultima que se dijo.
+    private static func pick(_ variants: Variants) -> String {
+        let options = spanish ? variants.es : variants.en
+        guard options.count > 1 else { return options.first ?? "" }
+        let key = "voice.variant.\(variants.key)"
+        let last = UserDefaults.standard.object(forKey: key) as? Int ?? -1
+        let index = options.indices.filter { $0 != last }.randomElement() ?? 0
+        UserDefaults.standard.set(index, forKey: key)
+        return options[index]
+    }
+
+    private static func fill(_ text: String, _ values: [String: String]) -> String {
+        values.reduce(text) { $0.replacingOccurrences(of: $1.key, with: $1.value) }
+    }
+
     /// Las frases que no cambian: se dejan generadas de antemano (Ajustes > Probar la voz en la nube) para que suenen al instante.
     static var fixedPhrases: [String] {
-        [
-            phrase("¿Qué quieres escuchar?", "What do you want to listen to?"),
-            phrase("No te he oído. ¿Qué quieres escuchar?", "I didn't hear you. What do you want to listen to?"),
-            phrase("Sigo sin oírte. Inténtalo otra vez.", "I still can't hear you. Try again."),
-            phrase("No puedo usar el micrófono desde aquí.", "I can't use the microphone from here."),
-            phrase("Abre Sonar y activa la voz en Ajustes.", "Open Sonar and turn on voice in Settings.")
-        ]
+        let all = [questionVariants, retryVariants, giveUpVariants, micFailVariants]
+        return all.flatMap { spanish ? $0.es : $0.en } + [phrase("Abre Sonar y activa la voz en Ajustes.", "Open Sonar and turn on voice in Settings.")]
     }
 
     static var sampleSentence: String {
@@ -203,12 +284,12 @@ enum VoiceSearch {
             if !played, wasPlaying { PlayerController.shared.setPaused(false) }
         }
 
-        await speaker.speak(phrase("¿Qué quieres escuchar?", "What do you want to listen to?"))
+        await speaker.speak(pick(questionVariants))
         var result = await listen()
         // Si no te oye, pregunta una vez mas antes de rendirse (con el coche en marcha no se vuelve a pulsar el boton).
         if case .silence = result {
             log("silencio: se vuelve a preguntar")
-            await speaker.speak(phrase("No te he oído. ¿Qué quieres escuchar?", "I didn't hear you. What do you want to listen to?"))
+            await speaker.speak(pick(retryVariants))
             result = await listen()
         }
         // Se cierra el microfono y vuelve la sesion de reproduccion antes de buscar.
@@ -217,15 +298,15 @@ enum VoiceSearch {
 
         switch result {
         case .failed:
-            await speaker.speak(phrase("No puedo usar el micrófono desde aquí.", "I can't use the microphone from here."))
+            await speaker.speak(pick(micFailVariants))
         case .silence:
-            await speaker.speak(phrase("Sigo sin oírte. Inténtalo otra vez.", "I still can't hear you. Try again."))
+            await speaker.speak(pick(giveUpVariants))
         case .heard(let spoken):
             let query = normalized(spoken)
             log("busqueda: \"\(query)\" (oido: \"\(spoken)\")")
             guard let target = await SonarMix.resolveVoiceRequest(query) else {
                 log("sin resultado")
-                await speaker.speak(phrase("No he encontrado «\(query)».", "I couldn't find \"\(query)\"."))
+                await speaker.speak(fill(pick(notFoundVariants), ["{q}": query]))
                 break
             }
             log("encontrado: \(target.kind) \"\(target.title)\" (\(target.songs.count) canciones, cola \(target.asQueue))")
@@ -239,23 +320,34 @@ enum VoiceSearch {
         }
     }
 
-    /// Lo que se dice antes de empezar. Los titulos en MAYUSCULAS se pasan a minusculas: si no, la voz los deletrea.
+    /// Lo que se dice antes de empezar: nombre de la cancion y artista, con una de varias formas.
     private static func announcement(for target: SonarMix.VoiceTarget) -> String {
-        func readable(_ text: String) -> String {
-            text == text.uppercased() ? text.lowercased() : text
-        }
-        let title = readable(target.title)
+        let title = spokenText(target.title)
+        let artist = target.artist.map(spokenText)
         switch target.kind {
         case .song:
-            if let artist = target.artist {
-                return phrase("Poniendo \(title), de \(readable(artist)).", "Playing \(title) by \(readable(artist)).")
-            }
-            return phrase("Poniendo \(title).", "Playing \(title).")
+            if let artist { return fill(pick(songWithArtistVariants), ["{t}": title, "{a}": artist]) }
+            return fill(pick(songOnlyVariants), ["{t}": title])
         case .artist:
-            return phrase("Poniendo \(title).", "Playing \(title).")
+            return fill(pick(artistVariants), ["{t}": title])
         case .album:
-            return phrase("Poniendo el álbum \(title).", "Playing the album \(title).")
+            if let artist { return fill(pick(albumWithArtistVariants), ["{t}": title, "{a}": artist]) }
+            return fill(pick(albumOnlyVariants), ["{t}": title])
         }
+    }
+
+    /// Lo que se lee en voz alta de un titulo: sin lo que va entre parentesis o corchetes ("(Official Video)", "[Remastered]"), sin MAYUSCULAS
+    /// (la voz las deletrea) y sin pasar de ~60 caracteres.
+    private static func spokenText(_ raw: String) -> String {
+        var text = raw.replacingOccurrences(of: "\\s*[\\(\\[][^\\)\\]]*[\\)\\]]", with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces)
+        if text.isEmpty { text = raw }
+        if text == text.uppercased() { text = text.lowercased() }
+        if text.count > 60 {
+            let cut = String(text.prefix(60))
+            text = cut.lastIndex(of: " ").map { String(cut[..<$0]) } ?? cut
+        }
+        return text
     }
 
     /// Vuelve a la sesion de audio de reproduccion apuntando el resultado: iOS puede negar activarla desde segundo plano, y entonces la cancion
@@ -292,13 +384,28 @@ enum VoiceSearch {
     static func normalized(_ spoken: String) -> String {
         let fillers: Set<String> = [
             "pon", "ponme", "poner", "ponga", "pones", "reproduce", "reproducir", "busca", "buscame", "buscar", "quiero",
-            "escuchar", "oir", "oír", "play", "puedes", "por", "favor", "oye", "podrias", "podrías"
+            "escuchar", "oir", "oír", "play", "puedes", "por", "favor", "oye", "podrias", "podrías",
+            "algo", "alguno", "alguna", "algún", "algun", "unas", "unos", "una", "un", "cancion", "canción", "canciones", "tema", "temas",
+            "musica", "música"
         ]
+        // Solo se quitan si ya se quito algo antes (un artista puede llamarse "De La Ghetto" o "Me Gustas").
+        let afterFillers: Set<String> = ["me", "de", "del"]
         var words = spoken.split(separator: " ").map(String.init)
         var removed = false
-        while words.count > 1, let first = words.first?.lowercased(), fillers.contains(first) || (removed && first == "me") {
+        while words.count > 1, let first = words.first?.lowercased(), fillers.contains(first) || (removed && afterFillers.contains(first)) {
             words.removeFirst()
             removed = true
+        }
+        // Al final: "por favor", "gracias".
+        while words.count > 1 {
+            let last = words[words.count - 1].lowercased()
+            if ["gracias", "porfa", "porfavor"].contains(last) {
+                words.removeLast()
+            } else if last == "favor", words.count > 2, words[words.count - 2].lowercased() == "por" {
+                words.removeLast(2)
+            } else {
+                break
+            }
         }
         return words.joined(separator: " ")
     }

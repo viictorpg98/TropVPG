@@ -186,7 +186,9 @@ enum CloudVoice {
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let base64 = json["audio_data"] as? String,
                   let audio = Data(base64Encoded: base64) else {
-                setStatus(explain(code))
+                // El mensaje que manda Speechify (p. ej. el motivo exacto de un 402) tambien va al registro.
+                let detail = ((try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? [String: Any])?["message"] as? String
+                setStatus(explain(code) + (detail.map { ": \($0)" } ?? ""))
                 return nil
             }
             return audio
@@ -198,7 +200,7 @@ enum CloudVoice {
     private static func explain(_ code: Int) -> String {
         switch code {
         case 401: return "error 401: la clave de API no vale"
-        case 402: return "error 402: se acabo el cupo gratis de este mes (suena la voz del sistema)"
+        case 402: return "error 402: sin creditos o tope de gasto alcanzado (suena la voz del sistema)"
         case 429: return "error 429: demasiadas peticiones seguidas"
         default: return "error \(code)"
         }

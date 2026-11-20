@@ -522,8 +522,17 @@ enum SonarMix {
         let top = SearchParser.topResult(from: raw)
         switch top {
         case .artist(let artist)?:
-            if let target = artistTarget(named: artist.name, in: sections) {
-                trace("pedido por voz: mejor resultado = artista \(artist.name)")
+            var target = artistTarget(named: artist.name, in: sections)
+            // Con una frase larga ("alguna cancion de ...") la busqueda trae pocas canciones suyas: se busca otra vez solo con su nombre.
+            if target?.asQueue != true,
+               searchWords(artist.name) != words,
+               let again = try? await SearchService.shared.search(query: artist.name),
+               let better = artistTarget(named: artist.name, in: SearchParser.parseSearchResults(from: again)),
+               better.asQueue || target == nil {
+                target = better
+            }
+            if let target {
+                trace("pedido por voz: mejor resultado = artista \(artist.name), \(target.songs.count) canciones")
                 return target
             }
         case .album(let album)?:
@@ -536,12 +545,12 @@ enum SonarMix {
         }
 
         var chosen: SongItem?
+        let allSongs = sections.flatMap(\.items).compactMap { item -> SongItem? in
+            if case .song(let song) = item { return song }
+            return nil
+        }
         if case .song(let topSong)? = top {
-            let all = sections.flatMap(\.items).compactMap { item -> SongItem? in
-                if case .song(let song) = item { return song }
-                return nil
-            }
-            chosen = all.first { $0.videoId == topSong.videoId } ?? topSong
+            chosen = allSongs.first { $0.videoId == topSong.videoId } ?? topSong
         }
         if chosen == nil {
             let preferred = sections.first { $0.title.lowercased().contains("song") || $0.title.lowercased().contains("canci") }
@@ -553,7 +562,14 @@ enum SonarMix {
             }
         }
         trace("pedido por voz: cancion \(chosen?.title ?? "sin resultado")")
-        return chosen.map(songTarget) ?? downloadedMatch.map(songTarget)
+        guard let chosen else { return downloadedMatch.map(songTarget) }
+        var target = songTarget(chosen)
+        // La tarjeta del mejor resultado no trae el artista: se toma de la misma cancion en la lista de canciones de la busqueda.
+        if target.artist == nil {
+            let key = searchWords(chosen.title).joined(separator: " ")
+            target.artist = allSongs.first { searchWords($0.title).joined(separator: " ") == key && !$0.artists.isEmpty }?.artists.first?.name
+        }
+        return target
     }
 
     /// Sus canciones mas conocidas (las de la busqueda); si salen menos de 4 suyas, la primera con su radio.
