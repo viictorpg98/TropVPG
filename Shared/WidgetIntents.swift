@@ -123,46 +123,19 @@ struct WidgetPlayTrackIntent: AudioPlaybackIntent {
 
 // MARK: - Voz
 
-// "Voz": pregunta por voz "¿Qué quieres escuchar?", reconoce lo que dices y lo busca como en el buscador. Pensado para CarPlay (ver `VoiceSearch`).
-// Son DOS intents encadenados, porque asi sobrevive el proceso (probado en el movil el 20-11-2026):
-//   1. `WidgetVoiceListenIntent`: `AudioRecordingIntent` (permite abrir el microfono desde un boton, con el indicador de grabacion, y exige una Live
-//      Activity mientras se graba) + `LiveActivityIntent` (el sistema arranca la app SIN abrirla y deja iniciar esa Live Activity). Solo escucha.
-//   2. `WidgetPlayQueryIntent`: solo `AudioPlaybackIntent` (el tipo de los botones de Para ti). El primero lo devuelve con `opensIntent` y el sistema lo
-//      ejecuta en la app, sin abrirla: pone la cancion. Si una misma intent grababa y reproducia, el proceso moria a los 2-3 s de sonar la cancion.
-
-/// Primera mitad: solo escucha (con Live Activity) y devuelve el intent que pone la cancion.
-struct WidgetVoiceListenIntent: AudioRecordingIntent, LiveActivityIntent {
+/// "Voz": pregunta por voz "¿Qué quieres escuchar?", reconoce lo que dices y lo busca como en el buscador. Pensado para CarPlay (ver `VoiceSearch`).
+/// Segun la documentacion de Apple, `AudioRecordingIntent` es lo que permite grabar audio desde un boton (con el indicador de grabacion) y exige una
+/// Live Activity mientras se graba; `LiveActivityIntent` hace que el sistema arranque la app SIN abrirla y deje iniciar esa Live Activity. Tambien es
+/// `AudioPlaybackIntent` para poder arrancar la musica desde segundo plano al terminar de escuchar. La Live Activity sigue viva cuando el intent termina:
+/// si no, en frio la app se cuelga dentro de AppIntents (informe de fallo del 20-11-2026). Ver el "PROBLEMA CONOCIDO" de `VoiceSearch`.
+struct WidgetVoiceIntent: AudioRecordingIntent, LiveActivityIntent, AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Voice Search"
     static let isDiscoverable = false
 
     @MainActor
-    func perform() async throws -> some IntentResult & OpensIntent {
-        var query = ""
-        #if !WIDGET_EXTENSION
-        query = await VoiceSearch.run(source: "widget") ?? ""
-        #endif
-        return .result(opensIntent: WidgetPlayQueryIntent(query: query.isEmpty ? nil : query))
-    }
-}
-
-/// Segunda mitad: pone lo que se busco (sin texto = no hace nada, para cuando no se oyo nada o fallo).
-struct WidgetPlayQueryIntent: AudioPlaybackIntent {
-    static let title: LocalizedStringResource = "Play Song"
-    static let isDiscoverable = false
-
-    @Parameter(title: "Query")
-    var query: String?
-
-    init() {}
-
-    init(query: String?) {
-        self.query = query
-    }
-
-    @MainActor
     func perform() async throws -> some IntentResult {
         #if !WIDGET_EXTENSION
-        await VoiceSearch.playChained(query ?? "")
+        await VoiceSearch.run(source: "widget")
         #endif
         return .result()
     }

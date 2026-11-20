@@ -145,7 +145,7 @@ struct SonarWidgetView: View {
                 ) {
                     djCircle(on: entry.dj)
                 }
-                tile(WidgetVoiceListenIntent(), title: label("Voz", "Voice")) {
+                tile(WidgetVoiceIntent(), title: label("Voz", "Voice")) {
                     circle(symbol: "mic.fill",
                            top: Color(red: 0.36, green: 0.80, blue: 1.00), bottom: Color(red: 0.22, green: 0.52, blue: 0.98))
                 }
