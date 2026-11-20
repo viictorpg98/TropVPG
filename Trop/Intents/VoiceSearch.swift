@@ -52,11 +52,12 @@ enum VoiceSearch {
         log("Live Activity: cerrada")
     }
 
-    private static func log(_ text: String) {
-        PlaybackReport.record("voz: \(text)")
+    /// Cada linea va al informe y a un fichero que se fuerza a disco al momento (`VoiceLog`): la app puede cerrarse en mitad de la escucha.
+    nonisolated private static func log(_ text: String) {
+        VoiceLog.add(text)
     }
 
-    private static func describe(_ error: Error) -> String {
+    nonisolated private static func describe(_ error: Error) -> String {
         let nsError = error as NSError
         return "\(nsError.domain) \(nsError.code) \(nsError.localizedDescription)"
     }
@@ -130,6 +131,7 @@ enum VoiceSearch {
         }
         running = true
         defer { running = false }
+        VoiceLog.reset()
         log("empieza (\(source), \(appState)); microfono \(microphoneStatus), voz \(speechStatus)")
 
         let speaker = Speaker()
@@ -237,16 +239,27 @@ enum VoiceSearch {
         request.contextualStrings = await contextualStrings()
 
         let listener = Listener()
-        let task = recognizer.recognitionTask(with: request) { result, error in
+        // Estos dos cierres los llama iOS desde otros hilos (el del audio y el del reconocedor): se crean como @Sendable, sin quedar atados al hilo
+        // principal de esta funcion.
+        let resultHandler: @Sendable (SFSpeechRecognitionResult?, Error?) -> Void = { result, error in
             let text = result?.bestTranscription.formattedString
             let isFinal = result?.isFinal ?? false
             let failure = error.map { $0 as NSError }
             Task { @MainActor in listener.update(text: text, isFinal: isFinal, error: failure) }
         }
+        let task = recognizer.recognitionTask(with: request, resultHandler: resultHandler)
+        log("reconocedor: tarea creada")
 
-        input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
+        let firstBuffer = OnceFlag()
+        let tapBlock: @Sendable (AVAudioPCMBuffer, AVAudioTime) -> Void = { buffer, _ in
+            firstBuffer.once {
+                VoiceLog.add("primer audio recibido: \(Int(buffer.format.sampleRate)) Hz, \(buffer.frameLength) muestras")
+            }
             request.append(buffer)
         }
+        // Formato `nil` = el nativo del microfono en este momento: pasar uno propio que no coincida con el del dispositivo cierra la app.
+        input.installTap(onBus: 0, bufferSize: 1024, format: nil, block: tapBlock)
+        log("microfono: toma instalada")
         engine.prepare()
         func stopListening() {
             input.removeTap(onBus: 0)
@@ -302,15 +315,34 @@ private final class Listener {
 
     func update(text: String?, isFinal: Bool, error: NSError?) {
         if let text, text != latest {
+            if latest.isEmpty { VoiceLog.add("primer texto parcial: \"\(text)\"") }
             latest = text
             changedAt = Date()
         }
-        if isFinal, let text { final = text }
+        if isFinal, let text {
+            final = text
+            VoiceLog.add("texto final: \"\(text)\"")
+        }
         if let error {
             self.error = error
             finished = true
+            VoiceLog.add("aviso del reconocedor: \(error.domain) \(error.code)")
         }
         if isFinal { finished = true }
+    }
+}
+
+/// Deja pasar solo la primera llamada (el aviso "primer audio recibido" se da desde el hilo del audio).
+private final class OnceFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var done = false
+
+    func once(_ body: () -> Void) {
+        lock.lock()
+        let first = !done
+        done = true
+        lock.unlock()
+        if first { body() }
     }
 }
 

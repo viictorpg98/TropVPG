@@ -134,6 +134,7 @@
 "Content Filtering" = "Content Filtering";
 "Controls the region used for YouTube Music requests." = "Controls the region used for YouTube Music requests.";
 "Copy" = "Copy";
+"Copy Last Voice Attempt" = "Copy Last Voice Attempt";
 "Copy Link" = "Copy Link";
 "Copy Previous Session" = "Copy Previous Session";
 "Could not parse album details" = "Could not parse album details";

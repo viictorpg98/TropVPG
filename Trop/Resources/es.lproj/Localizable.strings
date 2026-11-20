@@ -134,6 +134,7 @@
 "Content Filtering" = "Filtrado de contenido";
 "Controls the region used for YouTube Music requests." = "Controla la región usada en las peticiones a YouTube Music.";
 "Copy" = "Copiar";
+"Copy Last Voice Attempt" = "Copiar el último intento de voz";
 "Copy Link" = "Copiar enlace";
 "Copy Previous Session" = "Copiar la sesión anterior";
 "Could not parse album details" = "No se pudieron interpretar los detalles del álbum";

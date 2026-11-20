@@ -11,6 +11,7 @@ struct PlayerSettingsView: View {
     @Environment(\.settingsStore) private var settings
     @State private var skipSegments = SponsorBlock.isEnabled
     @State private var voiceBusy = false
+    @State private var lastVoiceAttempt = VoiceLog.text
 
     var body: some View {
         @Bindable var settings = settings
@@ -49,12 +50,21 @@ struct PlayerSettingsView: View {
                     Task {
                         await VoiceSearch.requestPermissions()
                         await VoiceSearch.run(source: "ajustes")
+                        lastVoiceAttempt = VoiceLog.text
                         voiceBusy = false
                     }
                 } label: {
                     Label("Try Voice Search", systemImage: "mic")
                 }
                 .disabled(voiceBusy)
+                if !lastVoiceAttempt.isEmpty {
+                    Text(lastVoiceAttempt)
+                        .font(.system(.caption2, design: .monospaced))
+                        .textSelection(.enabled)
+                    Button("Copy Last Voice Attempt") {
+                        UIPasteboard.general.string = lastVoiceAttempt
+                    }
+                }
             } header: {
                 Text("Voice Search")
             } footer: {
@@ -68,5 +78,6 @@ struct PlayerSettingsView: View {
         .onChange(of: skipSegments) {
             SponsorBlock.save(enabled: skipSegments)
         }
+        .onAppear { lastVoiceAttempt = VoiceLog.text }
     }
 }
