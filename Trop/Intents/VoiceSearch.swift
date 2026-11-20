@@ -22,6 +22,7 @@
 import ActivityKit
 import AVFoundation
 import Foundation
+import os
 import Speech
 import UIKit
 
@@ -83,6 +84,12 @@ enum VoiceSearch {
     /// Cada linea va al informe y a un fichero que se fuerza a disco al momento (`VoiceLog`): la app puede cerrarse en mitad de la escucha.
     nonisolated static func log(_ text: String, report: Bool = true) {
         VoiceLog.add(text, report: report)
+    }
+
+    /// Memoria que le queda al proceso antes de que iOS lo mate (MB). Un proceso lanzado en segundo plano tiene un limite bajo y, con el modelo de voz,
+    /// el audio y el reproductor, podria rozarlo: si el numero cae a 0 justo antes de que se corten los latidos, no es el ciclo de vida del intent.
+    nonisolated private static var memoryLeft: String {
+        "memoria libre \(Int(os_proc_available_memory() / 1_048_576)) MB"
     }
 
     nonisolated private static func describe(_ error: Error) -> String {
@@ -162,7 +169,7 @@ enum VoiceSearch {
         running = true
         defer { running = false }
         VoiceLog.beginAttempt(source: source)
-        log("empieza (\(source), \(appState)); microfono \(microphoneStatus), voz \(speechStatus)")
+        log("empieza (\(source), \(appState)); microfono \(microphoneStatus), voz \(speechStatus); \(memoryLeft)")
 
         let speaker = Speaker()
         PlayerController.shared.assertAudioSession()
@@ -189,6 +196,7 @@ enum VoiceSearch {
         if mode != .keepThroughPlayback { await endActivity() }
         // Se cierra el microfono y vuelve la sesion de reproduccion antes de buscar.
         restorePlaybackSession()
+        log("tras escuchar: \(memoryLeft)")
 
         switch result {
         case .failed:
@@ -217,7 +225,7 @@ enum VoiceSearch {
                         log("Live Activity: cerrada a los 30 s")
                     }
                 }
-                log("accion: termina (\(mode))")
+                log("accion: termina (\(mode)); \(memoryLeft)")
                 startHeartbeat()
                 return query
             } else {
@@ -230,14 +238,14 @@ enum VoiceSearch {
 
     /// La segunda mitad de la cadena del boton 2: el intent que recibe lo oido y lo pone. Apunta si el sistema de verdad lo ejecuta y en que estado.
     static func playChained(_ query: String) async {
-        log("cadena: empieza (\(appState)); busqueda \"\(query)\"")
+        log("cadena: empieza (\(appState)); busqueda \"\(query)\"; \(memoryLeft)")
         guard !query.isEmpty else {
             log("cadena: nada que poner")
             return
         }
         if let found = await SonarMix.playSong(named: query) {
             log("el reproductor acepto: \(found.title)")
-            log("accion: termina (cadena)")
+            log("accion: termina (cadena); \(memoryLeft)")
             startHeartbeat()
         } else {
             log("sin resultado")
@@ -269,7 +277,7 @@ enum VoiceSearch {
                 let limit = remaining > 1000 ? "sin limite" : String(format: "%.0f s", remaining)
                 let session = AVAudioSession.sharedInstance()
                 let outputs = session.currentRoute.outputs.map { $0.portType.rawValue }.joined(separator: ",")
-                log("latido \(second): avanza \(PlayerController.shared.isAudioAdvancing), \(appState), segundo plano \(limit), salida [\(outputs)]", report: false)
+                log("latido \(second): avanza \(PlayerController.shared.isAudioAdvancing), \(appState), segundo plano \(limit), \(memoryLeft), salida [\(outputs)]", report: false)
             }
             log("latidos: fin (el proceso siguio vivo 45 s)")
         }

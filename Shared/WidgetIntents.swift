@@ -158,7 +158,7 @@ struct WidgetVoiceListenIntent: AudioRecordingIntent, LiveActivityIntent {
         #if !WIDGET_EXTENSION
         query = await VoiceSearch.run(source: "boton 2 (cadena)", activity: .endAfterListening, playInside: false) ?? ""
         #endif
-        return .result(opensIntent: WidgetPlayQueryIntent(query: query))
+        return .result(opensIntent: WidgetPlayQueryIntent(query: query.isEmpty ? nil : query))
     }
 }
 
@@ -168,18 +168,18 @@ struct WidgetPlayQueryIntent: AudioPlaybackIntent {
     static let isDiscoverable = false
 
     @Parameter(title: "Query")
-    var query: String
+    var query: String?
 
     init() {}
 
-    init(query: String) {
+    init(query: String?) {
         self.query = query
     }
 
     @MainActor
     func perform() async throws -> some IntentResult {
         #if !WIDGET_EXTENSION
-        await VoiceSearch.playChained(query)
+        await VoiceSearch.playChained(query ?? "")
         #endif
         return .result()
     }

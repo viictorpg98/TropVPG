@@ -53,10 +53,10 @@ struct SonarVoiceView: View {
                             startPoint: .top, endPoint: .bottom
                         ))
                     Image(systemName: "mic.fill")
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.system(size: 17, weight: .bold))
                         .foregroundStyle(Self.iconInk)
                 }
-                .frame(width: 44, height: 44)
+                .frame(width: 38, height: 38)
             }
             .buttonStyle(.bordered)
             .buttonBorderShape(.circle)
