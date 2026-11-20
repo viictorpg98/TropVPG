@@ -473,6 +473,7 @@ private final class Speaker: NSObject, AVSpeechSynthesizerDelegate, @unchecked S
     private var continuation: CheckedContinuation<Void, Never>?
     private var loggedVoice = false
     private let clip = ClipPlayer()
+    private var cloudFailed = false
 
     /// La voz mas natural que haya instalada para el idioma del movil: Premium > Mejorada > Normal, y a igualdad la de la misma region (es-ES). Se
     /// descartan las voces de novedad. Se pueden bajar mejores en Ajustes de iOS > Accesibilidad > Contenido hablado > Voces.
@@ -490,13 +491,15 @@ private final class Speaker: NSObject, AVSpeechSynthesizerDelegate, @unchecked S
 
     func speak(_ text: String) async {
         // La voz de la nube (si esta puesta); si falla, tarda o no hay red, la del sistema.
-        if CloudVoice.isConfigured {
+        // Si una frase falla, en el resto de esta busqueda ya no se prueba (con mala cobertura cada intento haria esperar).
+        if !cloudFailed, CloudVoice.isConfigured {
             let started = Date()
             if let audio = await CloudVoice.audio(for: text), await clip.play(audio) {
                 VoiceLog.add("dicho con la voz de la nube (\(Int(Date().timeIntervalSince(started) * 1000)) ms hasta terminar)")
                 return
             }
-            VoiceLog.add("la voz de la nube no pudo: se usa la del sistema")
+            cloudFailed = true
+            VoiceLog.add("la voz de la nube no pudo: se usa la del sistema el resto de la busqueda")
         }
         let utterance = AVSpeechUtterance(string: text)
         let voice = Self.bestVoice()

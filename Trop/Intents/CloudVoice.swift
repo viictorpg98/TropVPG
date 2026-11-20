@@ -38,9 +38,12 @@ enum CloudVoice {
                 kSecMatchLimit as String: kSecMatchLimitOne
             ]
             var item: CFTypeRef?
-            if SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess, let data = item as? Data,
-               let text = String(data: data, encoding: .utf8) {
+            let result = SecItemCopyMatching(query as CFDictionary, &item)
+            if result == errSecSuccess, let data = item as? Data, let text = String(data: data, encoding: .utf8) {
                 return text
+            }
+            if result != errSecItemNotFound {
+                VoiceLog.add("llavero: no se pudo leer la clave (codigo \(result))", report: false)
             }
             return UserDefaults.standard.string(forKey: keyFallbackKey) ?? ""
         }
@@ -56,6 +59,8 @@ enum CloudVoice {
             guard !trimmed.isEmpty else { return }
             var add = base
             add[kSecValueData as String] = Data(trimmed.utf8)
+            // Legible con el movil bloqueado (en CarPlay suele estarlo); con la opcion por defecto solo se leeria desbloqueado.
+            add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
             // Si el llavero no deja guardarla (algunas firmas de sideload), se guarda en los ajustes de la app.
             if SecItemAdd(add as CFDictionary, nil) != errSecSuccess {
                 UserDefaults.standard.set(trimmed, forKey: keyFallbackKey)
@@ -113,8 +118,10 @@ enum CloudVoice {
         return ranked.sorted { $0.1 < $1.1 }.map { $0.0 }
     }
 
-    private static func currentVoiceId() async -> String? {
+    private static func currentVoiceId(fetchVoices: Bool) async -> String? {
         if let saved = UserDefaults.standard.string(forKey: voiceIdKey), !saved.isEmpty { return saved }
+        // Dentro de la busqueda por voz no se pide la lista (una peticion mas con el coche en marcha): la elige Ajustes > Probar.
+        guard fetchVoices else { return nil }
         guard let first = await voices().first else {
             setStatus("no se encontro ninguna voz en \(locale) (revisa la clave)")
             return nil
@@ -141,8 +148,8 @@ enum CloudVoice {
     // MARK: - Audio
 
     /// El audio de una frase: de la cache del movil o generado ahora. `nil` si no se puede (se usa la voz del sistema).
-    static func audio(for text: String) async -> Data? {
-        guard isConfigured, let voiceId = await currentVoiceId() else { return nil }
+    static func audio(for text: String, fetchVoices: Bool = false) async -> Data? {
+        guard isConfigured, let voiceId = await currentVoiceId(fetchVoices: fetchVoices) else { return nil }
         let file = cacheFile(text: text, voiceId: voiceId)
         if let cached = try? Data(contentsOf: file) { return cached }
         let started = Date()
@@ -168,7 +175,7 @@ enum CloudVoice {
             request.httpBody = try? JSONSerialization.data(withJSONObject: [
                 "input": text, "voice_id": voiceId, "audio_format": "mp3", "model": model
             ])
-            guard let (data, code) = await send(request, seconds: 4) else { return nil }
+            guard let (data, code) = await send(request, seconds: 2.5) else { return nil }
             if code == 400 { continue }
             guard code == 200,
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],

@@ -90,8 +90,9 @@ struct PlayerSettingsView: View {
                 }
                 Button {
                     cloudBusy = true
+                    cloudVoiceEnabled = true
                     Task {
-                        if let audio = await CloudVoice.audio(for: VoiceSearch.sampleSentence) {
+                        if let audio = await CloudVoice.audio(for: VoiceSearch.sampleSentence, fetchVoices: true) {
                             _ = await ClipPlayer().play(audio)
                             await CloudVoice.prewarm(VoiceSearch.fixedPhrases)
                         }
@@ -106,9 +107,12 @@ struct PlayerSettingsView: View {
                 Button {
                     cloudBusy = true
                     Task {
+                        cloudVoiceEnabled = true
                         _ = await CloudVoice.nextVoice()
-                        if let audio = await CloudVoice.audio(for: VoiceSearch.sampleSentence) {
+                        if let audio = await CloudVoice.audio(for: VoiceSearch.sampleSentence, fetchVoices: true) {
                             _ = await ClipPlayer().play(audio)
+                            // La cache es por voz: al cambiar de voz se dejan listas otra vez las frases fijas.
+                            await CloudVoice.prewarm(VoiceSearch.fixedPhrases)
                         }
                         cloudStatus = CloudVoice.status
                         cloudVoiceName = CloudVoice.voiceName
