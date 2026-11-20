@@ -24,12 +24,15 @@ enum VoiceLog {
         return base.appendingPathComponent("voice-last-run.txt")
     }
 
-    /// Se puede llamar desde cualquier hilo (incluido el del audio).
-    static func add(_ text: String) {
-        PlaybackReport.record("voz: \(text)")
+    /// Se puede llamar desde cualquier hilo (incluido el del audio). `report: false` = solo al fichero (los latidos no llenan el informe).
+    static func add(_ text: String, report: Bool = true) {
+        if report { PlaybackReport.record("voz: \(text)") }
         lock.lock()
         defer { lock.unlock() }
-        let line = "\(formatter.string(from: Date())) \(text)\n"
+        append("\(formatter.string(from: Date())) \(text)\n")
+    }
+
+    private static func append(_ line: String) {
         let file = fileURL
         if let handle = try? FileHandle(forWritingTo: file) {
             defer { try? handle.close() }
@@ -41,11 +44,17 @@ enum VoiceLog {
         }
     }
 
-    /// Empieza un intento nuevo (borra el anterior).
-    static func reset() {
+    /// Empieza un intento nuevo: se guardan los ultimos 4 (con una linea "==== intento" cada uno) para poder probar varios botones seguidos y
+    /// copiar el registro una sola vez al final.
+    static func beginAttempt(source: String) {
         lock.lock()
         defer { lock.unlock() }
-        try? "".write(to: fileURL, atomically: true, encoding: .utf8)
+        let marker = "==== intento "
+        let old = (try? String(contentsOf: fileURL, encoding: .utf8)) ?? ""
+        let previous = old.components(separatedBy: marker).filter { !$0.isEmpty }.suffix(3)
+        let kept = previous.map { marker + $0 }.joined()
+        let header = "\(marker)\(source) \(formatter.string(from: Date()))\n"
+        try? (kept + header).write(to: fileURL, atomically: true, encoding: .utf8)
     }
 
     static var text: String {

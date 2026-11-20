@@ -64,6 +64,7 @@ final class WidgetDataStore {
     func start() {
         reportShare()
         appBecameActive()
+        Task { await VoiceSearch.endOrphanedActivities() }
     }
 
     func appBecameActive() {

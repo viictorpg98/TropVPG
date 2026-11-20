@@ -120,13 +120,20 @@ struct WidgetPlayTrackIntent: AudioPlaybackIntent {
     }
 }
 
-/// "Voz": pregunta por voz "¿Qué quieres escuchar?", reconoce lo que dices y lo busca como en el buscador. EXPERIMENTO pensado para CarPlay:
-/// iOS puede negarse a abrir el microfono sin la app abierta; el informe ("voz: ...") dice que paso en cada paso (ver `VoiceSearch`).
-/// Segun la documentacion de Apple, `AudioRecordingIntent` es lo que permite grabar audio desde un boton (con el indicador de grabacion) y exige
-/// una Live Activity mientras se graba; `LiveActivityIntent` hace que el sistema arranque la app SIN abrirla y deje iniciar esa Live Activity
-/// (el mismo esquema que usan las apps de dictado con el boton de accion y el Centro de control). Tambien es `AudioPlaybackIntent`: con solo
-/// las otras dos, el sistema no dejaba arrancar la musica desde segundo plano al terminar de escuchar (se oia la pregunta y se reconocia la voz,
-/// pero la cancion no sonaba y la app se cerraba).
+
+// MARK: - Voz (EXPERIMENTO: tres variantes del mismo boton)
+//
+// "Voz": pregunta por voz "¿Qué quieres escuchar?", reconoce lo que dices y lo busca como en el buscador. Pensado para CarPlay: iOS puede negarse a
+// abrir el microfono sin la app abierta, y la app se cerraba a los 2-3 s de empezar a sonar la cancion. El informe de voz dice que paso en cada
+// paso (ver `VoiceSearch`). Segun la documentacion de Apple, `AudioRecordingIntent` es lo que permite grabar audio desde un boton (con el
+// indicador de grabacion) y exige una Live Activity mientras se graba; `LiveActivityIntent` hace que el sistema arranque la app SIN abrirla y deje
+// iniciar esa Live Activity. Las tres variantes se prueban en el movil para ver cual sobrevive:
+//   1. `WidgetVoiceIntent`: grabacion + Live Activity + reproduccion, con la Live Activity abierta mientras suena.
+//   2. `WidgetVoiceListenIntent` + `WidgetPlayQueryIntent`: el primero solo escucha y devuelve el segundo ("el sistema ejecuta el intent devuelto"),
+//      que es solo `AudioPlaybackIntent` (el tipo que ya vive en CarPlay con los botones de Para ti).
+//   3. `WidgetVoicePlainIntent`: solo `AudioPlaybackIntent`, sin Live Activity.
+
+/// Boton 1: el esquema completo, dejando la Live Activity ("Reproduciendo…") mientras suena la cancion.
 struct WidgetVoiceIntent: AudioRecordingIntent, LiveActivityIntent, AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Voice Search"
     static let isDiscoverable = false
@@ -134,7 +141,59 @@ struct WidgetVoiceIntent: AudioRecordingIntent, LiveActivityIntent, AudioPlaybac
     @MainActor
     func perform() async throws -> some IntentResult {
         #if !WIDGET_EXTENSION
-        await VoiceSearch.run(source: "widget")
+        await VoiceSearch.run(source: "boton 1 (completo)", activity: .keepThroughPlayback, playInside: true)
+        #endif
+        return .result()
+    }
+}
+
+/// Boton 2, primera mitad: solo escucha (con Live Activity) y devuelve el intent que pone la cancion.
+struct WidgetVoiceListenIntent: AudioRecordingIntent, LiveActivityIntent {
+    static let title: LocalizedStringResource = "Voice Search"
+    static let isDiscoverable = false
+
+    @MainActor
+    func perform() async throws -> some IntentResult & OpensIntent {
+        var query = ""
+        #if !WIDGET_EXTENSION
+        query = await VoiceSearch.run(source: "boton 2 (cadena)", activity: .endAfterListening, playInside: false) ?? ""
+        #endif
+        return .result(opensIntent: WidgetPlayQueryIntent(query: query))
+    }
+}
+
+/// Boton 2, segunda mitad: pone lo que se busco (texto vacio = no hace nada, para cuando no se oyo nada o fallo).
+struct WidgetPlayQueryIntent: AudioPlaybackIntent {
+    static let title: LocalizedStringResource = "Play Song"
+    static let isDiscoverable = false
+
+    @Parameter(title: "Query")
+    var query: String
+
+    init() {}
+
+    init(query: String) {
+        self.query = query
+    }
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        #if !WIDGET_EXTENSION
+        await VoiceSearch.playChained(query)
+        #endif
+        return .result()
+    }
+}
+
+/// Boton 3: solo `AudioPlaybackIntent`, sin Live Activity.
+struct WidgetVoicePlainIntent: AudioPlaybackIntent {
+    static let title: LocalizedStringResource = "Voice Search"
+    static let isDiscoverable = false
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        #if !WIDGET_EXTENSION
+        await VoiceSearch.run(source: "boton 3 (simple)", activity: .none, playInside: true)
         #endif
         return .result()
     }

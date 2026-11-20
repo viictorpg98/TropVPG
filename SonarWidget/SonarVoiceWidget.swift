@@ -2,7 +2,7 @@
 //  SonarVoiceWidget.swift
 //  SonarWidget
 //
-//  Widget pequeno "Sonar · Voz": un solo boton de microfono. Al pulsarlo, Sonar pregunta por voz "¿Qué quieres escuchar?", reconoce lo que dices y
+//  Widget pequeno "Sonar · Voz": tres botones de microfono (1, 2 y 3: variantes de prueba). Al pulsarlo, Sonar pregunta por voz "¿Qué quieres escuchar?", reconoce lo que dices y
 //  lo busca como en el buscador. Es un experimento para CarPlay (sin abrir la app): ver `VoiceSearch` en la app. La accion esta en
 //  Shared/WidgetIntents.swift (`WidgetVoiceIntent`) y la ejecuta la app. Sale en la galeria de widgets y, en iOS 26, en CarPlay (Ajustes > General >
 //  CarPlay > tu coche > Personalizar), con el mismo estilo de boton que el widget de botones.
@@ -42,9 +42,10 @@ struct SonarVoiceView: View {
     private static let plateColor = Color(red: 0.16, green: 0.16, blue: 0.18)
     private static let iconInk = Color(red: 0.08, green: 0.08, blue: 0.09)
 
-    var body: some View {
+    /// Un boton de microfono con su numero debajo (el numero es la variante del experimento: ver Shared/WidgetIntents.swift).
+    private func voiceButton<I: AppIntent>(_ intent: I, label: String) -> some View {
         VStack(spacing: 2) {
-            Button(intent: WidgetVoiceIntent()) {
+            Button(intent: intent) {
                 ZStack {
                     Circle()
                         .fill(LinearGradient(
@@ -52,20 +53,35 @@ struct SonarVoiceView: View {
                             startPoint: .top, endPoint: .bottom
                         ))
                     Image(systemName: "mic.fill")
-                        .font(.system(size: 30, weight: .bold))
+                        .font(.system(size: 20, weight: .bold))
                         .foregroundStyle(Self.iconInk)
                 }
-                .frame(width: 66, height: 66)
+                .frame(width: 44, height: 44)
             }
             .buttonStyle(.bordered)
             .buttonBorderShape(.circle)
             .controlSize(.small)
             .tint(.clear)
-            // El nombre va fuera del boton: asi no se encoge con el.
-            Text(spanish ? "Voz" : "Voice")
+            // El numero va fuera del boton: asi no se encoge con el.
+            Text(label)
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white)
                 .shadow(color: .black.opacity(0.55), radius: 2, y: 1)
+                .lineLimit(1)
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 4) {
+            // EXPERIMENTO: tres variantes del mismo boton para ver cual no mata la app al sonar la cancion.
+            HStack(spacing: 2) {
+                voiceButton(WidgetVoiceIntent(), label: "1")
+                voiceButton(WidgetVoiceListenIntent(), label: "2")
+                voiceButton(WidgetVoicePlainIntent(), label: "3")
+            }
+            Text(spanish ? "Voz (prueba)" : "Voice (test)")
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(0.8))
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -95,22 +111,26 @@ struct SonarVoiceActivityWidget: Widget {
     }
 
     var body: some WidgetConfiguration {
-        ActivityConfiguration(for: VoiceActivityAttributes.self) { _ in
+        ActivityConfiguration(for: VoiceActivityAttributes.self) { context in
             HStack(spacing: 10) {
-                Image(systemName: "mic.fill")
+                Image(systemName: context.state.phase == "playing" ? "waveform" : "mic.fill")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(Color(red: 0.36, green: 0.80, blue: 1.00))
-                Text(spanish ? "Sonar: escuchando…" : "Sonar: listening…")
+                Text(context.state.phase == "playing"
+                    ? (spanish ? "Sonar: reproduciendo…" : "Sonar: playing…")
+                    : (spanish ? "Sonar: escuchando…" : "Sonar: listening…"))
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
                 Spacer()
             }
             .padding(14)
             .activityBackgroundTint(Color.black)
-        } dynamicIsland: { _ in
+        } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.center) {
-                    Text(spanish ? "Escuchando…" : "Listening…")
+                    Text(context.state.phase == "playing"
+                        ? (spanish ? "Reproduciendo…" : "Playing…")
+                        : (spanish ? "Escuchando…" : "Listening…"))
                         .font(.system(size: 16, weight: .semibold, design: .rounded))
                 }
             } compactLeading: {
