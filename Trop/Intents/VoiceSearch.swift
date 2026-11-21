@@ -824,6 +824,12 @@ enum VoiceSearch {
         }
         log("reconocedor: \(recognizer.locale.identifier), en el dispositivo: \(recognizer.supportsOnDeviceRecognition)")
 
+        // Un pitido corto justo antes de abrir el microfono: asi sabes cuando hablar (con ruido de coche no se oye cuando acaba la pregunta) y no se
+        // pierde la primera palabra. Va ANTES del microfono para que no lo grabe.
+        let beepStarted = Date()
+        let beeped = await ClipPlayer().play(ListenBeep.wav)
+        log("pitido: \(beeped ? "sonó" : "no sonó") (\(Int(Date().timeIntervalSince(beepStarted) * 1000)) ms)")
+
         let engine = AVAudioEngine()
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
@@ -858,10 +864,12 @@ enum VoiceSearch {
         log("reconocedor: tarea creada")
 
         let firstBuffer = OnceFlag()
+        let meter = LevelMeter()
         let tapBlock: @Sendable (AVAudioPCMBuffer, AVAudioTime) -> Void = { buffer, _ in
             firstBuffer.once {
                 VoiceLog.add("primer audio recibido: \(Int(buffer.format.sampleRate)) Hz, \(buffer.frameLength) muestras")
             }
+            meter.add(buffer)
             request.append(buffer)
         }
         // Formato `nil` = el nativo del microfono en este momento: pasar uno propio que no coincida con el del dispositivo cierra la app.
@@ -903,6 +911,8 @@ enum VoiceSearch {
             try? await Task.sleep(nanoseconds: 100_000_000)
         }
         stopListening()
+        let inputs = AVAudioSession.sharedInstance().currentRoute.inputs.map { $0.portType.rawValue }.joined(separator: ",")
+        log("microfono: \(meter.summary(since: started)); entrada [\(inputs)]")
 
         if let error = listener.error {
             log("reconocimiento: error \(describe(error))")
@@ -947,6 +957,79 @@ private final class Listener {
         }
         if isFinal { finished = true }
     }
+}
+
+/// Mide cuanto se oye por el microfono mientras se escucha (nivel maximo, bloques recibidos y cuando empezo a haber sonido), para saber si el
+/// microfono estaba captando cuando "no te oye". Se llama desde el hilo del audio.
+private final class LevelMeter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var peak: Float = 0
+    private var buffers = 0
+    private var measurable = true
+    private var firstSound: Date?
+
+    func add(_ buffer: AVAudioPCMBuffer) {
+        var maxValue: Float = 0
+        var canMeasure = true
+        if let channel = buffer.floatChannelData?[0] {
+            for index in 0..<Int(buffer.frameLength) { maxValue = max(maxValue, abs(channel[index])) }
+        } else {
+            canMeasure = false
+        }
+        lock.lock()
+        buffers += 1
+        if !canMeasure { measurable = false }
+        if maxValue > peak { peak = maxValue }
+        if maxValue > 0.02, firstSound == nil { firstSound = Date() }
+        lock.unlock()
+    }
+
+    func summary(since start: Date) -> String {
+        lock.lock()
+        defer { lock.unlock() }
+        guard measurable else { return "\(buffers) bloques de audio (formato que no se puede medir)" }
+        let level = String(format: "%.3f", peak)
+        let sound = firstSound.map { String(format: "primer sonido a los %.1f s", $0.timeIntervalSince(start)) } ?? "sin sonido (nivel por debajo de 0,02)"
+        return "nivel maximo \(level), \(buffers) bloques de audio, \(sound)"
+    }
+}
+
+/// El pitido que avisa de que el microfono se abre: un tono de 880 Hz de 0,14 s con entrada y salida suaves, como audio WAV generado aqui.
+private enum ListenBeep {
+    static let wav: Data = {
+        let sampleRate = 44100
+        let frames = Int(Double(sampleRate) * 0.14)
+        var samples = [Int16](repeating: 0, count: frames)
+        for index in 0..<frames {
+            let time = Double(index) / Double(sampleRate)
+            let envelope = min(1.0, Double(index) / 800.0) * min(1.0, Double(frames - index) / 1800.0)
+            samples[index] = Int16(sin(2.0 * Double.pi * 880.0 * time) * 0.35 * envelope * 32767.0)
+        }
+        var data = Data()
+        func append32(_ value: UInt32) {
+            var little = value.littleEndian
+            data.append(Data(bytes: &little, count: 4))
+        }
+        func append16(_ value: UInt16) {
+            var little = value.littleEndian
+            data.append(Data(bytes: &little, count: 2))
+        }
+        data.append(Data("RIFF".utf8))
+        append32(UInt32(36 + frames * 2))
+        data.append(Data("WAVE".utf8))
+        data.append(Data("fmt ".utf8))
+        append32(16)
+        append16(1)
+        append16(1)
+        append32(UInt32(sampleRate))
+        append32(UInt32(sampleRate * 2))
+        append16(2)
+        append16(16)
+        data.append(Data("data".utf8))
+        append32(UInt32(frames * 2))
+        for sample in samples { append16(UInt16(bitPattern: sample)) }
+        return data
+    }()
 }
 
 /// Deja pasar solo la primera llamada (el aviso "primer audio recibido" se da desde el hilo del audio).
