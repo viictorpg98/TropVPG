@@ -214,6 +214,11 @@ enum VoiceSearch {
         es: ["Poniendo el álbum {t}, de {a}.", "Ahí va el álbum {t}, de {a}.", "Marchando el álbum {t}, de {a}."],
         en: ["Playing the album {t} by {a}.", "Here goes the album {t} by {a}.", "Coming up, the album {t} by {a}."]
     )
+    private static let playlistVariants = Variants(
+        key: "playlist",
+        es: ["Poniendo la lista {t}.", "Ahí va la lista {t}.", "Marchando la lista {t}."],
+        en: ["Playing the playlist {t}.", "Here goes the playlist {t}.", "Coming up, the playlist {t}."]
+    )
     private static let albumOnlyVariants = Variants(
         key: "album",
         es: ["Poniendo el álbum {t}.", "Ahí va el álbum {t}.", "Marchando el álbum {t}."],
@@ -632,6 +637,8 @@ enum VoiceSearch {
         case .album:
             if let artist { return fill(pick(albumWithArtistVariants), ["{t}": title, "{a}": artist]) }
             return fill(pick(albumOnlyVariants), ["{t}": title])
+        case .playlist:
+            return fill(pick(playlistVariants), ["{t}": title])
         }
     }
 

@@ -486,12 +486,12 @@ enum SonarMix {
 
     /// Lo que se pondra por voz, ya decidido pero sin sonar todavia (asi se puede decir "Poniendo X" antes de empezar).
     struct VoiceTarget {
-        enum Kind { case song, artist, album }
+        enum Kind { case song, artist, album, playlist }
         var kind: Kind
         var title: String
         var artist: String?
         var songs: [SongItem]
-        /// `true`: `songs` es la cola entera (artista, album). `false`: suena `songs[0]` y sigue con su radio.
+        /// `true`: `songs` es la cola entera (artista, album, lista). `false`: suena `songs[0]` y sigue con su radio.
         var asQueue: Bool
     }
 
@@ -540,6 +540,11 @@ enum SonarMix {
                 trace("pedido por voz: mejor resultado = album \(target.title)")
                 return target
             }
+        case .playlist(let playlist)?:
+            if let target = await playlistTarget(playlist) {
+                trace("pedido por voz: mejor resultado = lista \(target.title), \(target.songs.count) canciones")
+                return target
+            }
         default:
             break
         }
@@ -563,19 +568,31 @@ enum SonarMix {
         }
         trace("pedido por voz: cancion \(chosen?.title ?? "sin resultado")")
         guard let chosen else { return downloadedMatch.map(songTarget) }
-        // Si la cancion elegida lleva poco de lo que se dijo y otra de las primeras lleva mas (titulo + artista), se prefiere esa: YouTube Music a
-        // veces pone como mejor resultado otra cancion del mismo artista.
+        // Primero las que YouTube Music marca como cancion (audio); los videos ("Visualizer", "Official Video", "En vivo"...) solo si no hay otra. La
+        // tarjeta del mejor resultado a veces es el video y no trae su tipo, asi que se busca la cancion con el mismo titulo.
+        let audioSongs = allSongs.filter { !AudioCounterpartStore.isVideoType($0) }
+        var pool = audioSongs.filter { !looksLikeVideo($0, asked: words) }
+        if pool.isEmpty { pool = audioSongs }
+        if pool.isEmpty { pool = allSongs }
+        func titleKey(_ song: SongItem) -> String {
+            let stripped = song.title.replacingOccurrences(of: "\\s*[\\(\\[][^\\)\\]]*[\\)\\]]", with: "", options: .regularExpression)
+            return searchWords(stripped).joined(separator: " ")
+        }
+        // Si la elegida lleva poco de lo que se dijo y otra de las primeras lleva mas (titulo + artista), se prefiere esa: a veces el mejor resultado
+        // es otra cancion del mismo artista.
         func coverage(_ song: SongItem) -> Int {
             let text = searchWords(song.title + " " + song.artists.map(\.name).joined(separator: " ")).joined(separator: " ")
             return words.filter { text.contains($0) }.count
         }
-        var final = allSongs.first { $0.videoId == chosen.videoId } ?? chosen
+        var final = pool.first { $0.videoId == chosen.videoId } ?? pool.first { titleKey($0) == titleKey(chosen) } ?? pool.first ?? chosen
         var finalScore = coverage(final)
-        for candidate in allSongs.prefix(8) where coverage(candidate) > finalScore {
+        for candidate in pool.prefix(8) where coverage(candidate) > finalScore {
             final = candidate
             finalScore = coverage(candidate)
         }
-        if final.videoId != chosen.videoId { trace("pedido por voz: se prefiere \(final.title) (\(finalScore) palabras) a \(chosen.title)") }
+        if final.videoId != chosen.videoId {
+            trace("pedido por voz: se prefiere \(final.title) (\(finalScore) palabras) a \(chosen.title); videos o directos descartados: \(allSongs.count - pool.count)")
+        }
         var target = songTarget(final)
         // La tarjeta del mejor resultado no trae el artista: se toma de la misma cancion en la lista de canciones de la busqueda.
         if target.artist == nil {
@@ -601,6 +618,7 @@ enum SonarMix {
         for section in sections {
             for item in section.items {
                 guard case .song(let song) = item, seen.insert(song.videoId).inserted else { continue }
+                if AudioCounterpartStore.isVideoType(song) || looksLikeVideo(song, asked: words) { continue }
                 let artists = searchWords(song.artists.map(\.name).joined(separator: " ")).joined(separator: " ")
                 if words.allSatisfy({ artists.contains($0) }) {
                     byArtist.append(song)
@@ -616,6 +634,31 @@ enum SonarMix {
         return VoiceTarget(kind: .artist, title: name, artist: nil, songs: [first], asQueue: false)
     }
 
+    /// Titulos de video o de directo ("Visualizer", "Official Video", "En vivo"...), salvo que se hayan pedido en la frase.
+    private static func looksLikeVideo(_ song: SongItem, asked words: [String]) -> Bool {
+        let tokens = Set(searchWords(song.title))
+        let markers: [[String]] = [
+            ["visualizer"], ["official", "video"], ["video", "oficial"], ["lyric", "video"], ["lyrics", "video"], ["videoclip"],
+            ["video", "clip"], ["vivo"], ["live"], ["directo"]
+        ]
+        for marker in markers where marker.allSatisfy({ tokens.contains($0) }) {
+            if marker.allSatisfy({ words.contains($0) }) { continue }
+            return true
+        }
+        return false
+    }
+
+    /// Una lista de reproduccion de YouTube Music (las dos primeras paginas, como "Mezclado para ti"). Hacen falta al menos 3 canciones.
+    private static func playlistTarget(_ playlist: PlaylistItem) async -> VoiceTarget? {
+        guard let (_, rows) = try? await SyncBridge.playlistDetail.fetchPlaylistRows(playlistId: playlist.id, maxPages: 2) else { return nil }
+        let songs = rows.compactMap { item -> SongItem? in
+            guard let renderer = item["musicResponsiveListItemRenderer"] as? [String: Any] else { return nil }
+            return SongItem.from(renderer)
+        }
+        guard songs.count >= 3 else { return nil }
+        return VoiceTarget(kind: .playlist, title: playlist.title, artist: nil, songs: Array(songs.prefix(60)), asQueue: true)
+    }
+
     private static func albumTarget(_ album: AlbumItem) async -> VoiceTarget? {
         guard let json = try? await InnerTubeClient.tropShared.browse(browseId: album.browseId) else { return nil }
         let info = AlbumDetailViewModel.parseAlbumDetail(from: json, browseId: album.browseId)
@@ -626,7 +669,13 @@ enum SonarMix {
     /// Pone lo decidido por `resolveVoiceRequest`. `true` si el audio llega a avanzar.
     static func playVoiceTarget(_ target: VoiceTarget) async -> Bool {
         if target.asQueue {
-            return await play(target.songs, context: target.kind == .album ? "album" : "artista")
+            let context: String
+            switch target.kind {
+            case .album: context = "album"
+            case .playlist: context = "lista"
+            case .artist, .song: context = "artista"
+            }
+            return await play(target.songs, context: context)
         }
         guard let song = target.songs.first else { return false }
         PlaybackQueue.playSingleWithRadio(song, log: Log.nowPlaying)

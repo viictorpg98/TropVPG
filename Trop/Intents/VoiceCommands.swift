@@ -190,6 +190,9 @@ enum VoiceCommands {
             return .nowPlaying
         }
 
+        // "Suena" o "sonando" a secas (el reconocedor a veces se come el "que").
+        if core == ["suena"] || core == ["sonando"] { return .nowPlaying }
+
         // Categorias ("algo para dormir").
         let categoryCore = core.filter { !["para", "for", "to", "me", "mi", "musica", "music", "cancion", "canciones", "temas"].contains($0) }
         if !categoryCore.isEmpty {
