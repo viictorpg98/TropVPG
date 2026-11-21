@@ -323,8 +323,8 @@ enum VoiceSearch {
             } else {
                 log("orden: ninguna; se busca como cancion")
             }
-            // Tope de tiempo: si algo se queda esperando (la red, YouTube...), no se bloquea ni esta busqueda ni las siguientes.
-            let finished = await SonarMix.withTimeout(seconds: 45) { () async -> Bool? in
+            // Tope de 35 s (iOS mata el intent a los ~70 s en total: informe de fallo 2026-11-21): si algo se queda esperando (la red, YouTube...), no se bloquea ni esta busqueda ni las siguientes.
+            let finished = await SonarMix.withTimeout(seconds: 35) { () async -> Bool? in
                 if let match = command {
                     return await handleCommand(match, spoken: spoken, wasPlaying: wasPlaying, speaker: speaker)
                 }
@@ -333,7 +333,7 @@ enum VoiceSearch {
             if let finished {
                 played = finished
             } else {
-                log("TIEMPO AGOTADO (45 s): se abandona; lo que quedaba sigue en segundo plano")
+                log("TIEMPO AGOTADO (35 s): se abandona; lo que quedaba sigue en segundo plano")
                 await speaker.speak(pick(tooSlowVariants))
             }
             if played { await updateActivity(phase: "playing") }
