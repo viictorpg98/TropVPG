@@ -277,6 +277,7 @@ enum VoiceSearch {
         defer { running = false }
         SonarMix.mirrorToVoiceLog = true
         defer { SonarMix.mirrorToVoiceLog = false }
+        defer { closeMic() }
         VoiceLog.beginAttempt(source: source)
         let runStarted = Date()
         let age = String(format: "%.0f s", Date().timeIntervalSince(launchedAt))
@@ -308,14 +309,13 @@ enum VoiceSearch {
             await speaker.speak(pick(retryVariants))
             result = await listen()
         }
-        // Se cierra el microfono y vuelve la sesion de reproduccion antes de buscar.
-        restorePlaybackSession()
-        log("tras escuchar: \(memoryLeft)")
-
+        // El microfono sigue abierto hasta decidir (por si hay que preguntar "¿Activo el DJ?"): se cierra con `finishListening` antes de buscar o hablar.
         switch result {
         case .failed:
+            finishListening()
             await speaker.speak(pick(micFailVariants))
         case .silence:
+            finishListening()
             await speaker.speak(pick(giveUpVariants))
         case .heard(let spoken, let alternatives):
             // Todo lo que devolvio el reconocedor, para ajustar las ordenes con datos reales (con reconocimiento en el dispositivo puede traer solo una).
@@ -350,6 +350,7 @@ enum VoiceSearch {
     /// Buscar lo dicho como en el buscador y ponerlo. `true` si suena. Antes se mira si es una peticion concreta ("el ultimo album de X",
     /// "lo mejor de X", "algo parecido a X", "el album X", "la lista X").
     private static func searchAndPlay(_ spoken: String, speaker: Speaker) async -> Bool {
+        finishListening()
         if let request = VoiceCommands.parseRequest(spoken) {
             log("peticion: \(request)")
             if let target = await SonarMix.resolveVoiceTask(request) {
@@ -500,19 +501,23 @@ enum VoiceSearch {
 
     /// Ejecuta la orden; si no salio exacta, pregunta antes. Devuelve `true` si ha quedado sonando algo.
     private static func handleCommand(_ match: VoiceCommandMatch, spoken: String, wasPlaying: Bool, speaker: Speaker) async -> Bool {
-        if !match.exact, match.command.needsConfirmation {
-            switch await confirm(match.command, speaker: speaker) {
-            case .yes:
-                break
-            case .no:
-                // Un "no" a "¿Pongo música de fiesta?" suele ser que querias una cancion con ese nombre: se busca como tal.
-                if match.command.couldBeSongTitle { return await searchAndPlay(spoken, speaker: speaker) }
-                await speaker.speak(pick(confirmNoVariants))
-                return false
-            case .unclear:
-                await speaker.speak(pick(confirmUnclearVariants))
-                return false
-            }
+        guard !match.exact, match.command.needsConfirmation else {
+            finishListening()
+            return await execute(match.command, wasPlaying: wasPlaying, speaker: speaker)
+        }
+        let answer = await confirm(match.command, speaker: speaker)
+        finishListening()
+        switch answer {
+        case .yes:
+            break
+        case .no:
+            // Un "no" a "¿Pongo música de fiesta?" suele ser que querias una cancion con ese nombre: se busca como tal.
+            if match.command.couldBeSongTitle { return await searchAndPlay(spoken, speaker: speaker) }
+            await speaker.speak(pick(confirmNoVariants))
+            return false
+        case .unclear:
+            await speaker.speak(pick(confirmUnclearVariants))
+            return false
         }
         return await execute(match.command, wasPlaying: wasPlaying, speaker: speaker)
     }
@@ -548,7 +553,6 @@ enum VoiceSearch {
     private static func confirm(_ command: VoiceCommand, speaker: Speaker) async -> Confirmation {
         await speaker.speak(question(for: command))
         let answer = await listen(quick: true)
-        restorePlaybackSession()
         guard case .heard(let said, let alternatives) = answer else {
             log("confirmacion: sin respuesta")
             return .unclear
@@ -806,6 +810,59 @@ enum VoiceSearch {
         return Array(result.prefix(100))
     }
 
+    private static var micEngine: AVAudioEngine?
+    private static let micBox = SinkBox()
+
+    /// Abre el microfono (si ya esta abierto, lo reutiliza). Si el motor no arranca (error 2003329396 u otro), lo reintenta hasta 3 veces con
+    /// un motor nuevo y reactivando la sesion de audio. `false` si no se pudo.
+    private static func openMic() async -> Bool {
+        if micEngine != nil { return true }
+        for attempt in 1...3 {
+            let engine = AVAudioEngine()
+            let input = engine.inputNode
+            let format = input.outputFormat(forBus: 0)
+            log("entrada de audio: \(Int(format.sampleRate)) Hz, \(format.channelCount) canales")
+            if format.sampleRate > 0, format.channelCount > 0 {
+                let box = micBox
+                // Cierre @Sendable: lo llama iOS desde el hilo del audio, no puede quedar atado al hilo principal. Formato `nil` = el nativo del microfono.
+                let block: @Sendable (AVAudioPCMBuffer, AVAudioTime) -> Void = { buffer, _ in box.deliver(buffer) }
+                input.installTap(onBus: 0, bufferSize: 1024, format: nil, block: block)
+                engine.prepare()
+                do {
+                    try engine.start()
+                    micEngine = engine
+                    log("microfono: abierto")
+                    return true
+                } catch {
+                    input.removeTap(onBus: 0)
+                    log("microfono: ERROR \(describe(error)) (intento \(attempt) de 3; sesion \(AVAudioSession.sharedInstance().category.rawValue))")
+                }
+            } else {
+                log("entrada de audio invalida: no se instala el microfono")
+            }
+            guard attempt < 3 else { break }
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            try? AVAudioSession.sharedInstance().setActive(true)
+        }
+        return false
+    }
+
+    private static func closeMic() {
+        guard let engine = micEngine else { return }
+        micEngine = nil
+        micBox.set(nil)
+        engine.inputNode.removeTap(onBus: 0)
+        if engine.isRunning { engine.stop() }
+        log("microfono: cerrado")
+    }
+
+    /// Cierra el microfono y vuelve a la sesion de reproduccion (antes de buscar o de hablar el resultado).
+    private static func finishListening() {
+        closeMic()
+        restorePlaybackSession()
+        log("tras escuchar: \(memoryLeft)")
+    }
+
     private static func listen(quick: Bool = false) async -> ListenResult {
         let session = AVAudioSession.sharedInstance()
         do {
@@ -829,15 +886,6 @@ enum VoiceSearch {
         let beepStarted = Date()
         let beeped = await ClipPlayer().play(ListenBeep.wav)
         log("pitido: \(beeped ? "sonó" : "no sonó") (\(Int(Date().timeIntervalSince(beepStarted) * 1000)) ms)")
-
-        let engine = AVAudioEngine()
-        let input = engine.inputNode
-        let format = input.outputFormat(forBus: 0)
-        log("entrada de audio: \(Int(format.sampleRate)) Hz, \(format.channelCount) canales")
-        guard format.sampleRate > 0, format.channelCount > 0 else {
-            log("entrada de audio invalida: no se instala el microfono")
-            return .failed
-        }
 
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
@@ -863,32 +911,25 @@ enum VoiceSearch {
         let task = recognizer.recognitionTask(with: request, resultHandler: resultHandler)
         log("reconocedor: tarea creada")
 
+        // El microfono se abre UNA vez por busqueda y se queda abierto durante el reintento y la confirmacion (ver `openMic`): arrancar un motor de
+        // audio NUEVO despues de haber grabado fallaba con el error 2003329396 al repetir la pregunta.
+        guard await openMic() else {
+            task.cancel()
+            return .failed
+        }
         let firstBuffer = OnceFlag()
         let meter = LevelMeter()
-        let tapBlock: @Sendable (AVAudioPCMBuffer, AVAudioTime) -> Void = { buffer, _ in
+        micBox.set { buffer in
             firstBuffer.once {
                 VoiceLog.add("primer audio recibido: \(Int(buffer.format.sampleRate)) Hz, \(buffer.frameLength) muestras")
             }
             meter.add(buffer)
             request.append(buffer)
         }
-        // Formato `nil` = el nativo del microfono en este momento: pasar uno propio que no coincida con el del dispositivo cierra la app.
-        input.installTap(onBus: 0, bufferSize: 1024, format: nil, block: tapBlock)
-        log("microfono: toma instalada")
-        engine.prepare()
         func stopListening() {
-            input.removeTap(onBus: 0)
-            if engine.isRunning { engine.stop() }
+            micBox.set(nil)
             request.endAudio()
             task.cancel()
-        }
-        do {
-            try engine.start()
-            log("microfono: abierto")
-        } catch {
-            log("microfono: ERROR \(describe(error))")
-            stopListening()
-            return .failed
         }
 
         // Termina cuando callas (1,4 s sin cambios en el texto), a los 6 s sin oir nada o a los 9 s. La respuesta corta (si/no): 1 s, 4 s y 5 s.
@@ -1030,6 +1071,25 @@ private enum ListenBeep {
         for sample in samples { append16(UInt16(bitPattern: sample)) }
         return data
     }()
+}
+
+/// Reparte el audio del microfono al reconocimiento que este activo en cada momento (se llama desde el hilo del audio).
+private final class SinkBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var sink: (@Sendable (AVAudioPCMBuffer) -> Void)?
+
+    func set(_ newSink: (@Sendable (AVAudioPCMBuffer) -> Void)?) {
+        lock.lock()
+        sink = newSink
+        lock.unlock()
+    }
+
+    func deliver(_ buffer: AVAudioPCMBuffer) {
+        lock.lock()
+        let current = sink
+        lock.unlock()
+        current?(buffer)
+    }
 }
 
 /// Deja pasar solo la primera llamada (el aviso "primer audio recibido" se da desde el hilo del audio).
