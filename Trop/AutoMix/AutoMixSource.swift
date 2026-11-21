@@ -50,6 +50,16 @@ enum AutoMixSource {
         PlaybackReport.record("automix: \(videoId) no se pudo leer; la proxima vez se prueba la direccion de descarga")
     }
 
+    /// La preparacion de una mezcla no pudo leer la cancion entrante en streaming (p. ej. YouTube no da direccion por el cliente principal y la
+    /// otra da 403). Activa el plan B (la direccion de descarga, otra cadena de clientes) y devuelve `true` si se va a reintentar con ella: una sola
+    /// vez por cancion y sesion, para no multiplicar las peticiones a YouTube.
+    static func noteMixReadFailure(videoId: String) -> Bool {
+        let alreadyTrying = useDownloadAddress.contains(videoId)
+        let alreadyTried = triedDownloadAddress.contains(videoId)
+        noteReadFailure(videoId: videoId)
+        return !alreadyTrying && !alreadyTried
+    }
+
     static func source(for videoId: String) async -> Source? {
         if let local = await DownloadManager.shared.localURL(for: videoId) {
             let seconds = (try? await AVURLAsset(url: local).load(.duration))?.seconds

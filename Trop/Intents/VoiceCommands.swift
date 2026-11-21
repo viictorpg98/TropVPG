@@ -44,6 +44,29 @@ enum VoiceCommand: Equatable {
     }
 }
 
+extension VoiceCommand: CustomStringConvertible {
+    var description: String {
+        switch self {
+        case .downloads: return "descargas"
+        case .forYou: return "para ti"
+        case .liked: return "me gusta"
+        case .random: return "aleatorio"
+        case .quickPicks: return "selecciones rapidas"
+        case .mix: return "mezclar"
+        case .nowPlaying: return "que suena"
+        case .cancelTimer: return "cancelar temporizador"
+        case .dj(let on):
+            if on == true { return "dj (activar)" }
+            if on == false { return "dj (apagar)" }
+            return "dj (cambiar)"
+        case .sleepTimer(let minutes):
+            if let minutes { return "temporizador (\(minutes) min)" }
+            return "temporizador (sin minutos)"
+        case .category(let category): return "categoria (\(category.rawValue))"
+        }
+    }
+}
+
 struct VoiceCommandMatch {
     let command: VoiceCommand
     /// `true` si salio de la mejor transcripcion, sin aproximar.

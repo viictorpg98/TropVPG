@@ -62,7 +62,7 @@
 "Artists" = "Artistas";
 "Artists you hide stop appearing on Home, in radios and in the queue. They still show up when you search for them." = "Los artistas que ocultas dejan de salir en Inicio, en las radios y en la cola. Siguen saliendo si los buscas.";
 "Arts" = "Arte";
-"Asks for microphone and speech permission, then asks what you want to listen to and searches for it. The Sonar · Voz widget does the same from the Home Screen or CarPlay; what happens in each step is saved in the report." = "Pide permiso de micrófono y de reconocimiento de voz, y luego pregunta qué quieres escuchar y lo busca. El widget «Sonar · Voz» hace lo mismo desde la pantalla de inicio o CarPlay; lo que pasa en cada paso queda apuntado en el informe.";
+"Asks for microphone and speech permission, then asks what you want to listen to and searches for it. The Voice button on the Sonar widget does the same from the Home Screen or CarPlay; what happens in each step is saved in the report." = "Pide permiso de micrófono y de reconocimiento de voz, y luego pregunta qué quieres escuchar y lo busca. El botón Voz del widget de Sonar hace lo mismo desde la pantalla de inicio o CarPlay; lo que pasa en cada paso queda apuntado en el informe.";
 "At Risk" = "En peligro";
 "Audio" = "Audio";
 "Audio Normalization" = "Normalización de audio";

@@ -726,23 +726,24 @@ enum VoiceSearch {
         }
     }
 
-    /// Un latido por segundo durante 70 s tras acabar la accion (solo al fichero): la ultima linea que quede es el momento en que el proceso murio,
-    /// si murio. Dice si la cancion avanza, el estado de la app y cuanto tiempo en segundo plano le queda.
+    /// Tras acabar la accion, el registro apunta si el proceso sigue vivo a los 10, 30 y 60 s (solo al fichero): si la ultima linea es anterior, el proceso
+    /// murio. Dice si la cancion avanza, el estado de la app, el tiempo en segundo plano, la memoria y por donde sale el audio.
     private static var heartbeatTask: Task<Void, Never>?
 
     private static func startHeartbeat() {
         heartbeatTask?.cancel()
         heartbeatTask = Task { @MainActor in
-            for second in 1...70 {
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            var elapsed = 0
+            for mark in [10, 30, 60] {
+                try? await Task.sleep(nanoseconds: UInt64(mark - elapsed) * 1_000_000_000)
+                elapsed = mark
                 if Task.isCancelled { return }
                 let remaining = UIApplication.shared.backgroundTimeRemaining
                 let limit = remaining > 1000 ? "sin limite" : String(format: "%.0f s", remaining)
                 let session = AVAudioSession.sharedInstance()
                 let outputs = session.currentRoute.outputs.map { $0.portType.rawValue }.joined(separator: ",")
-                log("latido \(second): avanza \(PlayerController.shared.isAudioAdvancing), \(appState), segundo plano \(limit), \(memoryLeft), salida [\(outputs)]", report: false)
+                log("sigue vivo a los \(mark) s: avanza \(PlayerController.shared.isAudioAdvancing), \(appState), segundo plano \(limit), \(memoryLeft), salida [\(outputs)]", report: false)
             }
-            log("latidos: fin (el proceso siguio vivo 70 s)")
         }
     }
 

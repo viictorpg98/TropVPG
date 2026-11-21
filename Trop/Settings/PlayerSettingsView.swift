@@ -73,7 +73,7 @@ struct PlayerSettingsView: View {
             } header: {
                 Text("Voice Search")
             } footer: {
-                Text("Asks for microphone and speech permission, then asks what you want to listen to and searches for it. The Sonar · Voz widget does the same from the Home Screen or CarPlay; what happens in each step is saved in the report.")
+                Text("Asks for microphone and speech permission, then asks what you want to listen to and searches for it. The Voice button on the Sonar widget does the same from the Home Screen or CarPlay; what happens in each step is saved in the report.")
             }
 
             Section {

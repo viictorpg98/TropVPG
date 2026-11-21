@@ -235,7 +235,13 @@ final class AutoMixEngine {
             }.value
             guard let rendered else {
                 PlaybackReport.record("automix: no se pudo preparar la mezcla \(outId) -> \(inId)")
-                self?.planCache = (outId, inId, nil)
+                // Plan B: se prueba la direccion de descarga de la entrante y se vuelve a planificar (sin guardar "sin mezcla"); si ya se probo, no.
+                let retrying = AutoMixSource.noteMixReadFailure(videoId: inId)
+                if retrying {
+                    self?.planCache = nil
+                } else {
+                    self?.planCache = (outId, inId, nil)
+                }
                 if self?.manualMix == true { self?.abortManual("Can't mix right now.") }
                 return
             }
