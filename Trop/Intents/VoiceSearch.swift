@@ -728,7 +728,7 @@ enum VoiceSearch {
             "pon", "ponme", "poner", "ponga", "pones", "reproduce", "reproducir", "busca", "buscame", "buscar", "quiero",
             "escuchar", "oir", "oír", "play", "puedes", "por", "favor", "oye", "podrias", "podrías",
             "algo", "alguno", "alguna", "algún", "algun", "unas", "unos", "una", "un", "cancion", "canción", "canciones", "tema", "temas",
-            "musica", "música"
+            "musica", "música", "dime", "dame"
         ]
         // Solo se quitan si ya se quito algo antes (un artista puede llamarse "De La Ghetto" o "Me Gustas").
         let afterFillers: Set<String> = ["me", "de", "del"]

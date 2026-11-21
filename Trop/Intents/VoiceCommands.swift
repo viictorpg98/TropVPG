@@ -90,7 +90,7 @@ enum VoiceCommands {
         "el", "la", "los", "las", "lo", "un", "una", "algo", "de", "del", "por", "favor", "porfa", "oye", "gracias", "ahora",
         "puedes", "podrias", "quiero", "escuchar", "oir", "reproduce", "reproducir", "ponme", "pon", "poner", "activa", "activar",
         "enciende", "encender", "apaga", "apagar", "quita", "quitar", "desactiva", "desactivar", "arranca", "arrancar", "inicia",
-        "iniciar", "empieza", "empezar", "deten", "detener", "modo", "sesion", "play", "put", "please", "the", "a", "some", "turn",
+        "iniciar", "empieza", "empezar", "deten", "detener", "modo", "sesion", "dime", "dame", "play", "put", "please", "the", "a", "some", "turn",
         "on", "off", "start", "stop"
     ]
     private static let offVerbs: Set<String> = [

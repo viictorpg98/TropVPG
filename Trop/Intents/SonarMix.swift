@@ -572,30 +572,27 @@ enum SonarMix {
         }
         trace("pedido por voz: cancion \(chosen?.title ?? "sin resultado")")
         guard let chosen else { return downloadedMatch.map(songTarget) }
-        // Primero las que YouTube Music marca como cancion (audio); los videos ("Visualizer", "Official Video", "En vivo"...) solo si no hay otra. La
-        // tarjeta del mejor resultado a veces es el video y no trae su tipo, asi que se busca la cancion con el mismo titulo.
-        let audioSongs = allSongs.filter { !AudioCounterpartStore.isVideoType($0) }
-        var pool = audioSongs.filter { !looksLikeVideo($0, asked: words) }
-        if pool.isEmpty { pool = audioSongs }
-        if pool.isEmpty { pool = allSongs }
-        func titleKey(_ song: SongItem) -> String {
-            let stripped = song.title.replacingOccurrences(of: "\\s*[\\(\\[][^\\)\\]]*[\\)\\]]", with: "", options: .regularExpression)
-            return searchWords(stripped).joined(separator: " ")
-        }
-        // Si la elegida lleva poco de lo que se dijo y otra de las primeras lleva mas (titulo + artista), se prefiere esa: a veces el mejor resultado
-        // es otra cancion del mismo artista.
+        // Se elige la que mas se parece a lo dicho (palabras del titulo y del artista). Los videos y directos ("Visualizer", "Official Video", "En vivo"...)
+        // restan puntos: a igualdad gana la cancion de audio, pero si lo unico que coincide es un video, se pone ese (la app ya cambia un video por
+        // su version de audio si la tiene). La tarjeta del mejor resultado no trae el tipo ni el artista, asi que se busca la misma cancion en la lista.
         func coverage(_ song: SongItem) -> Int {
             let text = searchWords(song.title + " " + song.artists.map(\.name).joined(separator: " ")).joined(separator: " ")
             return words.filter { text.contains($0) }.count
         }
-        var final = pool.first { $0.videoId == chosen.videoId } ?? pool.first { titleKey($0) == titleKey(chosen) } ?? pool.first ?? chosen
-        var finalScore = coverage(final)
-        for candidate in pool.prefix(8) where coverage(candidate) > finalScore {
+        func score(_ song: SongItem) -> Int {
+            var value = coverage(song) * 10
+            if AudioCounterpartStore.isVideoType(song) { value -= 4 }
+            if looksLikeVideo(song, asked: words) { value -= 4 }
+            return value
+        }
+        var final = allSongs.first { $0.videoId == chosen.videoId } ?? chosen
+        var finalScore = score(final)
+        for candidate in allSongs.prefix(12) where score(candidate) > finalScore {
             final = candidate
-            finalScore = coverage(candidate)
+            finalScore = score(candidate)
         }
         if final.videoId != chosen.videoId {
-            trace("pedido por voz: se prefiere \(final.title) (\(finalScore) palabras) a \(chosen.title); videos o directos descartados: \(allSongs.count - pool.count)")
+            trace("pedido por voz: se prefiere \(final.title) (puntos \(finalScore)) a \(chosen.title)")
         }
         var target = songTarget(final)
         // La tarjeta del mejor resultado no trae el artista: se toma de la misma cancion en la lista de canciones de la busqueda.
