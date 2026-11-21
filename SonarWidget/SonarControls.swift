@@ -22,6 +22,7 @@ struct SonarVoiceControl: ControlWidget {
             ControlWidgetButton(action: WidgetVoiceIntent()) {
                 Label(controlsInSpanish ? "Voz" : "Voice", systemImage: "mic.fill")
             }
+            .tint(Color(red: 0.22, green: 0.52, blue: 0.98))
         }
         .displayName("Sonar · Voz")
         .description("Pregunta qué quieres escuchar y lo pone.")
@@ -34,6 +35,7 @@ struct SonarForYouControl: ControlWidget {
             ControlWidgetButton(action: WidgetMixIntent()) {
                 Label(controlsInSpanish ? "Para ti" : "For you", systemImage: "waveform")
             }
+            .tint(Color(red: 1.00, green: 0.35, blue: 0.29))
         }
         .displayName("Sonar · Para ti")
         .description("Pone tu mezcla Para ti.")
@@ -46,6 +48,7 @@ struct SonarMixControl: ControlWidget {
             ControlWidgetButton(action: WidgetMixNowIntent()) {
                 Label(controlsInSpanish ? "Mezclar" : "Mix now", systemImage: "arrow.triangle.merge")
             }
+            .tint(Color(red: 1.00, green: 0.54, blue: 0.30))
         }
         .displayName("Sonar · Mezclar")
         .description("Pasa a la siguiente canción con AutoMix.")
@@ -58,6 +61,7 @@ struct SonarDJControl: ControlWidget {
             ControlWidgetButton(action: WidgetDJIntent()) {
                 Label("DJ", systemImage: "power")
             }
+            .tint(Color(red: 0.10, green: 0.68, blue: 0.40))
         }
         .displayName("Sonar · DJ")
         .description("Enciende o apaga el DJ.")

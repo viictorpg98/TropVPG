@@ -51,12 +51,15 @@ private struct LockButton<I: AppIntent>: View {
         case .accessoryRectangular:
             Button(intent: intent) {
                 HStack(spacing: 8) {
+                    // `widgetAccentable`: con un color elegido para la pantalla de bloqueo, el icono y el nombre lo toman (el fondo queda translucido).
                     Image(systemName: symbol)
                         .font(.system(size: 30, weight: .semibold))
+                        .widgetAccentable()
                     Text(title)
                         .font(.system(size: 19, weight: .semibold, design: .rounded))
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
+                        .widgetAccentable()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white.opacity(0.22)))
@@ -69,6 +72,7 @@ private struct LockButton<I: AppIntent>: View {
                     AccessoryWidgetBackground()
                     Image(systemName: symbol)
                         .font(.system(size: 26, weight: .semibold))
+                        .widgetAccentable()
                 }
                 .contentShape(Rectangle())
             }
