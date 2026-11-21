@@ -1,0 +1,6 @@
+runner: macOS X64 | rama main | commit f53100730f1450926855bbaf2fa652a6a071d04f | ejecucion 203
+ProductName:		macOS
+ProductVersion:		15.7.9
+BuildVersion:		24G830
+Xcode 26.3
+Build version 17C529
