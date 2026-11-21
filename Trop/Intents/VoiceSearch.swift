@@ -680,7 +680,8 @@ enum VoiceSearch {
             .replacingOccurrences(of: "[^\\p{L}\\p{N}\\s',.!?&:\\-]", with: "", options: .regularExpression)
             .trimmingCharacters(in: .whitespaces)
         if text.isEmpty { text = raw }
-        if text == text.uppercased() { text = text.lowercased() }
+        // En MAYUSCULAS la voz lo deletrea: se pasa a minusculas, salvo las siglas cortas ("SZA", "BTS", "AG"), que se dicen letra a letra.
+        if text == text.uppercased(), text.count > 3 { text = text.lowercased() }
         if text.count > 60 {
             let cut = String(text.prefix(60))
             text = cut.lastIndex(of: " ").map { String(cut[..<$0]) } ?? cut
@@ -737,6 +738,15 @@ enum VoiceSearch {
         while words.count > 1, let first = words.first?.lowercased(), fillers.contains(first) || (removed && afterFillers.contains(first)) {
             words.removeFirst()
             removed = true
+        }
+        // "la cancion X", "el tema de X", "la cancion que se llama X": sobran el articulo y el nombre. Con ellos la busqueda de YouTube Music se
+        // desvia hacia canciones que llevan esas palabras ("la cancion luces azules" daba otra que "luces azules").
+        let articles: Set<String> = ["el", "la", "los", "las", "un", "una"]
+        let nouns: Set<String> = ["cancion", "canción", "canciones", "tema", "temas", "musica", "música", "disco", "album", "álbum"]
+        let linkers: Set<String> = ["que", "se", "llama", "llamada", "llamado", "titulada", "titulado", "de", "del"]
+        if words.count > 2, articles.contains(words[0].lowercased()), nouns.contains(words[1].lowercased()) {
+            words.removeFirst(2)
+            while words.count > 1, linkers.contains(words[0].lowercased()) { words.removeFirst() }
         }
         // Al final: "por favor", "gracias".
         while words.count > 1 {
