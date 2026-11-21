@@ -31,6 +31,7 @@ import UIKit
 @MainActor
 enum VoiceSearch {
     private static var running = false
+    private static var runStartedAt = Date.distantPast
     private static var activity: Activity<VoiceActivityAttributes>?
 
     /// Se toca al arrancar la app (`WidgetDataStore.start`): da la edad del proceso para saber si un intento fue en frio.
@@ -260,12 +261,17 @@ enum VoiceSearch {
 
     /// Pregunta, escucha, busca lo oido y lo pone (como el buscador). `source`: nombre del intento en el registro.
     static func run(source: String) async {
-        guard !running else {
+        // Una busqueda "en marcha" de hace mas de 2 minutos se da por colgada (no deja las siguientes bloqueadas).
+        if running, Date().timeIntervalSince(runStartedAt) < 120 {
             log("ya hay una busqueda en marcha")
             return
         }
+        if running { log("la busqueda anterior llevaba mas de 2 minutos sin terminar: se descarta") }
         running = true
+        runStartedAt = Date()
         defer { running = false }
+        SonarMix.mirrorToVoiceLog = true
+        defer { SonarMix.mirrorToVoiceLog = false }
         VoiceLog.beginAttempt(source: source)
         let runStarted = Date()
         let age = String(format: "%.0f s", Date().timeIntervalSince(launchedAt))
@@ -310,13 +316,25 @@ enum VoiceSearch {
             // Todo lo que devolvio el reconocedor, para ajustar las ordenes con datos reales (con reconocimiento en el dispositivo puede traer solo una).
             let others = alternatives.filter { $0 != spoken }.prefix(4).map { "\"\($0)\"" }.joined(separator: ", ")
             log("transcripciones: \(alternatives.count) en total; mejor \"\(spoken)\"; otras [\(others)]")
-            if let match = VoiceCommands.detect(best: spoken, alternatives: alternatives) {
+            let command = VoiceCommands.detect(best: spoken, alternatives: alternatives)
+            if let match = command {
                 let how = match.exact ? "exacta" : "aproximada con \"\(match.source)\""
                 log("orden: \(match.command), \(how)")
-                played = await handleCommand(match, spoken: spoken, wasPlaying: wasPlaying, speaker: speaker)
             } else {
                 log("orden: ninguna; se busca como cancion")
-                played = await searchAndPlay(spoken, speaker: speaker)
+            }
+            // Tope de tiempo: si algo se queda esperando (la red, YouTube...), no se bloquea ni esta busqueda ni las siguientes.
+            let finished = await SonarMix.withTimeout(seconds: 45) { () async -> Bool? in
+                if let match = command {
+                    return await handleCommand(match, spoken: spoken, wasPlaying: wasPlaying, speaker: speaker)
+                }
+                return await searchAndPlay(spoken, speaker: speaker)
+            }
+            if let finished {
+                played = finished
+            } else {
+                log("TIEMPO AGOTADO (45 s): se abandona; lo que quedaba sigue en segundo plano")
+                await speaker.speak(pick(tooSlowVariants))
             }
             if played { await updateActivity(phase: "playing") }
             log("accion: termina tras \(String(format: "%.1f", Date().timeIntervalSince(runStarted))) s; \(memoryLeft)")
@@ -442,6 +460,11 @@ enum VoiceSearch {
         es: ["No he podido ponerlo.", "No me ha dejado ponerlo."],
         en: ["I couldn't play it.", "I wasn't able to play it."]
     )
+    private static let tooSlowVariants = Variants(
+        key: "tooslow",
+        es: ["Esto está tardando demasiado. Inténtalo otra vez.", "Va muy lento ahora mismo. Prueba de nuevo."],
+        en: ["This is taking too long. Try again.", "It's very slow right now. Try again."]
+    )
     private static let confirmNoVariants = Variants(
         key: "cmd-confirm-no",
         es: ["Vale, no hago nada.", "De acuerdo, lo dejo."],
@@ -555,7 +578,12 @@ enum VoiceSearch {
         case .category(let category):
             let label = VoiceCommands.label(for: category, spanish: spanish)
             await speaker.speak(fill(pick(categoryOKVariants), ["{c}": label]))
-            if await SonarMix.playCategory(keywords: category.keywords) != nil { return true }
+            let chip = await SonarMix.withTimeout(seconds: 12) { () async -> String? in
+                await SonarMix.playCategory(keywords: category.keywords)
+            }
+            let chipText = chip ?? "no disponible"
+            log("categoria: boton del inicio: \(chipText)")
+            if chip != nil { return true }
             // El inicio de YouTube Music no tiene ese boton: se busca como una cancion cualquiera, con su radio.
             if let target = await SonarMix.resolveVoiceRequest(VoiceCommands.fallbackSearch(for: category, spanish: spanish)),
                await SonarMix.playVoiceTarget(target) {

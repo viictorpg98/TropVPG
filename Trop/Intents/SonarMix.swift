@@ -32,7 +32,11 @@ enum SonarMix {
         let ms = Int(Date().timeIntervalSince(traceStart) * 1000)
         traceLines.append("\(ms) ms: \(text)")
         UserDefaults.standard.set(traceLines.joined(separator: "\n"), forKey: reportKey)
+        if mirrorToVoiceLog { VoiceLog.add("[mix] \(text)", report: false) }
     }
+
+    /// Mientras dura una busqueda por voz, cada paso de SonarMix tambien se apunta en el registro de voz (asi se ve donde se queda parada).
+    static var mirrorToVoiceLog = false
 
     /// Texto del ultimo arranque de "Pon mi musica".
     static var lastReport: String {
@@ -650,7 +654,14 @@ enum SonarMix {
 
     /// Una lista de reproduccion de YouTube Music (las dos primeras paginas, como "Mezclado para ti"). Hacen falta al menos 3 canciones.
     private static func playlistTarget(_ playlist: PlaylistItem) async -> VoiceTarget? {
-        guard let (_, rows) = try? await SyncBridge.playlistDetail.fetchPlaylistRows(playlistId: playlist.id, maxPages: 2) else { return nil }
+        let loaded = await withTimeout(seconds: 8) { () async -> [[String: Any]]? in
+            guard let (_, rows) = try? await SyncBridge.playlistDetail.fetchPlaylistRows(playlistId: playlist.id, maxPages: 2) else { return nil }
+            return rows
+        }
+        guard let rows = loaded else {
+            trace("lista \(playlist.title): no cargo a tiempo")
+            return nil
+        }
         let songs = rows.compactMap { item -> SongItem? in
             guard let renderer = item["musicResponsiveListItemRenderer"] as? [String: Any] else { return nil }
             return SongItem.from(renderer)
