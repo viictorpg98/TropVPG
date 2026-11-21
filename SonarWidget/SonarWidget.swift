@@ -178,7 +178,7 @@ struct SonarWidgetBundle: WidgetBundle {
         SonarSpeedDialWidget()
         SonarRefreshWidget()
         SonarVoiceActivityWidget()
-        SonarLockBundle()
-        SonarControlsBundle()
+        SonarLockBundle().body
+        SonarControlsBundle().body
     }
 }

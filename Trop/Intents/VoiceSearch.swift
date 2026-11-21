@@ -281,7 +281,8 @@ enum VoiceSearch {
         VoiceLog.beginAttempt(source: source)
         let runStarted = Date()
         let age = String(format: "%.0f s", Date().timeIntervalSince(launchedAt))
-        log("empieza (\(source), \(appState)); proceso con \(age) de vida; microfono \(microphoneStatus), voz \(speechStatus); \(memoryLeft)")
+        let locked = UIApplication.shared.isProtectedDataAvailable ? "no" : "si"
+        log("empieza (\(source), \(appState), movil bloqueado: \(locked)); proceso con \(age) de vida; microfono \(microphoneStatus), voz \(speechStatus); \(memoryLeft)")
 
         let speaker = Speaker()
         PlayerController.shared.assertAudioSession()

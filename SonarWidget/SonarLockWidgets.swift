@@ -9,6 +9,7 @@
 //
 
 import AppIntents
+import Foundation
 import SwiftUI
 import WidgetKit
 
