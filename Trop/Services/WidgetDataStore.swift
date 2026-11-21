@@ -135,6 +135,9 @@ final class WidgetDataStore {
     private func reloadButtonWidgets() {
         lastButtonsReload = Date()
         WidgetCenter.shared.reloadTimelines(ofKind: "SonarWidget")
+        // Los de la pantalla de bloqueo tambien enseñan si el DJ esta encendido.
+        WidgetCenter.shared.reloadTimelines(ofKind: "SonarLockDJ")
+        WidgetCenter.shared.reloadTimelines(ofKind: "SonarLockRow")
     }
 
     // MARK: - Datos del inicio

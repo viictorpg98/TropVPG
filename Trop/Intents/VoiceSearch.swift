@@ -292,9 +292,10 @@ enum VoiceSearch {
         }
 
         startActivity()
-        // La Live Activity sigue viva al terminar: 40 s si suena algo (hasta que el latido confirme que el proceso aguanta), 5 s si no.
+        // La Live Activity sigue viva al terminar el intent (si no, la app se cuelga: ver el "PROBLEMA CONOCIDO") y se cierra poco despues: 8 s si suena
+        // algo, 5 s si no. Sin cambiar su texto a "Reproduciendo…" (menos animacion en la isla).
         var played = false
-        defer { releaseActivity(after: played ? 40 : 5) }
+        defer { releaseActivity(after: played ? 8 : 5) }
         let wasPlaying = NowPlaying.shared.isPlaying
         if wasPlaying { PlayerController.shared.setPaused(true) }
         defer {
@@ -341,7 +342,6 @@ enum VoiceSearch {
                 log("TIEMPO AGOTADO (35 s): se abandona; lo que quedaba sigue en segundo plano")
                 await speaker.speak(pick(tooSlowVariants))
             }
-            if played { await updateActivity(phase: "playing") }
             log("accion: termina tras \(String(format: "%.1f", Date().timeIntervalSince(runStarted))) s; \(memoryLeft)")
             startHeartbeat()
         }
