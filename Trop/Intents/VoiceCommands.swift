@@ -52,7 +52,104 @@ struct VoiceCommandMatch {
     let source: String
 }
 
+/// Lo que se pide sobre un artista, un album o una lista (no es una orden de la app ni el titulo de una cancion).
+enum VoiceRequest: Equatable {
+    enum LatestKind: Equatable { case album, single, any }
+
+    /// "el ultimo album de X", "lo nuevo de X", "su ultima cancion".
+    case latest(artist: String, kind: LatestKind)
+    /// "lo mejor de X", "los exitos de X", "lo mas escuchado de X".
+    case top(artist: String)
+    /// "algo parecido a X", "musica como la de X", "radio de X".
+    case radio(artist: String)
+    /// "el album X", "el disco X".
+    case album(query: String)
+    /// "la lista X".
+    case playlist(query: String)
+}
+
 enum VoiceCommands {
+    // MARK: - Peticiones sobre artistas, albumes y listas
+
+    private static let requestLead: Set<String> = fillers.union([
+        "lo", "los", "las", "y", "que", "mas", "musica", "canciones", "temas", "cosas", "todo", "toda", "unos", "unas", "dime", "dame", "tu", "su"
+    ])
+    private static let latestWords: Set<String> = [
+        "ultimo", "ultima", "ultimos", "ultimas", "nuevo", "nueva", "nuevos", "nuevas", "reciente", "recientes"
+    ]
+    private static let latestNouns: Set<String> = [
+        "album", "albumes", "disco", "discos", "trabajo", "sencillo", "sencillos", "single", "singles", "cancion", "canciones", "tema", "temas",
+        "lanzamiento", "lanzamientos"
+    ]
+    private static let albumNouns: Set<String> = ["album", "albumes", "disco", "discos", "trabajo"]
+    private static let topWords: Set<String> = [
+        "mejor", "mejores", "exitos", "populares", "escuchado", "escuchada", "escuchados", "escuchadas", "famosas", "famosos", "conocidas",
+        "conocidos", "hits"
+    ]
+    private static let topNouns: Set<String> = ["canciones", "temas", "musica", "exitos", "hits", "cosas"]
+    private static let radioWords: Set<String> = ["parecido", "parecida", "parecidos", "parecidas", "similar", "similares", "radio", "emisora", "estilo"]
+    private static let radioConnectors: Set<String> = ["a", "de", "del", "al", "como", "que", "la", "el", "los", "las", "tipo"]
+
+    /// "el ultimo album de Bad Bunny", "lo mejor de Quevedo", "algo parecido a Rels B", "el album Un Verano Sin Ti", "la lista Gym"... `nil` si la frase no
+    /// es de ese tipo (se busca como cancion). Solo cuenta si ANTES de la palabra clave hay solo palabras de relleno ("pon", "el", "lo"...): asi
+    /// "Ultimo Baile de Gale" o "Pon Como Te Quiero" siguen siendo canciones.
+    static func parseRequest(_ spoken: String) -> VoiceRequest? {
+        let original = spoken.split(separator: " ").map(String.init)
+        let f = original.map { words($0).joined() }
+        guard original.count >= 3 else { return nil }
+
+        func subject(from index: Int, skipping skip: Set<String>) -> String? {
+            var i = index
+            while i < f.count, skip.contains(f[i]) { i += 1 }
+            guard i < original.count else { return nil }
+            return original[i...].joined(separator: " ")
+        }
+        func firstIndex(in set: Set<String>) -> Int? { f.firstIndex { set.contains($0) } }
+        func onlyLead(before index: Int) -> Bool { f[..<index].allSatisfy { requestLead.contains($0) || $0.isEmpty } }
+
+        // "el ultimo album de X", "lo nuevo de X", "la ultima cancion de X".
+        if let i = firstIndex(in: latestWords), onlyLead(before: i) {
+            var j = i + 1
+            var kind = VoiceRequest.LatestKind.any
+            while j < f.count, latestNouns.contains(f[j]) {
+                kind = albumNouns.contains(f[j]) ? .album : .single
+                j += 1
+            }
+            if j < f.count, ["de", "del"].contains(f[j]), let who = subject(from: j, skipping: ["de", "del"]) {
+                return .latest(artist: who, kind: kind)
+            }
+        }
+        // "lo mejor de X", "los exitos de X", "las canciones mas escuchadas de X".
+        if let i = firstIndex(in: topWords), onlyLead(before: i) {
+            var j = i + 1
+            while j < f.count, topNouns.contains(f[j]) || f[j] == "mas" || topWords.contains(f[j]) { j += 1 }
+            if j < f.count, ["de", "del"].contains(f[j]), let who = subject(from: j, skipping: ["de", "del"]) {
+                return .top(artist: who)
+            }
+        }
+        // "algo parecido a X", "musica similar a X", "radio de X", "algo del estilo de X", "musica como X".
+        if let i = firstIndex(in: radioWords), onlyLead(before: i), i + 1 < f.count {
+            // "estilo", "radio" y "emisora" solo con "de" ("estilo de X", "radio de X"): "Estilo Libre" o "Radio Ga Ga" son canciones.
+            let next = f[i + 1]
+            let nextOK = ["estilo", "radio", "emisora"].contains(f[i]) ? ["de", "del"].contains(next) : ["a", "al", "de", "del", "como"].contains(next)
+            if nextOK, let who = subject(from: i + 1, skipping: radioConnectors) { return .radio(artist: who) }
+        }
+        if let i = f.firstIndex(of: "como"), i > 0, f[..<i].contains(where: { ["algo", "musica", "canciones", "temas", "cosas"].contains($0) }),
+           onlyLead(before: i), let who = subject(from: i + 1, skipping: radioConnectors) {
+            return .radio(artist: who)
+        }
+        // "el album X", "el disco X".
+        if let i = firstIndex(in: albumNouns), onlyLead(before: i), let what = subject(from: i + 1, skipping: ["de", "del", "llamado", "titulado"]) {
+            return .album(query: what)
+        }
+        // "la lista X", "la playlist X".
+        if let i = firstIndex(in: ["lista", "listas", "playlist", "playlists"]), onlyLead(before: i),
+           let what = subject(from: i + 1, skipping: ["de", "del", "reproduccion", "llamada", "titulada"]) {
+            return .playlist(query: what)
+        }
+        return nil
+    }
+
     // MARK: - Detectar
 
     static func detect(best: String, alternatives: [String]) -> VoiceCommandMatch? {

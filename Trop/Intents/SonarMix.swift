@@ -490,7 +490,7 @@ enum SonarMix {
 
     /// Lo que se pondra por voz, ya decidido pero sin sonar todavia (asi se puede decir "Poniendo X" antes de empezar).
     struct VoiceTarget {
-        enum Kind { case song, artist, album, playlist }
+        enum Kind { case song, artist, album, playlist, radio }
         var kind: Kind
         var title: String
         var artist: String?
@@ -635,6 +635,87 @@ enum SonarMix {
         return VoiceTarget(kind: .artist, title: name, artist: nil, songs: [first], asQueue: false)
     }
 
+    // MARK: - Peticiones concretas por voz (ultimo album, lo mejor de, parecido a, album, lista)
+
+    /// Resuelve una peticion de `VoiceCommands.parseRequest`. `nil` si no se encuentra (entonces se busca la frase como una cancion).
+    static func resolveVoiceTask(_ request: VoiceRequest) async -> VoiceTarget? {
+        await prepareSession()
+        trace("peticion por voz: \(request)")
+        guard NetworkMonitor.shared.hasConnection else { return nil }
+        switch request {
+        case .top(let name):
+            return await resolveVoiceRequest(name)
+
+        case .radio(let name):
+            // La radio de su cancion mas conocida: suena esa y sigue con canciones parecidas.
+            guard let base = await resolveVoiceRequest(name), let first = base.songs.first else { return nil }
+            let who = base.kind == .artist ? base.title : (first.artists.first?.name ?? name)
+            return VoiceTarget(kind: .radio, title: who, artist: nil, songs: [first], asQueue: false)
+
+        case .latest(let name, let kind):
+            guard let artist = await findArtist(name),
+                  let json = try? await InnerTubeClient.tropShared.browse(browseId: artist.browseId) else { return nil }
+            let info = ArtistDetailViewModel.parseArtistDetail(from: json, browseId: artist.browseId)
+            trace("ultimo de \(artist.name): albumes \(info.albums.prefix(3).map(\.title)), sencillos \(info.singles.prefix(3).map(\.title))")
+            let item: AlbumItem?
+            switch kind {
+            case .album: item = info.albums.first ?? info.singles.first
+            case .single: item = info.singles.first ?? info.albums.first
+            case .any: item = await newerRelease(album: info.albums.first, single: info.singles.first)
+            }
+            guard let item, var target = await albumTarget(item) else { return nil }
+            if target.artist == nil { target.artist = artist.name }
+            return target
+
+        case .album(let query):
+            guard let raw = try? await SearchService.shared.search(query: query) else { return nil }
+            if case .album(let album)? = SearchParser.topResult(from: raw), let target = await albumTarget(album) { return target }
+            for section in SearchParser.parseSearchResults(from: raw) {
+                for item in section.items {
+                    if case .album(let album) = item { return await albumTarget(album) }
+                }
+            }
+            return nil
+
+        case .playlist(let query):
+            guard let raw = try? await SearchService.shared.search(query: query) else { return nil }
+            if case .playlist(let playlist)? = SearchParser.topResult(from: raw), let target = await playlistTarget(playlist) { return target }
+            for section in SearchParser.parseSearchResults(from: raw) {
+                for item in section.items {
+                    if case .playlist(let playlist) = item { return await playlistTarget(playlist) }
+                }
+            }
+            return nil
+        }
+    }
+
+    /// El artista que mejor encaja con el nombre dicho: el mejor resultado si es un artista, o el primero que salga.
+    private static func findArtist(_ name: String) async -> ArtistItem? {
+        guard let raw = try? await SearchService.shared.search(query: name) else { return nil }
+        if case .artist(let artist)? = SearchParser.topResult(from: raw) { return artist }
+        for section in SearchParser.parseSearchResults(from: raw) {
+            for item in section.items {
+                if case .artist(let artist) = item { return artist }
+            }
+        }
+        return nil
+    }
+
+    /// De un album y un sencillo, el mas reciente (por el año de su pagina; a igualdad, el album).
+    private static func newerRelease(album: AlbumItem?, single: AlbumItem?) async -> AlbumItem? {
+        guard let album else { return single }
+        guard let single else { return album }
+        let albumYear = await releaseYear(album)
+        let singleYear = await releaseYear(single)
+        return (singleYear ?? 0) > (albumYear ?? 0) ? single : album
+    }
+
+    private static func releaseYear(_ item: AlbumItem) async -> Int? {
+        if let year = item.year { return year }
+        guard let json = try? await InnerTubeClient.tropShared.browse(browseId: item.browseId) else { return nil }
+        return AlbumDetailViewModel.parseAlbumDetail(from: json, browseId: item.browseId).year
+    }
+
     /// Titulos de video o de directo ("Visualizer", "Official Video", "En vivo"...), salvo que se hayan pedido en la frase.
     private static func looksLikeVideo(_ song: SongItem, asked words: [String]) -> Bool {
         let tokens = Set(searchWords(song.title))
@@ -681,6 +762,7 @@ enum SonarMix {
             switch target.kind {
             case .album: context = "album"
             case .playlist: context = "lista"
+            case .radio: context = "radio"
             case .artist, .song: context = "artista"
             }
             return await play(target.songs, context: context)

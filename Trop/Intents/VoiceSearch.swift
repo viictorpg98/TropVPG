@@ -220,6 +220,11 @@ enum VoiceSearch {
         es: ["Poniendo la lista {t}.", "Ahí va la lista {t}.", "Marchando la lista {t}."],
         en: ["Playing the playlist {t}.", "Here goes the playlist {t}.", "Coming up, the playlist {t}."]
     )
+    private static let radioVariants = Variants(
+        key: "radio",
+        es: ["Poniendo música parecida a {t}.", "Ahí va algo del estilo de {t}.", "Marchando música como la de {t}."],
+        en: ["Playing music like {t}.", "Here's something in the style of {t}.", "Coming up, music like {t}."]
+    )
     private static let albumOnlyVariants = Variants(
         key: "album",
         es: ["Poniendo el álbum {t}.", "Ahí va el álbum {t}.", "Marchando el álbum {t}."],
@@ -342,8 +347,16 @@ enum VoiceSearch {
         }
     }
 
-    /// Buscar lo dicho como en el buscador y ponerlo. `true` si suena.
+    /// Buscar lo dicho como en el buscador y ponerlo. `true` si suena. Antes se mira si es una peticion concreta ("el ultimo album de X",
+    /// "lo mejor de X", "algo parecido a X", "el album X", "la lista X").
     private static func searchAndPlay(_ spoken: String, speaker: Speaker) async -> Bool {
+        if let request = VoiceCommands.parseRequest(spoken) {
+            log("peticion: \(request)")
+            if let target = await SonarMix.resolveVoiceTask(request) {
+                return await announceAndPlay(target, speaker: speaker)
+            }
+            log("peticion: sin resultado; se busca la frase como una cancion")
+        }
         let query = normalized(spoken)
         log("busqueda: \"\(query)\" (oido: \"\(spoken)\")")
         guard let target = await SonarMix.resolveVoiceRequest(query) else {
@@ -351,6 +364,10 @@ enum VoiceSearch {
             await speaker.speak(fill(pick(notFoundVariants), ["{q}": query]))
             return false
         }
+        return await announceAndPlay(target, speaker: speaker)
+    }
+
+    private static func announceAndPlay(_ target: SonarMix.VoiceTarget, speaker: Speaker) async -> Bool {
         log("encontrado: \(target.kind) \"\(target.title)\" (\(target.songs.count) canciones, cola \(target.asQueue))")
         await speaker.speak(announcement(for: target))
         let started = await SonarMix.playVoiceTarget(target)
@@ -667,6 +684,8 @@ enum VoiceSearch {
             return fill(pick(albumOnlyVariants), ["{t}": title])
         case .playlist:
             return fill(pick(playlistVariants), ["{t}": title])
+        case .radio:
+            return fill(pick(radioVariants), ["{t}": title])
         }
     }
 
