@@ -137,7 +137,7 @@ final class WidgetDataStore {
         WidgetCenter.shared.reloadTimelines(ofKind: "SonarWidget")
         // Los de la pantalla de bloqueo tambien enseñan si el DJ esta encendido.
         WidgetCenter.shared.reloadTimelines(ofKind: "SonarLockDJ")
-        WidgetCenter.shared.reloadTimelines(ofKind: "SonarLockRow")
+        WidgetCenter.shared.reloadTimelines(ofKind: "SonarLockPairB")
     }
 
     // MARK: - Datos del inicio

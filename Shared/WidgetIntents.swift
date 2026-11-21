@@ -16,6 +16,8 @@ import AppIntents
 struct WidgetMixIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "My Mix"
     static let isDiscoverable = false
+    /// Se puede ejecutar con el movil bloqueado (los widgets y controles de la pantalla de bloqueo no piden desbloquear).
+    static let authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
     @MainActor
     func perform() async throws -> some IntentResult {
@@ -30,6 +32,8 @@ struct WidgetMixIntent: AudioPlaybackIntent {
 struct WidgetMixNowIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Mix Now"
     static let isDiscoverable = false
+    /// Se puede ejecutar con el movil bloqueado (los widgets y controles de la pantalla de bloqueo no piden desbloquear).
+    static let authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
     @MainActor
     func perform() async throws -> some IntentResult {
@@ -45,6 +49,8 @@ struct WidgetMixNowIntent: AudioPlaybackIntent {
 struct WidgetDJIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "DJ"
     static let isDiscoverable = false
+    /// Se puede ejecutar con el movil bloqueado (los widgets y controles de la pantalla de bloqueo no piden desbloquear).
+    static let authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
     @MainActor
     func perform() async throws -> some IntentResult {
@@ -131,6 +137,8 @@ struct WidgetPlayTrackIntent: AudioPlaybackIntent {
 struct WidgetVoiceIntent: AudioRecordingIntent, LiveActivityIntent, AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Voice Search"
     static let isDiscoverable = false
+    /// Se puede ejecutar con el movil bloqueado (los widgets y controles de la pantalla de bloqueo no piden desbloquear).
+    static let authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
 
     @MainActor
     func perform() async throws -> some IntentResult {

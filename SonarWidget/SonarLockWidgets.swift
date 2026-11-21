@@ -3,7 +3,7 @@
 //  SonarWidget
 //
 //  Widgets para la PANTALLA DE BLOQUEO del iPhone (con el movil bloqueado y el navegador puesto en CarPlay): un circulo por accion (Voz, Para ti,
-//  Mezclar, DJ) y uno rectangular con los cuatro botones juntos. Cada boton ejecuta la misma accion que su boton del widget principal
+//  Mezclar, DJ) y dos rectangulares con dos botones GRANDES cada uno (Voz + Para ti, Mezclar + DJ). Cada boton ejecuta la misma accion que su boton del widget principal
 //  (Shared/WidgetIntents.swift), que corre en la app sin abrirla. Se añaden desde la pantalla de bloqueo (mantener pulsado > Personalizar).
 //  El DJ se ve encendido o apagado (dato de `WidgetShared`, igual que en el widget principal).
 //
@@ -44,7 +44,7 @@ private func lockCircle<I: AppIntent>(_ intent: I, symbol: String) -> some View 
         ZStack {
             AccessoryWidgetBackground()
             Image(systemName: symbol)
-                .font(.system(size: 20, weight: .semibold))
+                .font(.system(size: 26, weight: .semibold))
         }
     }
     .buttonStyle(.plain)
@@ -98,31 +98,55 @@ struct SonarLockDJWidget: Widget {
     }
 }
 
-/// Un solo widget rectangular con los cuatro botones juntos (ocupa un hueco en vez de cuatro).
-struct SonarLockRowWidget: Widget {
-    private func rowButton<I: AppIntent>(_ intent: I, symbol: String) -> some View {
-        Button(intent: intent) {
-            Image(systemName: symbol)
-                .font(.system(size: 18, weight: .semibold))
-                .frame(width: 34, height: 34)
-                .background(Circle().fill(Color.white.opacity(0.22)))
-        }
-        .buttonStyle(.plain)
-    }
+private var lockSpanish: Bool {
+    Locale.preferredLanguages.first?.hasPrefix("es") ?? false
+}
 
+/// Un boton grande con icono y nombre, para los widgets rectangulares de la pantalla de bloqueo: 2 por widget, mucho mas faciles de pulsar que 4 pequeños.
+private func lockBigButton<I: AppIntent>(_ intent: I, symbol: String, title: String) -> some View {
+    Button(intent: intent) {
+        VStack(spacing: 2) {
+            Image(systemName: symbol)
+                .font(.system(size: 24, weight: .semibold))
+            Text(title)
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white.opacity(0.22)))
+    }
+    .buttonStyle(.plain)
+}
+
+/// Rectangular A: Voz y Para ti, grandes.
+struct SonarLockPairAWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "SonarLockRow", provider: SonarLockProvider()) { entry in
+        StaticConfiguration(kind: "SonarLockPairA", provider: SonarLockProvider()) { _ in
             HStack(spacing: 6) {
-                rowButton(WidgetVoiceIntent(), symbol: "mic.fill")
-                rowButton(WidgetMixIntent(), symbol: "waveform")
-                rowButton(WidgetMixNowIntent(), symbol: "arrow.triangle.merge")
-                rowButton(WidgetDJIntent(), symbol: entry.dj ? "power.circle.fill" : "power")
+                lockBigButton(WidgetVoiceIntent(), symbol: "mic.fill", title: lockSpanish ? "Voz" : "Voice")
+                lockBigButton(WidgetMixIntent(), symbol: "waveform", title: lockSpanish ? "Para ti" : "For you")
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .containerBackground(for: .widget) { Color.clear }
         }
-        .configurationDisplayName("Sonar · Botones (bloqueo)")
-        .description("Voz, Para ti, Mezclar y DJ en un solo widget de la pantalla de bloqueo.")
+        .configurationDisplayName("Sonar · Voz y Para ti (bloqueo)")
+        .description("Dos botones grandes para la pantalla de bloqueo: Voz y Para ti.")
+        .supportedFamilies([.accessoryRectangular])
+    }
+}
+
+/// Rectangular B: Mezclar y DJ (con su estado), grandes.
+struct SonarLockPairBWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "SonarLockPairB", provider: SonarLockProvider()) { entry in
+            HStack(spacing: 6) {
+                lockBigButton(WidgetMixNowIntent(), symbol: "arrow.triangle.merge", title: lockSpanish ? "Mezclar" : "Mix")
+                lockBigButton(WidgetDJIntent(), symbol: entry.dj ? "power.circle.fill" : "power", title: entry.dj ? "DJ · ON" : "DJ · OFF")
+            }
+            .containerBackground(for: .widget) { Color.clear }
+        }
+        .configurationDisplayName("Sonar · Mezclar y DJ (bloqueo)")
+        .description("Dos botones grandes para la pantalla de bloqueo: Mezclar y DJ (se ve si esta encendido).")
         .supportedFamilies([.accessoryRectangular])
     }
 }
@@ -134,6 +158,7 @@ struct SonarLockBundle: WidgetBundle {
         SonarLockForYouWidget()
         SonarLockMixWidget()
         SonarLockDJWidget()
-        SonarLockRowWidget()
+        SonarLockPairAWidget()
+        SonarLockPairBWidget()
     }
 }
