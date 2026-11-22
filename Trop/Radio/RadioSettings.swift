@@ -15,6 +15,9 @@ enum RadioSettings {
     static let dailyCapKey = "radio.dailyCap"
     static let voiceGainKey = "radio.voiceGain"
     static let duckKey = "radio.duckLevel"
+    static let memoryKey = "radio.memory"
+    static let sectionsKey = "radio.sections"
+    static let cityKey = "radio.city"
     static let textModelKey = "radio.textModel"
     static let voiceModelKey = "radio.voiceModel"
     static let pitirreVoiceKey = "radio.voice.pitirre"
@@ -58,6 +61,40 @@ enum RadioSettings {
     static var duckLevel: Double {
         let saved = UserDefaults.standard.object(forKey: duckKey) as? Double ?? 0.45
         return min(max(saved, 0.15), 0.8)
+    }
+
+    /// Si la radio recuerda entre dias (diario local + resumen a Gemini para las bromas con tus datos).
+    static var memoryEnabled: Bool {
+        UserDefaults.standard.object(forKey: memoryKey) as? Bool ?? true
+    }
+
+    /// Si hay secciones (noticiero, tiempo, anuncios, tendencias) entre las canciones.
+    static var sectionsEnabled: Bool {
+        UserDefaults.standard.object(forKey: sectionsKey) as? Bool ?? true
+    }
+
+    struct City {
+        let name: String
+        let latitude: Double
+        let longitude: Double
+    }
+
+    /// Ciudades para el tiempo (sin GPS: se elige aqui).
+    static let cities: [City] = [
+        City(name: "Sabadell", latitude: 41.5463, longitude: 2.1086),
+        City(name: "Barcelona", latitude: 41.3874, longitude: 2.1686),
+        City(name: "Madrid", latitude: 40.4168, longitude: -3.7038),
+        City(name: "Valencia", latitude: 39.4699, longitude: -0.3763),
+        City(name: "Sevilla", latitude: 37.3891, longitude: -5.9845),
+        City(name: "Bilbao", latitude: 43.2630, longitude: -2.9350),
+        City(name: "Zaragoza", latitude: 41.6488, longitude: -0.8891),
+        City(name: "Málaga", latitude: 36.7213, longitude: -4.4214),
+        City(name: "Palma", latitude: 39.5696, longitude: 2.6502)
+    ]
+
+    static var city: City {
+        let saved = UserDefaults.standard.string(forKey: cityKey) ?? "Sabadell"
+        return cities.first { $0.name == saved } ?? cities[0]
     }
 
     static var textModel: String { stored(textModelKey, default: defaultTextModel) }

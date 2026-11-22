@@ -98,7 +98,8 @@ final class ManualMixStore {
 enum MixTransition {
     /// Hay mezclas: con AutoMix encendido en Ajustes o con una sesion de DJ en marcha (el DJ mezcla aunque AutoMix este apagado).
     static var mixingEnabled: Bool {
-        SettingsStore.shared.autoMixEnabled || DJSettings.shared.sessionActive
+        // La radio (Sonar FM) apaga la mezcla en el paso donde va a hacer un corte con una seccion (la cancion se funde y la siguiente empieza desde cero).
+        (SettingsStore.shared.autoMixEnabled || DJSettings.shared.sessionActive) && !RadioSession.shared.holdsMix
     }
 
     /// Guarda la eleccion (`nil`: que decida AutoMix) y devuelve el texto que explica cuando se aplicara.

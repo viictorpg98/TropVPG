@@ -46,6 +46,7 @@
 "Albums" = "Álbumes";
 "Albums & singles" = "Álbumes y sencillos";
 "Albums for you" = "Álbumes para ti";
+"All Radio Settings" = "Todos los ajustes de la radio";
 "All Results" = "Todos los resultados";
 "Ambient + atmospheric" = "Ambiental y atmosférico";
 "Analysing songs…" = "Analizando canciones…";
@@ -63,6 +64,7 @@
 "Artists" = "Artistas";
 "Artists you hide stop appearing on Home, in radios and in the queue. They still show up when you search for them." = "Los artistas que ocultas dejan de salir en Inicio, en las radios y en la cola. Siguen saliendo si los buscas.";
 "Arts" = "Arte";
+"Ask for Music" = "Pedir música";
 "Asks for microphone and speech permission, then asks what you want to listen to and searches for it. The Voice button on the Sonar widget does the same from the Home Screen or CarPlay; what happens in each step is saved in the report." = "Pide permiso de micrófono y de reconocimiento de voz, y luego pregunta qué quieres escuchar y lo busca. El botón Voz del widget de Sonar hace lo mismo desde la pantalla de inicio o CarPlay; lo que pasa en cada paso queda apuntado en el informe.";
 "At Risk" = "En peligro";
 "Audio" = "Audio";
@@ -117,8 +119,10 @@
 "Choose the Points" = "Elegir los puntos";
 "Choose which library sections sync from your YouTube Music account." = "Elige qué secciones de la biblioteca se sincronizan desde tu cuenta de YouTube Music.";
 "Chuleta's Voice" = "Voz de la Chuleta";
+"City for the Weather" = "Ciudad para el tiempo";
 "Classical" = "Clásica";
 "Clear" = "Borrar";
+"Clear Memory" = "Borrar memoria";
 "Clear Upcoming" = "Vaciar lo que viene";
 "Clear search" = "Borrar búsqueda";
 "Client" = "Cliente";
@@ -285,6 +289,7 @@
 "Gestures" = "Gestos";
 "Get new episodes for your library" = "Recibe episodios nuevos en tu biblioteca";
 "Get new episodes in your library" = "Recibe episodios nuevos en tu biblioteca";
+"Getting the radio ready…" = "Preparando la radio…";
 "GitHub" = "GitHub";
 "Go to Downloads" = "Ir a Descargas";
 "Good mix" = "Buena mezcla";
@@ -411,6 +416,7 @@
 "Meditative sleep" = "Sueño meditativo";
 "Medium" = "Media";
 "Medium Blend" = "Mezcla media";
+"Memory cleared." = "Memoria borrada.";
 "Metadata & stream information" = "Metadatos e información de la transmisión";
 "Metal" = "Metal";
 "Mindfulness & meditation" = "Mindfulness y meditación";
@@ -511,6 +517,7 @@
 "Offline Mix Size" = "Tamaño de la mezcla";
 "Offline: showing what was last saved (%@)" = "Sin conexión: se muestra lo último guardado (%@)";
 "On" = "Activado";
+"On the air: %@" = "En el aire: %@";
 "Online" = "En línea";
 "Only your downloaded music is available." = "Solo está disponible la música descargada.";
 "Options" = "Opciones";
@@ -587,14 +594,17 @@
 "Queue is empty" = "La cola está vacía";
 "Queue saved as “%@”." = "Cola guardada como «%@».";
 "Quick Picks" = "Selecciones rápidas";
+"Quick Settings" = "Ajustes rápidos";
 "Quick picks" = "Selecciones rápidas";
 "Quiet" = "Suave";
 "Radio" = "Radio";
+"Radio Remembers" = "La radio recuerda";
 "Radio stopped." = "Radio parada.";
 "Rating" = "Valoración";
 "Ratings so far: %d" = "Valoraciones hasta ahora: %d";
 "Re-sync" = "Volver a sincronizar";
 "Recaps" = "Resúmenes";
+"Recent Requests" = "Últimas peticiones";
 "Recently Played" = "Reproducidas recientemente";
 "Recently searched" = "Búsquedas recientes";
 "Records screens, network requests, freezes, CPU, memory and battery while you use the app, and sums it up in the report. It uses a little extra battery: turn it off when you don't need it." = "Apunta pantallas, peticiones de red, tirones, CPU, memoria y batería mientras usas la app, y lo resume en el informe. Gasta algo más de batería: apágalo cuando no lo necesites.";
@@ -650,6 +660,7 @@
 "Search in queue" = "Buscar en la cola";
 "Search songs" = "Buscar canciones";
 "Seconds" = "Segundos";
+"Sections" = "Secciones (noticias, tiempo, anuncios)";
 "Select" = "Seleccionar";
 "Select All" = "Seleccionar todo";
 "September" = "Septiembre";
@@ -726,6 +737,7 @@
 "Stop DJ" = "Parar DJ";
 "Stop Preview" = "Parar la escucha";
 "Stop hearing this artist?" = "¿Dejar de oír a este artista?";
+"Stop the Radio" = "Parar la radio";
 "Stream" = "Transmisión";
 "Style" = "Estilo";
 "Style, size & explicit filter" = "Estilo, tamaño y filtro de contenido explícito";
@@ -765,7 +777,8 @@
 "The limit is an estimate based on what this app generates, not on what Google charges. When it is reached, the radio keeps playing music without voices." = "El tope es una estimación de lo que genera esta app, no de lo que cobra Google. Al alcanzarlo, la radio sigue con música sin voces.";
 "The music will stop in %d minutes." = "La música se parará en %d minutos.";
 "The radio is on. Tap to stop it." = "La radio está encendida. Toca para pararla.";
-"The radio uses Google Gemini to write what the hosts say and to give them a voice. What you ask for, the titles of the songs, the time of day and the names of the artists you listen to most are sent to Google; your key stays on this phone." = "La radio usa Google Gemini para escribir lo que dicen los locutores y darles voz. Lo que pides, los títulos de las canciones, la hora del día y los nombres de los artistas que más escuchas se envían a Google; tu clave se queda en este móvil.";
+"The radio keeps a diary on this phone (what you ask for, which artists it plays, how many times you say Not on the Radio) and sends short summaries of it to Google so the hosts can remember and joke about it. Clear Memory deletes it." = "La radio guarda un diario en este móvil (lo que pides, qué artistas pone, cuántas veces dices «No en la radio») y manda resúmenes cortos a Google para que los locutores lo recuerden y bromeen con ello. «Borrar memoria» lo elimina.";
+"The radio uses Google Gemini to write what the hosts say and to give them a voice. What you ask for, the titles of the songs, the time of day, the names of the artists you listen to most and the city you pick for the weather are sent to Google; your key stays on this phone." = "La radio usa Google Gemini para escribir lo que dicen los locutores y darles voz. Lo que pides, los títulos de las canciones, la hora del día, los nombres de los artistas que más escuchas y la ciudad que elijas para el tiempo se envían a Google; tu clave se queda en este móvil.";
 "The summary of this session (screens, network, freezes, CPU, memory, battery) and the latest events. Pull down to refresh." = "El resumen de esta sesión (pantallas, red, tirones, CPU, memoria, batería) y los últimos eventos. Desliza hacia abajo para actualizar.";
 "Theme" = "Tema";
 "Theme Mode" = "Modo del tema";

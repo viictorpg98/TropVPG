@@ -16,10 +16,13 @@ struct FilterChipBar<Item, ID: Hashable>: View {
     let title: (Item) -> String
     let isSelected: (Item) -> Bool
     let onTap: (Item) -> Void
+    /// Una pildora propia al principio de la fila (la del DJ en el Inicio).
+    var leading: AnyView? = nil
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
+                if let leading { leading }
                 ForEach(items, id: id) { item in
                     Button {
                         onTap(item)

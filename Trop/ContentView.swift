@@ -21,6 +21,10 @@ struct ContentView: View {
                 withMiniPlayer(tab: 0) { HomeScreenView() }
             }
 
+            Tab("Radio", systemImage: "dot.radiowaves.left.and.right", value: 4) {
+                withMiniPlayer(tab: 4) { RadioScreenView() }
+            }
+
             Tab("Library", systemImage: "music.note.square.stack", value: 1) {
                 withMiniPlayer(tab: 1) { LibraryView() }
             }
@@ -56,7 +60,8 @@ struct ContentView: View {
             DiagLog.event("nav", expanded ? "abre el reproductor grande" : "cierra el reproductor grande")
         }
         .onChange(of: selectedTab) { oldValue, newValue in
-            DiagLog.event("nav", "pestana: \(["Inicio", "Biblioteca", "Explorar", "Buscar"][min(max(newValue, 0), 3)])", important: true)
+            let tabName = newValue == 4 ? "Radio" : ["Inicio", "Biblioteca", "Explorar", "Buscar"][min(max(newValue, 0), 3)]
+            DiagLog.event("nav", "pestana: \(tabName)", important: true)
             MixFeedbackStore.shared.dismissForActivity()
             AppRouter.shared.selectedTabIndex = newValue
             if newValue == 3 { AppRouter.shared.previousTabIndex = oldValue }

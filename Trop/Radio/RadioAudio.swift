@@ -19,6 +19,8 @@ struct RadioTurn: Codable, Hashable {
 struct RadioClip {
     let wav: Data
     let seconds: Double
+    /// `false` para los audios ya preparados a su nivel (las cuñas): no se les sube el volumen al reproducirlos.
+    var needsBoost: Bool = true
 }
 
 enum RadioAudio {
@@ -271,5 +273,38 @@ final class RadioClipPlayer: NSObject, AVAudioPlayerDelegate, @unchecked Sendabl
 
     func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
         finish(false)
+    }
+}
+
+/// Reproduce la musiquita de una seccion (un MP3 de la app) por debajo de la voz: se puede subir y bajar su volumen. NO usa `RadioAudio` (eso es para WAV).
+final class RadioBedPlayer: @unchecked Sendable {
+    private var player: AVAudioPlayer?
+
+    /// Empieza a sonar; devuelve lo que dura, o `nil` si no se pudo.
+    @discardableResult
+    func start(url: URL, volume: Float) -> TimeInterval? {
+        stop()
+        guard let player = try? AVAudioPlayer(contentsOf: url) else { return nil }
+        player.volume = volume
+        player.prepareToPlay()
+        guard player.play() else { return nil }
+        self.player = player
+        return player.duration
+    }
+
+    var volume: Float {
+        get { player?.volume ?? 0 }
+        set { player?.volume = newValue }
+    }
+
+    var isPlaying: Bool { player?.isPlaying ?? false }
+
+    func fade(to volume: Float, over seconds: TimeInterval) {
+        player?.setVolume(volume, fadeDuration: seconds)
+    }
+
+    func stop() {
+        player?.stop()
+        player = nil
     }
 }

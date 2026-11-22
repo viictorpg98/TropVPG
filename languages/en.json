@@ -832,7 +832,7 @@
   "Tell the hosts what you feel like hearing.": "Tell the hosts what you feel like hearing.",
   "Radio": "Radio",
   "Gemini API Key": "Gemini API Key",
-  "The radio uses Google Gemini to write what the hosts say and to give them a voice. What you ask for, the titles of the songs, the time of day and the names of the artists you listen to most are sent to Google; your key stays on this phone.": "The radio uses Google Gemini to write what the hosts say and to give them a voice. What you ask for, the titles of the songs, the time of day and the names of the artists you listen to most are sent to Google; your key stays on this phone.",
+  "The radio uses Google Gemini to write what the hosts say and to give them a voice. What you ask for, the titles of the songs, the time of day, the names of the artists you listen to most and the city you pick for the weather are sent to Google; your key stays on this phone.": "The radio uses Google Gemini to write what the hosts say and to give them a voice. What you ask for, the titles of the songs, the time of day, the names of the artists you listen to most and the city you pick for the weather are sent to Google; your key stays on this phone.",
   "Talk": "Talk",
   "Every song": "Every song",
   "Every %d songs": "Every %d songs",
@@ -856,5 +856,18 @@
   "Leave these empty to use the default models and voices.": "Leave these empty to use the default models and voices.",
   "Not on the Radio": "Not on the Radio",
   "Skip it and never play it on the radio again": "Skip it and never play it on the radio again",
-  "Music Under Voices": "Music Under Voices"
+  "Music Under Voices": "Music Under Voices",
+  "Radio Remembers": "Radio Remembers",
+  "Clear Memory": "Clear Memory",
+  "Memory cleared.": "Memory cleared.",
+  "The radio keeps a diary on this phone (what you ask for, which artists it plays, how many times you say Not on the Radio) and sends short summaries of it to Google so the hosts can remember and joke about it. Clear Memory deletes it.": "The radio keeps a diary on this phone (what you ask for, which artists it plays, how many times you say Not on the Radio) and sends short summaries of it to Google so the hosts can remember and joke about it. Clear Memory deletes it.",
+  "Sections": "Sections",
+  "City for the Weather": "City for the Weather",
+  "Recent Requests": "Recent Requests",
+  "Quick Settings": "Quick Settings",
+  "All Radio Settings": "All Radio Settings",
+  "Stop the Radio": "Stop the Radio",
+  "Ask for Music": "Ask for Music",
+  "Getting the radio ready…": "Getting the radio ready…",
+  "On the air: %@": "On the air: %@"
 }

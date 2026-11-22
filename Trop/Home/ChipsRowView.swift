@@ -11,6 +11,7 @@ struct ChipsRowView: View {
     var chips: [HomePage.Chip]
     var selectedChip: HomePage.Chip?
     var onChipTap: (HomePage.Chip) -> Void
+    var leading: AnyView? = nil
 
     var body: some View {
         FilterChipBar(
@@ -18,7 +19,8 @@ struct ChipsRowView: View {
             id: \.title,
             title: \.title,
             isSelected: { selectedChip?.title == $0.title },
-            onTap: onChipTap
+            onTap: onChipTap,
+            leading: leading
         )
     }
 }

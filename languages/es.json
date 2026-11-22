@@ -832,7 +832,7 @@
   "Tell the hosts what you feel like hearing.": "Dile a los locutores qué te apetece oír.",
   "Radio": "Radio",
   "Gemini API Key": "Clave de API de Gemini",
-  "The radio uses Google Gemini to write what the hosts say and to give them a voice. What you ask for, the titles of the songs, the time of day and the names of the artists you listen to most are sent to Google; your key stays on this phone.": "La radio usa Google Gemini para escribir lo que dicen los locutores y darles voz. Lo que pides, los títulos de las canciones, la hora del día y los nombres de los artistas que más escuchas se envían a Google; tu clave se queda en este móvil.",
+  "The radio uses Google Gemini to write what the hosts say and to give them a voice. What you ask for, the titles of the songs, the time of day, the names of the artists you listen to most and the city you pick for the weather are sent to Google; your key stays on this phone.": "La radio usa Google Gemini para escribir lo que dicen los locutores y darles voz. Lo que pides, los títulos de las canciones, la hora del día, los nombres de los artistas que más escuchas y la ciudad que elijas para el tiempo se envían a Google; tu clave se queda en este móvil.",
   "Talk": "Hablan",
   "Every song": "Cada canción",
   "Every %d songs": "Cada %d canciones",
@@ -856,5 +856,18 @@
   "Leave these empty to use the default models and voices.": "Déjalos vacíos para usar los modelos y voces por defecto.",
   "Not on the Radio": "No en la radio",
   "Skip it and never play it on the radio again": "Pasarla y no volver a ponerla en la radio",
-  "Music Under Voices": "Música bajo las voces"
+  "Music Under Voices": "Música bajo las voces",
+  "Radio Remembers": "La radio recuerda",
+  "Clear Memory": "Borrar memoria",
+  "Memory cleared.": "Memoria borrada.",
+  "The radio keeps a diary on this phone (what you ask for, which artists it plays, how many times you say Not on the Radio) and sends short summaries of it to Google so the hosts can remember and joke about it. Clear Memory deletes it.": "La radio guarda un diario en este móvil (lo que pides, qué artistas pone, cuántas veces dices «No en la radio») y manda resúmenes cortos a Google para que los locutores lo recuerden y bromeen con ello. «Borrar memoria» lo elimina.",
+  "Sections": "Secciones (noticias, tiempo, anuncios)",
+  "City for the Weather": "Ciudad para el tiempo",
+  "Recent Requests": "Últimas peticiones",
+  "Quick Settings": "Ajustes rápidos",
+  "All Radio Settings": "Todos los ajustes de la radio",
+  "Stop the Radio": "Parar la radio",
+  "Ask for Music": "Pedir música",
+  "Getting the radio ready…": "Preparando la radio…",
+  "On the air: %@": "En el aire: %@"
 }

@@ -2,80 +2,11 @@
 //  RadioViews.swift
 //  Trop
 //
-//  La tarjeta "Sónar FM" del Inicio (como la del DJ) y los ajustes de la radio.
+//  Los ajustes de la radio.
 //
 
 import AVFoundation
 import SwiftUI
-
-/// La tarjeta del Inicio: un toque empieza la radio (los locutores preguntan que quieres oir); con la radio en marcha, un toque la para (la musica sigue).
-struct RadioHomeCard: View {
-    private let radio = RadioSession.shared
-
-    var body: some View {
-        Button(action: tap) {
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle().fill(LinearGradient(
-                        colors: [Color.orange, Color.red], startPoint: .topLeading, endPoint: .bottomTrailing
-                    ))
-                    if radio.isStarting {
-                        ProgressView().tint(.white)
-                    } else {
-                        Image(systemName: radio.isActive ? "dot.radiowaves.left.and.right" : "mic.fill")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .symbolEffect(.variableColor.iterative, isActive: radio.isActive)
-                    }
-                }
-                .frame(width: 44, height: 44)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: "Sónar FM")
-                        .font(.headline)
-                    Text(LocalizedStringKey(subtitleKey))
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                }
-
-                Spacer(minLength: 8)
-
-                Image(systemName: radio.isActive ? "stop.fill" : "play.fill")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.primary)
-                    .frame(width: 34, height: 34)
-                    .background(Circle().fill(Color.primary.opacity(0.1)))
-            }
-            .padding(12)
-            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
-            .contentShape(RoundedRectangle(cornerRadius: 16))
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 4)
-        .accessibilityLabel(Text(verbatim: "Sónar FM"))
-    }
-
-    private var subtitleKey: String {
-        if radio.isActive { return "The radio is on. Tap to stop it." }
-        if !RadioSettings.isConfigured { return "Set up the radio in Settings > Radio." }
-        return "Tell the hosts what you feel like hearing."
-    }
-
-    private func tap() {
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        if radio.isActive {
-            radio.stop(reason: "boton")
-            PlaybackNotice.shared.show(NSLocalizedString("Radio stopped.", comment: ""))
-            return
-        }
-        guard !radio.isStarting else { return }
-        Task { await radio.begin() }
-    }
-}
 
 struct RadioSettingsView: View {
     @State private var key = RadioSettings.apiKey
@@ -86,6 +17,9 @@ struct RadioSettingsView: View {
     @AppStorage(RadioSettings.dailyCapKey) private var cap = 0.30
     @AppStorage(RadioSettings.voiceGainKey) private var gain = 2.6
     @AppStorage(RadioSettings.duckKey) private var duck = 0.45
+    @AppStorage(RadioSettings.memoryKey) private var memory = true
+    @AppStorage(RadioSettings.sectionsKey) private var sections = true
+    @AppStorage(RadioSettings.cityKey) private var city = "Sabadell"
     @AppStorage(RadioSettings.textModelKey) private var textModel = ""
     @AppStorage(RadioSettings.voiceModelKey) private var voiceModel = ""
     @AppStorage(RadioSettings.pitirreVoiceKey) private var pitirreVoice = ""
@@ -106,7 +40,7 @@ struct RadioSettingsView: View {
             } header: {
                 Text(verbatim: "Sónar FM")
             } footer: {
-                Text("The radio uses Google Gemini to write what the hosts say and to give them a voice. What you ask for, the titles of the songs, the time of day and the names of the artists you listen to most are sent to Google; your key stays on this phone.")
+                Text("The radio uses Google Gemini to write what the hosts say and to give them a voice. What you ask for, the titles of the songs, the time of day, the names of the artists you listen to most and the city you pick for the weather are sent to Google; your key stays on this phone.")
             }
 
             Section {
@@ -123,6 +57,12 @@ struct RadioSettingsView: View {
                         Text(value == 0 ? NSLocalizedString("No limit", comment: "") : String(format: "%.2f €", value)).tag(value)
                     }
                 }
+                Toggle("Sections", isOn: $sections)
+                Picker("City for the Weather", selection: $city) {
+                    ForEach(RadioSettings.cities, id: \.name) { place in
+                        Text(verbatim: place.name).tag(place.name)
+                    }
+                }
                 VStack(alignment: .leading) {
                     Text("Voice Level")
                     Slider(value: $gain, in: 1.0...4.0, step: 0.1)
@@ -135,6 +75,18 @@ struct RadioSettingsView: View {
                     .foregroundStyle(.secondary)
             } footer: {
                 Text("The limit is an estimate based on what this app generates, not on what Google charges. When it is reached, the radio keeps playing music without voices.")
+            }
+
+            Section {
+                Toggle("Radio Remembers", isOn: $memory)
+                Button(role: .destructive) {
+                    RadioDiary.clear()
+                    message = NSLocalizedString("Memory cleared.", comment: "")
+                } label: {
+                    Label("Clear Memory", systemImage: "trash")
+                }
+            } footer: {
+                Text("The radio keeps a diary on this phone (what you ask for, which artists it plays, how many times you say Not on the Radio) and sends short summaries of it to Google so the hosts can remember and joke about it. Clear Memory deletes it.")
             }
 
             Section {

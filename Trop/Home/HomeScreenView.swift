@@ -108,18 +108,12 @@ struct HomeScreenView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                if let chips = viewModel.homePage?.chips, !chips.isEmpty {
-                    ChipsRowView(
-                        chips: chips,
-                        selectedChip: viewModel.selectedChip,
-                        onChipTap: { viewModel.toggleChip($0) }
-                    )
-                }
-
-                if viewModel.selectedChip == nil {
-                    RadioHomeCard()
-                    DJHomeCard()
-                }
+                ChipsRowView(
+                    chips: viewModel.homePage?.chips ?? [],
+                    selectedChip: viewModel.selectedChip,
+                    onChipTap: { viewModel.toggleChip($0) },
+                    leading: AnyView(DJChip())
+                )
 
                 if viewModel.isChipLoading {
                     chipLoadingPlaceholder

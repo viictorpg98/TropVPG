@@ -19,6 +19,7 @@ final class AppRouter: ObservableObject {
     @Published var libraryPath = NavigationPath()
     @Published var explorePath = NavigationPath()
     @Published var searchPath = NavigationPath()
+    @Published var radioPath = NavigationPath()
     @Published var selectedTabIndex = 0
 
     /// Pestana a la que debe cambiar ContentView (la consume y vuelve a nil).
@@ -40,6 +41,7 @@ final class AppRouter: ObservableObject {
     var activePathDepth: Int {
         switch selectedTabIndex {
         case 1: libraryPath.count
+        case 4: radioPath.count
         case 2: explorePath.count
         case 3: searchPath.count
         default: homePath.count
@@ -50,6 +52,7 @@ final class AppRouter: ObservableObject {
         guard activePathDepth > 0 else { return }
         switch selectedTabIndex {
         case 1: libraryPath.removeLast()
+        case 4: radioPath.removeLast()
         case 2: explorePath.removeLast()
         case 3: searchPath.removeLast()
         default: homePath.removeLast()
@@ -70,6 +73,7 @@ final class AppRouter: ObservableObject {
     func open(_ route: DetailRoute) {
         switch selectedTabIndex {
         case 1: libraryPath.append(route)
+        case 4: radioPath.append(route)
         case 2: explorePath.append(route)
         case 3: searchPath.append(route)
         default: homePath.append(route)

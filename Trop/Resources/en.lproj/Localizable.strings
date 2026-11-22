@@ -46,6 +46,7 @@
 "Albums" = "Albums";
 "Albums & singles" = "Albums & singles";
 "Albums for you" = "Albums for you";
+"All Radio Settings" = "All Radio Settings";
 "All Results" = "All Results";
 "Ambient + atmospheric" = "Ambient + atmospheric";
 "Analysing songs…" = "Analysing songs…";
@@ -63,6 +64,7 @@
 "Artists" = "Artists";
 "Artists you hide stop appearing on Home, in radios and in the queue. They still show up when you search for them." = "Artists you hide stop appearing on Home, in radios and in the queue. They still show up when you search for them.";
 "Arts" = "Arts";
+"Ask for Music" = "Ask for Music";
 "Asks for microphone and speech permission, then asks what you want to listen to and searches for it. The Voice button on the Sonar widget does the same from the Home Screen or CarPlay; what happens in each step is saved in the report." = "The Voice button on the Sonar widget does the same from the Home Screen or CarPlay; what happens in each step is saved in the report.";
 "At Risk" = "At Risk";
 "Audio" = "Audio";
@@ -117,8 +119,10 @@
 "Choose the Points" = "Choose the Points";
 "Choose which library sections sync from your YouTube Music account." = "Choose which library sections sync from your YouTube Music account.";
 "Chuleta's Voice" = "Chuleta's Voice";
+"City for the Weather" = "City for the Weather";
 "Classical" = "Classical";
 "Clear" = "Clear";
+"Clear Memory" = "Clear Memory";
 "Clear Upcoming" = "Clear Upcoming";
 "Clear search" = "Clear search";
 "Client" = "Client";
@@ -285,6 +289,7 @@
 "Gestures" = "Gestures";
 "Get new episodes for your library" = "Get new episodes for your library";
 "Get new episodes in your library" = "Get new episodes in your library";
+"Getting the radio ready…" = "Getting the radio ready…";
 "GitHub" = "GitHub";
 "Go to Downloads" = "Go to Downloads";
 "Good mix" = "Good mix";
@@ -411,6 +416,7 @@
 "Meditative sleep" = "Meditative sleep";
 "Medium" = "Medium";
 "Medium Blend" = "Medium Blend";
+"Memory cleared." = "Memory cleared.";
 "Metadata & stream information" = "Metadata & stream information";
 "Metal" = "Metal";
 "Mindfulness & meditation" = "Mindfulness & meditation";
@@ -511,6 +517,7 @@
 "Offline Mix Size" = "Offline Mix Size";
 "Offline: showing what was last saved (%@)" = "Offline: showing what was last saved (%@)";
 "On" = "On";
+"On the air: %@" = "On the air: %@";
 "Online" = "Online";
 "Only your downloaded music is available." = "Only your downloaded music is available.";
 "Options" = "Options";
@@ -587,14 +594,17 @@
 "Queue is empty" = "Queue is empty";
 "Queue saved as “%@”." = "Queue saved as “%@”.";
 "Quick Picks" = "Quick Picks";
+"Quick Settings" = "Quick Settings";
 "Quick picks" = "Quick picks";
 "Quiet" = "Quiet";
 "Radio" = "Radio";
+"Radio Remembers" = "Radio Remembers";
 "Radio stopped." = "Radio stopped.";
 "Rating" = "Rating";
 "Ratings so far: %d" = "Ratings so far: %d";
 "Re-sync" = "Re-sync";
 "Recaps" = "Recaps";
+"Recent Requests" = "Recent Requests";
 "Recently Played" = "Recently Played";
 "Recently searched" = "Recently searched";
 "Records screens, network requests, freezes, CPU, memory and battery while you use the app, and sums it up in the report. It uses a little extra battery: turn it off when you don't need it." = "Records screens, network requests, freezes, CPU, memory and battery while you use the app, and sums it up in the report. It uses a little extra battery: turn it off when you don't need it.";
@@ -650,6 +660,7 @@
 "Search in queue" = "Search in queue";
 "Search songs" = "Search songs";
 "Seconds" = "Seconds";
+"Sections" = "Sections";
 "Select" = "Select";
 "Select All" = "Select All";
 "September" = "September";
@@ -726,6 +737,7 @@
 "Stop DJ" = "Stop DJ";
 "Stop Preview" = "Stop Preview";
 "Stop hearing this artist?" = "Stop hearing this artist?";
+"Stop the Radio" = "Stop the Radio";
 "Stream" = "Stream";
 "Style" = "Style";
 "Style, size & explicit filter" = "Style, size & explicit filter";
@@ -765,7 +777,8 @@
 "The limit is an estimate based on what this app generates, not on what Google charges. When it is reached, the radio keeps playing music without voices." = "The limit is an estimate based on what this app generates, not on what Google charges. When it is reached, the radio keeps playing music without voices.";
 "The music will stop in %d minutes." = "The music will stop in %d minutes.";
 "The radio is on. Tap to stop it." = "The radio is on. Tap to stop it.";
-"The radio uses Google Gemini to write what the hosts say and to give them a voice. What you ask for, the titles of the songs, the time of day and the names of the artists you listen to most are sent to Google; your key stays on this phone." = "The radio uses Google Gemini to write what the hosts say and to give them a voice. What you ask for, the titles of the songs, the time of day and the names of the artists you listen to most are sent to Google; your key stays on this phone.";
+"The radio keeps a diary on this phone (what you ask for, which artists it plays, how many times you say Not on the Radio) and sends short summaries of it to Google so the hosts can remember and joke about it. Clear Memory deletes it." = "The radio keeps a diary on this phone (what you ask for, which artists it plays, how many times you say Not on the Radio) and sends short summaries of it to Google so the hosts can remember and joke about it. Clear Memory deletes it.";
+"The radio uses Google Gemini to write what the hosts say and to give them a voice. What you ask for, the titles of the songs, the time of day, the names of the artists you listen to most and the city you pick for the weather are sent to Google; your key stays on this phone." = "The radio uses Google Gemini to write what the hosts say and to give them a voice. What you ask for, the titles of the songs, the time of day, the names of the artists you listen to most and the city you pick for the weather are sent to Google; your key stays on this phone.";
 "The summary of this session (screens, network, freezes, CPU, memory, battery) and the latest events. Pull down to refresh." = "The summary of this session (screens, network, freezes, CPU, memory, battery) and the latest events. Pull down to refresh.";
 "Theme" = "Theme";
 "Theme Mode" = "Theme Mode";

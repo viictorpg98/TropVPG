@@ -10,7 +10,7 @@
 import Foundation
 
 enum RadioPieceKind {
-    case mini, charla
+    case mini, charla, section
 }
 
 /// Lo ultimo que dijeron, para que no se repitan ideas ni palabras.
@@ -87,6 +87,7 @@ enum RadioContent {
     REGLAS (CHARLA):
     - Entre 4 y 6 lineas en total, unas 60-90 palabras (20 a 25 segundos), alternando los dos locutores, con alguna interrupcion. UN solo chiste fuerte, el resto es radio normal. Maximo un <laugh>.
     - Anuncia la cancion que viene (titulo y artista) hacia el final, de forma natural, y cierra con una frase corta.
+    - Si se te dan DATOS REALES o RECUERDOS de la persona, puedes usarlos tal cual (solo esos; no inventes ningun otro dato sobre ella).
 
     """ + commonRules
 
@@ -109,6 +110,9 @@ enum RadioContent {
         "comentan que significa ese momento del dia y de la semana, con un recuerdo concreto de cuando eran chicos",
         "la resena falsa de un negocio de barrio inventado (con nombre y un detalle absurdo pero concreto)"
     ]
+
+    /// Solo sale cuando hay datos de la persona (1 de cada 3 charlas): los locutores la vacilan con SUS datos, como si la radio fuese ella.
+    private static let dataFormat = "los locutores vacilan al oyente con SUS DATOS REALES de la lista de abajo (lo que pide, lo que mas suena, los 'Esto no', la hora, los recuerdos de otros dias), como si la radio fuese el oyente; con cariño y sin inventar ningun dato"
 
     private static let miniFormats = [
         "una broma corta jugando con las palabras del titulo de la cancion que ACABA de sonar",
@@ -202,9 +206,11 @@ enum RadioContent {
     }
 
     /// El texto de un comentario entre dos canciones (vacio si no sale a la tercera).
-    static func piece(kind: RadioPieceKind, previous: SongItem?, next: SongItem) async -> [RadioTurn] {
+    /// `facts`: lo que la radio sabe de la persona (solo para las charlas; "" si la memoria esta apagada).
+    static func piece(kind: RadioPieceKind, previous: SongItem?, next: SongItem, facts: String = "") async -> [RadioTurn] {
         let isMini = kind == .mini
-        let format = isMini ? draw(&miniDeck, from: miniFormats) : draw(&charlaDeck, from: charlaFormats)
+        var format = isMini ? draw(&miniDeck, from: miniFormats) : draw(&charlaDeck, from: charlaFormats)
+        if !isMini, !facts.isEmpty, Int.random(in: 0..<3) == 0 { format = dataFormat }
         let topic = draw(&topicDeck, from: topics)
         let mania = draw(&maniaDeck, from: manias)
         let system = ficha + "\n\n" + (isMini ? miniRules : charlaRules)
@@ -220,6 +226,7 @@ enum RadioContent {
                 prompt += "MANIA DE ESTA VEZ (opcional, solo si cabe natural; no la fuerces): \(mania).\n"
             }
             prompt += "Recuerda: solo conoces esos datos; no inventes nada mas sobre las canciones ni los artistas."
+            if !isMini, !facts.isEmpty { prompt += "\n\n" + facts }
             prompt += RadioHistory.promptBlock(count: isMini ? 8 : 4) + notice
             guard let json = try? await Gemini.text(system: system, prompt: prompt, temperature: 1.2, timeout: 10) else { return best }
             let turns = parseTurns(json)
@@ -245,6 +252,17 @@ enum RadioContent {
         let result = isMini ? Array(best.prefix(2)) : best
         if !result.isEmpty { RadioHistory.add(result) }
         return result
+    }
+
+    /// Una frase corta para recordar de una charla (algo que quedo pendiente o un gag), para retomarla otro dia. Vacia si no sale.
+    static func recallNote(for turns: [RadioTurn]) async -> String {
+        let text = turns.map { "\($0.speaker): \($0.text)" }.joined(separator: "\n")
+        let system = "Resumes una charla de radio para que los locutores la recuerden otro dia. Devuelve SOLO un JSON {\"nota\": \"...\"} con UNA frase de maximo 14 palabras: lo que quedo pendiente o el gag, solo lo que se dijo en la charla; sin inventar nada."
+        guard let json = try? await Gemini.text(system: system, prompt: text, temperature: 0.3, timeout: 8),
+              let data = json.data(using: .utf8),
+              let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let note = object["nota"] as? String else { return "" }
+        return note
     }
 
     // MARK: - Frases fijas (se generan una vez y se guardan)
@@ -301,6 +319,9 @@ enum RadioContent {
         for question in questions { items.append((turns: question, style: nil)) }
         for filler in fillers { items.append((turns: [filler], style: nil)) }
         for jingle in jingles { items.append((turns: [jingle], style: Gemini.announcerStyle)) }
+        for kind in RadioSectionKind.allCases {
+            for shout in RadioSections.shouts[kind] ?? [] { items.append((turns: [shout], style: Gemini.announcerStyle)) }
+        }
         var made = 0
         for item in items {
             if RadioVoice.cachedClip(item.turns, style: item.style, fixed: true) != nil { continue }
