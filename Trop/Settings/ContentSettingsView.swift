@@ -39,6 +39,12 @@ struct ContentSettingsView: View {
                 ) {
                     HiddenArtistsView()
                 }
+                SettingsNavigationRow(
+                    "Songs for Sleeping", icon: "moon.zzz",
+                    value: SleepFilter.shared.allMarks.isEmpty ? nil : String(SleepFilter.shared.allMarks.count)
+                ) {
+                    SleepMarksView()
+                }
             }
 
             Section {

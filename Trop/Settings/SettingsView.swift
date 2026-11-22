@@ -23,6 +23,9 @@ struct SettingsView: View {
             SettingsNavigationRow("Playback", icon: "play.circle", value: settings.audioQuality.displayName) {
                 PlayerSettingsView()
             }
+            SettingsNavigationRow("Radio", icon: "dot.radiowaves.left.and.right") {
+                RadioSettingsView()
+            }
             SettingsNavigationRow("Appearance", icon: "paintpalette", value: settings.themeMode.displayName) {
                 AppearanceSettingsView()
             }

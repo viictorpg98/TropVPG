@@ -168,6 +168,12 @@ actor PlaybackStateService {
                 Log.playbackState.debug("Local event recorded id=\(event.id ?? 0)")
             }
 
+            // Con el temporizador de sueño en marcha: se anota la cancion (solo si es larga o tiene palabras de dormir; ver SleepFilter).
+            let timerSong: SongItem? = await MainActor.run {
+                SleepTimer.shared.endDate != nil ? NowPlaying.shared.queueSongs.first(where: { $0.videoId == videoId }) : nil
+            }
+            if let timerSong { SleepFilter.shared.noteTimerPlay(timerSong) }
+
             let now = Date()
             let calendar = Calendar.current
             try await db.incrementPlayCount(songId: videoId, year: calendar.component(.year, from: now), month: calendar.component(.month, from: now))

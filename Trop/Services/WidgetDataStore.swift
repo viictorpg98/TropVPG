@@ -229,6 +229,7 @@ final class WidgetDataStore {
     /// salieron. Sin conexion o con fallo no toca lo que ya habia y vuelve a intentarlo a los 5 minutos.
     private func fetchServerLists() async -> Int {
         defer { serverTask = nil }
+        await SleepFilter.shared.refreshAutomatic()
         guard let sections = await SonarMix.homeSectionsForWidget() else {
             lastServerFetch = Date().addingTimeInterval(-1500)
             return 0
@@ -276,6 +277,8 @@ final class WidgetDataStore {
         if case .song(let song) = item {
             if LikeStore.shared.disliked.contains(song.videoId) { return false }
             if SettingsStore.shared.hideExplicit && song.isExplicit { return false }
+            // Musica para dormir (marcada, del historial o con palabras de dormir): los widgets son para cuando escuchas musica "normal".
+            if SleepFilter.shared.isSleep(song) { return false }
         }
         return !HiddenArtists.shared.blocks(item)
     }
@@ -401,6 +404,7 @@ final class WidgetDataStore {
 
     /// Canciones de tu historial local (las de los ultimos 60 dias y las mas escuchadas) con portada, sin episodios ni artistas ocultos.
     private func localHistory() async -> [Source] {
+        await SleepFilter.shared.refreshAutomatic()
         let recent = (try? await DatabaseService.shared.fetchRecentSongs(days: 60, limit: 30)) ?? []
         let top = (try? await DatabaseService.shared.fetchTopSongs(limit: 30)) ?? []
         // Sin barajar (se llamaria en cada apertura y la lista cambiaria sola): recientes y mas escuchadas alternadas. La variedad la da `arranged`.
@@ -413,7 +417,7 @@ final class WidgetDataStore {
         var result: [Source] = []
         for entity in mixed where !entity.isEpisode && entity.thumbnailUrl != nil && seen.insert(entity.id).inserted {
             let song = SongItem(entity: entity)
-            if HiddenArtists.shared.isHidden(song) { continue }
+            if HiddenArtists.shared.isHidden(song) || SleepFilter.shared.isSleep(song) { continue }
             if let source = Self.source(from: .song(song)) { result.append(source) }
         }
         return result

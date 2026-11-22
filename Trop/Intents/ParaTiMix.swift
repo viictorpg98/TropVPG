@@ -9,7 +9,8 @@
 //    mitad a los ~80 dias) y "Listen again" de YouTube Music (el historial de tu cuenta, de muchos años). Los "Me gusta" solo dan un 15% mas
 //    a una cancion que ademas escuchas (los tuyos son muchisimos y muy antiguos). Se quitan las de dormir (las que casi siempre suenan de
 //    noche, o una larga que acabo sonando de noche), las que has saltado dos veces, "no me gusta", artistas ocultos y explicitas si las
-//    ocultas. Lo que sono hace menos de un dia o salio en el ultimo "Para ti" pesa menos.
+//    ocultas. Lo que sono hace menos de un dia o salio en el ultimo "Para ti" pesa menos. La musica de dormir (ver SleepFilter: marca manual,
+//    historial, palabras del titulo) se quita de TODO: conocidas, "Listen again", semillas, radios de descubrimiento y mezcla guardada.
 //  - DESCUBRIMIENTO (30%): la radio de YouTube de 2 canciones tuyas (semillas fijas 30 min, para aprovechar la cache) y la mezcla guardada
 //    ("Mixed for you"), sin subidas de usuarios, sin lo que ya escuchas y sin lo que sono en los ultimos 3 dias.
 //  - Se reparten en un patron fijo (la primera siempre es conocida; una nueva cada 3-4 canciones) y sin repetir artista en 3 seguidas.
@@ -28,6 +29,8 @@ enum ParaTiMix {
         var familiar: [Candidate] = []
         var recentlyPlayed: Set<String> = []
         var sleepExcluded = 0
+        /// Por que se quitaron las de dormir (marca manual, noche/larga, temporizador, palabras del titulo).
+        var sleepReasons: [SleepFilter.Reason: Int] = [:]
         var skipExcluded = 0
         var eventsRead = 0
         var songsWithHistory = 0
@@ -59,6 +62,9 @@ enum ParaTiMix {
         if HiddenArtists.shared.isHidden(song) { return true }
         if SettingsStore.shared.hideExplicit && song.isExplicit { return true }
         if song.musicVideoType == "MUSIC_VIDEO_TYPE_PODCAST_EPISODE" { return true }
+        // Musica para dormir: marcada a mano, detectada en el historial local o con palabras de dormir en el titulo. Vale tambien para
+        // "Listen again", las semillas, las radios de descubrimiento y la mezcla guardada, que no pasan por el historial local.
+        if SleepFilter.shared.isSleep(song) { return true }
         return false
     }
 
@@ -74,20 +80,20 @@ enum ParaTiMix {
         profile.songsWithHistory = stats.count
         let recentPicks = Set(UserDefaults.standard.stringArray(forKey: recentPicksKey) ?? [])
         let skips = SkipLog.recentCounts()
+        // Musica para dormir (ver SleepFilter): se evalua TODO el historial y el resultado se guarda para que tambien lo use lo que no viene
+        // de el (Listen again, semillas, radios, widgets). Una cancion de duracion normal solo se quita con la marca manual.
+        let sleepEval = SleepFilter.shared.evaluate(stats: stats)
         for stat in stats {
             let entity = stat.entity
             if now.timeIntervalSince(stat.lastPlayed) < 3 * 86_400 { profile.recentlyPlayed.insert(entity.id) }
             if entity.isEpisode { continue }
-            let song = SongItem(entity: entity)
-            if isBlocked(song) { continue }
-            // Musica para dormir: casi siempre suena de noche, o es una larga (20 min o mas) que acabo sonando de noche. Es una señal, no un
-            // corte por duracion: una larga que suena de dia entra igual.
-            let longAtNight = stat.nightEvents >= 1 && entity.duration >= 1200
-            let mostlyAtNight = stat.events >= 2 && Double(stat.nightEvents) / Double(stat.events) >= 0.6
-            if longAtNight || mostlyAtNight {
+            if let reason = sleepEval.excluded[entity.id] {
                 profile.sleepExcluded += 1
+                profile.sleepReasons[reason, default: 0] += 1
                 continue
             }
+            let song = SongItem(entity: entity)
+            if isBlocked(song) { continue }
             if (skips[entity.id] ?? 0) >= 2 {
                 profile.skipExcluded += 1
                 continue
@@ -135,7 +141,7 @@ enum ParaTiMix {
            let at = stored["at"] as? Double, Date().timeIntervalSince1970 - at < 1800,
            let ids = stored["ids"] as? [String], let titles = stored["titles"] as? [String],
            !ids.isEmpty, ids.count == titles.count,
-           !ids.contains(where: { LikeStore.shared.disliked.contains($0) }) {
+           !ids.contains(where: { LikeStore.shared.disliked.contains($0) || SleepFilter.shared.isSleep(videoId: $0) }) {
             return Array(zip(ids, titles)).map { (id: $0.0, title: $0.1) }
         }
         let ordered = weightedOrder(familiar)

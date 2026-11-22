@@ -111,9 +111,19 @@ enum SonarMix {
                     .map { "\($0.1 ? "N" : "C") \(String($0.0.title.prefix(22)))" }
                     .joined(separator: " | ")
                 let seedTitles = seeds.map { String($0.title.prefix(22)) }.joined(separator: ", ")
+                // Sueño: por que se quito cada una del historial y cuantas de "Listen again" y de las radios se habrian colado sin el filtro.
+                let reasons = profile.sleepReasons
+                let sleepNight = reasons[.night] ?? 0
+                let sleepTimer = reasons[.timer] ?? 0
+                let sleepMarked = reasons[.marked] ?? 0
+                let sleepWords = reasons[.keywords] ?? 0
+                let sleepInListenAgain = listenAgain.filter { SleepFilter.shared.isSleep($0) }.count
+                let sleepInRadios = (radios?.songs ?? []).filter { SleepFilter.shared.isSleep($0) }.count
+                var sleepDetail = "noche \(sleepNight), temporizador \(sleepTimer), marcadas \(sleepMarked), palabras \(sleepWords); "
+                sleepDetail += "en Listen again \(sleepInListenAgain) de \(listenAgain.count), en radios \(sleepInRadios)"
                 PlaybackReport.record(
                     "para ti: \(profile.eventsRead) eventos leidos (\(profile.songsWithHistory) canciones), conocidas \(merged.list.count) "
-                        + "(sueño fuera \(profile.sleepExcluded), saltadas fuera \(profile.skipExcluded), Listen again nuevas \(merged.used) de \(listenAgain.count)), "
+                        + "(sueño fuera \(profile.sleepExcluded) [\(sleepDetail)], saltadas fuera \(profile.skipExcluded), Listen again nuevas \(merged.used) de \(listenAgain.count)), "
                         + "semillas [\(seedTitles)] radios \(radios?.songs.count ?? 0) (cache \(radios?.cached ?? 0), pedidas \(radios?.fetched ?? 0)"
                         + "\(radios == nil && radioTask != nil ? ", sin respuesta a tiempo" : "")), guardada \(cachedMix()?.count ?? 0) "
                         + "-> cola \(composition.queue.count - discoveryCount) conocidas + \(discoveryCount) nuevas; primeras: \(firstSix)"
@@ -122,8 +132,12 @@ enum SonarMix {
                 if composition.queue.count >= 10 {
                     ParaTiMix.rememberPicks(composition.queue)
                     started = await play(composition.queue, context: "para ti", waitSeconds: 10)
-                } else if songs.count >= 3 {
-                    started = await play(Array(songs.shuffled().prefix(40)), context: "canciones del inicio", waitSeconds: 10)
+                } else if songs.filter({ !SleepFilter.shared.isSleep($0) }).count >= 3 {
+                    started = await play(
+                        Array(songs.filter { !SleepFilter.shared.isSleep($0) }.shuffled().prefix(40)),
+                        context: "canciones del inicio",
+                        waitSeconds: 10
+                    )
                 } else {
                     started = await playRadioOfAnySong(in: sections)
                 }
@@ -139,13 +153,16 @@ enum SonarMix {
         }
 
         // 2) Canciones descargadas (sin conexion, o con conexion si el inicio no dio nada). Suenan desde el archivo, sin red.
-        let downloaded = await downloadedSongs()
+        // Sin las de dormir (si todas lo fueran, se usan igualmente: mejor eso que nada).
+        let allDownloaded = await downloadedSongs()
+        let calmDownloaded = allDownloaded.filter { !SleepFilter.shared.isSleep($0) }
+        let downloaded = calmDownloaded.isEmpty ? allDownloaded : calmDownloaded
         trace("descargadas: \(downloaded.count)")
         if !downloaded.isEmpty {
             var queue = Array(await variedOrder(downloaded).prefix(40))
             if let cached = cachedMix() {
                 let ids = Set(queue.map(\.videoId))
-                queue += cached.shuffled().filter { !ids.contains($0.videoId) }.prefix(30)
+                queue += cached.shuffled().filter { !ids.contains($0.videoId) && !SleepFilter.shared.isSleep($0) }.prefix(30)
             }
             if await play(queue, context: "downloaded first") {
                 if let first = queue.first { rememberStart(first.videoId) }
@@ -163,7 +180,8 @@ enum SonarMix {
         // 3) Sin conexion (o el inicio no respondio a tiempo): la ultima mezcla guardada, sin esperar a la red.
         let cachedSongs = cachedMix()
         trace("mezcla guardada: \(cachedSongs?.count ?? 0) canciones")
-        if let cached = cachedSongs, await play(cached.shuffled(), context: "mezcla guardada") {
+        let calmCached = (cachedSongs ?? []).filter { !SleepFilter.shared.isSleep($0) }
+        if let cached = cachedSongs, await play((calmCached.isEmpty ? cached : calmCached).shuffled(), context: "mezcla guardada") {
             Task {
                 await refreshCacheIfStale()
             }

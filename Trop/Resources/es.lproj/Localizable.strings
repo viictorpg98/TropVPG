@@ -38,6 +38,7 @@
 "Add to the end of the queue" = "Añadir al final de la cola";
 "Add to the queue, next in line" = "Añadir a la cola como siguiente";
 "Adjust the sound with presets or a custom curve." = "Ajusta el sonido con preajustes o una curva personalizada.";
+"Advanced" = "Avanzado";
 "Advanced Mode" = "Modo avanzado";
 "AirPlay" = "AirPlay";
 "Album" = "Álbum";
@@ -80,6 +81,7 @@
 "Automatic lets AutoMix (or the DJ) decide. In Manual, what you choose here is used every time these two songs play one after the other." = "Automática deja que decida AutoMix (o el DJ). En Manual, lo que elijas aquí se usa siempre que estas dos canciones suenen una tras otra.";
 "Autoplay Similar" = "Reproducción automática de similares";
 "Back" = "Atrás";
+"Back to Automatic" = "Volver a automático";
 "Bad mix" = "Mala mezcla";
 "Balanced" = "Equilibrado";
 "Based on Trop by SwiftyMedia (GPL-3.0)." = "Basada en Trop, de SwiftyMedia (GPL-3.0).";
@@ -98,6 +100,7 @@
 "Button 1" = "Botón 1";
 "Button 2" = "Botón 2";
 "Buttons" = "Botones";
+"Can show up in For You and widgets again" = "Podrá volver a salir en Para ti y en los widgets";
 "Can't mix right now." = "Ahora no se puede mezclar.";
 "Can't play this yet: %@" = "Todavía no se puede reproducir: %@";
 "Can't preview right now." = "Ahora no se puede escuchar.";
@@ -113,6 +116,7 @@
 "Choose how the app follows your device appearance." = "Elige cómo sigue la app la apariencia de tu dispositivo.";
 "Choose the Points" = "Elegir los puntos";
 "Choose which library sections sync from your YouTube Music account." = "Elige qué secciones de la biblioteca se sincronizan desde tu cuenta de YouTube Music.";
+"Chuleta's Voice" = "Voz de la Chuleta";
 "Classical" = "Clásica";
 "Clear" = "Borrar";
 "Clear Upcoming" = "Vaciar lo que viene";
@@ -144,6 +148,7 @@
 "Could not parse playlist details" = "No se pudieron interpretar los detalles de la lista de reproducción";
 "Could not parse podcast details" = "No se pudieron interpretar los detalles del pódcast";
 "Couldn't find these songs on YouTube Music." = "No se han encontrado estas canciones en YouTube Music.";
+"Couldn't generate the voice." = "No se pudo generar la voz.";
 "Couldn't load Explore. Pull to retry." = "No se pudo cargar Explorar. Desliza hacia abajo para reintentar.";
 "Couldn't load album" = "No se pudo cargar el álbum";
 "Couldn't load artist" = "No se pudo cargar el artista";
@@ -173,6 +178,7 @@
 "DJ stopped." = "DJ parado.";
 "DND" = "No molestar";
 "Daily Discover" = "Descubrimiento diario";
+"Daily Spending Limit" = "Tope de gasto diario";
 "Daily Top Music Videos - %@" = "Videoclips más populares del día - %@";
 "Dance & electronic" = "Dance y electrónica";
 "Dark" = "Oscuro";
@@ -187,6 +193,7 @@
 "Detailed Log" = "Registro detallado";
 "Details" = "Detalles";
 "Details Template" = "Plantilla de detalles";
+"Detected Automatically" = "Detectadas automáticamente";
 "Different tempos" = "Tempos distintos";
 "Disabled providers are skipped when fetching lyrics." = "Los proveedores desactivados se omiten al buscar letras.";
 "Discord" = "Discord";
@@ -195,6 +202,7 @@
 "Dislike" = "No me gusta";
 "Dismiss" = "Descartar";
 "Done" = "Listo";
+"Done: %d new phrases." = "Hecho: %d frases nuevas.";
 "Download" = "Descargar";
 "Download Quality" = "Calidad de descarga";
 "Download Settings" = "Ajustes de descarga";
@@ -231,6 +239,10 @@
 "Equalizer Off" = "Ecualizador desactivado";
 "Equalizer On" = "Ecualizador activado";
 "Error" = "Error";
+"Estimated spend today: %@" = "Gasto estimado de hoy: %@";
+"Every %d songs" = "Cada %d canciones";
+"Every song" = "Cada canción";
+"Exceptions" = "Excepciones";
 "Expires in" = "Caduca en";
 "Explicit" = "Explícito";
 "Explore" = "Explorar";
@@ -267,6 +279,7 @@
 "From the community" = "De la comunidad";
 "Full-Width Artwork" = "Carátula a todo ancho";
 "Gapless Playback" = "Reproducción sin pausas";
+"Gemini API Key" = "Clave de API de Gemini";
 "General" = "General";
 "Genres" = "Géneros";
 "Gestures" = "Gestos";
@@ -275,6 +288,7 @@
 "GitHub" = "GitHub";
 "Go to Downloads" = "Ir a Descargas";
 "Good mix" = "Buena mezcla";
+"Got it. That one won't play on the radio again." = "Hecho. Esa no volverá a salir en la radio.";
 "Government" = "Gobierno";
 "Guest" = "Invitado";
 "Health & Fitness" = "Salud y bienestar";
@@ -300,6 +314,7 @@
 "I couldn't find that category on your home." = "No encuentro esa categoría en tu inicio.";
 "I couldn't find that song." = "No he encontrado esa canción.";
 "I couldn't load your quick picks." = "No he podido cargar tus selecciones rápidas.";
+"I didn't catch that. Try the radio again." = "No te he oído. Prueba otra vez con la radio.";
 "ITAG" = "ITAG";
 "Idle" = "Inactivo";
 "In the gym" = "En el gimnasio";
@@ -309,6 +324,8 @@
 "Infinite Playback keeps similar songs coming when the queue ends. Smart Shuffle puts songs you heard in the last days at the end and keeps two songs by the same artist from playing back to back. With Mobile Data for Extras off, animated covers, video preload and AutoMix on streamed songs only use Wi-Fi." = "Reproducción infinita sigue poniendo canciones parecidas cuando se acaba la cola. El aleatorio inteligente deja al final lo que has oído en los últimos días y evita que suenen seguidas dos canciones del mismo artista. Con Datos móviles para extras apagado, las carátulas animadas, la precarga de vídeo y AutoMix en canciones en streaming solo usan Wi-Fi.";
 "Integrations" = "Integraciones";
 "Intro" = "Intro";
+"It's Not for Sleeping" = "No es de dormir";
+"It's for Sleeping" = "Es para dormir";
 "January" = "Enero";
 "Jazz" = "Jazz";
 "July" = "Julio";
@@ -321,6 +338,7 @@
 "Keep listening" = "Sigue escuchando";
 "Keeps some songs from your mix downloaded (only on Wi-Fi) so Play My Music starts instantly, even without a connection. The set rotates: songs you've heard are replaced by new ones." = "Mantiene descargadas algunas canciones de tu mezcla (solo con Wi-Fi) para que «Pon mi música» arranque al instante, incluso sin conexión. El conjunto va rotando: las canciones que ya has escuchado se sustituyen por otras nuevas.";
 "Keeps the music video ready behind the cover while the full player is open, so switching to video is instant. It downloads the video even if you never watch it, and uses more battery and data." = "Deja el vídeo del videoclip listo detrás de la carátula mientras el reproductor grande está abierto, para que pasar a vídeo sea instantáneo. Descarga el vídeo aunque nunca lo veas, y gasta más batería y datos.";
+"Kept out of For You, widgets and radio" = "No saldrá en Para ti, los widgets ni la radio";
 "Kicking back" = "Relajándome";
 "Kids & Family" = "Niños y familia";
 "Label" = "Etiqueta";
@@ -332,6 +350,7 @@
 "Late Bass Swap" = "Intercambio de graves tarde";
 "Latin party" = "Fiesta latina";
 "Layout" = "Disposición";
+"Leave these empty to use the default models and voices." = "Déjalos vacíos para usar los modelos y voces por defecto.";
 "Leaves at %@ · %d s overlap · enters at %@" = "Sale en %@ · solape de %d s · entra en %@";
 "Leaves the first song at" = "Deja la primera canción en";
 "Left" = "Izquierda";
@@ -368,6 +387,8 @@
 "Long" = "Larga";
 "Long Blend" = "Mezcla larga";
 "Long listens" = "Escuchas largas";
+"Long song heard at night" = "Larga oída de noche";
+"Long song heard with the timer" = "Larga oída con el temporizador";
 "Looping" = "Looping";
 "Loud" = "Fuerte";
 "Loudness" = "Sonoridad";
@@ -381,6 +402,8 @@
 "Lyrics not found" = "Letra no encontrada";
 "Manual" = "Manual";
 "March" = "Marzo";
+"Marked by You" = "Marcadas por ti";
+"Marked songs stay out of For You, the widgets and the radio. They still play when you search for them or start them yourself." = "Las canciones marcadas no salen en Para ti, en los widgets ni en la radio. Siguen sonando cuando las buscas o las pones tú.";
 "Match Playlist" = "Lista del partido";
 "Match Tempo" = "Igualar tempo";
 "Maximum delay before scrobbling (30–360s)." = "Retraso máximo antes del scrobbling (30–360 s).";
@@ -454,6 +477,7 @@
 "No duplicates in the queue." = "No hay duplicados en la cola.";
 "No episodes found" = "No se encontraron episodios";
 "No hidden artists yet." = "Todavía no has ocultado ningún artista.";
+"No limit" = "Sin tope";
 "No mix is possible between these two songs, so the normal transition will be used." = "No es posible mezclar estas dos canciones, así que se usará la transición normal.";
 "No playback has been recorded yet." = "Todavía no se ha registrado ninguna reproducción.";
 "No playlist data" = "Sin datos de la lista de reproducción";
@@ -461,12 +485,16 @@
 "No ratings yet. Rate the mixes with the thumbs that appear after each one." = "Aun no hay valoraciones. Valora las mezclas con los pulgares que salen tras cada una.";
 "No similar tracks" = "No hay canciones similares";
 "No songs found" = "No se encontraron canciones";
+"No songs marked for sleeping yet." = "Todavía no has marcado ninguna canción para dormir.";
 "No songs yet" = "Todavía no hay canciones";
 "None" = "Ninguno";
 "Normal" = "Normal";
 "Not enough analyzed songs yet. Try again in a minute." = "Aún no hay suficientes canciones analizadas. Inténtalo en un minuto.";
 "Not enough of the song is left to mix." = "Queda muy poco de la canción para mezclar.";
+"Not for Sleeping" = "Quitar marca de dormir";
 "Not logged in" = "Sesión no iniciada";
+"Not on the Radio" = "No en la radio";
+"Nothing detected yet." = "Todavía no se ha detectado nada.";
 "Nothing here" = "No hay nada aquí";
 "Nothing left in the queue to sort." = "No queda nada en la cola para ordenar.";
 "Nothing to explore" = "Nada que explorar";
@@ -495,6 +523,7 @@
 "Persist Queue" = "Conservar la cola";
 "Persist Queue restores your queue, shuffle, and repeat state when the app relaunches." = "«Conservar la cola» restaura tu cola, el modo aleatorio y la repetición al reabrir la app.";
 "Pin to Quick Picks" = "Fijar en Selecciones rápidas";
+"Pitirre's Voice" = "Voz del Pitirre";
 "Play" = "Reproducir";
 "Play ${song}" = "Poner ${song}";
 "Play All" = "Reproducir todo";
@@ -511,6 +540,7 @@
 "Playback" = "Reproducción";
 "Playback & Offline" = "Reproducción y sin conexión";
 "Playback Report" = "Informe de reproducción";
+"Played one question." = "Se ha reproducido una pregunta.";
 "Player" = "Reproductor";
 "Player Background" = "Fondo del reproductor";
 "Playing" = "Reproduciendo";
@@ -535,6 +565,9 @@
 "Pop" = "Pop";
 "Power boost" = "Subidón de energía";
 "Preferences" = "Preferencias";
+"Prepare Phrases" = "Preparar frases";
+"Prepare Phrases saves the questions and short phrases once, so the radio starts instantly." = "Preparar frases guarda una vez las preguntas y frases cortas, para que la radio empiece al instante.";
+"Preparing phrases…" = "Preparando frases…";
 "Preparing the mix…" = "Preparando la mezcla…";
 "Preparing the preview…" = "Preparando la escucha…";
 "Preparing…" = "Preparando…";
@@ -555,6 +588,8 @@
 "Quick Picks" = "Selecciones rápidas";
 "Quick picks" = "Selecciones rápidas";
 "Quiet" = "Suave";
+"Radio" = "Radio";
+"Radio stopped." = "Radio parada.";
 "Rating" = "Valoración";
 "Ratings so far: %d" = "Valoraciones hasta ahora: %d";
 "Re-sync" = "Volver a sincronizar";
@@ -617,6 +652,8 @@
 "Select" = "Seleccionar";
 "Select All" = "Seleccionar todo";
 "September" = "Septiembre";
+"Set up the radio in Settings > Radio first." = "Configura la radio primero en Ajustes > Radio.";
+"Set up the radio in Settings > Radio." = "Configura la radio en Ajustes > Radio.";
 "Settings" = "Ajustes";
 "Shape the volume, the bass and the filter of each song during the mix. The presets are starting points; move the points to make your own. With custom curves, the Sound choice is not used. Looping repeats the start of the song that is leaving and is ignored when the tempo match stretches it. Effects only act during the mix and fade out before it ends." = "Da forma al volumen, a los graves y al filtro de cada canción durante la mezcla. Los preajustes son un punto de partida; mueve los puntos para hacer los tuyos. Con curvas propias, la elección de sonido no se usa. El looping repite el principio de la canción que sale y se ignora si el ajuste de tempo la estira. Los efectos solo actúan durante la mezcla y se apagan antes de que acabe.";
 "Share" = "Compartir";
@@ -646,6 +683,7 @@
 "Singles and EPs" = "Sencillos y EP";
 "Skip Non-Music Parts" = "Saltar partes sin música";
 "Skip Segments" = "Saltar segmentos";
+"Skip it and never play it on the radio again" = "Pasarla y no volver a ponerla en la radio";
 "Skips non-music parts of music videos, like talking intros, skits and long outros." = "Salta las partes sin música de los videoclips, como intros hablados, sketches y finales largos.";
 "Sleep" = "Dormir";
 "Sleep Timer" = "Temporizador para dormir";
@@ -658,9 +696,11 @@
 "Song options" = "Opciones de la canción";
 "Song title — e.g. Adele - Hello" = "Título de la canción — p. ej. Adele - Hello";
 "Songs" = "Canciones";
+"Songs for Sleeping" = "Canciones para dormir";
 "Songs in the queue will be added." = "Se añadirán las canciones de la cola.";
 "Songs you like will appear here" = "Las canciones que te gusten aparecerán aquí";
 "Songs you play will appear here." = "Las canciones que reproduzcas aparecerán aquí.";
+"Songs you said are not for sleeping: they are never left out automatically." = "Canciones que has dicho que no son de dormir: nunca se dejan fuera automáticamente.";
 "Sort" = "Ordenar";
 "Sort by BPM & Key" = "Ordenar por BPM y tonalidad";
 "Sort results" = "Ordenar resultados";
@@ -707,17 +747,24 @@
 "Syncs with your YouTube Music account. This cannot be changed later." = "Se sincroniza con tu cuenta de YouTube Music. No se podrá cambiar después.";
 "System" = "Sistema";
 "TV & Film" = "Cine y televisión";
+"Talk" = "Hablan";
 "Team playlist" = "Lista del equipo";
 "Technology" = "Tecnología";
+"Tell the hosts what you feel like hearing." = "Dile a los locutores qué te apetece oír.";
 "Template" = "Plantilla";
 "Tempo" = "Tempo";
 "Test" = "Prueba";
 "Test Cloud Voice" = "Probar la voz en la nube";
+"Test Voices" = "Probar voces";
+"Text Model" = "Modelo de texto";
 "Thanks!" = "¡Gracias!";
 "The DJ is a session: start it from the DJ button in the player, from the queue menu or from the Home screen. While it is on, it sorts the next songs so they fit together (tempo and key) and mixes each song into the next at its natural exit, near the end of the last chorus, with a longer blend when the two songs match well. To move on earlier, press Next: it mixes into the next song straight away. Long songs and podcasts play in full. Mixes between songs that are not downloaded need Wi-Fi, or mobile data allowed in the AutoMix settings." = "El DJ es una sesión: inícialo desde el botón DJ del reproductor, desde el menú de la cola o desde el Inicio. Mientras está encendido, ordena las siguientes canciones para que encajen (tempo y tonalidad) y mezcla cada canción con la siguiente por su salida natural, cerca del final de su último estribillo, con una mezcla más larga cuando las dos casan bien. Para pasar antes, pulsa Siguiente: mezcla con la siguiente al momento. Las canciones largas y los podcasts suenan enteros. Las mezclas entre canciones sin descargar necesitan Wi-Fi, o datos móviles permitidos en los ajustes de AutoMix.";
 "The DJ is on. Tap to stop it." = "El DJ está encendido. Toca para pararlo.";
 "The country controls the region used for YouTube Music requests." = "El país controla la región que se usa en las peticiones a YouTube Music.";
+"The limit is an estimate based on what this app generates, not on what Google charges. When it is reached, the radio keeps playing music without voices." = "El tope es una estimación de lo que genera esta app, no de lo que cobra Google. Al alcanzarlo, la radio sigue con música sin voces.";
 "The music will stop in %d minutes." = "La música se parará en %d minutos.";
+"The radio is on. Tap to stop it." = "La radio está encendida. Toca para pararla.";
+"The radio uses Google Gemini to write what the hosts say and to give them a voice. What you ask for, the titles of the songs, the time of day and the names of the artists you listen to most are sent to Google; your key stays on this phone." = "La radio usa Google Gemini para escribir lo que dicen los locutores y darles voz. Lo que pides, los títulos de las canciones, la hora del día y los nombres de los artistas que más escuchas se envían a Google; tu clave se queda en este móvil.";
 "The summary of this session (screens, network, freezes, CPU, memory, battery) and the latest events. Pull down to refresh." = "El resumen de esta sesión (pantallas, red, tirones, CPU, memoria, batería) y los últimos eventos. Desliza hacia abajo para actualizar.";
 "Theme" = "Tema";
 "Theme Mode" = "Modo del tema";
@@ -752,6 +799,7 @@
 "Turn Off Shuffle" = "Desactivar aleatorio";
 "URL" = "URL";
 "Unlike" = "Quitar Me gusta";
+"Unmark" = "Quitar marca";
 "Unpin" = "Desfijar";
 "Unpin from Quick Picks" = "Desfijar de Selecciones rápidas";
 "Unsubscribe" = "Cancelar suscripción";
@@ -773,6 +821,8 @@
 "Views" = "Reproducciones";
 "Vocal" = "Vocal";
 "Voice" = "Voz";
+"Voice Level" = "Volumen de la voz";
+"Voice Model" = "Modelo de voz";
 "Voice Search" = "Búsqueda por voz";
 "Volume" = "Volumen";
 "Waiting for login…" = "Esperando el inicio de sesión…";
@@ -781,6 +831,7 @@
 "Weak connection: still loading this song. Try your downloads?" = "Conexión débil: la canción sigue cargando. ¿Pruebas con tus descargas?";
 "Weak connection: still loading this song…" = "Conexión débil: la canción sigue cargando…";
 "What AutoMix Learned" = "Lo que AutoMix ha aprendido";
+"What the app left out on its own: long songs heard at night, or words about sleeping in the title. It fills up as you use For You and the widgets. If it got one wrong, tap “It's Not for Sleeping”." = "Lo que la app ha dejado fuera por su cuenta: canciones largas oídas de noche o con palabras de dormir en el título. Se va llenando según usas Para ti y los widgets. Si se ha equivocado con alguna, pulsa «No es de dormir».";
 "When off, searches and playback are not recorded locally." = "Si está desactivado, las búsquedas y reproducciones no se guardan en el dispositivo.";
 "When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on." = "Cuando queda poco espacio (menos de 3 GB), borra las descargas que llevas 3 meses sin escuchar. Las canciones que te gustan nunca se borran. Necesita tener activado el historial de reproducciones.";
 "When the mix ends. Early: right after the last chorus (up to 30 s before the end). Balanced: never earlier than 15 s before the end of the music. Late: at the very end of the song. The intro of the next song is always skipped." = "Cuándo acaba la mezcla. Pronto: justo tras el último estribillo (hasta 30 s antes del final). Equilibrado: nunca antes de los últimos 15 s de la música. Tarde: en el final de la canción. La intro de la siguiente canción siempre se salta.";
@@ -788,6 +839,7 @@
 "Which song?" = "¿Qué canción?";
 "Wi-Fi Only" = "Solo Wi-Fi";
 "Wider mix around this song" = "Mezcla más amplia en torno a esta canción";
+"Words about sleeping in the title" = "Palabras de dormir en el título";
 "Workout" = "Entrenamiento";
 "Yesterday" = "Ayer";
 "You have no liked songs saved yet." = "Todavía no tienes canciones que te gusten guardadas.";

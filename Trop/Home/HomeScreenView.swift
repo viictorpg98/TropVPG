@@ -117,6 +117,7 @@ struct HomeScreenView: View {
                 }
 
                 if viewModel.selectedChip == nil {
+                    RadioHomeCard()
                     DJHomeCard()
                 }
 

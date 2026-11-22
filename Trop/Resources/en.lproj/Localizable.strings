@@ -38,6 +38,7 @@
 "Add to the end of the queue" = "Add to the end of the queue";
 "Add to the queue, next in line" = "Add to the queue, next in line";
 "Adjust the sound with presets or a custom curve." = "Adjust the sound with presets or a custom curve.";
+"Advanced" = "Advanced";
 "Advanced Mode" = "Advanced Mode";
 "AirPlay" = "AirPlay";
 "Album" = "Album";
@@ -80,6 +81,7 @@
 "Automatic lets AutoMix (or the DJ) decide. In Manual, what you choose here is used every time these two songs play one after the other." = "Automatic lets AutoMix (or the DJ) decide. In Manual, what you choose here is used every time these two songs play one after the other.";
 "Autoplay Similar" = "Autoplay Similar";
 "Back" = "Back";
+"Back to Automatic" = "Back to Automatic";
 "Bad mix" = "Bad mix";
 "Balanced" = "Balanced";
 "Based on Trop by SwiftyMedia (GPL-3.0)." = "Based on Trop by SwiftyMedia (GPL-3.0).";
@@ -98,6 +100,7 @@
 "Button 1" = "Button 1";
 "Button 2" = "Button 2";
 "Buttons" = "Buttons";
+"Can show up in For You and widgets again" = "Can show up in For You and widgets again";
 "Can't mix right now." = "Can't mix right now.";
 "Can't play this yet: %@" = "Can't play this yet: %@";
 "Can't preview right now." = "Can't preview right now.";
@@ -113,6 +116,7 @@
 "Choose how the app follows your device appearance." = "Choose how the app follows your device appearance.";
 "Choose the Points" = "Choose the Points";
 "Choose which library sections sync from your YouTube Music account." = "Choose which library sections sync from your YouTube Music account.";
+"Chuleta's Voice" = "Chuleta's Voice";
 "Classical" = "Classical";
 "Clear" = "Clear";
 "Clear Upcoming" = "Clear Upcoming";
@@ -144,6 +148,7 @@
 "Could not parse playlist details" = "Could not parse playlist details";
 "Could not parse podcast details" = "Could not parse podcast details";
 "Couldn't find these songs on YouTube Music." = "Couldn't find these songs on YouTube Music.";
+"Couldn't generate the voice." = "Couldn't generate the voice.";
 "Couldn't load Explore. Pull to retry." = "Couldn't load Explore. Pull to retry.";
 "Couldn't load album" = "Couldn't load album";
 "Couldn't load artist" = "Couldn't load artist";
@@ -173,6 +178,7 @@
 "DJ stopped." = "DJ stopped.";
 "DND" = "DND";
 "Daily Discover" = "Daily Discover";
+"Daily Spending Limit" = "Daily Spending Limit";
 "Daily Top Music Videos - %@" = "Daily Top Music Videos - %@";
 "Dance & electronic" = "Dance & electronic";
 "Dark" = "Dark";
@@ -187,6 +193,7 @@
 "Detailed Log" = "Detailed Log";
 "Details" = "Details";
 "Details Template" = "Details Template";
+"Detected Automatically" = "Detected Automatically";
 "Different tempos" = "Different tempos";
 "Disabled providers are skipped when fetching lyrics." = "Disabled providers are skipped when fetching lyrics.";
 "Discord" = "Discord";
@@ -195,6 +202,7 @@
 "Dislike" = "Dislike";
 "Dismiss" = "Dismiss";
 "Done" = "Done";
+"Done: %d new phrases." = "Done: %d new phrases.";
 "Download" = "Download";
 "Download Quality" = "Download Quality";
 "Download Settings" = "Download Settings";
@@ -231,6 +239,10 @@
 "Equalizer Off" = "Equalizer Off";
 "Equalizer On" = "Equalizer On";
 "Error" = "Error";
+"Estimated spend today: %@" = "Estimated spend today: %@";
+"Every %d songs" = "Every %d songs";
+"Every song" = "Every song";
+"Exceptions" = "Exceptions";
 "Expires in" = "Expires in";
 "Explicit" = "Explicit";
 "Explore" = "Explore";
@@ -267,6 +279,7 @@
 "From the community" = "From the community";
 "Full-Width Artwork" = "Full-Width Artwork";
 "Gapless Playback" = "Gapless Playback";
+"Gemini API Key" = "Gemini API Key";
 "General" = "General";
 "Genres" = "Genres";
 "Gestures" = "Gestures";
@@ -275,6 +288,7 @@
 "GitHub" = "GitHub";
 "Go to Downloads" = "Go to Downloads";
 "Good mix" = "Good mix";
+"Got it. That one won't play on the radio again." = "Got it. That one won't play on the radio again.";
 "Government" = "Government";
 "Guest" = "Guest";
 "Health & Fitness" = "Health & Fitness";
@@ -300,6 +314,7 @@
 "I couldn't find that category on your home." = "I couldn't find that category on your home.";
 "I couldn't find that song." = "I couldn't find that song.";
 "I couldn't load your quick picks." = "I couldn't load your quick picks.";
+"I didn't catch that. Try the radio again." = "I didn't catch that. Try the radio again.";
 "ITAG" = "ITAG";
 "Idle" = "Idle";
 "In the gym" = "In the gym";
@@ -309,6 +324,8 @@
 "Infinite Playback keeps similar songs coming when the queue ends. Smart Shuffle puts songs you heard in the last days at the end and keeps two songs by the same artist from playing back to back. With Mobile Data for Extras off, animated covers, video preload and AutoMix on streamed songs only use Wi-Fi." = "Infinite Playback keeps similar songs coming when the queue ends. Smart Shuffle puts songs you heard in the last days at the end and keeps two songs by the same artist from playing back to back. With Mobile Data for Extras off, animated covers, video preload and AutoMix on streamed songs only use Wi-Fi.";
 "Integrations" = "Integrations";
 "Intro" = "Intro";
+"It's Not for Sleeping" = "It's Not for Sleeping";
+"It's for Sleeping" = "It's for Sleeping";
 "January" = "January";
 "Jazz" = "Jazz";
 "July" = "July";
@@ -321,6 +338,7 @@
 "Keep listening" = "Keep listening";
 "Keeps some songs from your mix downloaded (only on Wi-Fi) so Play My Music starts instantly, even without a connection. The set rotates: songs you've heard are replaced by new ones." = "Keeps some songs from your mix downloaded (only on Wi-Fi) so Play My Music starts instantly, even without a connection. The set rotates: songs you've heard are replaced by new ones.";
 "Keeps the music video ready behind the cover while the full player is open, so switching to video is instant. It downloads the video even if you never watch it, and uses more battery and data." = "Keeps the music video ready behind the cover while the full player is open, so switching to video is instant. It downloads the video even if you never watch it, and uses more battery and data.";
+"Kept out of For You, widgets and radio" = "Kept out of For You, widgets and radio";
 "Kicking back" = "Kicking back";
 "Kids & Family" = "Kids & Family";
 "Label" = "Label";
@@ -332,6 +350,7 @@
 "Late Bass Swap" = "Late Bass Swap";
 "Latin party" = "Latin party";
 "Layout" = "Layout";
+"Leave these empty to use the default models and voices." = "Leave these empty to use the default models and voices.";
 "Leaves at %@ · %d s overlap · enters at %@" = "Leaves at %@ · %d s overlap · enters at %@";
 "Leaves the first song at" = "Leaves the first song at";
 "Left" = "Left";
@@ -368,6 +387,8 @@
 "Long" = "Long";
 "Long Blend" = "Long Blend";
 "Long listens" = "Long listens";
+"Long song heard at night" = "Long song heard at night";
+"Long song heard with the timer" = "Long song heard with the timer";
 "Looping" = "Looping";
 "Loud" = "Loud";
 "Loudness" = "Loudness";
@@ -381,6 +402,8 @@
 "Lyrics not found" = "Lyrics not found";
 "Manual" = "Manual";
 "March" = "March";
+"Marked by You" = "Marked by You";
+"Marked songs stay out of For You, the widgets and the radio. They still play when you search for them or start them yourself." = "Marked songs stay out of For You, the widgets and the radio. They still play when you search for them or start them yourself.";
 "Match Playlist" = "Match Playlist";
 "Match Tempo" = "Match Tempo";
 "Maximum delay before scrobbling (30–360s)." = "Maximum delay before scrobbling (30–360s).";
@@ -454,6 +477,7 @@
 "No duplicates in the queue." = "No duplicates in the queue.";
 "No episodes found" = "No episodes found";
 "No hidden artists yet." = "No hidden artists yet.";
+"No limit" = "No limit";
 "No mix is possible between these two songs, so the normal transition will be used." = "No mix is possible between these two songs, so the normal transition will be used.";
 "No playback has been recorded yet." = "No playback has been recorded yet.";
 "No playlist data" = "No playlist data";
@@ -461,12 +485,16 @@
 "No ratings yet. Rate the mixes with the thumbs that appear after each one." = "No ratings yet. Rate the mixes with the thumbs that appear after each one.";
 "No similar tracks" = "No similar tracks";
 "No songs found" = "No songs found";
+"No songs marked for sleeping yet." = "No songs marked for sleeping yet.";
 "No songs yet" = "No songs yet";
 "None" = "None";
 "Normal" = "Normal";
 "Not enough analyzed songs yet. Try again in a minute." = "Not enough analyzed songs yet. Try again in a minute.";
 "Not enough of the song is left to mix." = "Not enough of the song is left to mix.";
+"Not for Sleeping" = "Not for Sleeping";
 "Not logged in" = "Not logged in";
+"Not on the Radio" = "Not on the Radio";
+"Nothing detected yet." = "Nothing detected yet.";
 "Nothing here" = "Nothing here";
 "Nothing left in the queue to sort." = "Nothing left in the queue to sort.";
 "Nothing to explore" = "Nothing to explore";
@@ -495,6 +523,7 @@
 "Persist Queue" = "Persist Queue";
 "Persist Queue restores your queue, shuffle, and repeat state when the app relaunches." = "Persist Queue restores your queue, shuffle, and repeat state when the app relaunches.";
 "Pin to Quick Picks" = "Pin to Quick Picks";
+"Pitirre's Voice" = "Pitirre's Voice";
 "Play" = "Play";
 "Play ${song}" = "Play ${song}";
 "Play All" = "Play All";
@@ -511,6 +540,7 @@
 "Playback" = "Playback";
 "Playback & Offline" = "Playback & Offline";
 "Playback Report" = "Playback Report";
+"Played one question." = "Played one question.";
 "Player" = "Player";
 "Player Background" = "Player Background";
 "Playing" = "Playing";
@@ -535,6 +565,9 @@
 "Pop" = "Pop";
 "Power boost" = "Power boost";
 "Preferences" = "Preferences";
+"Prepare Phrases" = "Prepare Phrases";
+"Prepare Phrases saves the questions and short phrases once, so the radio starts instantly." = "Prepare Phrases saves the questions and short phrases once, so the radio starts instantly.";
+"Preparing phrases…" = "Preparing phrases…";
 "Preparing the mix…" = "Preparing the mix…";
 "Preparing the preview…" = "Preparing the preview…";
 "Preparing…" = "Preparing…";
@@ -555,6 +588,8 @@
 "Quick Picks" = "Quick Picks";
 "Quick picks" = "Quick picks";
 "Quiet" = "Quiet";
+"Radio" = "Radio";
+"Radio stopped." = "Radio stopped.";
 "Rating" = "Rating";
 "Ratings so far: %d" = "Ratings so far: %d";
 "Re-sync" = "Re-sync";
@@ -617,6 +652,8 @@
 "Select" = "Select";
 "Select All" = "Select All";
 "September" = "September";
+"Set up the radio in Settings > Radio first." = "Set up the radio in Settings > Radio first.";
+"Set up the radio in Settings > Radio." = "Set up the radio in Settings > Radio.";
 "Settings" = "Settings";
 "Shape the volume, the bass and the filter of each song during the mix. The presets are starting points; move the points to make your own. With custom curves, the Sound choice is not used. Looping repeats the start of the song that is leaving and is ignored when the tempo match stretches it. Effects only act during the mix and fade out before it ends." = "Shape the volume, the bass and the filter of each song during the mix. The presets are starting points; move the points to make your own. With custom curves, the Sound choice is not used. Looping repeats the start of the song that is leaving and is ignored when the tempo match stretches it. Effects only act during the mix and fade out before it ends.";
 "Share" = "Share";
@@ -646,6 +683,7 @@
 "Singles and EPs" = "Singles and EPs";
 "Skip Non-Music Parts" = "Skip Non-Music Parts";
 "Skip Segments" = "Skip Segments";
+"Skip it and never play it on the radio again" = "Skip it and never play it on the radio again";
 "Skips non-music parts of music videos, like talking intros, skits and long outros." = "Skips non-music parts of music videos, like talking intros, skits and long outros.";
 "Sleep" = "Sleep";
 "Sleep Timer" = "Sleep Timer";
@@ -658,9 +696,11 @@
 "Song options" = "Song options";
 "Song title — e.g. Adele - Hello" = "Song title — e.g. Adele - Hello";
 "Songs" = "Songs";
+"Songs for Sleeping" = "Songs for Sleeping";
 "Songs in the queue will be added." = "Songs in the queue will be added.";
 "Songs you like will appear here" = "Songs you like will appear here";
 "Songs you play will appear here." = "Songs you play will appear here.";
+"Songs you said are not for sleeping: they are never left out automatically." = "Songs you said are not for sleeping: they are never left out automatically.";
 "Sort" = "Sort";
 "Sort by BPM & Key" = "Sort by BPM & Key";
 "Sort results" = "Sort results";
@@ -707,17 +747,24 @@
 "Syncs with your YouTube Music account. This cannot be changed later." = "Syncs with your YouTube Music account. This cannot be changed later.";
 "System" = "System";
 "TV & Film" = "TV & Film";
+"Talk" = "Talk";
 "Team playlist" = "Team playlist";
 "Technology" = "Technology";
+"Tell the hosts what you feel like hearing." = "Tell the hosts what you feel like hearing.";
 "Template" = "Template";
 "Tempo" = "Tempo";
 "Test" = "Test";
 "Test Cloud Voice" = "Test Cloud Voice";
+"Test Voices" = "Test Voices";
+"Text Model" = "Text Model";
 "Thanks!" = "Thanks!";
 "The DJ is a session: start it from the DJ button in the player, from the queue menu or from the Home screen. While it is on, it sorts the next songs so they fit together (tempo and key) and mixes each song into the next at its natural exit, near the end of the last chorus, with a longer blend when the two songs match well. To move on earlier, press Next: it mixes into the next song straight away. Long songs and podcasts play in full. Mixes between songs that are not downloaded need Wi-Fi, or mobile data allowed in the AutoMix settings." = "The DJ is a session: start it from the DJ button in the player, from the queue menu or from the Home screen. While it is on, it sorts the next songs so they fit together (tempo and key) and mixes each song into the next at its natural exit, near the end of the last chorus, with a longer blend when the two songs match well. To move on earlier, press Next: it mixes into the next song straight away. Long songs and podcasts play in full. Mixes between songs that are not downloaded need Wi-Fi, or mobile data allowed in the AutoMix settings.";
 "The DJ is on. Tap to stop it." = "The DJ is on. Tap to stop it.";
 "The country controls the region used for YouTube Music requests." = "The country controls the region used for YouTube Music requests.";
+"The limit is an estimate based on what this app generates, not on what Google charges. When it is reached, the radio keeps playing music without voices." = "The limit is an estimate based on what this app generates, not on what Google charges. When it is reached, the radio keeps playing music without voices.";
 "The music will stop in %d minutes." = "The music will stop in %d minutes.";
+"The radio is on. Tap to stop it." = "The radio is on. Tap to stop it.";
+"The radio uses Google Gemini to write what the hosts say and to give them a voice. What you ask for, the titles of the songs, the time of day and the names of the artists you listen to most are sent to Google; your key stays on this phone." = "The radio uses Google Gemini to write what the hosts say and to give them a voice. What you ask for, the titles of the songs, the time of day and the names of the artists you listen to most are sent to Google; your key stays on this phone.";
 "The summary of this session (screens, network, freezes, CPU, memory, battery) and the latest events. Pull down to refresh." = "The summary of this session (screens, network, freezes, CPU, memory, battery) and the latest events. Pull down to refresh.";
 "Theme" = "Theme";
 "Theme Mode" = "Theme Mode";
@@ -752,6 +799,7 @@
 "Turn Off Shuffle" = "Turn Off Shuffle";
 "URL" = "URL";
 "Unlike" = "Unlike";
+"Unmark" = "Unmark";
 "Unpin" = "Unpin";
 "Unpin from Quick Picks" = "Unpin from Quick Picks";
 "Unsubscribe" = "Unsubscribe";
@@ -773,6 +821,8 @@
 "Views" = "Views";
 "Vocal" = "Vocal";
 "Voice" = "Voice";
+"Voice Level" = "Voice Level";
+"Voice Model" = "Voice Model";
 "Voice Search" = "Voice Search";
 "Volume" = "Volume";
 "Waiting for login…" = "Waiting for login…";
@@ -781,6 +831,7 @@
 "Weak connection: still loading this song. Try your downloads?" = "Weak connection: still loading this song. Try your downloads?";
 "Weak connection: still loading this song…" = "Weak connection: still loading this song…";
 "What AutoMix Learned" = "What AutoMix Learned";
+"What the app left out on its own: long songs heard at night, or words about sleeping in the title. It fills up as you use For You and the widgets. If it got one wrong, tap “It's Not for Sleeping”." = "What the app left out on its own: long songs heard at night, or words about sleeping in the title. It fills up as you use For You and the widgets. If it got one wrong, tap “It's Not for Sleeping”.";
 "When off, searches and playback are not recorded locally." = "When off, searches and playback are not recorded locally.";
 "When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on." = "When storage is low (under 3 GB), removes downloads you haven't played in 3 months. Songs you've liked are never removed. Needs Track Play History turned on.";
 "When the mix ends. Early: right after the last chorus (up to 30 s before the end). Balanced: never earlier than 15 s before the end of the music. Late: at the very end of the song. The intro of the next song is always skipped." = "When the mix ends. Early: right after the last chorus (up to 30 s before the end). Balanced: never earlier than 15 s before the end of the music. Late: at the very end of the song. The intro of the next song is always skipped.";
@@ -788,6 +839,7 @@
 "Which song?" = "Which song?";
 "Wi-Fi Only" = "Wi-Fi Only";
 "Wider mix around this song" = "Wider mix around this song";
+"Words about sleeping in the title" = "Words about sleeping in the title";
 "Workout" = "Workout";
 "Yesterday" = "Yesterday";
 "You have no liked songs saved yet." = "You have no liked songs saved yet.";

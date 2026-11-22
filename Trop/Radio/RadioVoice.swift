@@ -1,0 +1,36 @@
+//
+//  RadioVoice.swift
+//  Trop
+//
+//  Audio de las frases de la radio con cache en el movil: el mismo texto, con las mismas voces y el mismo modelo, no se vuelve a generar. Las frases
+//  fijas (preguntas, rellenos, cuñas) se guardan sin caducidad.
+//
+
+import Foundation
+
+enum RadioVoice {
+    /// El audio de unos turnos: de la cache o generado ahora (`nil` si no se puede: sin clave, sin red, tope de gasto...).
+    static func clip(_ turns: [RadioTurn], style: String? = nil, fixed: Bool = false, timeout: Double = 15) async -> RadioClip? {
+        guard !turns.isEmpty else { return nil }
+        let key = cacheKey(turns, style: style)
+        if let cached = RadioAudio.cached(key: key, fixed: fixed) { return cached }
+        do {
+            let generated = try await Gemini.speech(turns, style: style, timeout: timeout)
+            RadioAudio.store(generated, key: key, fixed: fixed)
+            return generated
+        } catch {
+            PlaybackReport.record("radio: voz fallo (\(error.localizedDescription))")
+            return nil
+        }
+    }
+
+    /// Solo lo que ya esta guardado (para no esperar red en el momento).
+    static func cachedClip(_ turns: [RadioTurn], style: String? = nil, fixed: Bool = false) -> RadioClip? {
+        RadioAudio.cached(key: cacheKey(turns, style: style), fixed: fixed)
+    }
+
+    private static func cacheKey(_ turns: [RadioTurn], style: String?) -> String {
+        let lines = turns.map { "\($0.speaker):\($0.text)" }.joined(separator: "|")
+        return [RadioSettings.voiceModel, RadioSettings.pitirreVoice, RadioSettings.chuletaVoice, style ?? "", lines].joined(separator: "#")
+    }
+}

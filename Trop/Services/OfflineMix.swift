@@ -169,6 +169,8 @@ final class OfflineMix {
                 && !manager.isPendingOrActive(song.videoId)
                 && recentlyRemoved[song.videoId] == nil
                 && !(hideExplicit && song.isExplicit)
+                // La mezcla sin conexion alimenta "Para ti" sin red: sin musica de dormir (tu Top suele llevar la que pones cada noche).
+                && !SleepFilter.shared.isSleep(song)
                 // Mezclas y directos de horas no tienen sentido como "una cancion mas".
                 && song.duration <= 12 * 60
         }

@@ -1,0 +1,138 @@
+//
+//  RadioSettings.swift
+//  Trop
+//
+//  Ajustes de la radio (Sónar FM): clave de Gemini (en el llavero del movil, nunca en el repositorio), si esta activada, cada cuantas canciones hablan,
+//  el tope de gasto diario y el gasto estimado de hoy. Los modelos y las voces se pueden cambiar (por si Google los renombra).
+//
+
+import Foundation
+import Security
+
+enum RadioSettings {
+    static let enabledKey = "radio.enabled"
+    static let talkEveryKey = "radio.talkEvery"
+    static let dailyCapKey = "radio.dailyCap"
+    static let voiceGainKey = "radio.voiceGain"
+    static let textModelKey = "radio.textModel"
+    static let voiceModelKey = "radio.voiceModel"
+    static let pitirreVoiceKey = "radio.voice.pitirre"
+    static let chuletaVoiceKey = "radio.voice.chuleta"
+    private static let statusKey = "radio.status"
+    private static let spendKey = "radio.spend.v1"
+    private static let keyService = "sonar.radio"
+    private static let keyFallbackKey = "radio.key.fallback"
+
+    static let defaultTextModel = "gemini-3.1-flash-lite"
+    static let defaultVoiceModel = "gemini-3.8-flash-lite-tts"
+    /// Las dos voces diseñadas en el proyecto de Google del usuario (solo valen con su clave).
+    static let defaultPitirreVoice = "voice_8d1n4bt63iki"
+    static let defaultChuletaVoice = "voice_vs6u7blphdqv"
+
+    // MARK: - Ajustes
+
+    static var enabled: Bool {
+        get { UserDefaults.standard.object(forKey: enabledKey) as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: enabledKey) }
+    }
+
+    /// Hablan entre una de cada N canciones (1 a 5).
+    static var talkEvery: Int {
+        let saved = UserDefaults.standard.integer(forKey: talkEveryKey)
+        return saved == 0 ? 2 : min(max(saved, 1), 5)
+    }
+
+    /// Tope diario en euros; 0 = sin tope.
+    static var dailyCap: Double {
+        UserDefaults.standard.object(forKey: dailyCapKey) as? Double ?? 0.30
+    }
+
+    /// Cuanto se sube la voz (las de Gemini salen mucho mas bajas que las canciones).
+    static var voiceGain: Double {
+        let saved = UserDefaults.standard.object(forKey: voiceGainKey) as? Double ?? 2.6
+        return min(max(saved, 1.0), 5.0)
+    }
+
+    static var textModel: String { stored(textModelKey, default: defaultTextModel) }
+    static var voiceModel: String { stored(voiceModelKey, default: defaultVoiceModel) }
+    static var pitirreVoice: String { stored(pitirreVoiceKey, default: defaultPitirreVoice) }
+    static var chuletaVoice: String { stored(chuletaVoiceKey, default: defaultChuletaVoice) }
+
+    private static func stored(_ key: String, default value: String) -> String {
+        let saved = (UserDefaults.standard.string(forKey: key) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return saved.isEmpty ? value : saved
+    }
+
+    // MARK: - Clave (llavero)
+
+    static var apiKey: String {
+        get {
+            let query: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: keyService,
+                kSecAttrAccount as String: "gemini",
+                kSecReturnData as String: true,
+                kSecMatchLimit as String: kSecMatchLimitOne
+            ]
+            var item: CFTypeRef?
+            let result = SecItemCopyMatching(query as CFDictionary, &item)
+            if result == errSecSuccess, let data = item as? Data, let text = String(data: data, encoding: .utf8) {
+                return text
+            }
+            return UserDefaults.standard.string(forKey: keyFallbackKey) ?? ""
+        }
+        set {
+            let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            let base: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: keyService,
+                kSecAttrAccount as String: "gemini"
+            ]
+            SecItemDelete(base as CFDictionary)
+            UserDefaults.standard.removeObject(forKey: keyFallbackKey)
+            guard !trimmed.isEmpty else { return }
+            var add = base
+            add[kSecValueData as String] = Data(trimmed.utf8)
+            // Legible con el movil bloqueado (la radio sigue generando frases con la pantalla apagada).
+            add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+            // Si el llavero no deja guardarla (algunas firmas de sideload), se guarda en los ajustes de la app.
+            if SecItemAdd(add as CFDictionary, nil) != errSecSuccess {
+                UserDefaults.standard.set(trimmed, forKey: keyFallbackKey)
+            }
+        }
+    }
+
+    static var isConfigured: Bool {
+        enabled && !apiKey.isEmpty
+    }
+
+    // MARK: - Estado y gasto
+
+    /// Lo ultimo que paso con Gemini (para enseñarlo en Ajustes).
+    static var status: String {
+        get { UserDefaults.standard.string(forKey: statusKey) ?? "" }
+        set { UserDefaults.standard.set(newValue, forKey: statusKey) }
+    }
+
+    private static var dayString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: Date())
+    }
+
+    /// Gasto estimado de hoy en euros (por lo que se genero desde esta app; no es lo que cobra Google exactamente).
+    static var spentToday: Double {
+        let saved = UserDefaults.standard.dictionary(forKey: spendKey)
+        guard saved?["day"] as? String == dayString else { return 0 }
+        return saved?["euros"] as? Double ?? 0
+    }
+
+    static func addSpend(_ euros: Double) {
+        UserDefaults.standard.set(["day": dayString, "euros": spentToday + euros] as [String: Any], forKey: spendKey)
+    }
+
+    static var capReached: Bool {
+        let cap = dailyCap
+        return cap > 0 && spentToday >= cap
+    }
+}

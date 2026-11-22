@@ -858,6 +858,22 @@ enum VoiceSearch {
         log("microfono: cerrado")
     }
 
+    /// La radio (Sónar FM): escucha UNA frase (permisos, pitido y microfono como la busqueda por voz) y devuelve lo oido, o `nil` si no se oyo nada.
+    /// La pregunta la dice la radio antes y la musica se pausa por fuera; aqui siempre se deja la sesion de audio como estaba.
+    static func listenForRadio() async -> String? {
+        if !permissionsGranted {
+            guard await requestPermissions() else {
+                log("radio: faltan los permisos de microfono o de reconocimiento de voz")
+                return nil
+            }
+        }
+        PlayerController.shared.assertAudioSession()
+        let result = await listen()
+        finishListening()
+        if case .heard(let spoken, _) = result { return spoken }
+        return nil
+    }
+
     /// Cierra el microfono y vuelve a la sesion de reproduccion (antes de buscar o de hablar el resultado).
     private static func finishListening() {
         closeMic()

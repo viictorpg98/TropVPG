@@ -34,6 +34,7 @@ struct PlayerMenuSheet: View {
     @ObservedObject private var likeStore = LikeStore.shared
     @State private var showRemoveDownload = false
     @State private var showHideDialog = false
+    @State private var sleepMarked = false
     /// El color de la carátula, oscurecido, de fondo de la hoja.
     @State private var tint: Color?
 
@@ -49,6 +50,26 @@ struct PlayerMenuSheet: View {
                     if !song.artists.isEmpty {
                         Divider()
                         MenuRow(icon: "eye.slash", title: "Hide Artist") { showHideDialog = true }
+                    }
+                    Divider()
+                    MenuRow(
+                        icon: sleepMarked ? "moon.zzz.fill" : "moon.zzz",
+                        title: sleepMarked ? "Not for Sleeping" : "It's for Sleeping",
+                        subtitle: sleepMarked ? "Can show up in For You and widgets again" : "Kept out of For You, widgets and radio"
+                    ) {
+                        if sleepMarked { SleepFilter.shared.unmark(song.videoId) } else { SleepFilter.shared.mark(song) }
+                        sleepMarked.toggle()
+                    }
+                    if RadioSession.shared.isActive {
+                        Divider()
+                        MenuRow(
+                            icon: "hand.thumbsdown",
+                            title: "Not on the Radio",
+                            subtitle: "Skip it and never play it on the radio again"
+                        ) {
+                            RadioSession.shared.notThisOne(song)
+                            dismiss()
+                        }
                     }
                     if let albumId = song.firstAlbumBrowseId {
                         Divider()
@@ -137,6 +158,7 @@ struct PlayerMenuSheet: View {
             Text(song.title)
         }
         .task { await pin.load(videoId: song.videoId) }
+        .onAppear { sleepMarked = SleepFilter.shared.isMarked(song.videoId) }
         .task(id: song.videoId) {
             tint = await SongTint.color(forThumbnail: AudioCounterpartStore.shared.thumbnailURL(for: song))
         }

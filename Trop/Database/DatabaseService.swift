@@ -468,6 +468,8 @@ struct ListeningStat: Sendable {
     /// Reproducciones empezadas entre las 23:00 y las 6:00.
     let nightEvents: Int
     let lastPlayed: Date
+    /// La reproduccion mas reciente empezada entre las 6:00 y las 23:00 (`distantPast` si no hay ninguna).
+    let lastDayPlay: Date
 }
 
 extension DatabaseService {
@@ -486,6 +488,7 @@ extension DatabaseService {
                 var events = 0
                 var night = 0
                 var last = Date.distantPast
+                var lastDay = Date.distantPast
             }
             var byId: [String: Accumulator] = [:]
             let calendar = Calendar.current
@@ -498,7 +501,11 @@ extension DatabaseService {
                 accumulator.score += exp(-ageDays / 120)
                 accumulator.events += 1
                 let hour = calendar.component(.hour, from: timestamp)
-                if hour >= 23 || hour < 6 { accumulator.night += 1 }
+                if hour >= 23 || hour < 6 {
+                    accumulator.night += 1
+                } else {
+                    accumulator.lastDay = max(accumulator.lastDay, timestamp)
+                }
                 accumulator.last = max(accumulator.last, timestamp)
                 byId[id] = accumulator
             }
@@ -511,7 +518,8 @@ extension DatabaseService {
                     score: accumulator.score,
                     events: accumulator.events,
                     nightEvents: accumulator.night,
-                    lastPlayed: accumulator.last
+                    lastPlayed: accumulator.last,
+                    lastDayPlay: accumulator.lastDay
                 )
             }
             return (stats, rows.count)
