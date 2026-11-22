@@ -14,6 +14,7 @@ enum RadioSettings {
     static let talkEveryKey = "radio.talkEvery"
     static let dailyCapKey = "radio.dailyCap"
     static let voiceGainKey = "radio.voiceGain"
+    static let duckKey = "radio.duckLevel"
     static let textModelKey = "radio.textModel"
     static let voiceModelKey = "radio.voiceModel"
     static let pitirreVoiceKey = "radio.voice.pitirre"
@@ -51,6 +52,12 @@ enum RadioSettings {
     static var voiceGain: Double {
         let saved = UserDefaults.standard.object(forKey: voiceGainKey) as? Double ?? 2.6
         return min(max(saved, 1.0), 5.0)
+    }
+
+    /// Cuanto queda la musica mientras hay voz (0,45 = al 45 % del volumen); en las pausas entre frases sube hacia el 85 %.
+    static var duckLevel: Double {
+        let saved = UserDefaults.standard.object(forKey: duckKey) as? Double ?? 0.45
+        return min(max(saved, 0.15), 0.8)
     }
 
     static var textModel: String { stored(textModelKey, default: defaultTextModel) }

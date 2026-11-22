@@ -85,6 +85,7 @@ struct RadioSettingsView: View {
     @AppStorage(RadioSettings.talkEveryKey) private var talkEvery = 2
     @AppStorage(RadioSettings.dailyCapKey) private var cap = 0.30
     @AppStorage(RadioSettings.voiceGainKey) private var gain = 2.6
+    @AppStorage(RadioSettings.duckKey) private var duck = 0.45
     @AppStorage(RadioSettings.textModelKey) private var textModel = ""
     @AppStorage(RadioSettings.voiceModelKey) private var voiceModel = ""
     @AppStorage(RadioSettings.pitirreVoiceKey) private var pitirreVoice = ""
@@ -125,6 +126,10 @@ struct RadioSettingsView: View {
                 VStack(alignment: .leading) {
                     Text("Voice Level")
                     Slider(value: $gain, in: 1.0...4.0, step: 0.1)
+                }
+                VStack(alignment: .leading) {
+                    Text("Music Under Voices")
+                    Slider(value: $duck, in: 0.15...0.8, step: 0.05)
                 }
                 Text(String(format: NSLocalizedString("Estimated spend today: %@", comment: ""), String(format: "%.3f €", RadioSettings.spentToday)))
                     .foregroundStyle(.secondary)

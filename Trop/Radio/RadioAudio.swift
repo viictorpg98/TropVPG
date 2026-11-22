@@ -102,6 +102,48 @@ enum RadioAudio {
         return data
     }
 
+    /// Duracion de cada ventana del mapa de voz.
+    static let activityWindow = 0.05
+
+    /// Donde hay voz en un audio, por ventanas de 50 ms (`true` = habla). Las pausas de menos de 0,4 s entre palabras no cuentan como pausa, para que la
+    /// musica solo suba en los silencios de verdad.
+    static func activity(of wavData: Data) -> [Bool] {
+        guard let parsed = samples(from: wavData), parsed.rate > 0, !parsed.samples.isEmpty else { return [] }
+        let size = max(1, Int(Double(parsed.rate) * activityWindow))
+        var levels: [Float] = []
+        var index = 0
+        while index < parsed.samples.count {
+            let end = min(index + size, parsed.samples.count)
+            var sum: Float = 0
+            for position in index..<end {
+                let value = Float(parsed.samples[position]) / 32768
+                sum += value * value
+            }
+            levels.append((sum / Float(end - index)).squareRoot())
+            index = end
+        }
+        let peak = levels.max() ?? 0
+        guard peak > 0 else { return levels.map { _ in false } }
+        let threshold = peak * 0.08
+        var active = levels.map { $0 > threshold }
+        // Rellena los huecos cortos entre dos trozos con voz.
+        let bridge = 8
+        var position = 0
+        while position < active.count {
+            if active[position] {
+                position += 1
+                continue
+            }
+            var end = position
+            while end < active.count, !active[end] { end += 1 }
+            if position > 0, end < active.count, end - position < bridge {
+                for fill in position..<end { active[fill] = true }
+            }
+            position = end
+        }
+        return active
+    }
+
     static func duration(of wavData: Data) -> Double {
         guard let parsed = samples(from: wavData), parsed.rate > 0 else { return 0 }
         return Double(parsed.samples.count) / Double(parsed.rate)
@@ -211,6 +253,11 @@ final class RadioClipPlayer: NSObject, AVAudioPlayerDelegate, @unchecked Sendabl
     func stop() {
         player?.stop()
         finish(false)
+    }
+
+    /// Por donde va el audio que suena (0 si no suena nada).
+    var currentTime: TimeInterval {
+        player?.currentTime ?? 0
     }
 
     private func finish(_ ok: Bool) {

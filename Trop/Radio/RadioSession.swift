@@ -28,8 +28,9 @@ final class RadioSession {
         let entry: RadioClip?
     }
 
-    /// Cuanto baja la musica mientras hablan (30 % del volumen).
-    private static let duckLevel = 0.30
+    /// Cuanto queda la musica mientras hay voz (ajuste) y hacia donde sube en las pausas entre frases.
+    private var duckLevel: Double { RadioSettings.duckLevel }
+    private var pauseLevel: Double { min(1, max(duckLevel + 0.15, 0.85)) }
 
     @ObservationIgnored private var loop: Task<Void, Never>?
     private let player = RadioClipPlayer()
@@ -51,6 +52,7 @@ final class RadioSession {
     @ObservationIgnored private var pausedTicks = 0
     @ObservationIgnored private var speechTask: Task<Void, Never>?
     @ObservationIgnored private var duckTask: Task<Void, Never>?
+    @ObservationIgnored private var followerTask: Task<Void, Never>?
     @ObservationIgnored private var toppingUp = false
     @ObservationIgnored private var topUps = 0
 
@@ -128,7 +130,7 @@ final class RadioSession {
 
         // 5) La musica empieza ya (bajita) y la confirmacion suena por encima.
         let controller = PlayerController.shared
-        controller.volumeScale = Self.duckLevel
+        controller.volumeScale = duckLevel
         controller.applyPlayerVolume()
         activate(songs: built.songs, recipe: recipe, familiar: taste.familiar)
         PlaybackQueue.play(built.songs, startIndex: 0, log: Log.nowPlaying, context: "radio")
@@ -137,7 +139,7 @@ final class RadioSession {
         let confirmation = await SonarMix.withTimeout(seconds: 12) { () async -> RadioClip? in await confirmationTask.value }
         if let confirmation {
             report("confirmacion: \(String(format: "%.1f", confirmation.seconds)) s de voz")
-            _ = await playClip(confirmation)
+            _ = await playClipDucked(confirmation)
         } else {
             report("sin confirmacion (no llego a tiempo o fallo)")
         }
@@ -147,6 +149,29 @@ final class RadioSession {
 
     private func playClip(_ clip: RadioClip) async -> Bool {
         await player.play(RadioAudio.boosted(clip.wav))
+    }
+
+    /// Reproduce un clip con la musica por debajo, como en una radio de verdad: baja mientras hay voz y sube en las pausas entre frases. Se sigue la
+    /// posicion del audio contra un mapa de donde hay voz.
+    private func playClipDucked(_ clip: RadioClip) async -> Bool {
+        let map = RadioAudio.activity(of: clip.wav)
+        followerTask?.cancel()
+        let follower = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                let index = Int(self.player.currentTime / RadioAudio.activityWindow)
+                let talking = map.indices.contains(index) ? map[index] : true
+                let target = talking ? self.duckLevel : self.pauseLevel
+                let controller = PlayerController.shared
+                controller.volumeScale += (target - controller.volumeScale) * 0.3
+                controller.applyPlayerVolume()
+                try? await Task.sleep(nanoseconds: 50_000_000)
+            }
+        }
+        followerTask = follower
+        let finished = await playClip(clip)
+        follower.cancel()
+        return finished
     }
 
     private func playFiller() async {
@@ -263,12 +288,12 @@ final class RadioSession {
         }
         guard let piece = ready[key], !played.contains(key), !speaking else { return }
 
-        // La voz empieza para que la mitad suene sobre el final de esta cancion y la otra mitad sobre el principio de la siguiente.
+        // La voz empieza para que cerca del 70 % suene sobre el final de esta cancion y solo el resto sobre el principio de la siguiente.
         var end = np.duration
         if let planned = AutoMixEngine.shared.plannedMixStart(for: id), planned > np.currentTime { end = planned }
         guard end > 0 else { return }
         let remaining = end - np.currentTime
-        let lead = piece.clip.seconds * 0.5 + 0.5 + (piece.entry?.seconds ?? 0)
+        let lead = piece.clip.seconds * 0.7 + 0.5 + (piece.entry?.seconds ?? 0)
         if remaining <= lead {
             if remaining > lead - 4 {
                 startSpeech(piece, key: key, expectingKey: RadioBlocklist.key(for: next))
@@ -329,9 +354,9 @@ final class RadioSession {
         report("habla (\(piece.kind == .mini ? "mini" : "charla"))")
         speechTask = Task { [weak self] in
             guard let self else { return }
-            await self.duck(to: Self.duckLevel, over: 0.6)
-            if !Task.isCancelled, let entry = piece.entry { _ = await self.playClip(entry) }
-            if !Task.isCancelled, self.speaking { _ = await self.playClip(piece.clip) }
+            await self.duck(to: self.duckLevel, over: 0.6)
+            if !Task.isCancelled, let entry = piece.entry { _ = await self.playClipDucked(entry) }
+            if !Task.isCancelled, self.speaking { _ = await self.playClipDucked(piece.clip) }
             guard !Task.isCancelled, self.speaking else { return }
             try? await Task.sleep(nanoseconds: 700_000_000)
             await self.duck(to: 1, over: 1.0)
@@ -371,6 +396,8 @@ final class RadioSession {
     }
 
     private func restoreVolumeNow() {
+        followerTask?.cancel()
+        followerTask = nil
         duckTask?.cancel()
         duckTask = nil
         let controller = PlayerController.shared

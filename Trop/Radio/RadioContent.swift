@@ -85,7 +85,7 @@ enum RadioContent {
 
     private static let charlaRules = """
     REGLAS (CHARLA):
-    - Entre 7 y 10 lineas en total, unas 100-150 palabras, alternando los dos locutores, con alguna interrupcion. UN solo chiste fuerte, el resto es radio normal. Maximo dos <laugh>.
+    - Entre 4 y 6 lineas en total, unas 60-90 palabras (20 a 25 segundos), alternando los dos locutores, con alguna interrupcion. UN solo chiste fuerte, el resto es radio normal. Maximo un <laugh>.
     - Anuncia la cancion que viene (titulo y artista) hacia el final, de forma natural, y cierra con una frase corta.
 
     """ + commonRules
@@ -230,8 +230,8 @@ enum RadioContent {
                     notice = "\n\nTU INTENTO ANTERIOR FUE DEMASIADO LARGO O VACIO. Maximo 28 palabras en total, 1 o 2 lineas."
                     continue
                 }
-            } else if turns.count < 4 {
-                notice = "\n\nTU INTENTO ANTERIOR FUE DEMASIADO CORTO. Escribe entre 7 y 10 lineas."
+            } else if turns.count < 3 || words > 120 {
+                notice = "\n\nTU INTENTO ANTERIOR NO SIRVE (muy corto o muy largo). Escribe entre 4 y 6 lineas y MAXIMO 90 palabras en total."
                 continue
             }
             if mentionsFood(all) {

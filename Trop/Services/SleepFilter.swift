@@ -239,13 +239,13 @@ final class SleepFilter: @unchecked Sendable {
     private static let strongPhrases = [
         "sleep music", "sleeping music", "music for sleeping", "musica para dormir", "para dormir", "white noise", "ruido blanco",
         "pink noise", "brown noise", "rain sounds", "sonido de lluvia", "sonidos de lluvia", "deep sleep", "sleep sounds", "asmr",
-        "binaural beats"
+        "binaural beats", "slowed"
     ]
 
     /// Palabras que tambien salen en canciones normales ("Rain", "Sleep"): solo cuentan con duracion larga, noche o temporizador.
     private static let weakWords = [
         "sleep", "sleeping", "dormir", "rain", "lluvia", "ambient", "ambiental", "relax", "relaxing", "relajante", "meditation",
-        "meditacion", "lofi", "lo fi", "lullaby", "nana", "insomnia"
+        "meditacion", "lofi", "lo fi", "lullaby", "nana", "insomnia", "reverb"
     ]
 
     // MARK: - Historial local
