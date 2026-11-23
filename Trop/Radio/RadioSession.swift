@@ -957,7 +957,7 @@ final class RadioSession {
         let exclude = Set(np.queueSongs.map(\.videoId))
         let familiar = self.familiar
         Task { [weak self] in
-            let built = await RadioPlanner.buildQueue(recipe: recipe, familiar: familiar, exclude: exclude)
+            let built = await RadioPlanner.buildQueue(recipe: recipe, familiar: familiar, exclude: exclude, anchors: false)
             guard let self, self.isActive else { return }
             self.toppingUp = false
             guard !built.songs.isEmpty else {

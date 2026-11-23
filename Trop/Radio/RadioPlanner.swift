@@ -18,6 +18,10 @@ struct RadioRecipe {
     var avoid: [String]
     var confidence: Double
     var usesTaste: Bool
+    /// La epoca pedida como rango ("2000-2009"), o "" si la peticion no habla de epoca.
+    var era = ""
+    /// Lo que dijo la persona (para que el filtro de la cola sepa que se pidio).
+    var request = ""
 }
 
 struct RadioTaste {
@@ -56,12 +60,14 @@ enum RadioPlanner {
     Eres el "cerebro musical" de una radio dentro de una app de musica. Una persona acaba de decir en voz alta lo que quiere escuchar (el texto viene de un reconocedor de voz y puede tener errores de transcripcion, sobre todo en nombres propios). Conviertelo en una receta para buscar musica en YouTube Music.
     Devuelve SOLO un objeto JSON con estas claves:
     - "resumen": 2 a 5 palabras en español que describen lo pedido.
-    - "busquedas": entre 3 y 6 consultas de busqueda cortas (maximo 6 palabras cada una), distintas entre si (genero y epoca, exitos, subgeneros). Sin comillas ni operadores.
+    - "busquedas": entre 3 y 6 consultas de busqueda cortas (maximo 6 palabras cada una), distintas entre si (genero y epoca, exitos, subgeneros). Sin comillas ni operadores. Si la peticion tiene EPOCA ("los 2000", "los 90", "del 2005"), TODAS las consultas llevan la decada escrita como "años 2000" o "años 90" (la decada entera: "los 2000" son 2000-2009; no uses un año suelto).
     - "artistas": entre 6 y 12 artistas reales y representativos. Solo los que estes SEGURO de que existen.
-    - "canciones": entre 0 y 6 canciones muy conocidas con formato "Artista - Titulo". Solo las que estes SEGURO de que existen.
+    - "canciones": entre 0 y 6 canciones muy conocidas con formato "Artista - Titulo". Solo las que estes SEGURO de que existen. Si la peticion tiene EPOCA, entre 10 y 15 canciones muy conocidas DE ESA EPOCA (publicadas dentro de ella), de artistas distintos.
     - "evitar": lista de estilos o palabras que NO encajan con lo pedido.
     - "usa_gustos": true si has usado los gustos de la persona para escoger artistas o canciones.
     - "confianza": numero de 0 a 1: cuanto estas seguro de haber entendido bien lo pedido.
+    - "epoca": la epoca pedida como rango de años ("2000-2009", "1990-1999"), o "" si la peticion no habla de epoca.
+    NO añadas generos, estilos ni paises que la persona no haya dicho: "lo mas top", "exitos" o "lo mejor" significan lo MAS POPULAR de esa epoca en general, de todos los generos. "De España" o "en España" significa lo que mas sono en España (incluida la musica internacional que triunfo alli), salvo que diga "española" o "en español".
     GUSTOS: si la peticion es especifica (genero, epoca o artista), manda la peticion y los gustos solo desempatan. Si es vaga (entrenar, fiesta, coche, sorprendeme, verano...), usa los gustos como DIRECCION (generos y estilos que le gustan) y mezcla artistas parecidos a los suyos, no solo los suyos. Si no se dan gustos, escoge lo mas representativo de lo pedido. NO des por hecho ningun idioma ni pais: no añadas "en español", ni artistas de un idioma o pais concreto, ni busquedas en un idioma, salvo que la persona lo pida (o lo diga de forma explicita en sus gustos). Si un nombre propio parece mal transcrito, corrigelo al artista mas probable. No inventes nada que no sepas.
     """
 
@@ -128,7 +134,9 @@ enum RadioPlanner {
             songs: strings("canciones"),
             avoid: strings("evitar"),
             confidence: (object["confianza"] as? NSNumber)?.doubleValue ?? 0.5,
-            usesTaste: object["usa_gustos"] as? Bool ?? false
+            usesTaste: object["usa_gustos"] as? Bool ?? false,
+            era: (object["epoca"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
+            request: spoken
         )
         guard !recipe.searches.isEmpty || !recipe.artists.isEmpty else {
             throw Gemini.Failure(code: 0, message: "la receta no traia busquedas")
@@ -227,28 +235,40 @@ enum RadioPlanner {
     }
 
     /// La cola de la radio (hasta 30 canciones) y cuantas peticiones a YouTube hizo. `exclude`: lo que ya sono o esta en la cola.
-    static func buildQueue(recipe: RadioRecipe, familiar: [SongItem], exclude: Set<String>) async -> (songs: [SongItem], requests: Int) {
+    /// `anchors`: con epoca, busca primero las canciones concretas de la receta (solo al empezar; en las ampliaciones de la cola ya estan).
+    static func buildQueue(recipe: RadioRecipe, familiar: [SongItem], exclude: Set<String>, anchors useAnchors: Bool = true) async -> (songs: [SongItem], requests: Int) {
         var requests = 0
+        var anchorSongs: [SongItem] = []
         var found: [SongItem] = []
-        // Busquedas: como mucho 3, UNA TRAS OTRA (SearchService cancela la anterior si se lanzan a la vez, y asi no se rafaguea a YouTube).
-        for query in recipe.searches.prefix(3) {
+        let hasEra = !recipe.era.isEmpty
+        // Con epoca: las canciones concretas que el modelo conoce de ESA epoca van primero (hasta 5, una tras otra); son lo que mejor ancla la cola.
+        if useAnchors, hasEra {
+            for entry in recipe.songs.prefix(5) {
+                requests += 1
+                anchorSongs += await searchSongs(entry, limit: 1)
+            }
+            PlaybackReport.record("radio: canciones de la receta para la epoca \(recipe.era): \(anchorSongs.count) encontradas de \(min(5, recipe.songs.count))")
+        }
+        // Busquedas: como mucho 3 (2 con epoca, que ya gasta mas en las canciones), UNA TRAS OTRA (SearchService cancela la anterior si se lanzan a la vez, y asi no se rafaguea a YouTube).
+        for query in recipe.searches.prefix(hasEra ? 2 : 3) {
             requests += 1
             found += await searchSongs(query, limit: 8)
         }
         // Canciones concretas de la receta: solo si salen pocas (el modelo puede equivocarse de titulo; solo suena lo que se encuentra).
-        if found.count < 12 {
+        if !hasEra, found.count < 12 {
             for entry in recipe.songs.prefix(3) {
                 requests += 1
                 found += await searchSongs(entry, limit: 1)
             }
         }
         var seen = exclude
-        let searchPool = found.filter { usable($0) && seen.insert($0.videoId).inserted }
+        let anchorPool = anchorSongs.filter { usable($0) && seen.insert($0.videoId).inserted }
+        var searchPool = found.filter { usable($0) && seen.insert($0.videoId).inserted }
 
-        // Radios: dos semillas de artistas distintos de lo encontrado.
+        // Radios: dos semillas de artistas distintos (primero de las canciones de la receta, que son las mas seguras).
         var seeds: [(id: String, title: String)] = []
         var seedArtists = Set<String>()
-        for song in searchPool where seeds.count < 2 {
+        for song in anchorPool + searchPool where seeds.count < 2 {
             if seedArtists.insert(artistKey(song)).inserted { seeds.append((id: song.videoId, title: song.title)) }
         }
         var radioPool: [SongItem] = []
@@ -258,18 +278,60 @@ enum RadioPlanner {
             radioPool = radios.songs.filter { usable($0) && seen.insert($0.videoId).inserted }
         }
 
+        // Filtro final: Gemini descarta lo que claramente no encaja con lo pedido (otra epoca, otro genero).
+        let approvedIds = Set(await approved(searchPool + radioPool, recipe: recipe).map { $0.videoId })
+        searchPool = searchPool.filter { approvedIds.contains($0.videoId) }
+        radioPool = radioPool.filter { approvedIds.contains($0.videoId) }
+
         // Conocidas tuyas cuyo artista encaja con la receta.
         let wanted = Set(recipe.artists.map { HiddenArtists.normalize($0) })
         let familiarPool = familiar.filter { song in
             usable(song) && song.artists.contains { wanted.contains(HiddenArtists.normalize($0.name)) } && seen.insert(song.videoId).inserted
         }
-        let songs = compose(search: searchPool, radio: radioPool, familiar: familiarPool)
+        let songs = compose(search: searchPool, radio: radioPool, familiar: familiarPool, first: anchorPool)
         return (songs, requests)
     }
 
+    /// Las canciones que encajan con lo pedido: una sola peticion de texto a Gemini con la lista numerada; descarta las que CLARAMENTE no encajan. Si falla, o si
+    /// descartaria casi todo, se queda con la lista entera.
+    private static func approved(_ songs: [SongItem], recipe: RadioRecipe) async -> [SongItem] {
+        guard songs.count >= 8, !recipe.request.isEmpty else { return songs }
+        let judged = Array(songs.prefix(70))
+        let lines = judged.enumerated().map { "\($0.offset + 1). \($0.element.artistNamesDisplay) - \($0.element.title)" }.joined(separator: "\n")
+        var prompt = "PETICION: \(recipe.request) (resumen: \(recipe.summary))"
+        if !recipe.era.isEmpty { prompt += "\nEPOCA PEDIDA: \(recipe.era) (canciones publicadas dentro de esos años)" }
+        prompt += "\n\nCANCIONES:\n" + lines
+        let system = "Eres un experto en musica. Te doy la peticion de una persona y una lista numerada de canciones. Devuelve SOLO un JSON {\"fuera\": [numeros]} con los numeros de las canciones que CLARAMENTE no encajan con lo pedido (sobre todo si son de otra epoca o de otro genero). Si dudas, NO la incluyas. No expliques nada."
+        guard let json = try? await Gemini.text(system: system, prompt: prompt, temperature: 0.1, timeout: 8),
+              let data = json.data(using: .utf8),
+              let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let out = object["fuera"] as? [Any] else {
+            PlaybackReport.record("radio: filtro de la cola: sin respuesta, se deja entera")
+            return songs
+        }
+        let rejected = Set(out.compactMap { ($0 as? NSNumber)?.intValue })
+        var kept: [SongItem] = []
+        var dropped: [String] = []
+        for (index, song) in judged.enumerated() {
+            if rejected.contains(index + 1) {
+                dropped.append("\(song.artistNamesDisplay) - \(song.title)")
+            } else {
+                kept.append(song)
+            }
+        }
+        kept += songs.dropFirst(70)
+        guard kept.count >= 10 else {
+            PlaybackReport.record("radio: filtro de la cola: descartaria casi todo (\(dropped.count) de \(songs.count)), se deja entera")
+            return songs
+        }
+        PlaybackReport.record("radio: filtro de la cola: \(dropped.count) descartadas de \(songs.count): " + dropped.prefix(12).joined(separator: " / "))
+        return kept
+    }
+
     /// Reparte las tres fuentes en un patron fijo (mas busquedas que radios y de vez en cuando una conocida) sin repetir artista en 3 seguidas.
-    private static func compose(search: [SongItem], radio: [SongItem], familiar: [SongItem]) -> [SongItem] {
-        var pools: [String: [SongItem]] = ["a": search.shuffled(), "b": radio.shuffled(), "c": familiar.shuffled()]
+    private static func compose(search: [SongItem], radio: [SongItem], familiar: [SongItem], first: [SongItem] = []) -> [SongItem] {
+        // `first`: las canciones concretas de la receta (con epoca) salen antes que el resto de las busquedas.
+        var pools: [String: [SongItem]] = ["a": first.shuffled() + search.shuffled(), "b": radio.shuffled(), "c": familiar.shuffled()]
         let pattern = ["a", "b", "a", "c", "b", "a"]
         var result: [SongItem] = []
         var step = 0
