@@ -20,6 +20,8 @@ struct RadioSettingsView: View {
     @AppStorage(RadioSettings.memoryKey) private var memory = true
     @AppStorage(RadioSettings.sectionsKey) private var sections = true
     @AppStorage(RadioSettings.cityKey) private var city = "Sabadell"
+    @AppStorage(RadioSettings.fallbackKey) private var fallback = true
+    @AppStorage(RadioSettings.fallbackModelKey) private var fallbackModel = ""
     @AppStorage(RadioSettings.textModelKey) private var textModel = ""
     @AppStorage(RadioSettings.voiceModelKey) private var voiceModel = ""
     @AppStorage(RadioSettings.pitirreVoiceKey) private var pitirreVoice = ""
@@ -73,6 +75,9 @@ struct RadioSettingsView: View {
                 }
                 Text(String(format: NSLocalizedString("Estimated spend today: %@", comment: ""), String(format: "%.3f €", RadioSettings.spentToday)))
                     .foregroundStyle(.secondary)
+                Text(String(format: NSLocalizedString("Voice requests today: %d", comment: ""), RadioSettings.voiceRequestsToday))
+                    .foregroundStyle(.secondary)
+                Toggle("Use Backup Voice at the Limit", isOn: $fallback)
             } footer: {
                 Text("The limit is an estimate based on what this app generates, not on what Google charges. When it is reached, the radio keeps playing music without voices.")
             }
@@ -138,6 +143,9 @@ struct RadioSettingsView: View {
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
                 TextField("Chuleta's Voice", text: $chuletaVoice, prompt: Text(verbatim: RadioSettings.defaultChuletaVoice))
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                TextField("Backup Voice Model", text: $fallbackModel, prompt: Text(verbatim: RadioSettings.defaultFallbackModel))
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
             } header: {

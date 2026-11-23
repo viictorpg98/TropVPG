@@ -32,6 +32,7 @@ struct RadioScreenView: View {
     private let accountState = AccountSheetState.shared
     private let radio = RadioSession.shared
     @State private var recents = RadioRecents.all
+    @State private var voiceBlocked = Gemini.voiceExhaustedForDay
     @AppStorage(RadioSettings.sectionsKey) private var sections = true
     @AppStorage(RadioSettings.memoryKey) private var memory = true
     @AppStorage(RadioSettings.talkEveryKey) private var talkEvery = 2
@@ -80,6 +81,8 @@ struct RadioScreenView: View {
                         }
                         Text(spendText)
                             .foregroundStyle(.secondary)
+                        Text(String(format: NSLocalizedString("Voice requests today: %d", comment: ""), RadioSettings.voiceRequestsToday))
+                            .foregroundStyle(.secondary)
                         SettingsNavigationRow("All Radio Settings", icon: "dot.radiowaves.left.and.right") {
                             RadioSettingsView()
                         }
@@ -94,9 +97,9 @@ struct RadioScreenView: View {
             .toolbar(.hidden, for: .navigationBar)
             .detailRouteDestinations()
             .diagScreen("Radio")
-            .onAppear { recents = RadioRecents.all }
-            .onChange(of: radio.isActive) { recents = RadioRecents.all }
-            .onChange(of: radio.isStarting) { recents = RadioRecents.all }
+            .onAppear { refresh() }
+            .onChange(of: radio.isActive) { refresh() }
+            .onChange(of: radio.isStarting) { refresh() }
         }
     }
 
@@ -172,8 +175,16 @@ struct RadioScreenView: View {
         }
     }
 
+    private func refresh() {
+        recents = RadioRecents.all
+        voiceBlocked = Gemini.voiceExhaustedForDay
+    }
+
     private var statusText: String {
         if radio.isStarting { return NSLocalizedString("Getting the radio ready…", comment: "") }
+        if voiceBlocked {
+            return NSLocalizedString("Voice limit reached: music only until the daily reset (9:00 in Spain).", comment: "")
+        }
         if radio.isActive {
             if radio.currentSummary.isEmpty { return NSLocalizedString("The radio is on. Tap to stop it.", comment: "") }
             return String(format: NSLocalizedString("On the air: %@", comment: ""), radio.currentSummary)

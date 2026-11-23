@@ -869,5 +869,9 @@
   "Stop the Radio": "Parar la radio",
   "Ask for Music": "Pedir música",
   "Getting the radio ready…": "Preparando la radio…",
-  "On the air: %@": "En el aire: %@"
+  "On the air: %@": "En el aire: %@",
+  "Voice requests today: %d": "Peticiones de voz hoy: %d",
+  "Voice limit reached: music only until the daily reset (9:00 in Spain).": "Cupo de voz agotado: solo música hasta el reinicio diario (9:00 en España).",
+  "Use Backup Voice at the Limit": "Usar la voz de reserva al llegar al límite",
+  "Backup Voice Model": "Modelo de voz de reserva"
 }

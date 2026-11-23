@@ -22,19 +22,33 @@ enum Gemini {
     /// Estilo de las cuñas ("¡Sónar efe eme!").
     static let announcerStyle = "booming radio station announcer, loud, big energy, shouting the station name with a smile"
 
-    nonisolated(unsafe) private static var coolDownUntil = Date.distantPast
+    /// Cada tipo de peticion (el texto y cada modelo de voz) tiene su propio limite: que se agote la voz no debe parar el texto.
+    private enum Scope: Hashable {
+        case text
+        case voice(String)
+    }
 
-    private static func ensureUsable() throws {
+    nonisolated(unsafe) private static var coolDowns: [Scope: Date] = [:]
+
+    private static func ensureUsable(_ scope: Scope) throws {
         guard !RadioSettings.apiKey.isEmpty else { throw Failure(code: 401, message: "falta la clave de Gemini") }
         if RadioSettings.capReached { throw Failure(code: 0, message: "tope de gasto diario alcanzado") }
-        if Date() < coolDownUntil { throw Failure(code: 429, message: "esperando para no pasarse de peticiones") }
+        if let until = coolDowns[scope], Date() < until { throw Failure(code: 429, message: "esperando para no pasarse de peticiones") }
+    }
+
+    /// `true` si la voz (el modelo normal y, si esta activada, el de reserva) esta parada por el limite DIARIO (para avisarlo en la pestaña Radio).
+    static var voiceExhaustedForDay: Bool {
+        var models = [RadioSettings.voiceModel]
+        if RadioSettings.fallbackEnabled { models.append(RadioSettings.fallbackModel) }
+        let limit = Date().addingTimeInterval(3_600)
+        return models.allSatisfy { (coolDowns[.voice($0)] ?? .distantPast) > limit }
     }
 
     // MARK: - Texto
 
     /// Pregunta que devuelve JSON (como texto, sin las vallas ```).
     static func text(system: String, prompt: String, temperature: Double, timeout: Double = 8) async throws -> String {
-        try ensureUsable()
+        try ensureUsable(.text)
         let body: [String: Any] = [
             "systemInstruction": ["parts": [["text": system]]],
             "contents": [["role": "user", "parts": [["text": prompt]]]],
@@ -43,7 +57,7 @@ enum Gemini {
         guard let url = URL(string: "\(base)/models/\(RadioSettings.textModel):generateContent") else {
             throw Failure(code: 0, message: "direccion no valida")
         }
-        let json = try await post(url, body: body, timeout: timeout)
+        let json = try await post(url, body: body, timeout: timeout, scope: .text)
         RadioSettings.addSpend(0.0004)
         guard let candidates = json["candidates"] as? [[String: Any]],
               let content = candidates.first?["content"] as? [String: Any],
@@ -65,7 +79,18 @@ enum Gemini {
 
     /// Audio de uno o dos locutores ("Pitirre" y "Chuleta"). `style` solo vale con un locutor (para las cuñas).
     static func speech(_ turns: [RadioTurn], style: String? = nil, timeout: Double = 15) async throws -> RadioClip {
-        try ensureUsable()
+        let primary = RadioSettings.voiceModel
+        do {
+            return try await speech(turns, style: style, timeout: timeout, model: primary)
+        } catch let failure as Failure where failure.code == 429 && RadioSettings.fallbackEnabled && RadioSettings.fallbackModel != primary {
+            // El modelo barato llego a su limite (por minuto o por dia): se prueba con el de reserva, que tiene su propia cuota.
+            PlaybackReport.record("radio: voz: \(primary) no puede ahora (\(failure.message)); se prueba la de reserva \(RadioSettings.fallbackModel)")
+            return try await speech(turns, style: style, timeout: timeout, model: RadioSettings.fallbackModel)
+        }
+    }
+
+    private static func speech(_ turns: [RadioTurn], style: String?, timeout: Double, model: String) async throws -> RadioClip {
+        try ensureUsable(.voice(model))
         guard !turns.isEmpty else { throw Failure(code: 0, message: "nada que decir") }
         let speakers = Set(turns.map(\.speaker))
         let single = speakers.count == 1 ? speakers.first : nil
@@ -96,20 +121,22 @@ enum Gemini {
             config = ["speech_config": ["speakers": speakerList]]
         }
         let body: [String: Any] = [
-            "model": RadioSettings.voiceModel,
+            "model": model,
             "input": input,
             "response_format": ["type": "audio"],
             "generation_config": config
         ]
         guard let url = URL(string: "\(base)/interactions") else { throw Failure(code: 0, message: "direccion no valida") }
-        let json = try await post(url, body: body, timeout: timeout)
+        let json = try await post(url, body: body, timeout: timeout, scope: .voice(model))
         guard let found = findAudio(json), let raw = Data(base64Encoded: found.data),
               let parsed = RadioAudio.samples(from: raw), parsed.rate > 0, !parsed.samples.isEmpty else {
             throw Failure(code: 0, message: "la respuesta de voz no traia audio")
         }
         let seconds = Double(parsed.samples.count) / Double(parsed.rate)
         // Gasto estimado: el audio son ~25 tokens por segundo a ~6 dolares el millon (unos 0,00014 € por segundo) mas el texto de entrada.
-        RadioSettings.addSpend(seconds * 0.00014 + 0.0003)
+        let rate = model == RadioSettings.voiceModel ? 0.00014 : 0.00021
+        RadioSettings.addSpend(seconds * rate + 0.0003)
+        RadioSettings.addVoiceRequest()
         return RadioClip(wav: RadioAudio.wav(parsed.samples, rate: parsed.rate), seconds: seconds)
     }
 
@@ -144,7 +171,7 @@ enum Gemini {
 
     // MARK: - Red
 
-    private static func post(_ url: URL, body: [String: Any], timeout: Double) async throws -> [String: Any] {
+    private static func post(_ url: URL, body: [String: Any], timeout: Double, scope: Scope) async throws -> [String: Any] {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue(RadioSettings.apiKey, forHTTPHeaderField: "x-goog-api-key")
@@ -164,7 +191,7 @@ enum Gemini {
         }
         let code = (result.1 as? HTTPURLResponse)?.statusCode ?? 0
         guard code == 200 else {
-            let message = explain(code, result.0)
+            let message = explain(code, result.0, scope)
             RadioSettings.status = message
             throw Failure(code: code, message: message)
         }
@@ -175,7 +202,7 @@ enum Gemini {
         return json
     }
 
-    private static func explain(_ code: Int, _ data: Data) -> String {
+    private static func explain(_ code: Int, _ data: Data, _ scope: Scope) -> String {
         let body = String(data: data, encoding: .utf8) ?? ""
         let detail = ((try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? [String: Any])?["message"] as? String
         switch code {
@@ -183,10 +210,10 @@ enum Gemini {
             return "error \(code): la clave de Gemini no vale o no tiene permiso"
         case 429:
             if body.contains("per day") || body.contains("PerDay") {
-                coolDownUntil = Date().addingTimeInterval(6 * 3_600)
+                coolDowns[scope] = Date().addingTimeInterval(6 * 3_600)
                 return "error 429: cupo diario de Gemini agotado (la radio sigue sin voz)"
             }
-            coolDownUntil = Date().addingTimeInterval(60)
+            coolDowns[scope] = Date().addingTimeInterval(60)
             return "error 429: demasiadas peticiones seguidas (espera 1 minuto)"
         case 400:
             return "error 400: " + (detail ?? "peticion no valida")

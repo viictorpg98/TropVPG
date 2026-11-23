@@ -84,6 +84,7 @@
 "Autoplay Similar" = "Reproducción automática de similares";
 "Back" = "Atrás";
 "Back to Automatic" = "Volver a automático";
+"Backup Voice Model" = "Modelo de voz de reserva";
 "Bad mix" = "Mala mezcla";
 "Balanced" = "Equilibrado";
 "Based on Trop by SwiftyMedia (GPL-3.0)." = "Basada en Trop, de SwiftyMedia (GPL-3.0).";
@@ -818,6 +819,7 @@
 "Unpin from Quick Picks" = "Desfijar de Selecciones rápidas";
 "Unsubscribe" = "Cancelar suscripción";
 "Unsubscribe from this podcast" = "Cancelar la suscripción a este pódcast";
+"Use Backup Voice at the Limit" = "Usar la voz de reserva al llegar al límite";
 "Use cellular data" = "Usar datos móviles";
 "Use suggestion" = "Usar sugerencia";
 "User Status" = "Estado del usuario";
@@ -838,6 +840,8 @@
 "Voice Level" = "Volumen de la voz";
 "Voice Model" = "Modelo de voz";
 "Voice Search" = "Búsqueda por voz";
+"Voice limit reached: music only until the daily reset (9:00 in Spain)." = "Cupo de voz agotado: solo música hasta el reinicio diario (9:00 en España).";
+"Voice requests today: %d" = "Peticiones de voz hoy: %d";
 "Volume" = "Volumen";
 "Waiting for login…" = "Esperando el inicio de sesión…";
 "Watching" = "Viendo";

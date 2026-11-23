@@ -16,6 +16,9 @@ enum RadioSettings {
     static let voiceGainKey = "radio.voiceGain"
     static let duckKey = "radio.duckLevel"
     static let memoryKey = "radio.memory"
+    static let fallbackKey = "radio.voiceFallback"
+    static let fallbackModelKey = "radio.voiceFallbackModel"
+    private static let voiceCountKey = "radio.voiceCount.v1"
     static let sectionsKey = "radio.sections"
     static let cityKey = "radio.city"
     static let textModelKey = "radio.textModel"
@@ -29,6 +32,8 @@ enum RadioSettings {
 
     static let defaultTextModel = "gemini-3.1-flash-lite"
     static let defaultVoiceModel = "gemini-3.8-flash-lite-tts"
+    /// La voz de reserva (cuesta un 50 % mas por audio): se usa cuando el modelo barato llega a su limite.
+    static let defaultFallbackModel = "gemini-3.8-flash-tts"
     /// Las dos voces diseñadas en el proyecto de Google del usuario (solo valen con su clave).
     static let defaultPitirreVoice = "voice_8d1n4bt63iki"
     static let defaultChuletaVoice = "voice_vs6u7blphdqv"
@@ -96,6 +101,13 @@ enum RadioSettings {
         let saved = UserDefaults.standard.string(forKey: cityKey) ?? "Sabadell"
         return cities.first { $0.name == saved } ?? cities[0]
     }
+
+    /// Si al llegar al limite del modelo de voz se prueba con el de reserva (que tiene su propia cuota).
+    static var fallbackEnabled: Bool {
+        UserDefaults.standard.object(forKey: fallbackKey) as? Bool ?? true
+    }
+
+    static var fallbackModel: String { stored(fallbackModelKey, default: defaultFallbackModel) }
 
     static var textModel: String { stored(textModelKey, default: defaultTextModel) }
     static var voiceModel: String { stored(voiceModelKey, default: defaultVoiceModel) }
@@ -173,6 +185,17 @@ enum RadioSettings {
 
     static func addSpend(_ euros: Double) {
         UserDefaults.standard.set(["day": dayString, "euros": spentToday + euros] as [String: Any], forKey: spendKey)
+    }
+
+    /// Peticiones de voz que ha hecho la app hoy (el limite diario de Google las cuenta desde las 9:00 de España, tambien las de las pruebas del PC).
+    static var voiceRequestsToday: Int {
+        let saved = UserDefaults.standard.dictionary(forKey: voiceCountKey)
+        guard saved?["day"] as? String == dayString else { return 0 }
+        return saved?["count"] as? Int ?? 0
+    }
+
+    static func addVoiceRequest() {
+        UserDefaults.standard.set(["day": dayString, "count": voiceRequestsToday + 1] as [String: Any], forKey: voiceCountKey)
     }
 
     static var capReached: Bool {
