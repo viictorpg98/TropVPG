@@ -89,7 +89,7 @@ enum RadioSettings {
         UserDefaults.standard.object(forKey: memoryKey) as? Bool ?? true
     }
 
-    /// Si hay secciones (noticiero, tiempo, anuncios, tendencias, top 5, un dia como hoy, mensajes de oyentes) entre las canciones.
+    /// Si hay secciones (noticiero, tiempo, anuncios, top 5, un dia como hoy, mensajes de oyentes, deportes) entre las canciones.
     static var sectionsEnabled: Bool {
         UserDefaults.standard.object(forKey: sectionsKey) as? Bool ?? true
     }

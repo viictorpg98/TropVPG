@@ -92,14 +92,6 @@ enum RadioSections {
                 instruction: "Haz un ANUNCIO PARODIA de radio de unos 25 a 30 segundos: una marca o cadena REAL muy conocida en España pero con el NOMBRE ALTERADO (cambia letras o juega con el nombre) de modo que se reconozca claramente a quien parodia; un producto o servicio absurdo ligado a una de estas noticias o tendencias de hoy. No afirmes nada real malo de la empresa (nada de fraudes, defectos ni escandalos): es absurdo evidente. Acaba con un eslogan y devuelve a la musica.",
                 data: numbered(base), minWords: 55, maxWords: 100, minTurns: 4
             )
-        case .tendencias:
-            guard let world else { return nil }
-            let mix = world.trends.shuffled().prefix(7).map { "[Google Trends] \($0)" } + world.wiki.shuffled().prefix(7).map { "[Wikipedia] \($0)" }
-            guard mix.count >= 5 else { return nil }
-            return Spec(
-                instruction: "Haz LO MAS BUSCADO de unos 15 a 20 segundos: los locutores comentan con humor 2 cosas de las que la gente mas busca hoy en España (elige de la lista). No inventes detalles: solo puedes decir que es tendencia o que 'todo el mundo lo esta buscando'. Cierra devolviendo a la musica.",
-                data: numbered(mix.shuffled()), minWords: 38, maxWords: 70, minTurns: 3
-            )
         case .top5:
             guard let top, top.count >= 3 else { return nil }
             return Spec(

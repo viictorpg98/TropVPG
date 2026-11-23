@@ -31,8 +31,6 @@ enum RadioIdent {
                 return ("la seccion del tiempo", ["¡Saquen el paraguas o las chanclas! ¡El tiempo en Sónar efe eme!", "¡Y ahora, lo que dicen las nubes!", "¿Qué tiempo hace? / ¡El tiempo, en Sónar efe eme!"])
             case .anuncios:
                 return ("la pausa publicitaria (anuncios parodia)", ["¡Pausa publicitaria! ¡Sujétense la cartera!", "¡Publicidad! / ¡Que alguien tiene que pagar la luz!", "¡Y ahora, unos anunciantes que no existen... pero casi!"])
-            case .tendencias:
-                return ("lo mas buscado hoy en España", ["¡Lo que todo el mundo está buscando, y tú sin enterarte!", "¡Esto es tendencia, mi gente! ¡Lo más buscado!", "¿Qué busca España? / ¡Lo más buscado, en Sónar efe eme!"])
             case .top5:
                 return ("las cinco canciones que la persona mas ha escuchado esta semana", ["¡Tus cinco de la semana! ¡Los que no has soltado!", "¡Cuenta atrás! ¡Tus cinco favoritos de la semana!", "¡Cinco! / ¡Tus cinco de la semana, en Sónar efe eme!"])
             case .hoy:

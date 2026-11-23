@@ -10,14 +10,13 @@ import Foundation
 import UIKit
 
 enum RadioSectionKind: CaseIterable {
-    case noticiero, tiempo, anuncios, tendencias, top5, hoy, whatsapp, deportes
+    case noticiero, tiempo, anuncios, top5, hoy, whatsapp, deportes
 
     var name: String {
         switch self {
         case .noticiero: return "noticiero"
         case .tiempo: return "tiempo"
         case .anuncios: return "anuncios"
-        case .tendencias: return "tendencias"
         case .top5: return "top5"
         case .hoy: return "hoy"
         case .whatsapp: return "whatsapp"
@@ -34,7 +33,6 @@ enum RadioSectionKind: CaseIterable {
         case .noticiero: return "Newscast"
         case .tiempo: return "Weather Report"
         case .anuncios: return "Ad Break"
-        case .tendencias: return "Most Searched"
         case .top5: return "My Top 5 of the Week"
         case .hoy: return "On This Day"
         case .whatsapp: return "Listener Messages"
@@ -47,7 +45,6 @@ enum RadioSectionKind: CaseIterable {
         case .noticiero: return "newspaper"
         case .tiempo: return "cloud.sun"
         case .anuncios: return "megaphone"
-        case .tendencias: return "chart.line.uptrend.xyaxis"
         case .top5: return "list.number"
         case .hoy: return "calendar"
         case .whatsapp: return "message"
