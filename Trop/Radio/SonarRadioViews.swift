@@ -15,6 +15,7 @@ struct RadioSettingsView: View {
     @AppStorage(RadioSettings.enabledKey) private var enabled = true
     @AppStorage(RadioSettings.talkEveryKey) private var talkEvery = 2
     @AppStorage(RadioSettings.rhythmKey) private var rhythm = 0
+    @AppStorage(RadioSettings.sportsKey) private var sports = RadioSettings.defaultSports
     @AppStorage(RadioSettings.dailyCapKey) private var cap = 0.30
     @AppStorage(RadioSettings.voiceGainKey) private var gain = 2.6
     @AppStorage(RadioSettings.duckKey) private var duck = 0.45
@@ -74,6 +75,15 @@ struct RadioSettingsView: View {
                         Text(verbatim: place.name).tag(place.name)
                     }
                 }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("My Sports")
+                    TextField(RadioSettings.defaultSports, text: $sports)
+                        .autocorrectionDisabled()
+                        .foregroundStyle(.secondary)
+                }
+                Text("Teams and sports you follow, separated by commas (up to 4). They are used to look for sports headlines and are sent to Google, like the rest of your tastes.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                 VStack(alignment: .leading) {
                     Text("Voice Level")
                     Slider(value: $gain, in: 1.0...4.0, step: 0.1)

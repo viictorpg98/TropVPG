@@ -10,7 +10,7 @@ import Foundation
 import UIKit
 
 enum RadioSectionKind: CaseIterable {
-    case noticiero, tiempo, anuncios, tendencias, top5, hoy, whatsapp
+    case noticiero, tiempo, anuncios, tendencias, top5, hoy, whatsapp, deportes
 
     var name: String {
         switch self {
@@ -21,6 +21,7 @@ enum RadioSectionKind: CaseIterable {
         case .top5: return "top5"
         case .hoy: return "hoy"
         case .whatsapp: return "whatsapp"
+        case .deportes: return "deportes"
         }
     }
 
@@ -37,6 +38,7 @@ enum RadioSectionKind: CaseIterable {
         case .top5: return "My Top 5 of the Week"
         case .hoy: return "On This Day"
         case .whatsapp: return "Listener Messages"
+        case .deportes: return "Sports Corner"
         }
     }
 
@@ -49,6 +51,7 @@ enum RadioSectionKind: CaseIterable {
         case .top5: return "list.number"
         case .hoy: return "calendar"
         case .whatsapp: return "message"
+        case .deportes: return "sportscourt"
         }
     }
 
@@ -56,6 +59,7 @@ enum RadioSectionKind: CaseIterable {
     var bedName: String {
         switch self {
         case .top5: return "tendencias"
+        case .deportes: return "tendencias"
         case .hoy: return "tiempo"
         case .whatsapp: return "anuncios"
         default: return name

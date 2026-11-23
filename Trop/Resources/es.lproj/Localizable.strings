@@ -456,6 +456,7 @@
 "Music videos for you" = "Videoclips para ti";
 "Musical sleep" = "Dormir con música";
 "My Mix %@" = "Mi mix %@";
+"My Sports" = "Mis deportes";
 "My Supermix" = "Mi supermix";
 "My Top 100" = "Mi Top 100";
 "My Top 5 of the Week" = "Mis 5 de la semana";
@@ -742,6 +743,7 @@
 "Spirituality" = "Espiritualidad";
 "SponsorBlock" = "SponsorBlock";
 "Sports" = "Deportes";
+"Sports Corner" = "El rincón deportivo";
 "Spotify Canvas" = "Spotify Canvas";
 "Spotify Login" = "Iniciar sesión en Spotify";
 "Standard (64–96 kbps)" = "Estándar (64–96 kbps)";
@@ -780,6 +782,7 @@
 "TV & Film" = "Cine y televisión";
 "Talk" = "Hablan";
 "Team playlist" = "Lista del equipo";
+"Teams and sports you follow, separated by commas (up to 4). They are used to look for sports headlines and are sent to Google, like the rest of your tastes." = "Equipos y deportes que sigues, separados por comas (hasta 4). Se usan para buscar titulares deportivos y se envían a Google, como el resto de tus gustos.";
 "Technology" = "Tecnología";
 "Tell the hosts what you feel like hearing." = "Dile a los locutores qué te apetece oír.";
 "Template" = "Plantilla";

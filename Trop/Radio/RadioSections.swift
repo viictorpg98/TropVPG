@@ -114,6 +114,13 @@ enum RadioSections {
                 instruction: "Haz UN DIA COMO HOY de unos 20 a 25 segundos: los locutores comentan 2 de estos hechos que ocurrieron un dia como hoy (di el año tal cual viene), con curiosidad y humor suave, sin inventar ni causas, ni consecuencias, ni personas, ni detalles que no esten en el dato. Cierra devolviendo a la musica.",
                 data: numbered(Array(events.shuffled().prefix(6))), minWords: 45, maxWords: 90, minTurns: 3
             )
+        case .deportes:
+            guard let sports = world?.sports, sports.count >= 6 else { return nil }
+            let favorites = RadioSettings.sportsTopics.joined(separator: ", ")
+            return Spec(
+                instruction: "Haz EL RINCON DEPORTIVO de unos 25 a 35 segundos: los locutores comentan 3 de estos titulares de deporte de hoy (los mas importantes o graciosos), con humor de vestuario y picandose entre si. Mezcla deporte y LaLiga en general con, como mucho, UN titular de los temas favoritos del oyente (los marcados 'Tu tema'; sus temas son: \(favorites)) y solo si de verdad es destacado (un resultado, un partido importante, una polemica); si no lo es, no lo metas. La Chuleta comparte los gustos del oyente (si entre sus temas hay un equipo, es de ese equipo) y El Pitirre la pica con cariño siendo de un equipo rival cualquiera. Cita marcadores y datos solo tal cual vienen en el titular. Nada de burlas personales a jugadores ni arbitros con nombre, nada de lesiones, desgracias ni apuestas. Cierra devolviendo a la musica.",
+                data: numbered(sports.shuffled()), minWords: 60, maxWords: 120, minTurns: 5
+            )
         case .whatsapp:
             guard let guest, let next else { return nil }
             return Spec(

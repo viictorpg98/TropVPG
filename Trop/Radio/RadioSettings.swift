@@ -13,6 +13,8 @@ enum RadioSettings {
     static let enabledKey = "radio.enabled"
     static let talkEveryKey = "radio.talkEvery"
     static let rhythmKey = "radio.rhythm"
+    static let sportsKey = "radio.sports"
+    static let defaultSports = "FC Barcelona, pádel, fútbol sala"
     static let dailyCapKey = "radio.dailyCap"
     static let voiceGainKey = "radio.voiceGain"
     static let duckKey = "radio.duckLevel"
@@ -56,6 +58,13 @@ enum RadioSettings {
     static var rhythm: Int {
         let saved = UserDefaults.standard.object(forKey: rhythmKey) as? Int ?? 0
         return min(max(saved, 0), 2)
+    }
+
+    /// Los deportes y equipos del oyente (hasta 4, separados por comas) para la seccion de deportes.
+    static var sportsTopics: [String] {
+        let saved = UserDefaults.standard.string(forKey: sportsKey) ?? defaultSports
+        let list = saved.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        return Array(list.prefix(4))
     }
 
     /// Tope diario en euros; 0 = sin tope.

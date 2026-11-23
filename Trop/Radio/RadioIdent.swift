@@ -37,6 +37,9 @@ enum RadioIdent {
                 return ("las cinco canciones que la persona mas ha escuchado esta semana", ["¡Tus cinco de la semana! ¡Los que no has soltado!", "¡Cuenta atrás! ¡Tus cinco favoritos de la semana!", "¡Cinco! / ¡Tus cinco de la semana, en Sónar efe eme!"])
             case .hoy:
                 return ("'un dia como hoy': hechos de la historia ocurridos en la fecha de hoy", ["¡Un día como hoy, hace un montón de años!", "¡Abre la máquina del tiempo! ¡Un día como hoy!", "¿Qué pasó un día como hoy? / ¡Pues escucha!"])
+            case .deportes:
+                return ("el rincon deportivo (los titulares del deporte de hoy)",
+                        ["¡Se calienta el vestuario! ¡El rincón deportivo!", "¡Árbitro, pita ya! ¡Deportes en Sónar efe eme!", "¿Quién ganó? / ¡Toca el rincón deportivo!"])
             case .whatsapp:
                 return ("los mensajes de los oyentes al WhatsApp (inventado) de la emisora", ["¡Mensajes! ¡Que explota el WhatsApp de Sónar efe eme!", "¡Ya llegaron los mensajes de ustedes, los oyentes!", "¿Quién nos escribe? / ¡El WhatsApp de Sónar efe eme!"])
             }
