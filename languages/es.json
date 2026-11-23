@@ -873,5 +873,16 @@
   "Voice requests today: %d": "Peticiones de voz hoy: %d",
   "Voice limit reached: music only until the daily reset (9:00 in Spain).": "Cupo de voz agotado: solo música hasta el reinicio diario (9:00 en España).",
   "Use Backup Voice at the Limit": "Usar la voz de reserva al llegar al límite",
-  "Backup Voice Model": "Modelo de voz de reserva"
+  "Backup Voice Model": "Modelo de voz de reserva",
+  "On the Air": "En el aire",
+  "Request: %@": "Petición: %@",
+  "Next section: %@": "Siguiente sección: %@",
+  "In %d comments": "Dentro de %d comentarios",
+  "Coming up next": "A continuación",
+  "Newscast": "Noticiero",
+  "Weather Report": "El tiempo",
+  "Ad Break": "Anuncios",
+  "Most Searched": "Lo más buscado",
+  "Radio Settings": "Ajustes de la radio",
+  "New Request": "Nueva petición"
 }

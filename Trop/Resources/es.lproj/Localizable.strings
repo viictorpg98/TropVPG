@@ -29,6 +29,7 @@
 "Acoustic" = "Acústica";
 "Activity Name" = "Nombre de la actividad";
 "Activity Type" = "Tipo de actividad";
+"Ad Break" = "Anuncios";
 "Add" = "Añadir";
 "Add Songs" = "Añadir canciones";
 "Add more songs to the queue to edit the mixes between them." = "Añade más canciones a la cola para editar las mezclas entre ellas.";
@@ -132,6 +133,7 @@
 "Cloud Voice" = "Voz en la nube";
 "Cloud Voice footer" = "Sonar puede responder con una voz de IA más natural de Speechify (plan gratuito). Pega tu clave de API del panel de Speechify, pulsa Probar y usa Siguiente voz hasta que te guste una. Si no hay conexión, tarda demasiado o se acaba el cupo gratis, Sonar usa la voz del iPhone. Lo que dice Sonar se envía a Speechify, y cada frase se guarda en el móvil para generarla una sola vez. La clave se queda en este móvil.";
 "Comedy" = "Comedia";
+"Coming up next" = "A continuación";
 "Community playlists" = "Listas de la comunidad";
 "Commute" = "Trayecto";
 "Competing" = "Compitiendo";
@@ -323,6 +325,7 @@
 "I didn't catch that. Try the radio again." = "No te he oído. Prueba otra vez con la radio.";
 "ITAG" = "ITAG";
 "Idle" = "Inactivo";
+"In %d comments" = "Dentro de %d comentarios";
 "In the gym" = "En el gimnasio";
 "Include explicit" = "Incluir contenido explícito";
 "Indie & alternative" = "Indie y alternativa";
@@ -441,6 +444,7 @@
 "More options" = "Más opciones";
 "More…" = "Más…";
 "Most Relevant" = "Más relevantes";
+"Most Searched" = "Lo más buscado";
 "Motivation" = "Motivación";
 "Move the points, or tap a part of the song, to choose where the first song is left and where the next one comes in. They snap to the nearest beat. Parts are named by their volume: the analysis cannot tell a verse from a chorus." = "Mueve los puntos, o toca una parte de la canción, para elegir dónde se deja la primera canción y por dónde entra la siguiente. Se ajustan al pulso más cercano. Las partes se nombran por su volumen: el análisis no distingue una estrofa de un estribillo.";
 "Music" = "Música";
@@ -456,14 +460,17 @@
 "New Music Videos" = "Nuevos videoclips";
 "New Playlist" = "Nueva lista de reproducción";
 "New Release Mix" = "Mix de novedades";
+"New Request" = "Nueva petición";
 "New albums & singles" = "Nuevos álbumes y sencillos";
 "New music videos" = "Nuevos videoclips";
 "New playlist" = "Nueva lista de reproducción";
 "New releases" = "Novedades";
 "News" = "Noticias";
+"Newscast" = "Noticiero";
 "Next" = "Siguiente";
 "Next Cloud Voice" = "Siguiente voz";
 "Next Transition" = "Próxima transición";
+"Next section: %@" = "Siguiente sección: %@";
 "Next song enters at" = "La siguiente entra en";
 "No Downloads Yet" = "Aún no hay descargas";
 "No Effect" = "Sin efecto";
@@ -518,6 +525,7 @@
 "Offline Mix Size" = "Tamaño de la mezcla";
 "Offline: showing what was last saved (%@)" = "Sin conexión: se muestra lo último guardado (%@)";
 "On" = "Activado";
+"On the Air" = "En el aire";
 "On the air: %@" = "En el aire: %@";
 "Online" = "En línea";
 "Only your downloaded music is available." = "Solo está disponible la música descargada.";
@@ -600,6 +608,7 @@
 "Quiet" = "Suave";
 "Radio" = "Radio";
 "Radio Remembers" = "La radio recuerda";
+"Radio Settings" = "Ajustes de la radio";
 "Radio stopped." = "Radio parada.";
 "Rating" = "Valoración";
 "Ratings so far: %d" = "Valoraciones hasta ahora: %d";
@@ -621,6 +630,7 @@
 "Remove Duplicates" = "Quitar duplicados";
 "Remove all downloads" = "Quitar todas las descargas";
 "Remove from Playlist" = "Quitar de la lista";
+"Request: %@" = "Petición: %@";
 "Reset This Curve" = "Restablecer esta curva";
 "Reset What AutoMix Learned" = "Borrar lo que AutoMix ha aprendido";
 "Reset offset" = "Restablecer desfase";
@@ -848,6 +858,7 @@
 "Waveform Progress Bar" = "Barra de progreso con onda";
 "Weak connection: still loading this song. Try your downloads?" = "Conexión débil: la canción sigue cargando. ¿Pruebas con tus descargas?";
 "Weak connection: still loading this song…" = "Conexión débil: la canción sigue cargando…";
+"Weather Report" = "El tiempo";
 "What AutoMix Learned" = "Lo que AutoMix ha aprendido";
 "What the app left out on its own: long songs heard at night, or words about sleeping in the title. It fills up as you use For You and the widgets. If it got one wrong, tap “It's Not for Sleeping”." = "Lo que la app ha dejado fuera por su cuenta: canciones largas oídas de noche o con palabras de dormir en el título. Se va llenando según usas Para ti y los widgets. Si se ha equivocado con alguna, pulsa «No es de dormir».";
 "When off, searches and playback are not recorded locally." = "Si está desactivado, las búsquedas y reproducciones no se guardan en el dispositivo.";

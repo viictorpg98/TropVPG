@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import UIKit
 
 enum RadioSectionKind: CaseIterable {
     case noticiero, tiempo, anuncios, tendencias
@@ -22,6 +23,25 @@ enum RadioSectionKind: CaseIterable {
 
     /// Para el informe.
     var title: String { "seccion \(name)" }
+
+    /// Nombre de la seccion en la pestaña Radio (clave de traduccion).
+    var displayKey: String {
+        switch self {
+        case .noticiero: return "Newscast"
+        case .tiempo: return "Weather Report"
+        case .anuncios: return "Ad Break"
+        case .tendencias: return "Most Searched"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .noticiero: return "newspaper"
+        case .tiempo: return "cloud.sun"
+        case .anuncios: return "megaphone"
+        case .tendencias: return "chart.line.uptrend.xyaxis"
+        }
+    }
 }
 
 enum RadioSounds {
@@ -32,6 +52,13 @@ enum RadioSounds {
             if let found = Bundle.main.url(forResource: name, withExtension: ext, subdirectory: folder) { return found }
         }
         return nil
+    }
+
+    /// La ilustracion (inventada) de un locutor: "Pitirre" o "Chuleta".
+    static func avatar(_ host: String) -> UIImage? {
+        let name = host == "Chuleta" ? "radio-avatar-chuleta" : "radio-avatar-pitirre"
+        guard let file = url(name, "jpg") else { return nil }
+        return UIImage(contentsOfFile: file.path)
     }
 
     /// La musiquita de una seccion (al azar entre las dos que hay), como archivo (se reproduce con `AVAudioPlayer`; NO pasa por `RadioAudio`).

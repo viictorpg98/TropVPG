@@ -873,5 +873,16 @@
   "Voice requests today: %d": "Voice requests today: %d",
   "Voice limit reached: music only until the daily reset (9:00 in Spain).": "Voice limit reached: music only until the daily reset (9:00 in Spain).",
   "Use Backup Voice at the Limit": "Use Backup Voice at the Limit",
-  "Backup Voice Model": "Backup Voice Model"
+  "Backup Voice Model": "Backup Voice Model",
+  "On the Air": "On the Air",
+  "Request: %@": "Request: %@",
+  "Next section: %@": "Next section: %@",
+  "In %d comments": "In %d comments",
+  "Coming up next": "Coming up next",
+  "Newscast": "Newscast",
+  "Weather Report": "Weather Report",
+  "Ad Break": "Ad Break",
+  "Most Searched": "Most Searched",
+  "Radio Settings": "Radio Settings",
+  "New Request": "New Request"
 }

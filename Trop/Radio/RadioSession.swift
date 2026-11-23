@@ -23,6 +23,12 @@ final class RadioSession {
     private(set) var isStarting = false
     /// De que va lo que se pidio ("Reggaeton clasico"), para la pestaña Radio mientras esta en el aire.
     private(set) var currentSummary = ""
+    /// Para la pestaña Radio: quien habla, la seccion que esta en el aire, la frecuencia del dial y cuando toca la siguiente seccion.
+    private(set) var speakingHost: String?
+    private(set) var airingSection: RadioSectionKind?
+    private(set) var frequency = 98.7
+    private(set) var commentsUntilSection = 4
+    private(set) var nextSectionKind = RadioSectionKind.noticiero
 
     private struct ReadyPiece {
         let kind: RadioPieceKind
@@ -30,6 +36,7 @@ final class RadioSession {
         let entry: RadioClip?
         let outro: RadioClip?
         let section: RadioSectionAssets?
+        let turns: [RadioTurn]
     }
 
     /// `true` mientras hay un corte previsto (o en marcha): AutoMix no mezcla en ese paso (ver `MixTransition.mixingEnabled`).
@@ -144,6 +151,7 @@ final class RadioSession {
         RadioDiary.recordSession(request: spoken, summary: recipe.summary)
         RadioRecents.add(spoken)
         currentSummary = recipe.summary
+        frequency = Self.frequency(for: spoken)
         let searches = recipe.searches.joined(separator: " | ")
         report("receta (\(recipeMs) ms): \(recipe.summary); confianza \(recipe.confidence); gustos \(recipe.usesTaste); busquedas [\(searches)]")
 
@@ -185,7 +193,7 @@ final class RadioSession {
 
     /// Reproduce un clip con la musica por debajo, como en una radio de verdad: baja mientras hay voz y sube en las pausas entre frases. Se sigue la
     /// posicion del audio contra un mapa de donde hay voz.
-    private func playClipDucked(_ clip: RadioClip) async -> Bool {
+    private func playClipDucked(_ clip: RadioClip, turns: [RadioTurn]? = nil) async -> Bool {
         let map = RadioAudio.activity(of: clip.wav)
         followerTask?.cancel()
         let follower = Task { [weak self] in
@@ -197,13 +205,42 @@ final class RadioSession {
                 let controller = PlayerController.shared
                 controller.volumeScale += (target - controller.volumeScale) * 0.3
                 controller.applyPlayerVolume()
+                if let turns { self.updateHost(turns: turns, seconds: clip.seconds) }
                 try? await Task.sleep(nanoseconds: 50_000_000)
             }
         }
         followerTask = follower
         let finished = await playClip(clip)
         follower.cancel()
+        if turns != nil { setHost(nil) }
         return finished
+    }
+
+    /// Quien habla ahora: se reparte la duracion del audio entre los turnos segun lo que dice cada uno.
+    private func updateHost(turns: [RadioTurn], seconds: Double) {
+        guard seconds > 0, !turns.isEmpty else { return }
+        let fraction = min(max(player.currentTime / seconds, 0), 0.999)
+        let total = Double(turns.reduce(0) { $0 + max(1, $1.text.count) })
+        var accumulated = 0.0
+        var host: String?
+        for turn in turns {
+            accumulated += Double(max(1, turn.text.count)) / total
+            if fraction < accumulated {
+                host = turn.speaker
+                break
+            }
+        }
+        setHost(host ?? turns.last?.speaker)
+    }
+
+    private func setHost(_ host: String?) {
+        if speakingHost != host { speakingHost = host }
+    }
+
+    /// La frecuencia del dial (88,1 a 107,9) sale de lo que pides, asi que cada peticion cae en un punto distinto.
+    private static func frequency(for text: String) -> Double {
+        let sum = text.lowercased().unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) % 1_000 }
+        return 88.1 + Double(sum % 199) / 10.0
     }
 
     private func playFiller() async {
@@ -229,6 +266,8 @@ final class RadioSession {
         toppingUp = false
         matchedOnce = false
         activatedAt = Date()
+        commentsUntilSection = 4
+        nextSectionKind = RadioSectionKind.allCases[sectionCount % RadioSectionKind.allCases.count]
         isActive = true
         loop?.cancel()
         loop = Task { [weak self] in
@@ -246,6 +285,8 @@ final class RadioSession {
         loop?.cancel()
         loop = nil
         currentSummary = ""
+        speakingHost = nil
+        airingSection = nil
         cancelBreak(resume: true)
         cancelSpeech()
         setHold(false)
@@ -341,7 +382,7 @@ final class RadioSession {
             let total = clock.duration > 0 ? clock.duration : np.duration
             guard let piece = ready[key], !played.contains(key), total > 0 else { return }
             let remaining = total - clock.currentTime
-            if remaining <= 4.5 {
+            if remaining <= 10.5 {
                 startBreak(piece, key: key, outId: id, nextKey: RadioBlocklist.key(for: next))
             }
             return
@@ -390,6 +431,7 @@ final class RadioSession {
                 plannedKind[id] = (slot == 3 || slot == 0) ? RadioPieceKind.charla : RadioPieceKind.mini
             }
         }
+        commentsUntilSection = (4 - talkCount % 4) % 4
         // El bloqueo del paso anterior se quita aqui; el de este (si toca seccion) se pone en `tick` cuando AutoMix esta libre.
         setHold(false)
     }
@@ -429,7 +471,7 @@ final class RadioSession {
                 self.report("\(name): llego con la cancion ya cambiada")
                 return
             }
-            self.ready[key] = ReadyPiece(kind: kind, clip: clip, entry: entry, outro: outro, section: nil)
+            self.ready[key] = ReadyPiece(kind: kind, clip: clip, entry: entry, outro: outro, section: nil, turns: turns)
             if kind == .charla, RadioSettings.memoryEnabled {
                 Task {
                     let note = await RadioContent.recallNote(for: turns)
@@ -449,7 +491,7 @@ final class RadioSession {
             guard let self else { return }
             await self.duck(to: self.duckLevel, over: 0.6)
             if !Task.isCancelled, let entry = piece.entry { _ = await self.playClipDucked(entry) }
-            if !Task.isCancelled, self.speaking { _ = await self.playClipDucked(piece.clip) }
+            if !Task.isCancelled, self.speaking { _ = await self.playClipDucked(piece.clip, turns: piece.turns) }
             if !Task.isCancelled, self.speaking, let outro = piece.outro { _ = await self.playClipDucked(outro) }
             guard !Task.isCancelled, self.speaking else { return }
             try? await Task.sleep(nanoseconds: 700_000_000)
@@ -466,6 +508,7 @@ final class RadioSession {
         player.stop()
         speaking = false
         speakingToKey = nil
+        setHost(nil)
         restoreVolumeNow()
     }
 
@@ -478,6 +521,7 @@ final class RadioSession {
         let order = RadioSectionKind.allCases
         let first = sectionCount % order.count
         sectionCount += 1
+        nextSectionKind = order[sectionCount % order.count]
         Task { [weak self] in
             var assets: RadioSectionAssets?
             for offset in 0..<order.count {
@@ -498,7 +542,7 @@ final class RadioSession {
                 self.report("\(assets.kind.title): llego con la cancion ya cambiada")
                 return
             }
-            self.ready[key] = ReadyPiece(kind: .section, clip: assets.voice, entry: nil, outro: nil, section: assets)
+            self.ready[key] = ReadyPiece(kind: .section, clip: assets.voice, entry: nil, outro: nil, section: assets, turns: assets.turns)
             let text = assets.turns.map { "\($0.speaker): \($0.text)" }.joined(separator: " / ")
             self.report("\(assets.kind.title) lista en \(elapsed) s (\(String(format: "%.1f", assets.voice.seconds)) s de voz; gasto de hoy \(String(format: "%.3f", RadioSettings.spentToday)) €): " + text)
         }
@@ -524,11 +568,23 @@ final class RadioSession {
         }
     }
 
-    /// El corte: la saliente se funde y se pausa justo antes del final, suena la sintonia con el grito de la seccion, habla la seccion con la musiquita de
-    /// fondo, cuña de salida, y la siguiente empieza desde cero. Se mira la posicion cada 50 ms (con 1 s la cancion podria acabar sola antes de pausarla).
+    /// El corte, con solape: unos 10 s antes del final la sintonia entra A TODO VOLUMEN con la cancion todavia sonando por debajo (baja a un cuarto en 2 s y se funde
+    /// del todo en 4 s mas; se pausa al llegar a 0 o 0,35 s antes del final), con el grito de la seccion encima. Despues habla la seccion con la musiquita de fondo (sube
+    /// un poco en las pausas) y, al acabar, la SIGUIENTE cancion entra (con fundido de entrada) mientras suena la cuña de salida y la musiquita se desvanece por debajo.
+    /// La posicion se mira cada 50 ms.
     private func runBreak(_ section: RadioSectionAssets) async {
         let np = NowPlaying.shared
         let controller = PlayerController.shared
+        airingSection = section.kind
+        // 1) La sintonia entra con la saliente aun sonando; el grito de la seccion va encima.
+        if let url = section.bed { bedPlayer.start(url: url, volume: 1.0) }
+        let shoutTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 600_000_000)
+            guard !Task.isCancelled, let self, let shout = section.shout else { return }
+            _ = await self.playClip(shout)
+        }
+        let started = Date()
+        // 2) La cancion baja y se funde; se pausa al llegar a 0 o justo antes del final.
         while !Task.isCancelled {
             guard let current = np.videoId else { break }
             if current != breakOutId {
@@ -541,20 +597,22 @@ final class RadioSession {
                     try? await Task.sleep(nanoseconds: 50_000_000)
                     waited += 1
                 }
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled else {
+                    shoutTask.cancel()
+                    return
+                }
                 controller.setPaused(true)
                 pausedByRadio = true
                 breakPausedId = np.videoId
                 breakResumesCurrent = true
                 break
             }
+            let elapsed = Date().timeIntervalSince(started)
+            let level = elapsed < 2 ? 1 - 0.75 * (elapsed / 2) : max(0, 0.25 - 0.25 * ((elapsed - 2) / 4))
+            controller.volumeScale = level
+            controller.applyPlayerVolume()
             let total = controller.duration > 0 ? controller.duration : np.duration
-            let remaining = total - controller.currentTime
-            if remaining <= 3.0 {
-                controller.volumeScale = min(1, max(0, (remaining - 0.35) / 2.65))
-                controller.applyPlayerVolume()
-            }
-            if remaining <= 0.35 {
+            if level <= 0 || total - controller.currentTime <= 0.35 {
                 controller.setPaused(true)
                 pausedByRadio = true
                 breakPausedId = np.videoId
@@ -562,33 +620,28 @@ final class RadioSession {
             }
             try? await Task.sleep(nanoseconds: 50_000_000)
         }
+        await shoutTask.value
         guard !Task.isCancelled else { return }
 
-        // Sintonia a todo volumen con el grito de la seccion; luego queda de fondo.
-        if let url = section.bed { bedPlayer.start(url: url, volume: 1.0) }
-        try? await Task.sleep(nanoseconds: 500_000_000)
-        if !Task.isCancelled, let shout = section.shout { _ = await playClip(shout) }
-        try? await Task.sleep(nanoseconds: 600_000_000)
-        guard !Task.isCancelled else { return }
+        // 3) La seccion, con la musiquita por debajo (sube un poco en las pausas entre frases).
         bedPlayer.fade(to: 0.2, over: 1.0)
         try? await Task.sleep(nanoseconds: 900_000_000)
-
-        // La seccion, con la musiquita por debajo (sube un poco en las pausas entre frases).
-        if !Task.isCancelled { _ = await playClipOverBed(section.voice) }
-
-        // Cuña de salida y fin de la sintonia.
-        if !Task.isCancelled {
-            bedPlayer.fade(to: 0.5, over: 0.3)
-            if let outro = section.outro { _ = await playClip(outro) }
-            bedPlayer.fade(to: 0, over: 1.0)
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
-        }
-        bedPlayer.stop()
+        if !Task.isCancelled { _ = await playClipOverBed(section.voice, turns: section.turns) }
         guard !Task.isCancelled else { return }
-        finishBreak()
+
+        // 4) La siguiente cancion entra con la cuña de salida y la musiquita se desvanece por debajo.
+        bedPlayer.fade(to: 0.45, over: 0.3)
+        let outroTask = Task { [weak self] in
+            if let outro = section.outro { _ = await self?.playClip(outro) }
+        }
+        finishBreak(fadeIn: true)
+        bedPlayer.fade(to: 0, over: 2.5)
+        await outroTask.value
+        try? await Task.sleep(nanoseconds: 1_200_000_000)
+        bedPlayer.stop()
     }
 
-    private func playClipOverBed(_ clip: RadioClip) async -> Bool {
+    private func playClipOverBed(_ clip: RadioClip, turns: [RadioTurn]? = nil) async -> Bool {
         let map = RadioAudio.activity(of: clip.wav)
         followerTask?.cancel()
         let follower = Task { [weak self] in
@@ -599,24 +652,27 @@ final class RadioSession {
                 let target: Float = talking ? 0.18 : 0.5
                 let current = self.bedPlayer.volume
                 self.bedPlayer.volume = current + (target - current) * 0.25
+                if let turns { self.updateHost(turns: turns, seconds: clip.seconds) }
                 try? await Task.sleep(nanoseconds: 50_000_000)
             }
         }
         followerTask = follower
         let finished = await playClip(clip)
         follower.cancel()
+        if turns != nil { setHost(nil) }
         return finished
     }
 
-    /// Fin normal del corte: el volumen vuelve a 1 ANTES de arrancar la siguiente (que empieza desde cero).
-    private func finishBreak() {
+    /// Fin del corte: arranca la siguiente cancion (con fundido de entrada si `fadeIn`; el volumen vuelve a 1 al terminar el fundido).
+    private func finishBreak(fadeIn: Bool) {
         let resumesCurrent = breakResumesCurrent
         breakActive = false
         breakTask = nil
         pausedByRadio = false
+        airingSection = nil
         setHold(false)
         let controller = PlayerController.shared
-        controller.volumeScale = 1
+        controller.volumeScale = fadeIn ? 0 : 1
         controller.applyPlayerVolume()
         let np = NowPlaying.shared
         if resumesCurrent {
@@ -626,6 +682,11 @@ final class RadioSession {
             np.playNext()
         } else {
             controller.setPaused(false)
+        }
+        if fadeIn {
+            Task { [weak self] in
+                await self?.duck(to: 1, over: 2.5)
+            }
         }
         report("corte terminado: sigue la musica")
     }
@@ -638,6 +699,8 @@ final class RadioSession {
         let resumesCurrent = breakResumesCurrent
         breakActive = false
         pausedByRadio = false
+        airingSection = nil
+        setHost(nil)
         breakTask?.cancel()
         breakTask = nil
         followerTask?.cancel()

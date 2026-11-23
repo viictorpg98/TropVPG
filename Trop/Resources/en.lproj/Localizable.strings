@@ -29,6 +29,7 @@
 "Acoustic" = "Acoustic";
 "Activity Name" = "Activity Name";
 "Activity Type" = "Activity Type";
+"Ad Break" = "Ad Break";
 "Add" = "Add";
 "Add Songs" = "Add Songs";
 "Add more songs to the queue to edit the mixes between them." = "Add more songs to the queue to edit the mixes between them.";
@@ -132,6 +133,7 @@
 "Cloud Voice" = "Cloud Voice";
 "Cloud Voice footer" = "Sonar can answer with a more natural AI voice from Speechify (free plan). Paste your API key from the Speechify dashboard, tap Test and use Next Voice until you like one. If there is no connection, it takes too long or the free quota runs out, Sonar uses the iPhone voice. What Sonar says is sent to Speechify, and each sentence is saved on the phone so it is only generated once. The key stays on this phone.";
 "Comedy" = "Comedy";
+"Coming up next" = "Coming up next";
 "Community playlists" = "Community playlists";
 "Commute" = "Commute";
 "Competing" = "Competing";
@@ -323,6 +325,7 @@
 "I didn't catch that. Try the radio again." = "I didn't catch that. Try the radio again.";
 "ITAG" = "ITAG";
 "Idle" = "Idle";
+"In %d comments" = "In %d comments";
 "In the gym" = "In the gym";
 "Include explicit" = "Include explicit";
 "Indie & alternative" = "Indie & alternative";
@@ -441,6 +444,7 @@
 "More options" = "More options";
 "More…" = "More…";
 "Most Relevant" = "Most Relevant";
+"Most Searched" = "Most Searched";
 "Motivation" = "Motivation";
 "Move the points, or tap a part of the song, to choose where the first song is left and where the next one comes in. They snap to the nearest beat. Parts are named by their volume: the analysis cannot tell a verse from a chorus." = "Move the points, or tap a part of the song, to choose where the first song is left and where the next one comes in. They snap to the nearest beat. Parts are named by their volume: the analysis cannot tell a verse from a chorus.";
 "Music" = "Music";
@@ -456,14 +460,17 @@
 "New Music Videos" = "New Music Videos";
 "New Playlist" = "New Playlist";
 "New Release Mix" = "New Release Mix";
+"New Request" = "New Request";
 "New albums & singles" = "New albums & singles";
 "New music videos" = "New music videos";
 "New playlist" = "New playlist";
 "New releases" = "New releases";
 "News" = "News";
+"Newscast" = "Newscast";
 "Next" = "Next";
 "Next Cloud Voice" = "Next Voice";
 "Next Transition" = "Next Transition";
+"Next section: %@" = "Next section: %@";
 "Next song enters at" = "Next song enters at";
 "No Downloads Yet" = "No Downloads Yet";
 "No Effect" = "No Effect";
@@ -518,6 +525,7 @@
 "Offline Mix Size" = "Offline Mix Size";
 "Offline: showing what was last saved (%@)" = "Offline: showing what was last saved (%@)";
 "On" = "On";
+"On the Air" = "On the Air";
 "On the air: %@" = "On the air: %@";
 "Online" = "Online";
 "Only your downloaded music is available." = "Only your downloaded music is available.";
@@ -600,6 +608,7 @@
 "Quiet" = "Quiet";
 "Radio" = "Radio";
 "Radio Remembers" = "Radio Remembers";
+"Radio Settings" = "Radio Settings";
 "Radio stopped." = "Radio stopped.";
 "Rating" = "Rating";
 "Ratings so far: %d" = "Ratings so far: %d";
@@ -621,6 +630,7 @@
 "Remove Duplicates" = "Remove Duplicates";
 "Remove all downloads" = "Remove all downloads";
 "Remove from Playlist" = "Remove from Playlist";
+"Request: %@" = "Request: %@";
 "Reset This Curve" = "Reset This Curve";
 "Reset What AutoMix Learned" = "Reset What AutoMix Learned";
 "Reset offset" = "Reset offset";
@@ -848,6 +858,7 @@
 "Waveform Progress Bar" = "Waveform Progress Bar";
 "Weak connection: still loading this song. Try your downloads?" = "Weak connection: still loading this song. Try your downloads?";
 "Weak connection: still loading this song…" = "Weak connection: still loading this song…";
+"Weather Report" = "Weather Report";
 "What AutoMix Learned" = "What AutoMix Learned";
 "What the app left out on its own: long songs heard at night, or words about sleeping in the title. It fills up as you use For You and the widgets. If it got one wrong, tap “It's Not for Sleeping”." = "What the app left out on its own: long songs heard at night, or words about sleeping in the title. It fills up as you use For You and the widgets. If it got one wrong, tap “It's Not for Sleeping”.";
 "When off, searches and playback are not recorded locally." = "When off, searches and playback are not recorded locally.";
