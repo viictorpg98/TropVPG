@@ -14,6 +14,7 @@ struct RadioSettingsView: View {
     @State private var message = ""
     @AppStorage(RadioSettings.enabledKey) private var enabled = true
     @AppStorage(RadioSettings.talkEveryKey) private var talkEvery = 2
+    @AppStorage(RadioSettings.rhythmKey) private var rhythm = 0
     @AppStorage(RadioSettings.dailyCapKey) private var cap = 0.30
     @AppStorage(RadioSettings.voiceGainKey) private var gain = 2.6
     @AppStorage(RadioSettings.duckKey) private var duck = 0.45
@@ -54,6 +55,14 @@ struct RadioSettingsView: View {
                             .tag(count)
                     }
                 }
+                Picker("Regularity", selection: $rhythm) {
+                    Text("Exact").tag(0)
+                    Text("Natural").tag(1)
+                    Text("Unpredictable").tag(2)
+                }
+                Text("Exact: they talk exactly as often as you choose. Natural: a little variation. Unpredictable: more variation, with some silences and some comments back to back. With “Every song”, the last two just mean they sometimes skip a song.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                 Picker("Daily Spending Limit", selection: $cap) {
                     ForEach(Self.capOptions, id: \.self) { value in
                         Text(value == 0 ? NSLocalizedString("No limit", comment: "") : String(format: "%.2f €", value)).tag(value)

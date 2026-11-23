@@ -179,6 +179,7 @@ struct RadioQuickSettingsSheet: View {
     @AppStorage(RadioSettings.sectionsKey) private var sections = true
     @AppStorage(RadioSettings.memoryKey) private var memory = true
     @AppStorage(RadioSettings.talkEveryKey) private var talkEvery = 2
+    @AppStorage(RadioSettings.rhythmKey) private var rhythm = 0
     @AppStorage(RadioSettings.cityKey) private var city = "Sabadell"
 
     var body: some View {
@@ -193,6 +194,11 @@ struct RadioQuickSettingsSheet: View {
                                  : String(format: NSLocalizedString("Every %d songs", comment: ""), count))
                                 .tag(count)
                         }
+                    }
+                    Picker("Regularity", selection: $rhythm) {
+                        Text("Exact").tag(0)
+                        Text("Natural").tag(1)
+                        Text("Unpredictable").tag(2)
                     }
                     Toggle("Radio Remembers", isOn: $memory)
                     Picker("City for the Weather", selection: $city) {

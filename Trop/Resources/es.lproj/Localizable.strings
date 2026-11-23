@@ -249,6 +249,8 @@
 "Estimated spend today: %@" = "Gasto estimado de hoy: %@";
 "Every %d songs" = "Cada %d canciones";
 "Every song" = "Cada canción";
+"Exact" = "Exacta";
+"Exact: they talk exactly as often as you choose. Natural: a little variation. Unpredictable: more variation, with some silences and some comments back to back. With “Every song”, the last two just mean they sometimes skip a song." = "Exacta: hablan justo con la frecuencia que elijas. Natural: una pequeña variación. Imprevisible: más variación, con algún silencio y algunos comentarios seguidos. Con «Cada canción», las dos últimas solo significan que a veces se saltan una.";
 "Exceptions" = "Excepciones";
 "Expires in" = "Caduca en";
 "Explicit" = "Explícito";
@@ -457,6 +459,7 @@
 "My Supermix" = "Mi supermix";
 "My Top 100" = "Mi Top 100";
 "My Top 5 of the Week" = "Mis 5 de la semana";
+"Natural" = "Natural";
 "Neutral Accent" = "Acento neutro";
 "New Episodes" = "Nuevos episodios";
 "New Music Videos" = "Nuevos videoclips";
@@ -624,6 +627,7 @@
 "Refetch" = "Volver a obtener";
 "Refresh" = "Actualizar";
 "Region" = "Región";
+"Regularity" = "Regularidad";
 "Relax" = "Relax";
 "Religion" = "Religión";
 "Religion & Spirituality" = "Religión y espiritualidad";
@@ -830,6 +834,7 @@
 "Unmark" = "Quitar marca";
 "Unpin" = "Desfijar";
 "Unpin from Quick Picks" = "Desfijar de Selecciones rápidas";
+"Unpredictable" = "Imprevisible";
 "Unsubscribe" = "Cancelar suscripción";
 "Unsubscribe from this podcast" = "Cancelar la suscripción a este pódcast";
 "Use Backup Voice at the Limit" = "Usar la voz de reserva al llegar al límite";

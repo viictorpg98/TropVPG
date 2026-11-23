@@ -99,15 +99,30 @@ final class RadioSession {
     @ObservationIgnored private var lastSectionTalk = 0
     @ObservationIgnored private var sectionInterval = 4
     @ObservationIgnored private var lastTalkWasCharla = false
+    /// Cuantos comentarios seguidos (de paso en paso) llevan sorteados.
+    @ObservationIgnored private var shortStreak = 0
     /// Las secciones salen en orden barajado (todas antes de repetir ninguna).
     @ObservationIgnored private var sectionQueue: [RadioSectionKind] = []
 
     private init() {}
 
-    /// Cuantos pasos de cancion hasta el proximo comentario: alrededor del ajuste, pero no siempre el mismo (a veces antes, a veces despues).
+    /// Cuantos pasos de cancion hasta el proximo comentario, segun el ajuste "Cada N" y la regularidad: exacta (siempre N), natural (N-1, N o N+1, casi siempre N)
+    /// o imprevisible (de 1 a 2N-1). Nunca mas del doble de N, y con N de 2 o mas, nunca tres comentarios seguidos. Con "Cada cancion" solo puede saltarse alguna.
     private func randomGap() -> Int {
         let base = RadioSettings.talkEvery
-        return [max(1, base - 1), base, base, base + 1, base + 2].randomElement() ?? base
+        var gap = base
+        switch RadioSettings.rhythm {
+        case 1:
+            gap = (base == 1 ? [1, 1, 1, 1, 2] : [base - 1, base, base, base + 1]).randomElement() ?? base
+        case 2:
+            gap = base == 1 ? ([1, 1, 2].randomElement() ?? 1) : Int.random(in: 1...(2 * base - 1))
+        default:
+            break
+        }
+        gap = min(max(gap, 1), 2 * base)
+        if base >= 2, gap == 1, shortStreak >= 2 { gap = 2 }
+        shortStreak = gap == 1 ? shortStreak + 1 : 0
+        return gap
     }
 
     /// Saca la siguiente seccion del mazo barajado (si se acaba, se baraja otra vez evitando repetir la ultima).
@@ -333,7 +348,9 @@ final class RadioSession {
         lastSectionTalk = 0
         sectionInterval = Int.random(in: 3...4)
         lastTalkWasCharla = false
-        nextTalkAt = randomGap()
+        shortStreak = 0
+        // El primer comentario nunca tarda mas de lo que pides (el sorteo solo reparte los siguientes).
+        nextTalkAt = min(randomGap(), RadioSettings.talkEvery)
         commentsUntilSection = sectionInterval
         sectionQueue = []
         refillSections()

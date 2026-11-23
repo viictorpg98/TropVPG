@@ -12,6 +12,7 @@ import Security
 enum RadioSettings {
     static let enabledKey = "radio.enabled"
     static let talkEveryKey = "radio.talkEvery"
+    static let rhythmKey = "radio.rhythm"
     static let dailyCapKey = "radio.dailyCap"
     static let voiceGainKey = "radio.voiceGain"
     static let duckKey = "radio.duckLevel"
@@ -49,6 +50,12 @@ enum RadioSettings {
     static var talkEvery: Int {
         let saved = UserDefaults.standard.integer(forKey: talkEveryKey)
         return saved == 0 ? 2 : min(max(saved, 1), 5)
+    }
+
+    /// Que tan regular es el ritmo: 0 = exacto (siempre cada N), 1 = natural (pequeña variacion), 2 = imprevisible (mas variacion, con algun silencio).
+    static var rhythm: Int {
+        let saved = UserDefaults.standard.object(forKey: rhythmKey) as? Int ?? 0
+        return min(max(saved, 0), 2)
     }
 
     /// Tope diario en euros; 0 = sin tope.

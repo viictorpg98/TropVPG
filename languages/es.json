@@ -887,5 +887,10 @@
   "New Request": "Nueva petición",
   "My Top 5 of the Week": "Mis 5 de la semana",
   "On This Day": "Un día como hoy",
-  "Listener Messages": "Mensajes de oyentes"
+  "Listener Messages": "Mensajes de oyentes",
+  "Regularity": "Regularidad",
+  "Exact": "Exacta",
+  "Natural": "Natural",
+  "Unpredictable": "Imprevisible",
+  "Exact: they talk exactly as often as you choose. Natural: a little variation. Unpredictable: more variation, with some silences and some comments back to back. With “Every song”, the last two just mean they sometimes skip a song.": "Exacta: hablan justo con la frecuencia que elijas. Natural: una pequeña variación. Imprevisible: más variación, con algún silencio y algunos comentarios seguidos. Con «Cada canción», las dos últimas solo significan que a veces se saltan una."
 }
