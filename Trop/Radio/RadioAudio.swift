@@ -13,6 +13,8 @@ import Foundation
 struct RadioTurn: Codable, Hashable {
     let speaker: String
     let text: String
+    /// El tono de esta frase (una clave de `RadioTone`: susurro, grito, sarcasmo...), o `nil` para el de siempre del personaje.
+    var tone: String? = nil
 }
 
 /// Un audio ya generado (WAV de 16 bits, sin subir de volumen) y lo que dura.

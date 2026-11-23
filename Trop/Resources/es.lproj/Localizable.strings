@@ -376,6 +376,7 @@
 "Listen Again" = "Vuelve a escucharlo";
 "Listen again" = "Vuelve a escucharlo";
 "Listen together" = "Escuchar juntos";
+"Listener Messages" = "Mensajes de oyentes";
 "Listening" = "Escuchando";
 "Live performances" = "Actuaciones en directo";
 "Loading album..." = "Cargando álbum...";
@@ -455,6 +456,7 @@
 "My Mix %@" = "Mi mix %@";
 "My Supermix" = "Mi supermix";
 "My Top 100" = "Mi Top 100";
+"My Top 5 of the Week" = "Mis 5 de la semana";
 "Neutral Accent" = "Acento neutro";
 "New Episodes" = "Nuevos episodios";
 "New Music Videos" = "Nuevos videoclips";
@@ -525,6 +527,7 @@
 "Offline Mix Size" = "Tamaño de la mezcla";
 "Offline: showing what was last saved (%@)" = "Sin conexión: se muestra lo último guardado (%@)";
 "On" = "Activado";
+"On This Day" = "Un día como hoy";
 "On the Air" = "En el aire";
 "On the air: %@" = "En el aire: %@";
 "Online" = "En línea";

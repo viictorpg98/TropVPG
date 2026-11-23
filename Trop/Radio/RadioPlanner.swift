@@ -62,7 +62,7 @@ enum RadioPlanner {
     - "evitar": lista de estilos o palabras que NO encajan con lo pedido.
     - "usa_gustos": true si has usado los gustos de la persona para escoger artistas o canciones.
     - "confianza": numero de 0 a 1: cuanto estas seguro de haber entendido bien lo pedido.
-    GUSTOS: si la peticion es especifica (genero, epoca o artista), manda la peticion y los gustos solo desempatan. Si es vaga (entrenar, fiesta, coche, sorprendeme, verano...), usa los gustos como DIRECCION (generos y estilos que le gustan) y mezcla artistas parecidos a los suyos, no solo los suyos. Si no se dan gustos, escoge lo mas representativo de lo pedido. Si un nombre propio parece mal transcrito, corrigelo al artista mas probable. No inventes nada que no sepas.
+    GUSTOS: si la peticion es especifica (genero, epoca o artista), manda la peticion y los gustos solo desempatan. Si es vaga (entrenar, fiesta, coche, sorprendeme, verano...), usa los gustos como DIRECCION (generos y estilos que le gustan) y mezcla artistas parecidos a los suyos, no solo los suyos. Si no se dan gustos, escoge lo mas representativo de lo pedido. NO des por hecho ningun idioma ni pais: no añadas "en español", ni artistas de un idioma o pais concreto, ni busquedas en un idioma, salvo que la persona lo pida (o lo diga de forma explicita en sus gustos). Si un nombre propio parece mal transcrito, corrigelo al artista mas probable. No inventes nada que no sepas.
     """
 
     private static let confirmationRules = """

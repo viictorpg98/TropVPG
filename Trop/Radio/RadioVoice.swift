@@ -29,8 +29,11 @@ enum RadioVoice {
         RadioAudio.cached(key: cacheKey(turns, style: style), fixed: fixed)
     }
 
+    /// Las frases sin tono (las fijas) dan la misma clave de siempre, asi las ya guardadas siguen valiendo; con tono, el tono forma parte de la clave.
     private static func cacheKey(_ turns: [RadioTurn], style: String?) -> String {
-        let lines = turns.map { "\($0.speaker):\($0.text)" }.joined(separator: "|")
+        let lines = turns.map { turn in
+            "\(turn.speaker):\(turn.text)" + (turn.tone.map { "~\($0)" } ?? "")
+        }.joined(separator: "|")
         return [RadioSettings.voiceModel, RadioSettings.pitirreVoice, RadioSettings.chuletaVoice, style ?? "", lines].joined(separator: "#")
     }
 }

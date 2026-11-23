@@ -10,7 +10,7 @@ import Foundation
 import UIKit
 
 enum RadioSectionKind: CaseIterable {
-    case noticiero, tiempo, anuncios, tendencias
+    case noticiero, tiempo, anuncios, tendencias, top5, hoy, whatsapp
 
     var name: String {
         switch self {
@@ -18,6 +18,9 @@ enum RadioSectionKind: CaseIterable {
         case .tiempo: return "tiempo"
         case .anuncios: return "anuncios"
         case .tendencias: return "tendencias"
+        case .top5: return "top5"
+        case .hoy: return "hoy"
+        case .whatsapp: return "whatsapp"
         }
     }
 
@@ -31,6 +34,9 @@ enum RadioSectionKind: CaseIterable {
         case .tiempo: return "Weather Report"
         case .anuncios: return "Ad Break"
         case .tendencias: return "Most Searched"
+        case .top5: return "My Top 5 of the Week"
+        case .hoy: return "On This Day"
+        case .whatsapp: return "Listener Messages"
         }
     }
 
@@ -40,6 +46,19 @@ enum RadioSectionKind: CaseIterable {
         case .tiempo: return "cloud.sun"
         case .anuncios: return "megaphone"
         case .tendencias: return "chart.line.uptrend.xyaxis"
+        case .top5: return "list.number"
+        case .hoy: return "calendar"
+        case .whatsapp: return "message"
+        }
+    }
+
+    /// La musiquita (hay 2 por cada una de las 4 de siempre; las nuevas secciones usan la de otra mientras no tengan la suya).
+    var bedName: String {
+        switch self {
+        case .top5: return "tendencias"
+        case .hoy: return "tiempo"
+        case .whatsapp: return "anuncios"
+        default: return name
         }
     }
 }
@@ -63,7 +82,7 @@ enum RadioSounds {
 
     /// La musiquita de una seccion (al azar entre las dos que hay), como archivo (se reproduce con `AVAudioPlayer`; NO pasa por `RadioAudio`).
     static func bed(for kind: RadioSectionKind) -> URL? {
-        let options = ["a", "b"].compactMap { url("radio-seccion-\(kind.name)-\($0)", "mp3") }
+        let options = ["a", "b"].compactMap { url("radio-seccion-\(kind.bedName)-\($0)", "mp3") }
         return options.randomElement()
     }
 

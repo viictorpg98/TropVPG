@@ -77,12 +77,35 @@ final class RadioSession {
     @ObservationIgnored private var breakNextKey = ""
     @ObservationIgnored private var breakPausedId: String?
     @ObservationIgnored private var breakStartedAt = Date()
+    /// Cuanto puede durar el corte antes de que el vigilante lo de por colgado: 90 s, o mas si la seccion es larga (nota de voz, efectos).
+    @ObservationIgnored private var breakLimit: TimeInterval = 90
     @ObservationIgnored private var breakTask: Task<Void, Never>?
     @ObservationIgnored private var sectionCount = 0
     @ObservationIgnored private var toppingUp = false
     @ObservationIgnored private var topUps = 0
+    /// Ritmo irregular: tras cada comentario se sortea cuantos pasos de cancion faltan para el siguiente; y cada cuantos comentarios toca seccion.
+    @ObservationIgnored private var nextTalkAt = 2
+    @ObservationIgnored private var lastSectionTalk = 0
+    @ObservationIgnored private var sectionInterval = 4
+    @ObservationIgnored private var lastTalkWasCharla = false
+    /// Las secciones salen en orden barajado (todas antes de repetir ninguna).
+    @ObservationIgnored private var sectionQueue: [RadioSectionKind] = []
 
     private init() {}
+
+    /// Cuantos pasos de cancion hasta el proximo comentario: alrededor del ajuste, pero no siempre el mismo (a veces antes, a veces despues).
+    private func randomGap() -> Int {
+        let base = RadioSettings.talkEvery
+        return [max(1, base - 1), base, base, base + 1, base + 2].randomElement() ?? base
+    }
+
+    /// Saca la siguiente seccion del mazo barajado (si se acaba, se baraja otra vez evitando repetir la ultima).
+    private func refillSections(avoiding last: RadioSectionKind? = nil) {
+        guard sectionQueue.isEmpty else { return }
+        var deck = RadioSectionKind.allCases.shuffled()
+        if let last, deck.first == last, deck.count > 1 { deck.append(deck.removeFirst()) }
+        sectionQueue = deck
+    }
 
     private func report(_ text: String) {
         PlaybackReport.record("radio: " + text)
@@ -266,8 +289,16 @@ final class RadioSession {
         toppingUp = false
         matchedOnce = false
         activatedAt = Date()
-        commentsUntilSection = 4
-        nextSectionKind = RadioSectionKind.allCases[sectionCount % RadioSectionKind.allCases.count]
+        lastSectionTalk = 0
+        sectionInterval = Int.random(in: 3...4)
+        lastTalkWasCharla = false
+        nextTalkAt = randomGap()
+        commentsUntilSection = sectionInterval
+        sectionQueue = []
+        refillSections()
+        nextSectionKind = sectionQueue.first ?? .noticiero
+        // Se calientan los datos del mundo (sin Gemini) para que el tiempo en directo ya este cuando toque un comentario.
+        Task { _ = await RadioWorld.snapshot() }
         isActive = true
         loop?.cancel()
         loop = Task { [weak self] in
@@ -344,8 +375,8 @@ final class RadioSession {
         if plannedKind[id] == RadioPieceKind.section, !holdsMixFlag, !breakActive, !AutoMixEngine.shared.isActive { setHold(true) }
         if breakActive {
             // Un corte en marcha: la cancion esta pausada por la radio. Si pasan 90 s o pulsas reproducir, se acaba y sigue la musica.
-            if Date().timeIntervalSince(breakStartedAt) > 90 {
-                report("corte: pasaron 90 s, se reanuda la musica")
+            if Date().timeIntervalSince(breakStartedAt) > breakLimit {
+                report("corte: pasaron \(Int(breakLimit)) s, se reanuda la musica")
                 cancelBreak(resume: true)
             } else if pausedByRadio, np.isPlaying {
                 report("corte: has pulsado reproducir, se salta la seccion")
@@ -375,7 +406,7 @@ final class RadioSession {
         // Una seccion: se prepara con la cancion sonando y se emite como un corte justo al final de esta (no se come ninguna cancion).
         if kind == .section {
             if ready[key] == nil, !generating.contains(key), !played.contains(key) {
-                if np.currentTime >= 8 { generateSection(key: key) }
+                if np.currentTime >= 8 { generateSection(key: key, next: next) }
                 return
             }
             let clock = PlayerController.shared
@@ -395,12 +426,14 @@ final class RadioSession {
         }
         guard let piece = ready[key], !played.contains(key), !speaking else { return }
 
-        // La voz empieza para que cerca del 70 % suene sobre el final de esta cancion y solo el resto sobre el principio de la siguiente.
+        // La voz empieza para que la mayor parte suene sobre la INTRO de la siguiente cancion (como un locutor de verdad, que habla sobre la entrada del tema) y solo
+        // el principio sobre el final de esta.
         var end = np.duration
         if let planned = AutoMixEngine.shared.plannedMixStart(for: id), planned > np.currentTime { end = planned }
         guard end > 0 else { return }
         let remaining = end - np.currentTime
-        let lead = piece.clip.seconds * 0.7 + 0.5 + (piece.entry?.seconds ?? 0)
+        let share = voiceShareOverNext(next: next, seconds: piece.clip.seconds)
+        let lead = piece.clip.seconds * (1 - share) + 0.5 + (piece.entry?.seconds ?? 0)
         if remaining <= lead {
             if remaining > lead - 4 {
                 startSpeech(piece, key: key, expectingKey: RadioBlocklist.key(for: next))
@@ -409,6 +442,16 @@ final class RadioSession {
                 report("comentario descartado: llego tarde (faltaban \(Int(remaining)) s)")
             }
         }
+    }
+
+    /// Que parte de la voz suena ya sobre la siguiente cancion: si el analisis de la cancion dice cuanto dura su intro, casi toda la voz cabe encima de ella
+    /// (hasta el 90 %); si no se sabe, el 60 %. Antes era un 30 %.
+    private func voiceShareOverNext(next: SongItem, seconds: Double) -> Double {
+        guard seconds > 0 else { return 0.6 }
+        if let ms = TrackAnalysisStore.shared.structure(for: next.videoId, role: .incoming)?.introEndMs, ms >= 3_000 {
+            return min(0.9, max(0.5, Double(ms) / 1_000 / seconds))
+        }
+        return 0.6
     }
 
     private func songChanged(to id: String, song: SongItem) {
@@ -421,17 +464,28 @@ final class RadioSession {
         if speaking, speakingToKey != RadioBlocklist.key(for: song) { cancelSpeech() }
         ready = ready.filter { $0.key.hasPrefix(id + ">") }
         transitionCount += 1
-        if transitionCount % RadioSettings.talkEvery == 0 {
+        if transitionCount >= nextTalkAt {
             talkCount += 1
-            // Ciclo de 4 comentarios: mini, mini, charla y una seccion (si estan activadas; si no, otra charla).
-            let slot = talkCount % 4
-            if slot == 0, RadioSettings.sectionsEnabled {
-                plannedKind[id] = RadioPieceKind.section
+            nextTalkAt = transitionCount + randomGap()
+            // Una seccion cada 3 o 4 comentarios (si estan activadas); entre medias, sobre todo minis y, antes de la seccion, una charla.
+            let since = talkCount - lastSectionTalk
+            if since >= sectionInterval {
+                lastSectionTalk = talkCount
+                sectionInterval = Int.random(in: 3...4)
+                if RadioSettings.sectionsEnabled {
+                    plannedKind[id] = RadioPieceKind.section
+                    lastTalkWasCharla = false
+                } else {
+                    plannedKind[id] = RadioPieceKind.charla
+                    lastTalkWasCharla = true
+                }
             } else {
-                plannedKind[id] = (slot == 3 || slot == 0) ? RadioPieceKind.charla : RadioPieceKind.mini
+                let wantsCharla = (since == sectionInterval - 1 || Int.random(in: 0..<4) == 0) && !lastTalkWasCharla
+                plannedKind[id] = wantsCharla ? RadioPieceKind.charla : RadioPieceKind.mini
+                lastTalkWasCharla = wantsCharla
             }
         }
-        commentsUntilSection = (4 - talkCount % 4) % 4
+        commentsUntilSection = plannedKind[id] == RadioPieceKind.section ? 0 : max(0, lastSectionTalk + sectionInterval - talkCount)
         // El bloqueo del paso anterior se quita aqui; el de este (si toca seccion) se pone en `tick` cuando AutoMix esta libre.
         setHold(false)
     }
@@ -449,7 +503,12 @@ final class RadioSession {
         let started = Date()
         Task { [weak self] in
             let facts = kind == .charla ? RadioDiary.factsBlock(tasteText: self?.tasteText ?? "") : ""
-            let turns = await RadioContent.piece(kind: kind, previous: previous, next: next, facts: facts)
+            // Datos reales opcionales: lo que has escuchado de la siguiente (4 de cada 10 veces) y el tiempo ya bajado (1 de cada 4).
+            var extras: [String] = []
+            // Lo del historial va con "La radio recuerda": con la memoria apagada no se manda ningun titulo de lo que has escuchado.
+            if RadioSettings.memoryEnabled, Int.random(in: 0..<10) < 4, let line = await RadioSongFacts.line(for: next) { extras.append(line) }
+            if Int.random(in: 0..<4) == 0, let weather = RadioWorld.weatherLine() { extras.append(weather) }
+            let turns = await RadioContent.piece(kind: kind, previous: previous, next: next, facts: facts, extras: extras)
             var clip: RadioClip?
             if !turns.isEmpty { clip = await RadioVoice.clip(turns) }
             var entry: RadioClip?
@@ -478,7 +537,9 @@ final class RadioSession {
                     RadioDiary.recordNote(note)
                 }
             }
-            self.report("\(name) listo en \(elapsed) s (\(String(format: "%.1f", clip.seconds)) s de voz; gasto de hoy \(String(format: "%.3f", RadioSettings.spentToday)) €): " + turns.map { "\($0.speaker): \($0.text)" }.joined(separator: " / "))
+            let extraText = extras.isEmpty ? "" : "; datos: " + extras.joined(separator: " ")
+            self.report("\(name) listo en \(elapsed) s (\(String(format: "%.1f", clip.seconds)) s de voz; gasto de hoy \(String(format: "%.3f", RadioSettings.spentToday)) €)\(extraText): "
+                + turns.map { turn in "\(turn.speaker)\(turn.tone.map { "[\($0)]" } ?? ""): \(turn.text)" }.joined(separator: " / "))
         }
     }
 
@@ -515,18 +576,27 @@ final class RadioSession {
     // MARK: - Secciones y cortes
 
     /// Prepara una seccion para el paso actual (noticiero, tiempo, anuncios o tendencias, rotando; si una no tiene datos, prueba la siguiente).
-    private func generateSection(key: String) {
+    private func generateSection(key: String, next: SongItem) {
         generating.insert(key)
         let started = Date()
-        let order = RadioSectionKind.allCases
-        let first = sectionCount % order.count
+        // El mazo barajado: la primera es la que tocaba; si no tiene datos o no sale, se prueban las demas por orden.
+        refillSections()
+        let first = sectionQueue.removeFirst()
+        let order = [first] + sectionQueue + RadioSectionKind.allCases.filter { $0 != first && !sectionQueue.contains($0) }
         sectionCount += 1
-        nextSectionKind = order[sectionCount % order.count]
+        refillSections(avoiding: first)
+        nextSectionKind = sectionQueue.first ?? first
         Task { [weak self] in
             var assets: RadioSectionAssets?
-            for offset in 0..<order.count {
-                assets = await RadioSections.make(kind: order[(first + offset) % order.count])
+            for kind in order {
+                assets = await RadioSections.make(kind: kind, next: next)
                 if assets != nil { break }
+            }
+            if let made = assets, let self, let index = self.sectionQueue.firstIndex(of: made.kind) {
+                // Salio otra distinta de la primera: ya ha salido, no vuelve a salir hasta que se baraje de nuevo.
+                self.sectionQueue.remove(at: index)
+                self.refillSections(avoiding: made.kind)
+                self.nextSectionKind = self.sectionQueue.first ?? made.kind
             }
             guard let self else { return }
             self.generating.remove(key)
@@ -543,8 +613,10 @@ final class RadioSession {
                 return
             }
             self.ready[key] = ReadyPiece(kind: .section, clip: assets.voice, entry: nil, outro: nil, section: assets, turns: assets.turns)
-            let text = assets.turns.map { "\($0.speaker): \($0.text)" }.joined(separator: " / ")
-            self.report("\(assets.kind.title) lista en \(elapsed) s (\(String(format: "%.1f", assets.voice.seconds)) s de voz; gasto de hoy \(String(format: "%.3f", RadioSettings.spentToday)) €): " + text)
+            let text = assets.turns.map { turn in "\(turn.speaker)\(turn.tone.map { "[\($0)]" } ?? ""): \(turn.text)" }.joined(separator: " / ")
+            let noteText = assets.note.map { "; nota de voz de \(String(format: "%.0f", $0.seconds)) s" } ?? ""
+            let noteLines = assets.noteTurns.isEmpty ? "" : " / NOTA: " + assets.noteTurns.map { "\($0.speaker): \($0.text)" }.joined(separator: " ")
+            self.report("\(assets.kind.title) lista en \(elapsed) s (\(String(format: "%.1f", assets.voice.seconds)) s de voz\(noteText); gasto de hoy \(String(format: "%.3f", RadioSettings.spentToday)) €): " + text + noteLines)
         }
     }
 
@@ -562,6 +634,8 @@ final class RadioSession {
         breakNextKey = nextKey
         breakPausedId = nil
         breakStartedAt = Date()
+        let contentSeconds = section.voice.seconds + (section.note?.seconds ?? 0) + (section.shout?.seconds ?? 0) + (section.outro?.seconds ?? 0)
+        breakLimit = max(90, contentSeconds + 30)
         report("corte: \(section.kind.title) (\(String(format: "%.0f", section.voice.seconds)) s de voz; musiquita \(section.bed != nil ? "si" : "no"))")
         breakTask = Task { [weak self] in
             await self?.runBreak(section)
@@ -627,6 +701,10 @@ final class RadioSession {
         bedPlayer.fade(to: 0.2, over: 1.0)
         try? await Task.sleep(nanoseconds: 900_000_000)
         if !Task.isCancelled { _ = await playClipOverBed(section.voice, turns: section.turns) }
+        if !Task.isCancelled, let note = section.note {
+            // La nota de voz del oyente (otra voz, sin locutores en pantalla).
+            _ = await playClipOverBed(note)
+        }
         guard !Task.isCancelled else { return }
 
         // 4) La siguiente cancion entra con la cuña de salida y la musiquita se desvanece por debajo.

@@ -37,6 +37,9 @@ struct RadioWorldData: Codable {
     var wiki: [String]
     var weather: RadioWeather?
     var fetchedAt: Date
+    /// "Un dia como hoy" (Wikipedia): "1963: ..." y el dia al que corresponde ("MM-dd"). Opcionales para leer lo guardado por versiones anteriores.
+    var onThisDay: [String]? = nil
+    var onThisDayKey: String? = nil
 }
 
 enum RadioWorld {
@@ -88,15 +91,38 @@ enum RadioWorld {
         }
         let wiki = await mostRead()
         let weather = await currentWeather()
-        guard !headlines.isEmpty || !trends.isEmpty || !wiki.isEmpty || weather != nil else {
+        let today = await onThisDayList()
+        guard !headlines.isEmpty || !trends.isEmpty || !wiki.isEmpty || weather != nil || !today.isEmpty else {
             if let old = memory ?? stored(), Date().timeIntervalSince(old.fetchedAt) < staleSeconds { return old }
             return nil
         }
-        let result = RadioWorldData(headlines: headlines, trends: trends, wiki: wiki, weather: weather, fetchedAt: Date())
+        let result = RadioWorldData(
+            headlines: headlines, trends: trends, wiki: wiki, weather: weather, fetchedAt: Date(),
+            onThisDay: today.isEmpty ? nil : today, onThisDayKey: today.isEmpty ? nil : dayKey()
+        )
         memory = result
         if let data = try? JSONEncoder().encode(result) { UserDefaults.standard.set(data, forKey: cacheKey) }
-        PlaybackReport.record("radio: datos del mundo: \(headlines.count) titulares, \(trends.count) tendencias, \(wiki.count) de la Wikipedia, tiempo \(weather != nil ? "si" : "no")")
+        PlaybackReport.record("radio: datos del mundo: \(headlines.count) titulares, \(trends.count) tendencias, \(wiki.count) de la Wikipedia, \(today.count) de un dia como hoy, tiempo \(weather != nil ? "si" : "no")")
         return result
+    }
+
+    /// El tiempo YA bajado (sin pedir nada a la red) si tiene menos de 4 horas: para que los comentarios entre canciones puedan aludir al tiempo en directo.
+    static func weatherLine() -> String? {
+        guard let current = memory ?? stored(), let weather = current.weather,
+              Date().timeIntervalSince(current.fetchedAt) < 4 * 3_600 else { return nil }
+        return "El tiempo hace un rato en \(weather.city): \(Int(weather.now.rounded())) grados, \(weather.text); hoy maxima de \(Int(weather.max.rounded())) y minima de \(Int(weather.min.rounded()))."
+    }
+
+    /// Los hechos de "un dia como hoy" solo valen si son de HOY (los guardados de ayer no).
+    static func onThisDayToday(_ world: RadioWorldData) -> [String] {
+        guard world.onThisDayKey == dayKey() else { return [] }
+        return world.onThisDay ?? []
+    }
+
+    private static func dayKey() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MM-dd"
+        return formatter.string(from: Date())
     }
 
     private static func stored() -> RadioWorldData? {
@@ -151,6 +177,21 @@ enum RadioWorld {
             .map { $0.replacingOccurrences(of: "_", with: " ") }
             .filter { !isSensitive($0) }
         return Array(names.prefix(25))
+    }
+
+    /// "Un dia como hoy" de la Wikipedia en español (hechos con año), sin tragedias ni violencia.
+    private static func onThisDayList() async -> [String] {
+        let parts = dayKey().split(separator: "-")
+        guard parts.count == 2,
+              let data = await download("https://es.wikipedia.org/api/rest_v1/feed/onthisday/events/\(parts[0])/\(parts[1])", timeout: 8),
+              let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let events = json["events"] as? [[String: Any]] else { return [] }
+        let lines = events.compactMap { event -> String? in
+            guard let text = event["text"] as? String, let year = (event["year"] as? NSNumber)?.intValue,
+                  text.count >= 25, text.count <= 220, !isSensitive(text) else { return nil }
+            return "\(year): \(text)"
+        }
+        return Array(lines.shuffled().prefix(25))
     }
 
     private static func currentWeather() async -> RadioWeather? {

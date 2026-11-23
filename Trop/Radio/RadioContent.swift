@@ -75,12 +75,14 @@ enum RadioContent {
 
     private static let commonRules = """
     - Suena a gente real hablando, no a texto escrito: frases cortas (maximo 18 palabras), alguna duda ("pues", "o sea", "mira"). Nada de discursos.
-    - Humor pequeño y concreto. Prohibido: chistes de manual con remate y moraleja, listas de tres elementos, eslogan publicitario, frases tipo "porque siempre hay alguien que...", juegos de palabras forzados.
+    - Prefiere una observacion sencilla y concreta sobre algo cotidiano a un chiste: NO todas las intervenciones necesitan gracia, a veces solo presentan la cancion con naturalidad, como una radio normal. Cuando haya humor, que sea pequeño y concreto. Prohibido: chistes de manual con remate y moraleja, listas de tres elementos, eslogan publicitario, frases tipo "porque siempre hay alguien que...", juegos de palabras forzados.
+    - Si se te dan DATOS REALES EXTRA (lo que suena, tu historial, el tiempo), puedes usar UNO solo si cabe natural y SOLO tal cual vienen; no inventes ningun otro dato ni año ni cifra.
     - Puedes aludir a la cancion SOLO con lo que se te da: jugar con las palabras del titulo, el contraste entre una cancion y la siguiente, la hora o el dia. NO inventes NADA sobre la cancion, el artista, su vida, su discografia, premios, listas ni anecdotas. Si no estas seguro, no lo digas.
     - No uses nombres de personas reales ni imites a nadie. No pongas indicaciones escenicas entre parentesis. Para una risa usa exactamente la etiqueta <laugh>.
     - NO hables de comida, bebida, dieta, cocina ni hambre. Regla estricta.
     - Cada intervencion debe ser DISTINTA de las anteriores: otro tema, otros detalles, otras palabras. Si el historial que se te da ya usa una idea, un objeto o un chiste, elige otro.
-    - Responde SOLO con un JSON, sin texto antes ni despues: una lista de objetos {"speaker": "Pitirre" o "Chuleta", "text": "..."}.
+    - Cada linea puede llevar un campo opcional "tono" con UNO de estos valores: \(RadioTone.names). Ponlo en una o dos lineas como mucho y solo cuando encaje de verdad (un susurro para un secreto, un grito para una sorpresa...); en las demas, omite el campo.
+    - Responde SOLO con un JSON, sin texto antes ni despues: una lista de objetos {"speaker": "Pitirre" o "Chuleta", "text": "...", "tono": "..." (opcional)}.
     """
 
     private static let charlaRules = """
@@ -108,7 +110,9 @@ enum RadioContent {
         "un consejo gamberro para el oyente que va conduciendo o trabajando",
         "uno presume de algo y el otro lo desmonta con un detalle concreto",
         "comentan que significa ese momento del dia y de la semana, con un recuerdo concreto de cuando eran chicos",
-        "la resena falsa de un negocio de barrio inventado (con nombre y un detalle absurdo pero concreto)"
+        "la resena falsa de un negocio de barrio inventado (con nombre y un detalle absurdo pero concreto)",
+        "una charla tranquila SIN chiste: comentan algo cotidiano muy concreto de esta hora del dia, como dos colegas hablando en el estudio, y presentan la cancion",
+        "uno le cuenta al otro algo que noto hoy yendo por la calle (un detalle concreto y real de cualquier ciudad), sin remate, y el otro responde con curiosidad"
     ]
 
     /// Solo sale cuando hay datos de la persona (1 de cada 3 charlas): los locutores la vacilan con SUS datos, como si la radio fuese ella.
@@ -121,7 +125,10 @@ enum RadioContent {
         "un comentario sobre la hora o el dia en que estamos, y presenta la siguiente",
         "una pulla de un locutor al otro, y anuncia la siguiente cancion",
         "una reaccion exagerada a lo que acaba de sonar, sin afirmar nada concreto sobre la cancion",
-        "anunciar la siguiente cancion de forma gamberra, con un detalle cotidiano inventado y concreto que no tenga que ver con la cancion"
+        "anunciar la siguiente cancion de forma gamberra, con un detalle cotidiano inventado y concreto que no tenga que ver con la cancion",
+        "presentar la siguiente cancion con naturalidad, SIN chiste: un comentario sencillo sobre el momento del dia y nada mas",
+        "presentar la siguiente cancion con naturalidad, SIN chiste: una frase de radio normal, calida, y ya",
+        "una observacion corta y real sobre lo que se suele hacer a esta hora del dia, sin remate, y presentar la siguiente"
     ]
 
     private static let topics = [
@@ -140,9 +147,7 @@ enum RadioContent {
         "La Chuleta cuenta algo que le dijo su comadre, que siempre exagera",
         "al Pitirre se le olvida el nombre de la persona con la que habla",
         "La Chuleta interrumpe al Pitirre para corregirle un dato que luego resulta ser ella la equivocada",
-        "(ninguna manía: esta charla es limpia, sin gags recurrentes)",
-        "(ninguna manía: esta charla es limpia, sin gags recurrentes)"
-    ]
+    ] + Array(repeating: "(ninguna manía: esta charla es limpia, sin gags recurrentes)", count: 10)
 
     nonisolated(unsafe) private static var miniDeck: [String] = []
     nonisolated(unsafe) private static var charlaDeck: [String] = []
@@ -160,7 +165,7 @@ enum RadioContent {
         options: [.caseInsensitive]
     )
 
-    private static func mentionsFood(_ text: String) -> Bool {
+    static func mentionsFood(_ text: String) -> Bool {
         guard let foodPattern else { return false }
         return foodPattern.firstMatch(in: text, options: [], range: NSRange(text.startIndex..., in: text)) != nil
     }
@@ -186,7 +191,8 @@ enum RadioContent {
         song.artistNamesDisplay.isEmpty ? "" : " de \(song.artistNamesDisplay)"
     }
 
-    static func parseTurns(_ text: String) -> [RadioTurn] {
+    /// Los turnos de una respuesta JSON. Solo valen los locutores (Pitirre y Chuleta) y, con `allowing`, esos oyentes por nombre; el tono solo si es de la lista.
+    static func parseTurns(_ text: String, allowing guests: [String] = []) -> [RadioTurn] {
         guard let data = text.data(using: .utf8), let object = try? JSONSerialization.jsonObject(with: data) else { return [] }
         var list: [Any] = []
         if let array = object as? [Any] {
@@ -194,12 +200,13 @@ enum RadioContent {
         } else if let dictionary = object as? [String: Any], let found = dictionary.values.first(where: { $0 is [Any] }) as? [Any] {
             list = found
         }
+        let allowed = Set(["Pitirre", "Chuleta"] + guests)
         var turns: [RadioTurn] = []
         for case let item as [String: Any] in list {
             let speaker = item["speaker"] as? String ?? ""
             let line = (item["text"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            if speaker == "Pitirre" || speaker == "Chuleta", !line.isEmpty {
-                turns.append(RadioTurn(speaker: speaker, text: line))
+            if allowed.contains(speaker), !line.isEmpty {
+                turns.append(RadioTurn(speaker: speaker, text: line, tone: RadioTone.clean(item["tono"])))
             }
         }
         return turns
@@ -207,7 +214,8 @@ enum RadioContent {
 
     /// El texto de un comentario entre dos canciones (vacio si no sale a la tercera).
     /// `facts`: lo que la radio sabe de la persona (solo para las charlas; "" si la memoria esta apagada).
-    static func piece(kind: RadioPieceKind, previous: SongItem?, next: SongItem, facts: String = "") async -> [RadioTurn] {
+    /// `extras`: datos reales opcionales (de lo que suena, de tu historial, el tiempo) de los que puede usar UNO.
+    static func piece(kind: RadioPieceKind, previous: SongItem?, next: SongItem, facts: String = "", extras: [String] = []) async -> [RadioTurn] {
         let isMini = kind == .mini
         var format = isMini ? draw(&miniDeck, from: miniFormats) : draw(&charlaDeck, from: charlaFormats)
         if !isMini, !facts.isEmpty, Int.random(in: 0..<3) == 0 { format = dataFormat }
@@ -226,6 +234,9 @@ enum RadioContent {
                 prompt += "MANIA DE ESTA VEZ (opcional, solo si cabe natural; no la fuerces): \(mania).\n"
             }
             prompt += "Recuerda: solo conoces esos datos; no inventes nada mas sobre las canciones ni los artistas."
+            if !extras.isEmpty {
+                prompt += "\n\nDATOS REALES EXTRA (usa UNO solo, tal cual, y solo si cabe natural):\n" + extras.map { "- " + $0 }.joined(separator: "\n")
+            }
             if !isMini, !facts.isEmpty { prompt += "\n\n" + facts }
             prompt += RadioHistory.promptBlock(count: isMini ? 8 : 4) + notice
             guard let json = try? await Gemini.text(system: system, prompt: prompt, temperature: 1.2, timeout: 10) else { return best }

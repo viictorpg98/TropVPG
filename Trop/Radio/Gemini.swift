@@ -92,18 +92,21 @@ enum Gemini {
     private static func speech(_ turns: [RadioTurn], style: String?, timeout: Double, model: String) async throws -> RadioClip {
         try ensureUsable(.voice(model))
         guard !turns.isEmpty else { throw Failure(code: 0, message: "nada que decir") }
-        let speakers = Set(turns.map(\.speaker))
-        let single = speakers.count == 1 ? speakers.first : nil
+        // Los locutores que hablan, en orden de aparicion (la API admite como mucho dos por peticion: dos locutores, o un locutor y un oyente).
+        var order: [String] = []
+        for turn in turns where !order.contains(turn.speaker) { order.append(turn.speaker) }
+        guard order.count <= 2 else { throw Failure(code: 0, message: "mas de dos locutores en una peticion") }
+        let single = order.count == 1 ? order.first : nil
         var content: [[String: Any]] = []
         for turn in turns {
             var annotation: [String: Any] = ["type": "speech_metadata"]
             if single != nil {
                 // Un locutor: la anotacion solo lleva el estilo.
-                annotation["style"] = style ?? styleFor(turn.speaker)
+                annotation["style"] = style ?? styleFor(turn)
             } else {
                 // Dos locutores: cada trozo lleva su locutor y su estilo.
                 annotation["speaker"] = turn.speaker
-                annotation["style"] = styleFor(turn.speaker)
+                annotation["style"] = styleFor(turn)
             }
             content.append(["type": "text", "text": turn.text, "annotations": [annotation]])
         }
@@ -114,10 +117,7 @@ enum Gemini {
             config = ["speech_config": [["voice": voiceId(for: single)]]]
         } else {
             // Dos locutores: speech_config es un objeto con `speakers`.
-            let speakerList: [[String: Any]] = [
-                ["speaker": "Pitirre", "voice": RadioSettings.pitirreVoice],
-                ["speaker": "Chuleta", "voice": RadioSettings.chuletaVoice]
-            ]
+            let speakerList: [[String: Any]] = order.map { ["speaker": $0, "voice": voiceId(for: $0)] }
             config = ["speech_config": ["speakers": speakerList]]
         }
         let body: [String: Any] = [
@@ -140,12 +140,16 @@ enum Gemini {
         return RadioClip(wav: RadioAudio.wav(parsed.samples, rate: parsed.rate), seconds: seconds)
     }
 
-    private static func styleFor(_ speaker: String) -> String {
-        speaker == "Chuleta" ? chuletaStyle : pitirreStyle
+    /// El estilo de una frase: el tono que se pidio para ella (si es de la lista), o el de siempre del personaje.
+    private static func styleFor(_ turn: RadioTurn) -> String {
+        if let tone = turn.tone, let style = RadioTone.styles[tone] { return style }
+        if RadioGuests.guest(named: turn.speaker) != nil { return RadioGuests.style }
+        return turn.speaker == "Chuleta" ? chuletaStyle : pitirreStyle
     }
 
     private static func voiceId(for speaker: String) -> String {
-        speaker == "Chuleta" ? RadioSettings.chuletaVoice : RadioSettings.pitirreVoice
+        if let guest = RadioGuests.guest(named: speaker) { return guest.voice }
+        return speaker == "Chuleta" ? RadioSettings.chuletaVoice : RadioSettings.pitirreVoice
     }
 
     /// Busca en la respuesta (su forma cambia) el bloque de audio en base64: un diccionario con `data` cuyo tipo diga "audio". En una lista, el ultimo.
