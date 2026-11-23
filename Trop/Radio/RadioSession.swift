@@ -27,6 +27,9 @@ final class RadioSession {
     private(set) var speakingHost: String?
     /// Lo que dice ahora el que habla (subtitulos de la pestaña Radio); vacio si nadie habla.
     private(set) var speakingText = ""
+    /// Lo ultimo que se dijo y quien lo dijo: la tarjeta de subtitulos lo deja (atenuado) hasta que vuelven a hablar.
+    private(set) var lastText = ""
+    private(set) var lastHost: String?
     private(set) var airingSection: RadioSectionKind?
     private(set) var frequency = 98.7
     private(set) var commentsUntilSection = 4
@@ -284,6 +287,10 @@ final class RadioSession {
         // La risa va como etiqueta en el texto: en pantalla no se enseña.
         let shown = line.replacingOccurrences(of: "<laugh>", with: "").trimmingCharacters(in: .whitespaces)
         if speakingText != shown { speakingText = shown }
+        if !shown.isEmpty, lastText != shown {
+            lastText = shown
+            lastHost = host
+        }
         setHost(host)
     }
 
@@ -315,6 +322,8 @@ final class RadioSession {
         played = []
         plannedKind = [:]
         currentId = nil
+        lastText = ""
+        lastHost = nil
         transitionCount = 0
         talkCount = 0
         topUps = 0
@@ -350,6 +359,8 @@ final class RadioSession {
         currentSummary = ""
         speakingHost = nil
         speakingText = ""
+        lastText = ""
+        lastHost = nil
         airingSection = nil
         cancelBreak(resume: true)
         cancelSpeech()

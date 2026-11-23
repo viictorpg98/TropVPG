@@ -157,7 +157,7 @@ struct RadioScreenView: View {
                             .font(.caption)
                     }
                     if let host = radio.speakingHost {
-                        Text(verbatim: host == "Chuleta" ? "La Chuleta" : (host == "Pitirre" ? "El Pitirre" : host))
+                        Text(verbatim: hostTitle(host))
                             .font(.caption.weight(.semibold))
                     } else if let kind = radio.airingSection {
                         Text(LocalizedStringKey(kind.displayKey))
@@ -165,6 +165,11 @@ struct RadioScreenView: View {
                     }
                 }
                 .foregroundStyle(Color.red)
+            } else if !radio.lastText.isEmpty, let host = radio.lastHost {
+                // Nadie habla: se queda la ultima frase, con su autor en gris.
+                Text(verbatim: hostTitle(host))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
             }
             Text(verbatim: captionText)
                 .font(.body)
@@ -174,12 +179,17 @@ struct RadioScreenView: View {
                 .animation(.easeInOut(duration: 0.25), value: captionText)
         }
         .padding(14)
-        .frame(maxWidth: .infinity, minHeight: 108, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
+    }
+
+    private func hostTitle(_ host: String) -> String {
+        host == "Chuleta" ? "La Chuleta" : (host == "Pitirre" ? "El Pitirre" : host)
     }
 
     private var captionText: String {
         if !radio.speakingText.isEmpty { return radio.speakingText }
+        if radio.isActive, !radio.lastText.isEmpty { return radio.lastText }
         if radio.isActive, !radio.currentSummary.isEmpty {
             return String(format: NSLocalizedString("Request: %@", comment: ""), radio.currentSummary)
         }
@@ -193,8 +203,12 @@ struct RadioScreenView: View {
             if let kind = radio.airingSection {
                 sectionTile(kind)
             } else {
-                RadioDiscView(cover: np.thumbnailUIImage, spinning: np.isPlaying)
-                    .frame(width: 44, height: 44)
+                // Contenedor fijo y recorte redondo: el disco se salia de su hueco y se pegaba al borde de la tarjeta.
+                ZStack {
+                    RadioDiscView(cover: np.thumbnailUIImage, spinning: np.isPlaying)
+                }
+                .frame(width: 44, height: 44)
+                .clipShape(Circle())
             }
             VStack(alignment: .leading, spacing: 2) {
                 if let kind = radio.airingSection {
