@@ -87,8 +87,10 @@ enum RadioIdent {
         let shouted = chosen.map { RadioTurn(speaker: $0.speaker, text: $0.text, tone: "grito") }
         let speakers = Set(shouted.map(\.speaker))
         // Un locutor: estilo de locutor de emisora; dos (duo): el tono "grito" de cada frase.
-        guard let clip = await RadioVoice.clip(shouted, style: speakers.count == 1 ? Gemini.announcerStyle : nil, timeout: 12) else { return nil }
-        remember(shouted.map(\.text).joined(separator: " / "))
+        guard var clip = await RadioVoice.clip(shouted, style: speakers.count == 1 ? Gemini.announcerStyle : nil, timeout: 12) else { return nil }
+        let said = shouted.map(\.text).joined(separator: " / ")
+        remember(said)
+        clip.label = said
         return clip
     }
 }

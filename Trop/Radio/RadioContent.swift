@@ -21,7 +21,7 @@ enum RadioHistory {
     private static let stopWords: Set<String> = Set("""
     para pero como esta este esto esas esos estoy estas pues porque cuando donde tambien entonces ahora siempre nunca todo toda todos todas aqui alli algo alguien
     nadie mucho mucha muchos muchas tiene tienes tengo hacer haces hace voy vamos dice dices digo eso esa ese bien mismo misma solo sola cosa cosas vez veces dale mira
-    nene wepa bendito suena sonar quiero quiere puedo puede quien quienes sobre entre desde hasta cada otro otra otros otras
+    nene wepa suena sonar quiero quiere puedo puede quien quienes sobre entre desde hasta cada otro otra otros otras
     """.split(whereSeparator: { $0 == " " || $0 == "\n" }).map(String.init))
 
     static func all() -> [[RadioTurn]] {
@@ -66,8 +66,8 @@ enum RadioHistory {
 
 enum RadioContent {
     static let ficha = """
-    EMISORA: Sónar efe eme, una radio con humor gamberro y mucho cachondeo. Escribe siempre el nombre de la emisora como "Sónar efe eme".
-    LOCUTORES (personajes inventados, NO personas reales): dos puertorriqueños que viven en España y hacen radio desde Madrid. Hablan español de Puerto Rico informal (jerga ligera y natural: ay bendito, nene, wepa, brutal, chavos, janguear; sin exagerar ni caricaturizar) y miran España con ojos de fuera, siempre con cariño.
+    EMISORA: Sónar efe eme, una radio con humor gamberro y mucho cachondeo. Si nombras la emisora, escribe su nombre como "Sónar efe eme".
+    LOCUTORES (personajes inventados, NO personas reales): dos puertorriqueños que viven en España y hacen radio desde Madrid. Hablan español de Puerto Rico informal, como cualquier persona normal (se les nota en alguna palabra suelta: ay bendito, nene, chavos, janguear; sin exagerar ni caricaturizar) y miran España con ojos de fuera, siempre con cariño.
     - El Pitirre (hombre, 30 y pico): relajado, chulito, arrastra las palabras, se rie facil de sus propios chistes. Presenta. Su speaker es "Pitirre".
     - La Chuleta (mujer, 30 y pico): rapida, picona, se burla de Pitirre sin piedad, interrumpe, se rie con ganas. Lo desmonta todo. Su speaker es "Chuleta".
     RELACION: se pican todo el rato con cariño y se llaman por el mote.
@@ -77,10 +77,12 @@ enum RadioContent {
     - Suena a gente real hablando, no a texto escrito: frases cortas (maximo 18 palabras), alguna duda ("pues", "o sea", "mira"). Nada de discursos.
     - Prefiere una observacion sencilla y concreta sobre algo cotidiano a un chiste: NO todas las intervenciones necesitan gracia, a veces solo presentan la cancion con naturalidad, como una radio normal. Cuando haya humor, que sea pequeño y concreto. Prohibido: chistes de manual con remate y moraleja, listas de tres elementos, eslogan publicitario, frases tipo "porque siempre hay alguien que...", juegos de palabras forzados.
     - Si se te dan DATOS REALES EXTRA (lo que suena, tu historial, el tiempo), puedes usar UNO solo si cabe natural y SOLO tal cual vienen; no inventes ningun otro dato ni año ni cifra.
-    - Puedes aludir a la cancion SOLO con lo que se te da: jugar con las palabras del titulo, el contraste entre una cancion y la siguiente, la hora o el dia. NO inventes NADA sobre la cancion, el artista, su vida, su discografia, premios, listas ni anecdotas. Si no estas seguro, no lo digas.
+    - Puedes aludir a la cancion SOLO con lo que se te da: jugar con las palabras del titulo, el contraste entre una cancion y la siguiente. NO inventes NADA sobre la cancion, el artista, su vida, su discografia, premios, listas ni anecdotas. Si no estas seguro, no lo digas.
     - No uses nombres de personas reales ni imites a nadie. No pongas indicaciones escenicas entre parentesis. Para una risa usa exactamente la etiqueta <laugh>.
     - NO hables de comida, bebida, dieta, cocina ni hambre. Regla estricta.
     - Cada intervencion debe ser DISTINTA de las anteriores: otro tema, otros detalles, otras palabras. Si el historial que se te da ya usa una idea, un objeto o un chiste, elige otro.
+    - HABLAN COMO CUALQUIER PERSONA NORMAL en una conversacion de verdad: reaccionan a lo que dice el otro, sin declamar, sin eslogan, sin explicar los chistes y sin exclamar en cada frase. Prohibido decir "wepa".
+    - La jerga (nene, brutal, ay bendito, chavos...) es un condimento: como mucho UNA expresion asi en toda la pieza, y muchas piezas ninguna. No repitas la muletilla ni el arranque ("oye", "mira", "pues") de las piezas de YA SE DIJO ANTES, ni el mismo tono (por ejemplo, que la misma persona siempre sea la sarcastica).
     - Cada linea puede llevar un campo opcional "tono" con UNO de estos valores: \(RadioTone.names). Ponlo en una o dos lineas como mucho y solo cuando encaje de verdad (un susurro para un secreto, un grito para una sorpresa...); en las demas, omite el campo.
     - Responde SOLO con un JSON, sin texto antes ni despues: una lista de objetos {"speaker": "Pitirre" o "Chuleta", "text": "...", "tono": "..." (opcional)}.
     """
@@ -106,28 +108,38 @@ enum RadioContent {
         "uno cuenta una anecdota corta de lo que le paso hoy y el otro no se la cree",
         "una falsa noticia local de la emisora, de tres frases, con un dato ridiculo y muy concreto",
         "un fallo en directo (se les cruza un papel, entra una llamada equivocada, se cuelga el equipo) y lo resuelven mal",
-        "una apuesta tonta entre ellos sobre algo de la proxima cancion (el titulo, la hora) con un premio ridiculo",
+        "una apuesta tonta entre ellos sobre algo de la proxima cancion (el titulo, el nombre del artista) con un premio ridiculo",
         "un consejo gamberro para el oyente que va conduciendo o trabajando",
         "uno presume de algo y el otro lo desmonta con un detalle concreto",
-        "comentan que significa ese momento del dia y de la semana, con un recuerdo concreto de cuando eran chicos",
         "la resena falsa de un negocio de barrio inventado (con nombre y un detalle absurdo pero concreto)",
-        "una charla tranquila SIN chiste: comentan algo cotidiano muy concreto de esta hora del dia, como dos colegas hablando en el estudio, y presentan la cancion",
+        "una charla tranquila SIN chiste: comentan algo cotidiano muy concreto que les paso esta semana, como dos colegas hablando en el estudio, y presentan la cancion",
         "uno le cuenta al otro algo que noto hoy yendo por la calle (un detalle concreto y real de cualquier ciudad), sin remate, y el otro responde con curiosidad"
     ]
 
+    /// Solo salen cuando se permite hablar de la hora o del momento del dia (de vez en cuando; ver `reserveHourSlot`).
+    private static let charlaHourFormats = [
+        "comentan que significa ese momento del dia y de la semana, con un recuerdo concreto de cuando eran chicos",
+        "una charla tranquila SIN chiste: comentan algo cotidiano muy concreto de esta hora del dia, como dos colegas hablando en el estudio, y presentan la cancion"
+    ]
+
     /// Solo sale cuando hay datos de la persona (1 de cada 3 charlas): los locutores la vacilan con SUS datos, como si la radio fuese ella.
-    private static let dataFormat = "los locutores vacilan al oyente con SUS DATOS REALES de la lista de abajo (lo que pide, lo que mas suena, los 'Esto no', la hora, los recuerdos de otros dias), como si la radio fuese el oyente; con cariño y sin inventar ningun dato"
+    private static let dataFormat = "los locutores vacilan al oyente con SUS DATOS REALES de la lista de abajo (lo que pide, lo que mas suena, los 'Esto no', los recuerdos de otros dias), como si la radio fuese el oyente; con cariño y sin inventar ningun dato"
 
     private static let miniFormats = [
         "una broma corta jugando con las palabras del titulo de la cancion que ACABA de sonar",
         "una broma corta jugando con las palabras del titulo de la cancion que VIENE",
         "un comentario sobre el contraste entre las dos canciones (sin inventar ningun dato de ellas)",
-        "un comentario sobre la hora o el dia en que estamos, y presenta la siguiente",
         "una pulla de un locutor al otro, y anuncia la siguiente cancion",
         "una reaccion exagerada a lo que acaba de sonar, sin afirmar nada concreto sobre la cancion",
         "anunciar la siguiente cancion de forma gamberra, con un detalle cotidiano inventado y concreto que no tenga que ver con la cancion",
-        "presentar la siguiente cancion con naturalidad, SIN chiste: un comentario sencillo sobre el momento del dia y nada mas",
         "presentar la siguiente cancion con naturalidad, SIN chiste: una frase de radio normal, calida, y ya",
+        "una observacion corta y real sobre algo cotidiano (sin hablar de la hora), sin remate, y presentar la siguiente"
+    ]
+
+    /// Solo salen cuando se permite hablar de la hora o del momento del dia.
+    private static let miniHourFormats = [
+        "un comentario sobre la hora o el dia en que estamos, y presenta la siguiente",
+        "presentar la siguiente cancion con naturalidad, SIN chiste: un comentario sencillo sobre el momento del dia y nada mas",
         "una observacion corta y real sobre lo que se suele hacer a esta hora del dia, sin remate, y presentar la siguiente"
     ]
 
@@ -153,6 +165,18 @@ enum RadioContent {
     nonisolated(unsafe) private static var charlaDeck: [String] = []
     nonisolated(unsafe) private static var topicDeck: [String] = []
     nonisolated(unsafe) private static var maniaDeck: [String] = []
+    nonisolated(unsafe) private static var miniHourDeck: [String] = []
+    nonisolated(unsafe) private static var charlaHourDeck: [String] = []
+    nonisolated(unsafe) private static var lastHourMention: Date?
+
+    /// ¿Puede esta pieza hablar de la hora y del momento del dia? Solo de vez en cuando (pasados al menos 25 min desde la ultima vez y, aun asi, la mitad
+    /// de las veces no): si no, lo dicen en todos los comentarios.
+    static func reserveHourSlot() -> Bool {
+        if let last = lastHourMention, Date().timeIntervalSince(last) < 25 * 60 { return false }
+        guard Int.random(in: 0..<2) == 0 else { return false }
+        lastHourMention = Date()
+        return true
+    }
 
     /// Al azar y SIN repetir hasta que se agotan todos.
     private static func draw(_ deck: inout [String], from all: [String]) -> String {
@@ -165,6 +189,36 @@ enum RadioContent {
         options: [.caseInsensitive]
     )
 
+    private static let clockPattern = try? NSRegularExpression(
+        pattern: "\\b(?:casi|sobre|pasadas?|alrededor de) las\\b|\\bson las\\b|\\bde la (?:tarde|mañana|noche|madrugada)\\b|\\bmediod[ií]a\\b|\\blas \\d{1,2}\\b|\\ba las (?:una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce)\\b",
+        options: [.caseInsensitive]
+    )
+
+    /// Lo que sobra en una pieza segun lo permitido en esta ocasion (hora, nombre de la emisora); `nil` si esta bien. Solo sirve para reintentar.
+    private static func styleProblem(_ text: String, allowHour: Bool, allowStation: Bool) -> String? {
+        var problems: [String] = []
+        if !allowHour, let clockPattern, clockPattern.firstMatch(in: text, options: [], range: NSRange(text.startIndex..., in: text)) != nil {
+            problems.append("menciona la hora o el momento del dia (en esta pieza no se habla de eso)")
+        }
+        if !allowStation, text.range(of: "sonar efe eme", options: [.caseInsensitive, .diacriticInsensitive]) != nil {
+            problems.append("nombra la emisora (en esta pieza no se nombra)")
+        }
+        guard !problems.isEmpty else { return nil }
+        return "\n\nTU INTENTO ANTERIOR " + problems.joined(separator: " y ") + ". Reescribelo sin eso y manteniendo lo demas."
+    }
+
+    private static let slangPattern = try? NSRegularExpression(pattern: "¡?\\b(?:wepa|uepa|guepa)\\b[!,.]?\\s*", options: [.caseInsensitive])
+
+    /// Quita "wepa" y parecidos (no se quieren) y deja la frase con mayuscula inicial.
+    private static func stripBanned(_ line: String) -> String {
+        guard let slangPattern else { return line }
+        let range = NSRange(line.startIndex..., in: line)
+        guard slangPattern.firstMatch(in: line, options: [], range: range) != nil else { return line }
+        let result = slangPattern.stringByReplacingMatches(in: line, options: [], range: range, withTemplate: "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let first = result.first, first.isLowercase else { return result }
+        return String(first).uppercased() + String(result.dropFirst())
+    }
+
     static func mentionsFood(_ text: String) -> Bool {
         guard let foodPattern else { return false }
         return foodPattern.firstMatch(in: text, options: [], range: NSRange(text.startIndex..., in: text)) != nil
@@ -173,18 +227,22 @@ enum RadioContent {
     // MARK: - Comentarios entre canciones
 
     /// `spoken`: cuando se va a oir el comentario (no ahora: se escribe mientras suena la cancion anterior, unos minutos antes).
-    private static func dataBlock(previous: SongItem?, next: SongItem, spoken: Date) -> String {
+    private static func dataBlock(previous: SongItem?, next: SongItem, spoken: Date, allowHour: Bool) -> String {
         var text = ""
         if let previous {
             text += "Acaba de sonar: «\(previous.title)»\(byArtist(previous)).\n"
         }
         text += "A continuacion suena: «\(next.title)»\(byArtist(next)).\n"
-        let weekday = DateFormatter()
-        weekday.locale = Locale(identifier: "es_ES")
-        weekday.dateFormat = "EEEE"
-        let clock = DateFormatter()
-        clock.dateFormat = "HH:mm"
-        text += "Es \(weekday.string(from: spoken)) y son, mas o menos, las \(clock.string(from: spoken)) (hora aproximada: si la dices, di \"sobre las...\" o \"casi las...\", nunca minutos exactos).\n"
+        if allowHour {
+            let weekday = DateFormatter()
+            weekday.locale = Locale(identifier: "es_ES")
+            weekday.dateFormat = "EEEE"
+            let clock = DateFormatter()
+            clock.dateFormat = "HH:mm"
+            text += "Es \(weekday.string(from: spoken)) y son, mas o menos, las \(clock.string(from: spoken)) (hora aproximada: si la dices, di \"sobre las...\" o \"casi las...\", nunca minutos exactos).\n"
+        } else {
+            text += "En esta pieza NO hables de la hora, ni del momento del dia, ni del dia de la semana.\n"
+        }
         return text
     }
 
@@ -205,7 +263,7 @@ enum RadioContent {
         var turns: [RadioTurn] = []
         for case let item as [String: Any] in list {
             let speaker = item["speaker"] as? String ?? ""
-            let line = (item["text"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let line = stripBanned((item["text"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines))
             if allowed.contains(speaker), !line.isEmpty {
                 turns.append(RadioTurn(speaker: speaker, text: line, tone: RadioTone.clean(item["tono"])))
             }
@@ -216,18 +274,27 @@ enum RadioContent {
     /// El texto de un comentario entre dos canciones (vacio si no sale a la tercera).
     /// `facts`: lo que la radio sabe de la persona (solo para las charlas; "" si la memoria esta apagada).
     /// `extras`: datos reales opcionales (de lo que suena, de tu historial, el tiempo) de los que puede usar UNO.
-    static func piece(kind: RadioPieceKind, previous: SongItem?, next: SongItem, facts: String = "", extras: [String] = [], spoken: Date = Date()) async -> [RadioTurn] {
+    /// `allowHour`: si esta pieza puede hablar de la hora y del momento del dia (ver `reserveHourSlot`).
+    static func piece(kind: RadioPieceKind, previous: SongItem?, next: SongItem, facts: String = "", extras: [String] = [], spoken: Date = Date(), allowHour: Bool = false) async -> [RadioTurn] {
         let isMini = kind == .mini
-        var format = isMini ? draw(&miniDeck, from: miniFormats) : draw(&charlaDeck, from: charlaFormats)
+        // El nombre de la emisora, solo en una de cada cuatro piezas.
+        let allowStation = Int.random(in: 0..<4) == 0
+        var format: String
+        if isMini {
+            format = allowHour ? draw(&miniHourDeck, from: miniHourFormats) : draw(&miniDeck, from: miniFormats)
+        } else {
+            format = allowHour ? draw(&charlaHourDeck, from: charlaHourFormats) : draw(&charlaDeck, from: charlaFormats)
+        }
         if !isMini, !facts.isEmpty, Int.random(in: 0..<3) == 0 { format = dataFormat }
         let topic = draw(&topicDeck, from: topics)
         let mania = draw(&maniaDeck, from: manias)
         let system = ficha + "\n\n" + (isMini ? miniRules : charlaRules)
         var notice = ""
         var best: [RadioTurn] = []
-        for _ in 0..<3 {
+        for attempt in 0..<3 {
             var prompt = isMini ? "Escribe el MINI-COMENTARIO que suena entre dos canciones.\n" : "Escribe la CHARLA que suena entre dos canciones.\n"
-            prompt += dataBlock(previous: previous, next: next, spoken: spoken)
+            prompt += dataBlock(previous: previous, next: next, spoken: spoken, allowHour: allowHour)
+            prompt += allowStation ? "Puedes nombrar la emisora UNA vez, solo si cabe natural.\n" : "En esta pieza NO nombres la emisora.\n"
             if isMini {
                 prompt += "TIPO DE COMENTARIO DE ESTA VEZ: \(format).\n"
             } else {
@@ -258,6 +325,11 @@ enum RadioContent {
                 best = []
                 continue
             }
+            if attempt < 2, let problem = styleProblem(all, allowHour: allowHour, allowStation: allowStation) {
+                best = turns  // si los reintentos fallan por otra cosa, esta vale
+                notice = problem
+                continue
+            }
             best = turns
             break
         }
@@ -283,7 +355,7 @@ enum RadioContent {
     static let questions: [[RadioTurn]] = [
         [RadioTurn(speaker: "Pitirre", text: "¡Sónar efe eme en el aire! Dime, nene, ¿qué te ponemos hoy?"),
          RadioTurn(speaker: "Chuleta", text: "Y no digas lo que sea, eh. Que aquí se viene a pedir.")],
-        [RadioTurn(speaker: "Chuleta", text: "¡Wepa! Bienvenido a la radio. ¿Qué quieres escuchar?"),
+        [RadioTurn(speaker: "Chuleta", text: "¡Buenas! Bienvenido a la radio. ¿Qué quieres escuchar?"),
          RadioTurn(speaker: "Pitirre", text: "Tú mandas, nosotros ponemos los discos.")],
         [RadioTurn(speaker: "Pitirre", text: "Sónar efe eme, a tu servicio. ¿Qué se te antoja hoy?"),
          RadioTurn(speaker: "Chuleta", text: "Dinos un estilo, una época, un artista... y a darle.")],

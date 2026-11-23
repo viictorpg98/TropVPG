@@ -99,7 +99,7 @@ enum RadioDiary {
 
     /// El resumen de lo que la radio sabe de la persona, para el prompt de las charlas ("" si la memoria esta apagada).
     /// `at`: cuando SE VA A OIR el comentario (se escribe unos minutos antes, mientras suena la cancion anterior), para dar la hora de entonces y no la de ahora.
-    static func factsBlock(tasteText: String, at spoken: Date = Date()) -> String {
+    static func factsBlock(tasteText: String, at spoken: Date = Date(), includeClock: Bool = true) -> String {
         guard RadioSettings.memoryEnabled else { return "" }
         let now = Date()
         let weekday = DateFormatter()
@@ -107,13 +107,17 @@ enum RadioDiary {
         weekday.dateFormat = "EEEE"
         let clock = DateFormatter()
         clock.dateFormat = "HH:mm"
-        var lines = ["Ahora es \(weekday.string(from: spoken)) y son, mas o menos, las \(clock.string(from: spoken)) (hora aproximada: di \"sobre las...\" o \"casi las...\", nunca minutos exactos)."]
+        var lines: [String] = []
+        // La hora y el dia solo se dan de vez en cuando (si no, los locutores la dicen en cada comentario).
+        if includeClock {
+            lines.append("Ahora es \(weekday.string(from: spoken)) y son, mas o menos, las \(clock.string(from: spoken)) (hora aproximada: di \"sobre las...\" o \"casi las...\", nunca minutos exactos).")
+        }
 
         let sessions = load([Session].self, sessionsKey) ?? []
         let today = dayString(now)
         let todays = sessions.filter { $0.day == today }
         if !todays.isEmpty {
-            lines.append("Hoy ha pedido a la radio: " + todays.map { "\"\($0.request)\" (a las \($0.hour) h)" }.joined(separator: "; ") + ".")
+            lines.append("Hoy ha pedido a la radio: " + todays.map { includeClock ? "\"\($0.request)\" (a las \($0.hour) h)" : "\"\($0.request)\"" }.joined(separator: "; ") + ".")
         }
         let yesterdays = sessions.filter { $0.day == day(daysAgo: 1) }
         if !yesterdays.isEmpty {
@@ -145,9 +149,11 @@ enum RadioDiary {
             lines.append(tasteText.replacingOccurrences(of: "GUSTOS DE LA PERSONA: ", with: ""))
         }
 
+        let notes = (load([Note].self, notesKey) ?? []).suffix(6)
+        // Sin ningun dato (sin hora, sin gustos, sin recuerdos) no se manda nada: asi no se pide "vacilar con sus datos" sin tenerlos.
+        if lines.isEmpty, notes.isEmpty { return "" }
         var text = "LO QUE LA RADIO SABE DE LA PERSONA (datos reales; usalos a veces para vacilarle con cariño, como si la radio fuese ella; NO inventes ningun dato mas sobre ella):\n"
         text += lines.map { "- " + $0 }.joined(separator: "\n")
-        let notes = (load([Note].self, notesKey) ?? []).suffix(6)
         if !notes.isEmpty {
             text += "\nRECUERDOS DE LOS LOCUTORES (de dias anteriores; puedes retomarlos, por ejemplo 'como ayer...'):\n"
             text += notes.map { "- (\(label(for: $0.day, now: now))) \($0.text)" }.joined(separator: "\n")

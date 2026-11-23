@@ -531,7 +531,9 @@ final class RadioSession {
         let total = clock.duration > 0 ? clock.duration : NowPlaying.shared.duration
         let spoken = started.addingTimeInterval(max(0, total - clock.currentTime))
         Task { [weak self] in
-            let facts = kind == .charla ? RadioDiary.factsBlock(tasteText: self?.tasteText ?? "", at: spoken) : ""
+            // La hora y el momento del dia solo se mencionan de vez en cuando (y entonces en la charla y en sus datos a la vez).
+            let allowHour = RadioContent.reserveHourSlot()
+            let facts = kind == .charla ? RadioDiary.factsBlock(tasteText: self?.tasteText ?? "", at: spoken, includeClock: allowHour) : ""
             // Datos reales opcionales: lo que has escuchado de la siguiente (4 de cada 10 veces) y el tiempo ya bajado (1 de cada 4).
             var extras: [String] = []
             // Lo del historial va con "La radio recuerda": con la memoria apagada no se manda ningun titulo de lo que has escuchado.
@@ -539,7 +541,7 @@ final class RadioSession {
             if Int.random(in: 0..<4) == 0, let weather = RadioWorld.weatherLine() { extras.append(weather) }
             // La charla vuelve con un grito NUEVO (texto y voz de cada vez) sobre un golpe musical de Lyria; se prepara a la vez que la charla.
             let identTask: Task<RadioClip?, Never>? = kind == .charla ? Task { await RadioIdent.make(.charla) } : nil
-            let turns = await RadioContent.piece(kind: kind, previous: previous, next: next, facts: facts, extras: extras, spoken: spoken)
+            let turns = await RadioContent.piece(kind: kind, previous: previous, next: next, facts: facts, extras: extras, spoken: spoken, allowHour: allowHour)
             var clip: RadioClip?
             if !turns.isEmpty { clip = await RadioVoice.clip(turns) }
             var entry: RadioClip?
@@ -568,7 +570,9 @@ final class RadioSession {
                 }
             }
             let extraText = extras.isEmpty ? "" : "; datos: " + extras.joined(separator: " ")
-            self.report("\(name) listo en \(elapsed) s (\(String(format: "%.1f", clip.seconds)) s de voz; gasto de hoy \(String(format: "%.3f", RadioSettings.spentToday)) €)\(extraText): "
+            var shoutText = ""
+            if kind == .charla { shoutText = entry.map { "; grito: «\($0.label)»" } ?? "; sin grito" }
+            self.report("\(name) listo en \(elapsed) s (\(String(format: "%.1f", clip.seconds)) s de voz; gasto de hoy \(String(format: "%.3f", RadioSettings.spentToday)) €)\(extraText)\(shoutText)\(allowHour ? "; con hora" : ""): "
                 + turns.map { turn in "\(turn.speaker)\(turn.tone.map { "[\($0)]" } ?? ""): \(turn.text)" }.joined(separator: " / "))
         }
     }
@@ -577,7 +581,7 @@ final class RadioSession {
         played.insert(key)
         speaking = true
         speakingToKey = expectingKey
-        report("habla (\(piece.kind == .mini ? "mini" : "charla"))")
+        report("habla (\(piece.kind == .mini ? "mini" : "charla")\(piece.entry != nil ? ", con grito" : ""))")
         speechTask = Task { [weak self] in
             guard let self else { return }
             await self.duck(to: self.duckLevel, over: 0.6)
@@ -648,7 +652,8 @@ final class RadioSession {
             let text = assets.turns.map { turn in "\(turn.speaker)\(turn.tone.map { "[\($0)]" } ?? ""): \(turn.text)" }.joined(separator: " / ")
             let noteText = assets.note.map { "; nota de voz de \(String(format: "%.0f", $0.seconds)) s" } ?? ""
             let noteLines = assets.noteTurns.isEmpty ? "" : " / NOTA: " + assets.noteTurns.map { "\($0.speaker): \($0.text)" }.joined(separator: " ")
-            self.report("\(assets.kind.title) lista en \(elapsed) s (\(String(format: "%.1f", assets.voice.seconds)) s de voz\(noteText); gasto de hoy \(String(format: "%.3f", RadioSettings.spentToday)) €): " + text + noteLines)
+            let shoutNote = assets.shout.map { "; grito: «\($0.label)»" } ?? "; sin grito"
+            self.report("\(assets.kind.title) lista en \(elapsed) s (\(String(format: "%.1f", assets.voice.seconds)) s de voz\(noteText)\(shoutNote); gasto de hoy \(String(format: "%.3f", RadioSettings.spentToday)) €): " + text + noteLines)
         }
     }
 
@@ -671,7 +676,7 @@ final class RadioSession {
         breakStartedAt = Date()
         let contentSeconds = section.voice.seconds + (section.note?.seconds ?? 0) + (section.shout?.seconds ?? 0) + (section.outro?.seconds ?? 0)
         breakLimit = max(90, contentSeconds + 30)
-        report("corte: \(section.kind.title) (\(String(format: "%.0f", section.voice.seconds)) s de voz; musiquita \(section.bed != nil ? "si" : "no"))")
+        report("corte: \(section.kind.title) (\(String(format: "%.0f", section.voice.seconds)) s de voz; musiquita \(section.bed != nil ? "si" : "no"); grito \(section.shout != nil ? "si" : "no"))")
         breakTask = Task { [weak self] in
             await self?.runBreak(section)
         }
@@ -774,6 +779,7 @@ final class RadioSession {
     private func handOver() async {
         handingOver = true
         let resumesCurrent = breakResumesCurrent
+        report("relevo: la siguiente cancion entra bajo la voz\(resumesCurrent ? " (vuelve a empezar la que ya habia arrancado sola)" : "")")
         pausedByRadio = false
         setHold(false)
         let controller = PlayerController.shared

@@ -23,6 +23,8 @@ struct RadioClip {
     let seconds: Double
     /// `false` para los audios ya preparados a su nivel (las cuñas): no se les sube el volumen al reproducirlos.
     var needsBoost: Bool = true
+    /// El texto que dice (solo para el informe de la sesion; los gritos lo rellenan).
+    var label: String = ""
 }
 
 enum RadioAudio {

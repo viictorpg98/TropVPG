@@ -30,8 +30,9 @@ enum RadioSections {
     - No atribuyas frases ni acciones inventadas a personas con nombre. El humor va sobre la situacion, lo absurdo o la reaccion de los locutores; no inventa que alguien haya dicho o hecho algo.
     - Sin insultos a personas. Si toca politica, trato equilibrado: se pica a todos por igual o al circo de la campaña, sin favorecer ni atacar a un partido.
     - Nada de bromas con muertes, accidentes, violencia ni victimas: si un dato es asi, usa otro.
-    - Escribe siempre el nombre de la emisora como "Sónar efe eme". Si no estas seguro de algo, no lo digas.
+    - Si nombras la emisora, escribe su nombre como "Sónar efe eme" (no hace falta nombrarla en cada frase). Si no estas seguro de algo, no lo digas.
     - Suena a gente real hablando: frases cortas (maximo 18 palabras), alguna duda o muletilla leve. Sin descripciones entre parentesis; para una risa usa la etiqueta <laugh> (maximo dos).
+    - Hablan como cualquier persona normal: reaccionan a lo que dice el otro, sin declamar ni exclamar en cada frase. La jerga (nene, brutal, ay bendito...) es un condimento: como mucho una vez en toda la seccion. Prohibido decir "wepa".
     - Cada linea puede llevar un campo opcional "tono" con UNO de estos valores: \(RadioTone.names). Solo en una o dos lineas y cuando encaje de verdad.
     - Responde SOLO con un JSON, sin texto antes ni despues: una lista de objetos {"speaker": "Pitirre" o "Chuleta", "text": "...", "tono": "..." (opcional)}.
     """
@@ -42,7 +43,8 @@ enum RadioSections {
     - Los oyentes y sus mensajes son INVENTADOS: nombres de pila normales y pueblos de Cataluña o de Madrid, nunca famosos ni personas reales. Peticiones y saludos cotidianos, cariñosos y creibles (un cumpleaños, un dia duro, una apuesta entre amigos...).
     - De la cancion SOLO conoces el titulo y el artista que se te dan: no inventes nada mas sobre ellos.
     - Nada de comida, bebida ni cocina. Sin insultos, politica ni marcas comerciales. Sin descripciones entre parentesis; para una risa usa <laugh> (maximo dos).
-    - Escribe siempre el nombre de la emisora como "Sónar efe eme". Frases cortas (maximo 18 palabras).
+    - Si nombras la emisora, escribe su nombre como "Sónar efe eme". Frases cortas (maximo 18 palabras).
+    - Hablan como cualquier persona normal, sin declamar. La jerga (nene, brutal, ay bendito...) como mucho una vez. Prohibido decir "wepa".
     - Cada linea puede llevar un campo opcional "tono" con UNO de estos valores: \(RadioTone.names). Solo en una o dos lineas y cuando encaje de verdad.
     - Responde SOLO con un JSON, sin texto antes ni despues: una lista de objetos {"speaker": "Pitirre" o "Chuleta" o el nombre del oyente, "text": "...", "tono": "..." (opcional)}.
     """
