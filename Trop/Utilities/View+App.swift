@@ -10,8 +10,8 @@ import SwiftUI
 extension View {
     /// Keeps the mini player's inline layout in sync with this scroll container:
     /// collapsing when scrolled down and restoring when back at the top.
-    func miniPlayerTracksScroll() -> some View {
-        modifier(MiniPlayerInlineOnScrollModifier())
+    func miniPlayerTracksScroll(reservesBottom: Bool = true) -> some View {
+        modifier(MiniPlayerInlineOnScrollModifier(reservesBottom: reservesBottom))
     }
 
     /// Apunta en el informe cuando esta pantalla se abre y se cierra (y cuanto tiempo se pasa en ella).

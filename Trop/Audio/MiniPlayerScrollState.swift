@@ -31,6 +31,12 @@ struct MiniPlayerInlineOnScrollModifier: ViewModifier {
     private let compactThreshold: CGFloat = 1
     /// Aire entre la ultima fila y lo que hay debajo.
     private let air: CGFloat = 12
+    /// `false` en las pantallas que ya dejan ese hueco por su cuenta (la de Radio, con sus botones fijos encima del mini).
+    private let reservesBottom: Bool
+
+    init(reservesBottom: Bool = true) {
+        self.reservesBottom = reservesBottom
+    }
 
     func body(content: Content) -> some View {
         content
@@ -47,6 +53,6 @@ struct MiniPlayerInlineOnScrollModifier: ViewModifier {
                     }
                 }
             )
-            .safeAreaPadding(.bottom, scrollState.insetHeight > 0 ? scrollState.insetHeight + air : 0)
+            .safeAreaPadding(.bottom, reservesBottom && scrollState.insetHeight > 0 ? scrollState.insetHeight + air : 0)
     }
 }

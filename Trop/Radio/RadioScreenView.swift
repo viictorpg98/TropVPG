@@ -2,9 +2,9 @@
 //  RadioScreenView.swift
 //  Trop
 //
-//  La pestaña "Radio" (entre Inicio y Biblioteca): un dial con aguja, el disco con la portada de lo que suena, los dos locutores (se iluminan cuando hablan), la
-//  siguiente seccion y el boton para pedir musica por voz o parar la radio. Los ajustes estan detras del boton de arriba a la derecha. Debajo, tus ultimas
-//  peticiones como pildoras para repetirlas con un toque sin hablar.
+//  La pestaña "Radio" (entre Inicio y Biblioteca), como un estudio en directo: la pastilla "en el aire" con la frecuencia, los dos locutores grandes (el que habla
+//  se ilumina y el otro se apaga), los subtitulos de lo que dicen, lo que suena, la siguiente seccion y, fijos encima del mini reproductor, los botones para
+//  pedir musica por voz o parar la radio. Los ajustes estan detras del boton de arriba a la derecha. Debajo, tus ultimas peticiones para repetirlas con un toque.
 //
 
 import SwiftUI
@@ -29,6 +29,7 @@ enum RadioRecents {
 
 struct RadioScreenView: View {
     @Environment(SettingsStore.self) private var settings
+    @Environment(MiniPlayerScrollState.self) private var miniScroll
     @ObservedObject private var router = AppRouter.shared
     private let radio = RadioSession.shared
     private let np = NowPlaying.shared
@@ -42,10 +43,10 @@ struct RadioScreenView: View {
             ZStack(alignment: .top) {
                 background
                 ScrollView {
-                    VStack(spacing: 14) {
+                    VStack(spacing: 16) {
                         header
-                        stationCard
-                        hostsRow
+                        studio
+                        if radio.isActive { nowRow }
                         if radio.isActive, sectionsOn { sectionStrip }
                         if !recents.isEmpty { recentsBlock }
                         Text(usageText)
@@ -56,12 +57,14 @@ struct RadioScreenView: View {
                     .padding(.horizontal, 16)
                     .padding(.bottom, 12)
                 }
-                .miniPlayerTracksScroll()
-                // Los botones quedan fijos justo encima del mini reproductor: siempre a mano, sin tener que bajar.
+                // El hueco del final lo deja el inset de abajo (los botones), que ya cuenta con el mini reproductor.
+                .miniPlayerTracksScroll(reservesBottom: false)
+                // Los botones quedan fijos justo encima del mini reproductor (que el sistema NO cuenta como zona segura: de ahi el margen).
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     controls
                         .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
+                        .padding(.top, 8)
+                        .padding(.bottom, 8 + miniScroll.insetHeight)
                         .background(Color(.systemBackground).opacity(0.92))
                 }
             }
@@ -89,11 +92,28 @@ struct RadioScreenView: View {
         .animation(.easeInOut(duration: 0.8), value: np.videoId)
     }
 
+    /// En el aire: la pastilla roja y la frecuencia. Apagada: el titulo de siempre.
     private var header: some View {
-        HStack {
-            Text("Radio")
-                .font(.largeTitle)
-                .fontWeight(.bold)
+        HStack(spacing: 10) {
+            if radio.isActive {
+                HStack(spacing: 6) {
+                    OnAirDot(active: true)
+                    Text("On the Air")
+                        .font(.caption.weight(.bold))
+                        .textCase(.uppercase)
+                        .foregroundStyle(Color.red)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(Color.red.opacity(0.15)))
+                Text(verbatim: String(format: "%.1f FM", radio.frequency))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("Radio")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+            }
             Spacer()
             Button {
                 showSettings = true
@@ -109,41 +129,61 @@ struct RadioScreenView: View {
         .padding(.top, 8)
     }
 
-    // MARK: - Dial
+    // MARK: - El estudio: locutores y subtitulos
 
-    private var stationCard: some View {
-        VStack(spacing: 10) {
-            dialBlock
+    private var studio: some View {
+        VStack(spacing: 14) {
+            HStack(spacing: 30) {
+                RadioHostView(name: "Pitirre", title: "El Pitirre", speaking: radio.speakingHost == "Pitirre", size: 92,
+                              dimmed: radio.speakingHost == "Chuleta")
+                RadioHostView(name: "Chuleta", title: "La Chuleta", speaking: radio.speakingHost == "Chuleta", size: 92,
+                              dimmed: radio.speakingHost == "Pitirre")
+            }
+            .padding(.top, 6)
+            captionCard
             if radio.isActive {
-                Divider().opacity(0.4)
-                nowRow
+                RadioEqualizerView(active: np.isPlaying || radio.speakingHost != nil)
             }
         }
-        .padding(14)
-        .frame(maxWidth: .infinity)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
     }
 
-    private var dialBlock: some View {
-        VStack(spacing: 2) {
-            RadioDialView(frequency: radio.frequency, active: radio.isActive, tuning: radio.isStarting, height: 96)
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(verbatim: radio.isActive || radio.isStarting ? String(format: "%.1f", radio.frequency) : "--.-")
-                    .font(.system(size: 34, weight: .semibold, design: .rounded))
-                Text(verbatim: "FM")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+    /// Los subtitulos: lo que dice ahora quien habla. Sin voz, la peticion en curso o el estado de la radio.
+    private var captionCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if radio.speakingHost != nil || radio.airingSection != nil {
+                HStack(spacing: 6) {
+                    if let kind = radio.airingSection {
+                        Image(systemName: kind.icon)
+                            .font(.caption)
+                    }
+                    if let host = radio.speakingHost {
+                        Text(verbatim: host == "Chuleta" ? "La Chuleta" : (host == "Pitirre" ? "El Pitirre" : host))
+                            .font(.caption.weight(.semibold))
+                    } else if let kind = radio.airingSection {
+                        Text(LocalizedStringKey(kind.displayKey))
+                            .font(.caption.weight(.semibold))
+                    }
+                }
+                .foregroundStyle(Color.red)
             }
-            HStack(spacing: 6) {
-                OnAirDot(active: radio.isActive)
-                Text(statusText)
-                    .font(.footnote)
-                    .foregroundStyle(radio.isActive ? Color.red : Color.secondary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-            }
+            Text(verbatim: captionText)
+                .font(.body)
+                .foregroundStyle(radio.speakingText.isEmpty ? Color.secondary : Color.primary)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .animation(.easeInOut(duration: 0.25), value: captionText)
         }
-        .frame(maxWidth: .infinity)
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 108, alignment: .topLeading)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
+    }
+
+    private var captionText: String {
+        if !radio.speakingText.isEmpty { return radio.speakingText }
+        if radio.isActive, !radio.currentSummary.isEmpty {
+            return String(format: NSLocalizedString("Request: %@", comment: ""), radio.currentSummary)
+        }
+        return statusText
     }
 
     // MARK: - Lo que suena
@@ -154,24 +194,17 @@ struct RadioScreenView: View {
                 sectionTile(kind)
             } else {
                 RadioDiscView(cover: np.thumbnailUIImage, spinning: np.isPlaying)
-                    .frame(width: 58, height: 58)
+                    .frame(width: 44, height: 44)
             }
             VStack(alignment: .leading, spacing: 2) {
                 if let kind = radio.airingSection {
                     Text(LocalizedStringKey(kind.displayKey))
-                        .font(.headline)
-                    RadioEqualizerView(active: true)
+                        .font(.subheadline.weight(.semibold))
                 } else {
                     Text(verbatim: np.title.isEmpty ? "—" : np.title)
-                        .font(.headline)
+                        .font(.subheadline.weight(.semibold))
                         .lineLimit(1)
                     Text(verbatim: np.artist)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                if !radio.currentSummary.isEmpty {
-                    Text(String(format: NSLocalizedString("Request: %@", comment: ""), radio.currentSummary))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -179,25 +212,18 @@ struct RadioScreenView: View {
             }
             Spacer(minLength: 0)
         }
+        .padding(12)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
     }
 
     private func sectionTile(_ kind: RadioSectionKind) -> some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 14).fill(Color.red.opacity(0.15))
+            RoundedRectangle(cornerRadius: 12).fill(Color.red.opacity(0.15))
             Image(systemName: kind.icon)
-                .font(.system(size: 26, weight: .medium))
+                .font(.system(size: 20, weight: .medium))
                 .foregroundStyle(Color.red)
         }
-        .frame(width: 58, height: 58)
-    }
-
-    // MARK: - Locutores y seccion
-
-    private var hostsRow: some View {
-        HStack(spacing: 40) {
-            RadioHostView(name: "Pitirre", title: "El Pitirre", speaking: radio.speakingHost == "Pitirre")
-            RadioHostView(name: "Chuleta", title: "La Chuleta", speaking: radio.speakingHost == "Chuleta")
-        }
+        .frame(width: 44, height: 44)
     }
 
     /// Una sola linea con la proxima seccion (el orden es al azar, asi que sin puntos de progreso).

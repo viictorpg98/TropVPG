@@ -25,6 +25,8 @@ final class RadioSession {
     private(set) var currentSummary = ""
     /// Para la pestaña Radio: quien habla, la seccion que esta en el aire, la frecuencia del dial y cuando toca la siguiente seccion.
     private(set) var speakingHost: String?
+    /// Lo que dice ahora el que habla (subtitulos de la pestaña Radio); vacio si nadie habla.
+    private(set) var speakingText = ""
     private(set) var airingSection: RadioSectionKind?
     private(set) var frequency = 98.7
     private(set) var commentsUntilSection = 4
@@ -266,17 +268,27 @@ final class RadioSession {
         let total = Double(turns.reduce(0) { $0 + max(1, $1.text.count) })
         var accumulated = 0.0
         var host: String?
+        var line = ""
         for turn in turns {
             accumulated += Double(max(1, turn.text.count)) / total
             if fraction < accumulated {
                 host = turn.speaker
+                line = turn.text
                 break
             }
         }
-        setHost(host ?? turns.last?.speaker)
+        if host == nil {
+            host = turns.last?.speaker
+            line = turns.last?.text ?? ""
+        }
+        // La risa va como etiqueta en el texto: en pantalla no se enseña.
+        let shown = line.replacingOccurrences(of: "<laugh>", with: "").trimmingCharacters(in: .whitespaces)
+        if speakingText != shown { speakingText = shown }
+        setHost(host)
     }
 
     private func setHost(_ host: String?) {
+        if host == nil, !speakingText.isEmpty { speakingText = "" }
         if speakingHost != host { speakingHost = host }
     }
 
@@ -337,6 +349,7 @@ final class RadioSession {
         loop = nil
         currentSummary = ""
         speakingHost = nil
+        speakingText = ""
         airingSection = nil
         cancelBreak(resume: true)
         cancelSpeech()

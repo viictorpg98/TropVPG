@@ -136,6 +136,9 @@ struct RadioHostView: View {
     let name: String
     let title: String
     let speaking: Bool
+    var size: CGFloat = 52
+    /// `true` cuando habla el otro: este se apaga un poco para que se note quien tiene la palabra.
+    var dimmed = false
 
     var body: some View {
         VStack(spacing: 6) {
@@ -144,16 +147,20 @@ struct RadioHostView: View {
                     let pulse = speaking ? 0.5 + 0.5 * sin(timeline.date.timeIntervalSinceReferenceDate * 6) : 0
                     Circle()
                         .stroke(Color.red.opacity(speaking ? 0.35 + 0.5 * pulse : 0), lineWidth: 4 + 3 * pulse)
-                        .frame(width: 62, height: 62)
+                        .frame(width: size + 10, height: size + 10)
                 }
                 avatar
-                    .frame(width: 52, height: 52)
+                    .frame(width: size, height: size)
                     .clipShape(Circle())
             }
+            .scaleEffect(speaking ? 1.04 : 1)
             Text(verbatim: title)
-                .font(.caption)
+                .font(size > 60 ? .subheadline : .caption)
                 .fontWeight(speaking ? .semibold : .regular)
         }
+        .opacity(dimmed ? 0.55 : 1)
+        .animation(.easeInOut(duration: 0.25), value: speaking)
+        .animation(.easeInOut(duration: 0.25), value: dimmed)
     }
 
     @ViewBuilder private var avatar: some View {
