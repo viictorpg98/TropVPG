@@ -32,8 +32,8 @@ enum RadioSections {
     - Nada de bromas con muertes, accidentes, violencia ni victimas: si un dato es asi, usa otro.
     - Si nombras la emisora, escribe su nombre como "Sónar efe eme" (no hace falta nombrarla en cada frase). Si no estas seguro de algo, no lo digas.
     - Suena a gente real hablando: frases cortas (maximo 18 palabras), alguna duda o muletilla leve. Sin descripciones entre parentesis; para una risa usa la etiqueta <laugh> (maximo dos).
-    - Hablan como cualquier persona normal: reaccionan a lo que dice el otro, sin declamar ni exclamar en cada frase. La jerga (nene, brutal, ay bendito...) es un condimento: como mucho una vez en toda la seccion. Prohibido decir "wepa".
-    - Cada linea puede llevar un campo opcional "tono" con UNO de estos valores: \(RadioTone.names). Solo en una o dos lineas y cuando encaje de verdad.
+    - Lo que dicen suena natural, como en una conversacion de verdad (reaccionan a lo que dice el otro, no recitan), con el tono de dos locutores de radio, el mas natural en cada momento. La jerga (nene, brutal, ay bendito...) es un condimento: como mucho una vez en toda la seccion. Prohibido decir "wepa".
+    - Cada linea puede llevar un campo opcional "tono" con UNO de estos valores: \(RadioTone.names). Pon el tono con el que la diria un locutor de radio en ese momento, el mas natural (si el de siempre del personaje encaja, omite el campo); susurro, grito e incredulo solo cuando el contenido lo pida de verdad.
     - Responde SOLO con un JSON, sin texto antes ni despues: una lista de objetos {"speaker": "Pitirre" o "Chuleta", "text": "...", "tono": "..." (opcional)}.
     """
 
@@ -44,8 +44,8 @@ enum RadioSections {
     - De la cancion SOLO conoces el titulo y el artista que se te dan: no inventes nada mas sobre ellos.
     - Nada de comida, bebida ni cocina. Sin insultos, politica ni marcas comerciales. Sin descripciones entre parentesis; para una risa usa <laugh> (maximo dos).
     - Si nombras la emisora, escribe su nombre como "Sónar efe eme". Frases cortas (maximo 18 palabras).
-    - Hablan como cualquier persona normal, sin declamar. La jerga (nene, brutal, ay bendito...) como mucho una vez. Prohibido decir "wepa".
-    - Cada linea puede llevar un campo opcional "tono" con UNO de estos valores: \(RadioTone.names). Solo en una o dos lineas y cuando encaje de verdad.
+    - Lo que dicen suena natural, como en una conversacion de verdad, con el tono de dos locutores de radio. La jerga (nene, brutal, ay bendito...) como mucho una vez. Prohibido decir "wepa".
+    - Cada linea puede llevar un campo opcional "tono" con UNO de estos valores: \(RadioTone.names). Pon el tono mas natural para ese momento (el oyente de la nota de voz, sin tono: habla como un oyente normal); si el de siempre encaja, omite el campo; susurro, grito e incredulo solo cuando el contenido lo pida de verdad.
     - Responde SOLO con un JSON, sin texto antes ni despues: una lista de objetos {"speaker": "Pitirre" o "Chuleta" o el nombre del oyente, "text": "...", "tono": "..." (opcional)}.
     """
 

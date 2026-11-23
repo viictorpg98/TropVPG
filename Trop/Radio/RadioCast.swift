@@ -18,7 +18,14 @@ enum RadioTone {
         "cansado": "tired and low on energy, almost yawning",
         "emocionado": "thrilled, fast and bubbly, can't contain the excitement",
         "tierno": "warm, soft and affectionate",
-        "incredulo": "disbelieving, flabbergasted, laughing in shock"
+        "incredulo": "disbelieving, flabbergasted, laughing in shock",
+        // Tonos de locutor de radio para el dia a dia (el mas natural en cada momento).
+        "animado": "upbeat, friendly radio host energy, natural and relaxed, not over the top",
+        "calido": "warm, relaxed and conversational, like chatting with a friend in the studio",
+        "tranquilo": "calm, easygoing and mellow, unhurried",
+        "complice": "playful and conspiratorial, sharing a joke with the listener",
+        "burlon": "teasing and mischievous, with a smile in the voice",
+        "serio": "straight and sober, like reading the news"
     ]
 
     static var names: String {

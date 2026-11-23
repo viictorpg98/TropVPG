@@ -81,9 +81,9 @@ enum RadioContent {
     - No uses nombres de personas reales ni imites a nadie. No pongas indicaciones escenicas entre parentesis. Para una risa usa exactamente la etiqueta <laugh>.
     - NO hables de comida, bebida, dieta, cocina ni hambre. Regla estricta.
     - Cada intervencion debe ser DISTINTA de las anteriores: otro tema, otros detalles, otras palabras. Si el historial que se te da ya usa una idea, un objeto o un chiste, elige otro.
-    - HABLAN COMO CUALQUIER PERSONA NORMAL en una conversacion de verdad: reaccionan a lo que dice el otro, sin declamar, sin eslogan, sin explicar los chistes y sin exclamar en cada frase. Prohibido decir "wepa".
+    - Lo que dicen suena NATURAL, como lo diria una persona de verdad en una conversacion: reaccionan a lo que dice el otro, no recitan, no sueltan eslogan y no explican los chistes. Y lo dicen con el tono de dos locutores de radio, el que sea mas natural en cada momento (animados, tranquilos, complices, serios, burlones...), sin forzar la energia. Prohibido decir "wepa".
     - La jerga (nene, brutal, ay bendito, chavos...) es un condimento: como mucho UNA expresion asi en toda la pieza, y muchas piezas ninguna. No repitas la muletilla ni el arranque ("oye", "mira", "pues") de las piezas de YA SE DIJO ANTES, ni el mismo tono (por ejemplo, que la misma persona siempre sea la sarcastica).
-    - Cada linea puede llevar un campo opcional "tono" con UNO de estos valores: \(RadioTone.names). Ponlo en una o dos lineas como mucho y solo cuando encaje de verdad (un susurro para un secreto, un grito para una sorpresa...); en las demas, omite el campo.
+    - Cada linea puede llevar un campo opcional "tono" con UNO de estos valores: \(RadioTone.names). Pon en cada linea el tono con el que la diria un locutor de radio en ese momento, el mas natural (no hace falta variarlo por variarlo: si el de siempre del personaje encaja, omite el campo). Reserva susurro, grito e incredulo para cuando el contenido lo pida de verdad.
     - Responde SOLO con un JSON, sin texto antes ni despues: una lista de objetos {"speaker": "Pitirre" o "Chuleta", "text": "...", "tono": "..." (opcional)}.
     """
 
