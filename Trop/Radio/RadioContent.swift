@@ -172,7 +172,8 @@ enum RadioContent {
 
     // MARK: - Comentarios entre canciones
 
-    private static func dataBlock(previous: SongItem?, next: SongItem) -> String {
+    /// `spoken`: cuando se va a oir el comentario (no ahora: se escribe mientras suena la cancion anterior, unos minutos antes).
+    private static func dataBlock(previous: SongItem?, next: SongItem, spoken: Date) -> String {
         var text = ""
         if let previous {
             text += "Acaba de sonar: «\(previous.title)»\(byArtist(previous)).\n"
@@ -183,7 +184,7 @@ enum RadioContent {
         weekday.dateFormat = "EEEE"
         let clock = DateFormatter()
         clock.dateFormat = "HH:mm"
-        text += "Es \(weekday.string(from: Date())) y son las \(clock.string(from: Date())).\n"
+        text += "Es \(weekday.string(from: spoken)) y son, mas o menos, las \(clock.string(from: spoken)) (hora aproximada: si la dices, di \"sobre las...\" o \"casi las...\", nunca minutos exactos).\n"
         return text
     }
 
@@ -215,7 +216,7 @@ enum RadioContent {
     /// El texto de un comentario entre dos canciones (vacio si no sale a la tercera).
     /// `facts`: lo que la radio sabe de la persona (solo para las charlas; "" si la memoria esta apagada).
     /// `extras`: datos reales opcionales (de lo que suena, de tu historial, el tiempo) de los que puede usar UNO.
-    static func piece(kind: RadioPieceKind, previous: SongItem?, next: SongItem, facts: String = "", extras: [String] = []) async -> [RadioTurn] {
+    static func piece(kind: RadioPieceKind, previous: SongItem?, next: SongItem, facts: String = "", extras: [String] = [], spoken: Date = Date()) async -> [RadioTurn] {
         let isMini = kind == .mini
         var format = isMini ? draw(&miniDeck, from: miniFormats) : draw(&charlaDeck, from: charlaFormats)
         if !isMini, !facts.isEmpty, Int.random(in: 0..<3) == 0 { format = dataFormat }
@@ -226,7 +227,7 @@ enum RadioContent {
         var best: [RadioTurn] = []
         for _ in 0..<3 {
             var prompt = isMini ? "Escribe el MINI-COMENTARIO que suena entre dos canciones.\n" : "Escribe la CHARLA que suena entre dos canciones.\n"
-            prompt += dataBlock(previous: previous, next: next)
+            prompt += dataBlock(previous: previous, next: next, spoken: spoken)
             if isMini {
                 prompt += "TIPO DE COMENTARIO DE ESTA VEZ: \(format).\n"
             } else {
@@ -297,12 +298,6 @@ enum RadioContent {
         RadioTurn(speaker: "Pitirre", text: "Uy, buena petición. Ahorita te lo pongo.")
     ]
 
-    /// Cuñas de entrada de la emisora (suenan antes de las charlas).
-    static let jingles: [RadioTurn] = [
-        RadioTurn(speaker: "Pitirre", text: "¡Sónar efe eme!"),
-        RadioTurn(speaker: "Pitirre", text: "Sónar efe eme, nene.")
-    ]
-
     /// Una pregunta ya guardada; si no hay ninguna, se genera la primera ahora (la unica vez que hay que esperar).
     static func question() async -> RadioClip? {
         let order = questions.shuffled()
@@ -319,20 +314,11 @@ enum RadioContent {
         return nil
     }
 
-    static func entryJingle() async -> RadioClip? {
-        let jingle = jingles.randomElement() ?? jingles[0]
-        return await RadioVoice.clip([jingle], style: Gemini.announcerStyle, fixed: true, timeout: 12)
-    }
-
     /// Deja guardadas las frases fijas (con una pausa entre peticiones para no pasarse del limite por minuto). Devuelve cuantas ha generado.
     static func prewarm() async -> Int {
         var items: [(turns: [RadioTurn], style: String?)] = []
         for question in questions { items.append((turns: question, style: nil)) }
         for filler in fillers { items.append((turns: [filler], style: nil)) }
-        for jingle in jingles { items.append((turns: [jingle], style: Gemini.announcerStyle)) }
-        for kind in RadioSectionKind.allCases {
-            for shout in RadioSections.shouts[kind] ?? [] { items.append((turns: [shout], style: Gemini.announcerStyle)) }
-        }
         var made = 0
         for item in items {
             if RadioVoice.cachedClip(item.turns, style: item.style, fixed: true) != nil { continue }

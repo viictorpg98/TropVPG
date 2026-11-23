@@ -37,6 +37,8 @@ final class RadioSession {
         let outro: RadioClip?
         let section: RadioSectionAssets?
         let turns: [RadioTurn]
+        /// El golpe musical de Lyria que suena bajo el grito de entrada de una charla.
+        var golpe: URL? = nil
     }
 
     /// `true` mientras hay un corte previsto (o en marcha): AutoMix no mezcla en ese paso (ver `MixTransition.mixingEnabled`).
@@ -80,6 +82,10 @@ final class RadioSession {
     /// Cuanto puede durar el corte antes de que el vigilante lo de por colgado: 90 s, o mas si la seccion es larga (nota de voz, efectos).
     @ObservationIgnored private var breakLimit: TimeInterval = 90
     @ObservationIgnored private var breakTask: Task<Void, Never>?
+    @ObservationIgnored private var handoverTask: Task<Void, Never>?
+    /// Durante el relevo (la siguiente cancion ya entra bajo la voz): la musiquita se desvanece sola y el cambio de cancion que provoco el propio relevo no cancela el corte.
+    @ObservationIgnored private var handingOver = false
+    @ObservationIgnored private var handoverSongId: String?
     @ObservationIgnored private var sectionCount = 0
     @ObservationIgnored private var toppingUp = false
     @ObservationIgnored private var topUps = 0
@@ -216,9 +222,11 @@ final class RadioSession {
 
     /// Reproduce un clip con la musica por debajo, como en una radio de verdad: baja mientras hay voz y sube en las pausas entre frases. Se sigue la
     /// posicion del audio contra un mapa de donde hay voz.
-    private func playClipDucked(_ clip: RadioClip, turns: [RadioTurn]? = nil) async -> Bool {
+    private func playClipDucked(_ clip: RadioClip, turns: [RadioTurn]? = nil, golpe: URL? = nil) async -> Bool {
         let map = RadioAudio.activity(of: clip.wav)
         followerTask?.cancel()
+        // Con golpe musical (la entrada de una charla): suena junto al grito, baja mientras se habla y sube en las pausas, como la musica de una radio.
+        if let golpe { bedPlayer.start(url: golpe, volume: 0.5) }
         let follower = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
@@ -228,6 +236,10 @@ final class RadioSession {
                 let controller = PlayerController.shared
                 controller.volumeScale += (target - controller.volumeScale) * 0.3
                 controller.applyPlayerVolume()
+                if golpe != nil {
+                    let wanted: Float = talking ? 0.12 : 0.5
+                    self.bedPlayer.volume += (wanted - self.bedPlayer.volume) * 0.25
+                }
                 if let turns { self.updateHost(turns: turns, seconds: clip.seconds) }
                 try? await Task.sleep(nanoseconds: 50_000_000)
             }
@@ -235,6 +247,14 @@ final class RadioSession {
         followerTask = follower
         let finished = await playClip(clip)
         follower.cancel()
+        if golpe != nil {
+            // El golpe se apaga con un fundido corto cuando acaba el grito.
+            bedPlayer.fade(to: 0, over: 0.6)
+            Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 700_000_000)
+                if self?.breakActive == false { self?.bedPlayer.stop() }
+            }
+        }
         if turns != nil { setHost(nil) }
         return finished
     }
@@ -413,7 +433,7 @@ final class RadioSession {
             let total = clock.duration > 0 ? clock.duration : np.duration
             guard let piece = ready[key], !played.contains(key), total > 0 else { return }
             let remaining = total - clock.currentTime
-            if remaining <= 10.5 {
+            if remaining <= 7.5 {
                 startBreak(piece, key: key, outId: id, nextKey: RadioBlocklist.key(for: next))
             }
             return
@@ -459,7 +479,12 @@ final class RadioSession {
         RadioDiary.recordPlay(song)
         // Un corte en marcha se acaba si cambia la cancion por tu mano (o si la radio ya la dejo pausada); solo la siguiente que llega sola, mientras la
         // saliente aun se funde, se deja a `runBreak`.
-        if breakActive, pausedByRadio || RadioBlocklist.key(for: song) != breakNextKey { cancelBreak(resume: false) }
+        if breakActive, handingOver {
+            // El primer cambio durante el relevo es el que provoca el propio relevo (aunque cambie el titulo o el id por la version de audio); otro distinto es que has saltado.
+            if let own = handoverSongId, own != id { cancelBreak(resume: false) } else { handoverSongId = id }
+        } else if breakActive, pausedByRadio || RadioBlocklist.key(for: song) != breakNextKey {
+            cancelBreak(resume: false)
+        }
         // La voz sigue si la que suena ahora es la que esperaba (se compara por titulo y artista: el id puede cambiar a la version de audio).
         if speaking, speakingToKey != RadioBlocklist.key(for: song) { cancelSpeech() }
         ready = ready.filter { $0.key.hasPrefix(id + ">") }
@@ -501,20 +526,25 @@ final class RadioSession {
     private func generate(key: String, kind: RadioPieceKind, previous: SongItem, next: SongItem) {
         generating.insert(key)
         let started = Date()
+        // El comentario se escribe mientras suena la cancion anterior y se oye al final de ella: la hora que se le da es la de ENTONCES.
+        let clock = PlayerController.shared
+        let total = clock.duration > 0 ? clock.duration : NowPlaying.shared.duration
+        let spoken = started.addingTimeInterval(max(0, total - clock.currentTime))
         Task { [weak self] in
-            let facts = kind == .charla ? RadioDiary.factsBlock(tasteText: self?.tasteText ?? "") : ""
+            let facts = kind == .charla ? RadioDiary.factsBlock(tasteText: self?.tasteText ?? "", at: spoken) : ""
             // Datos reales opcionales: lo que has escuchado de la siguiente (4 de cada 10 veces) y el tiempo ya bajado (1 de cada 4).
             var extras: [String] = []
             // Lo del historial va con "La radio recuerda": con la memoria apagada no se manda ningun titulo de lo que has escuchado.
             if RadioSettings.memoryEnabled, Int.random(in: 0..<10) < 4, let line = await RadioSongFacts.line(for: next) { extras.append(line) }
             if Int.random(in: 0..<4) == 0, let weather = RadioWorld.weatherLine() { extras.append(weather) }
-            let turns = await RadioContent.piece(kind: kind, previous: previous, next: next, facts: facts, extras: extras)
+            // La charla vuelve con un grito NUEVO (texto y voz de cada vez) sobre un golpe musical de Lyria; se prepara a la vez que la charla.
+            let identTask: Task<RadioClip?, Never>? = kind == .charla ? Task { await RadioIdent.make(.charla) } : nil
+            let turns = await RadioContent.piece(kind: kind, previous: previous, next: next, facts: facts, extras: extras, spoken: spoken)
             var clip: RadioClip?
             if !turns.isEmpty { clip = await RadioVoice.clip(turns) }
             var entry: RadioClip?
-            if clip != nil, kind == .charla { entry = RadioSounds.cuna(entrance: true) }
-            if entry == nil, clip != nil, kind == .charla { entry = await RadioContent.entryJingle() }
-            let outro = (clip != nil && kind == .charla) ? RadioSounds.cuna(entrance: false) : nil
+            if clip != nil { entry = await identTask?.value }
+            let golpe = entry != nil ? RadioSounds.golpe() : nil
             guard let self else { return }
             self.generating.remove(key)
             guard self.isActive else { return }
@@ -530,7 +560,7 @@ final class RadioSession {
                 self.report("\(name): llego con la cancion ya cambiada")
                 return
             }
-            self.ready[key] = ReadyPiece(kind: kind, clip: clip, entry: entry, outro: outro, section: nil, turns: turns)
+            self.ready[key] = ReadyPiece(kind: kind, clip: clip, entry: entry, outro: nil, section: nil, turns: turns, golpe: golpe)
             if kind == .charla, RadioSettings.memoryEnabled {
                 Task {
                     let note = await RadioContent.recallNote(for: turns)
@@ -551,7 +581,7 @@ final class RadioSession {
         speechTask = Task { [weak self] in
             guard let self else { return }
             await self.duck(to: self.duckLevel, over: 0.6)
-            if !Task.isCancelled, let entry = piece.entry { _ = await self.playClipDucked(entry) }
+            if !Task.isCancelled, let entry = piece.entry { _ = await self.playClipDucked(entry, golpe: piece.golpe) }
             if !Task.isCancelled, self.speaking { _ = await self.playClipDucked(piece.clip, turns: piece.turns) }
             if !Task.isCancelled, self.speaking, let outro = piece.outro { _ = await self.playClipDucked(outro) }
             guard !Task.isCancelled, self.speaking else { return }
@@ -567,6 +597,8 @@ final class RadioSession {
         speechTask?.cancel()
         speechTask = nil
         player.stop()
+        // El golpe de la entrada de una charla se corta con ella (en un corte de seccion la musiquita la arranca despues).
+        if !breakActive { bedPlayer.stop() }
         speaking = false
         speakingToKey = nil
         setHost(nil)
@@ -633,6 +665,9 @@ final class RadioSession {
         breakOutId = outId
         breakNextKey = nextKey
         breakPausedId = nil
+        handoverTask = nil
+        handingOver = false
+        handoverSongId = nil
         breakStartedAt = Date()
         let contentSeconds = section.voice.seconds + (section.note?.seconds ?? 0) + (section.shout?.seconds ?? 0) + (section.outro?.seconds ?? 0)
         breakLimit = max(90, contentSeconds + 30)
@@ -642,23 +677,20 @@ final class RadioSession {
         }
     }
 
-    /// El corte, con solape: unos 10 s antes del final la sintonia entra A TODO VOLUMEN con la cancion todavia sonando por debajo (baja a un cuarto en 2 s y se funde
-    /// del todo en 4 s mas; se pausa al llegar a 0 o 0,35 s antes del final), con el grito de la seccion encima. Despues habla la seccion con la musiquita de fondo (sube
-    /// un poco en las pausas) y, al acabar, la SIGUIENTE cancion entra (con fundido de entrada) mientras suena la cuña de salida y la musiquita se desvanece por debajo.
+    /// El corte, mezclado como lo haria AutoMix. ENTRADA: unos 7 s antes del final la cancion y la musiquita de la seccion se cruzan con curvas de potencia constante (la
+    /// cancion baja y la musiquita sube desde su principio; la cancion llega a 0 justo al final, donde se pausa), y cuando la cancion ya casi no se oye entra el grito de la
+    /// seccion. Despues habla la seccion con la musiquita de fondo (sube un poco en las pausas). SALIDA: unos 4 s antes de que acabe la voz, la SIGUIENTE cancion empieza
+    /// bajita (entra con la misma curva) y la musiquita se desvanece por debajo, asi la ultima frase del locutor cae sobre la intro. Cuando la voz acaba, la cancion sube a su volumen.
     /// La posicion se mira cada 50 ms.
     private func runBreak(_ section: RadioSectionAssets) async {
         let np = NowPlaying.shared
         let controller = PlayerController.shared
         airingSection = section.kind
-        // 1) La sintonia entra con la saliente aun sonando; el grito de la seccion va encima.
-        if let url = section.bed { bedPlayer.start(url: url, volume: 1.0) }
-        let shoutTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 600_000_000)
-            guard !Task.isCancelled, let self, let shout = section.shout else { return }
-            _ = await self.playClip(shout)
-        }
+        // 1) Fundido cruzado: la musiquita entra desde su principio mientras la cancion baja hasta apagarse justo en su final.
+        let total0 = controller.duration > 0 ? controller.duration : np.duration
+        let cross = min(7.0, max(2.5, total0 - controller.currentTime - 0.35))
+        if let url = section.bed { bedPlayer.start(url: url, volume: 0) }
         let started = Date()
-        // 2) La cancion baja y se funde; se pausa al llegar a 0 o justo antes del final.
         while !Task.isCancelled {
             guard let current = np.videoId else { break }
             if current != breakOutId {
@@ -666,27 +698,25 @@ final class RadioSession {
                 // 3 s, con la musica a 0): pausar antes de que suene no hace nada y luego arrancaria sola.
                 controller.volumeScale = 0
                 controller.applyPlayerVolume()
+                bedPlayer.volume = 0.8
                 var waited = 0
                 while waited < 60, !Task.isCancelled, np.loadingTrackId != nil || !np.isPlaying {
                     try? await Task.sleep(nanoseconds: 50_000_000)
                     waited += 1
                 }
-                guard !Task.isCancelled else {
-                    shoutTask.cancel()
-                    return
-                }
+                guard !Task.isCancelled else { return }
                 controller.setPaused(true)
                 pausedByRadio = true
                 breakPausedId = np.videoId
                 breakResumesCurrent = true
                 break
             }
-            let elapsed = Date().timeIntervalSince(started)
-            let level = elapsed < 2 ? 1 - 0.75 * (elapsed / 2) : max(0, 0.25 - 0.25 * ((elapsed - 2) / 4))
-            controller.volumeScale = level
+            let progress = min(1, Date().timeIntervalSince(started) / cross)
+            controller.volumeScale = cbrt(max(0, cos(progress * .pi / 2)))  // mpv aplica el volumen al CUBO: asi la ganancia real sigue el coseno
             controller.applyPlayerVolume()
+            bedPlayer.volume = Float(sin(progress * .pi / 2)) * 0.9
             let total = controller.duration > 0 ? controller.duration : np.duration
-            if level <= 0 || total - controller.currentTime <= 0.35 {
+            if progress >= 1 || total - controller.currentTime <= 0.3 {
                 controller.setPaused(true)
                 pausedByRadio = true
                 breakPausedId = np.videoId
@@ -694,63 +724,60 @@ final class RadioSession {
             }
             try? await Task.sleep(nanoseconds: 50_000_000)
         }
-        await shoutTask.value
+        // El grito (nuevo cada vez) entra cuando la cancion ya se ha apagado, con la musiquita arriba; en cuanto habla, la musiquita baja bajo la voz.
+        if !Task.isCancelled, let shout = section.shout { _ = await playClipOverBed(shout) }
         guard !Task.isCancelled else { return }
 
-        // 3) La seccion, con la musiquita por debajo (sube un poco en las pausas entre frases).
+        // 2) La seccion, con la musiquita por debajo (sube un poco en las pausas entre frases).
         bedPlayer.fade(to: 0.2, over: 1.0)
-        try? await Task.sleep(nanoseconds: 900_000_000)
-        if !Task.isCancelled { _ = await playClipOverBed(section.voice, turns: section.turns) }
+        try? await Task.sleep(nanoseconds: 700_000_000)
+        if !Task.isCancelled {
+            if section.note == nil { scheduleHandover(clipSeconds: section.voice.seconds) }
+            _ = await playClipOverBed(section.voice, turns: section.turns)
+        }
         if !Task.isCancelled, let note = section.note {
-            // La nota de voz del oyente (otra voz, sin locutores en pantalla).
+            // La nota de voz del oyente (otra voz, sin locutores en pantalla); la siguiente cancion entra por debajo de ella.
+            scheduleHandover(clipSeconds: note.seconds)
             _ = await playClipOverBed(note)
         }
         guard !Task.isCancelled else { return }
 
-        // 4) La siguiente cancion entra con la cuña de salida y la musiquita se desvanece por debajo.
-        bedPlayer.fade(to: 0.45, over: 0.3)
-        let outroTask = Task { [weak self] in
-            if let outro = section.outro { _ = await self?.playClip(outro) }
-        }
-        finishBreak(fadeIn: true)
-        bedPlayer.fade(to: 0, over: 2.5)
-        await outroTask.value
-        try? await Task.sleep(nanoseconds: 1_200_000_000)
-        bedPlayer.stop()
-    }
-
-    private func playClipOverBed(_ clip: RadioClip, turns: [RadioTurn]? = nil) async -> Bool {
-        let map = RadioAudio.activity(of: clip.wav)
-        followerTask?.cancel()
-        let follower = Task { [weak self] in
-            while !Task.isCancelled {
-                guard let self else { return }
-                let index = Int(self.player.currentTime / RadioAudio.activityWindow)
-                let talking = map.indices.contains(index) ? map[index] : true
-                let target: Float = talking ? 0.18 : 0.5
-                let current = self.bedPlayer.volume
-                self.bedPlayer.volume = current + (target - current) * 0.25
-                if let turns { self.updateHost(turns: turns, seconds: clip.seconds) }
-                try? await Task.sleep(nanoseconds: 50_000_000)
-            }
-        }
-        followerTask = follower
-        let finished = await playClip(clip)
-        follower.cancel()
-        if turns != nil { setHost(nil) }
-        return finished
-    }
-
-    /// Fin del corte: arranca la siguiente cancion (con fundido de entrada si `fadeIn`; el volumen vuelve a 1 al terminar el fundido).
-    private func finishBreak(fadeIn: Bool) {
-        let resumesCurrent = breakResumesCurrent
+        // 3) La siguiente cancion ya viene entrando (o se arranca ahora si la voz fue muy corta); se espera a que termine su fundido y sube a su volumen.
+        if handoverTask == nil { scheduleHandover(clipSeconds: 0) }
+        await handoverTask?.value
+        guard !Task.isCancelled else { return }
         breakActive = false
         breakTask = nil
-        pausedByRadio = false
         airingSection = nil
+        handoverTask = nil
+        await duck(to: 1, over: 1.5)
+        report("corte terminado: sigue la musica")
+        bedPlayer.fade(to: 0, over: 1.2)
+        try? await Task.sleep(nanoseconds: 1_400_000_000)
+        bedPlayer.stop()
+        handingOver = false
+    }
+
+    /// Programa la entrada de la siguiente cancion para unos 4 s antes de que acabe el audio que suena ahora (o ya, si dura menos).
+    private func scheduleHandover(clipSeconds: Double) {
+        handoverTask?.cancel()
+        let lead = min(4.5, clipSeconds * 0.6)
+        handoverTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(max(0, clipSeconds - lead) * 1_000_000_000))
+            guard !Task.isCancelled, let self else { return }
+            await self.handOver()
+        }
+    }
+
+    /// Arranca la siguiente cancion (o la vuelve a empezar si ya habia empezado sola) a volumen 0 y la sube con curva de potencia constante hasta el nivel
+    /// de "hay voz" mientras la musiquita se apaga por debajo.
+    private func handOver() async {
+        handingOver = true
+        let resumesCurrent = breakResumesCurrent
+        pausedByRadio = false
         setHold(false)
         let controller = PlayerController.shared
-        controller.volumeScale = fadeIn ? 0 : 1
+        controller.volumeScale = 0
         controller.applyPlayerVolume()
         let np = NowPlaying.shared
         if resumesCurrent {
@@ -761,12 +788,44 @@ final class RadioSession {
         } else {
             controller.setPaused(false)
         }
-        if fadeIn {
-            Task { [weak self] in
-                await self?.duck(to: 1, over: 2.5)
+        bedPlayer.fade(to: 0, over: 5.0)
+        // El fundido de entrada cuenta desde que la cancion SUENA (cargar puede tardar un par de segundos).
+        var waited = 0
+        while waited < 100, !Task.isCancelled, np.loadingTrackId != nil || !np.isPlaying {
+            try? await Task.sleep(nanoseconds: 50_000_000)
+            waited += 1
+        }
+        let steps = 60
+        for step in 1...steps {
+            if Task.isCancelled { return }
+            controller.volumeScale = duckLevel * cbrt(sin(Double(step) / Double(steps) * .pi / 2))
+            controller.applyPlayerVolume()
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+    }
+
+    private func playClipOverBed(_ clip: RadioClip, turns: [RadioTurn]? = nil) async -> Bool {
+        let map = RadioAudio.activity(of: clip.wav)
+        followerTask?.cancel()
+        let follower = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                let index = Int(self.player.currentTime / RadioAudio.activityWindow)
+                let talking = map.indices.contains(index) ? map[index] : true
+                let target: Float = talking ? 0.13 : 0.45
+                if !self.handingOver {
+                    let current = self.bedPlayer.volume
+                    self.bedPlayer.volume = current + (target - current) * 0.25
+                }
+                if let turns { self.updateHost(turns: turns, seconds: clip.seconds) }
+                try? await Task.sleep(nanoseconds: 50_000_000)
             }
         }
-        report("corte terminado: sigue la musica")
+        followerTask = follower
+        let finished = await playClip(clip)
+        follower.cancel()
+        if turns != nil { setHost(nil) }
+        return finished
     }
 
     /// Corta un corte (otra cancion, reproducir, 90 s, fin de la radio): para la voz y la musiquita y devuelve el volumen. Con `resume`, si la radio habia
@@ -781,6 +840,10 @@ final class RadioSession {
         setHost(nil)
         breakTask?.cancel()
         breakTask = nil
+        handoverTask?.cancel()
+        handoverTask = nil
+        handingOver = false
+        handoverSongId = nil
         followerTask?.cancel()
         followerTask = nil
         player.stop()

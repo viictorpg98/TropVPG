@@ -14,6 +14,7 @@ struct RadioDialView: View {
     let frequency: Double
     let active: Bool
     let tuning: Bool
+    var height: CGFloat = 130
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !(active || tuning))) { timeline in
@@ -21,7 +22,7 @@ struct RadioDialView: View {
                 draw(context, size: size, time: timeline.date.timeIntervalSinceReferenceDate)
             }
         }
-        .frame(height: 130)
+        .frame(height: height)
     }
 
     private func draw(_ context: GraphicsContext, size: CGSize, time: Double) {
@@ -143,10 +144,10 @@ struct RadioHostView: View {
                     let pulse = speaking ? 0.5 + 0.5 * sin(timeline.date.timeIntervalSinceReferenceDate * 6) : 0
                     Circle()
                         .stroke(Color.red.opacity(speaking ? 0.35 + 0.5 * pulse : 0), lineWidth: 4 + 3 * pulse)
-                        .frame(width: 70, height: 70)
+                        .frame(width: 62, height: 62)
                 }
                 avatar
-                    .frame(width: 60, height: 60)
+                    .frame(width: 52, height: 52)
                     .clipShape(Circle())
             }
             Text(verbatim: title)

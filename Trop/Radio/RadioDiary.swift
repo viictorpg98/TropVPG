@@ -98,7 +98,8 @@ enum RadioDiary {
     // MARK: - Lo que se manda a Gemini
 
     /// El resumen de lo que la radio sabe de la persona, para el prompt de las charlas ("" si la memoria esta apagada).
-    static func factsBlock(tasteText: String) -> String {
+    /// `at`: cuando SE VA A OIR el comentario (se escribe unos minutos antes, mientras suena la cancion anterior), para dar la hora de entonces y no la de ahora.
+    static func factsBlock(tasteText: String, at spoken: Date = Date()) -> String {
         guard RadioSettings.memoryEnabled else { return "" }
         let now = Date()
         let weekday = DateFormatter()
@@ -106,7 +107,7 @@ enum RadioDiary {
         weekday.dateFormat = "EEEE"
         let clock = DateFormatter()
         clock.dateFormat = "HH:mm"
-        var lines = ["Ahora es \(weekday.string(from: now)) y son las \(clock.string(from: now))."]
+        var lines = ["Ahora es \(weekday.string(from: spoken)) y son, mas o menos, las \(clock.string(from: spoken)) (hora aproximada: di \"sobre las...\" o \"casi las...\", nunca minutos exactos)."]
 
         let sessions = load([Session].self, sessionsKey) ?? []
         let today = dayString(now)

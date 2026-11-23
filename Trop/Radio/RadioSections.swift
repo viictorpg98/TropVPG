@@ -47,24 +47,6 @@ enum RadioSections {
     - Responde SOLO con un JSON, sin texto antes ni despues: una lista de objetos {"speaker": "Pitirre" o "Chuleta" o el nombre del oyente, "text": "...", "tono": "..." (opcional)}.
     """
 
-    /// Lo que grita la voz sobre la sintonia al empezar cada seccion (dos variantes; se guardan una vez).
-    static let shouts: [RadioSectionKind: [RadioTurn]] = [
-        .noticiero: [RadioTurn(speaker: "Pitirre", text: "¡El noticiero de Sónar efe eme!"),
-                     RadioTurn(speaker: "Chuleta", text: "¡Atención, atención! ¡Noticiero Sónar!")],
-        .tiempo: [RadioTurn(speaker: "Chuleta", text: "¡Y ahora, el tiempo!"),
-                  RadioTurn(speaker: "Pitirre", text: "¡Hora del tiempo en Sónar efe eme!")],
-        .anuncios: [RadioTurn(speaker: "Chuleta", text: "¡La publicidad de Sónar efe eme!"),
-                    RadioTurn(speaker: "Pitirre", text: "¡Pausa para los anunciantes!")],
-        .tendencias: [RadioTurn(speaker: "Pitirre", text: "¡Lo más buscado!"),
-                      RadioTurn(speaker: "Chuleta", text: "¡Tendencias en Sónar efe eme!")],
-        .top5: [RadioTurn(speaker: "Pitirre", text: "¡Tus cinco de la semana, en Sónar efe eme!"),
-                RadioTurn(speaker: "Chuleta", text: "¡La lista de la semana!")],
-        .hoy: [RadioTurn(speaker: "Chuleta", text: "¡Un día como hoy!"),
-               RadioTurn(speaker: "Pitirre", text: "¡Hoy en la historia, en Sónar efe eme!")],
-        .whatsapp: [RadioTurn(speaker: "Chuleta", text: "¡El WhatsApp de Sónar efe eme!"),
-                    RadioTurn(speaker: "Pitirre", text: "¡Los mensajes de los oyentes!")]
-    ]
-
     private struct Spec {
         let instruction: String
         let data: String
@@ -178,6 +160,8 @@ enum RadioSections {
             }
         }
         guard !hostTurns.isEmpty else { return nil }
+        // El grito de entrada se escribe y se dice NUEVO cada vez, a la vez que el resto (si no sale, la seccion entra solo con su musiquita).
+        let shoutTask = Task { await RadioIdent.make(.section(kind)) }
         var note: RadioClip?
         if spec.guest != nil {
             // La nota de voz va PRIMERO: es lo mas arriesgado (otra voz) y sin ella la seccion no tiene sentido (los locutores ya la habrian anunciado); asi,
@@ -187,10 +171,8 @@ enum RadioSections {
         }
         guard let voice = await RadioVoice.clip(hostTurns, timeout: 30) else { return nil }
         RadioHistory.add(hostTurns + noteTurns)
-        let shout = await RadioVoice.clip([(shouts[kind] ?? []).randomElement() ?? RadioTurn(speaker: "Pitirre", text: "¡Sónar efe eme!")],
-                                          style: Gemini.announcerStyle, fixed: true, timeout: 12)
         var assets = RadioSectionAssets(
-            kind: kind, turns: hostTurns, voice: voice, shout: shout, bed: RadioSounds.bed(for: kind), outro: RadioSounds.cuna(entrance: false)
+            kind: kind, turns: hostTurns, voice: voice, shout: await shoutTask.value, bed: RadioSounds.bed(for: kind), outro: nil
         )
         assets.note = note
         assets.noteTurns = noteTurns

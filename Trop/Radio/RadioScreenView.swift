@@ -42,13 +42,11 @@ struct RadioScreenView: View {
             ZStack(alignment: .top) {
                 background
                 ScrollView {
-                    VStack(spacing: 18) {
+                    VStack(spacing: 14) {
                         header
-                        dialCard
-                        if radio.isActive { nowCard }
+                        stationCard
                         hostsRow
                         if radio.isActive, sectionsOn { sectionStrip }
-                        controls
                         if !recents.isEmpty { recentsBlock }
                         Text(usageText)
                             .font(.footnote)
@@ -56,9 +54,16 @@ struct RadioScreenView: View {
                             .multilineTextAlignment(.center)
                     }
                     .padding(.horizontal, 16)
-                    .padding(.bottom, 24)
+                    .padding(.bottom, 12)
                 }
                 .miniPlayerTracksScroll()
+                // Los botones quedan fijos justo encima del mini reproductor: siempre a mano, sin tener que bajar.
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    controls
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color(.systemBackground).opacity(0.92))
+                }
             }
             .toolbar(.hidden, for: .navigationBar)
             .detailRouteDestinations()
@@ -106,12 +111,25 @@ struct RadioScreenView: View {
 
     // MARK: - Dial
 
-    private var dialCard: some View {
-        VStack(spacing: 4) {
-            RadioDialView(frequency: radio.frequency, active: radio.isActive, tuning: radio.isStarting)
+    private var stationCard: some View {
+        VStack(spacing: 10) {
+            dialBlock
+            if radio.isActive {
+                Divider().opacity(0.4)
+                nowRow
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
+    }
+
+    private var dialBlock: some View {
+        VStack(spacing: 2) {
+            RadioDialView(frequency: radio.frequency, active: radio.isActive, tuning: radio.isStarting, height: 96)
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(verbatim: radio.isActive || radio.isStarting ? String(format: "%.1f", radio.frequency) : "--.-")
-                    .font(.system(size: 40, weight: .semibold, design: .rounded))
+                    .font(.system(size: 34, weight: .semibold, design: .rounded))
                 Text(verbatim: "FM")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -125,33 +143,28 @@ struct RadioScreenView: View {
                     .multilineTextAlignment(.center)
             }
         }
-        .padding(14)
         .frame(maxWidth: .infinity)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
     }
 
     // MARK: - Lo que suena
 
-    private var nowCard: some View {
-        HStack(spacing: 16) {
+    private var nowRow: some View {
+        HStack(spacing: 12) {
             if let kind = radio.airingSection {
                 sectionTile(kind)
             } else {
                 RadioDiscView(cover: np.thumbnailUIImage, spinning: np.isPlaying)
-                    .frame(width: 92, height: 92)
+                    .frame(width: 58, height: 58)
             }
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 2) {
                 if let kind = radio.airingSection {
                     Text(LocalizedStringKey(kind.displayKey))
                         .font(.headline)
                     RadioEqualizerView(active: true)
                 } else {
-                    Text("Now Playing")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                     Text(verbatim: np.title.isEmpty ? "—" : np.title)
                         .font(.headline)
-                        .lineLimit(2)
+                        .lineLimit(1)
                     Text(verbatim: np.artist)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -162,61 +175,50 @@ struct RadioScreenView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
-                        .padding(.top, 2)
                 }
             }
             Spacer(minLength: 0)
         }
-        .padding(14)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
     }
 
     private func sectionTile(_ kind: RadioSectionKind) -> some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 18).fill(Color.red.opacity(0.15))
+            RoundedRectangle(cornerRadius: 14).fill(Color.red.opacity(0.15))
             Image(systemName: kind.icon)
-                .font(.system(size: 36, weight: .medium))
+                .font(.system(size: 26, weight: .medium))
                 .foregroundStyle(Color.red)
         }
-        .frame(width: 92, height: 92)
+        .frame(width: 58, height: 58)
     }
 
     // MARK: - Locutores y seccion
 
     private var hostsRow: some View {
-        HStack(spacing: 34) {
+        HStack(spacing: 40) {
             RadioHostView(name: "Pitirre", title: "El Pitirre", speaking: radio.speakingHost == "Pitirre")
             RadioHostView(name: "Chuleta", title: "La Chuleta", speaking: radio.speakingHost == "Chuleta")
         }
-        .padding(.vertical, 4)
     }
 
+    /// Una sola linea con la proxima seccion (el orden es al azar, asi que sin puntos de progreso).
     private var sectionStrip: some View {
-        let kinds = RadioSectionKind.allCases
-        let current = kinds.firstIndex(of: radio.nextSectionKind) ?? 0
-        return HStack(spacing: 12) {
+        HStack(spacing: 10) {
             Image(systemName: radio.nextSectionKind.icon)
-                .font(.title3)
-                .frame(width: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(String(format: NSLocalizedString("Next section: %@", comment: ""), NSLocalizedString(radio.nextSectionKind.displayKey, comment: "")))
-                    .font(.subheadline)
-                Text(radio.commentsUntilSection == 0
-                     ? NSLocalizedString("Coming up next", comment: "")
-                     : String(format: NSLocalizedString("In %d comments", comment: ""), radio.commentsUntilSection))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 0)
-            HStack(spacing: 5) {
-                ForEach(0..<kinds.count, id: \.self) { index in
-                    Circle()
-                        .fill(index == current ? Color.primary : Color.secondary.opacity(0.3))
-                        .frame(width: 7, height: 7)
-                }
-            }
+                .font(.body)
+                .frame(width: 24)
+            Text(String(format: NSLocalizedString("Next section: %@", comment: ""), NSLocalizedString(radio.nextSectionKind.displayKey, comment: "")))
+                .font(.subheadline)
+                .lineLimit(1)
+            Spacer(minLength: 4)
+            Text(radio.commentsUntilSection == 0
+                 ? NSLocalizedString("Coming up next", comment: "")
+                 : String(format: NSLocalizedString("In %d comments", comment: ""), radio.commentsUntilSection))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
         }
-        .padding(12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
     }
 
