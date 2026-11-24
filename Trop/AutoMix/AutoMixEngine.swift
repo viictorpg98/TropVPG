@@ -515,7 +515,7 @@ final class AutoMixEngine {
     /// El usuario pide mezclar ya: el aviso animado sale al instante y la mezcla empieza en cuanto este preparada (unos
     /// segundos: lo que tardo la ultima vez, con un margen).
     @discardableResult
-    func mixNow() -> Bool {
+    func mixNow(announceFailure: Bool = true) -> Bool {
         guard MixTransition.mixingEnabled else { return false }
         guard !AutoMixVisuals.shared.preparingManual else { return false }
         // Ya hay una mezcla automatica preparandose o armada (el final de la cancion esta cerca): antes no se enseñaba nada.
@@ -525,7 +525,7 @@ final class AutoMixEngine {
             return true
         }
         guard let (outId, inId) = currentPair() else {
-            PlaybackNotice.shared.show(NSLocalizedString("Can't mix right now.", comment: ""))
+            if announceFailure { PlaybackNotice.shared.show(NSLocalizedString("Can't mix right now.", comment: "")) }
             return false
         }
         holdPillTask?.cancel()
@@ -539,7 +539,7 @@ final class AutoMixEngine {
     /// en unos segundos); si no se puede mezclar ahora, es el salto de siempre. Un segundo toque mientras la mezcla se prepara salta de golpe.
     func skipToNext() {
         let np = NowPlaying.shared
-        if np.hasNext, np.isPlaying, mixNow() {
+        if np.hasNext, np.isPlaying, mixNow(announceFailure: false) {
             PlaybackReport.record("automix: siguiente pedido, se pasa a ella con una mezcla")
             return
         }
