@@ -23,7 +23,7 @@ enum RadioNotebook {
         "A Pitirre le cuesta madrugar y siempre llega justo al estudio.",
         "Chuleta apunta en una libreta las tonterias de Pitirre.",
         "En el estudio hay un ventilador que hace ruido y nadie arregla.",
-        "Pitirre se hace el despistado con el futbol para picar a Chuleta.",
+        "Pitirre dice ser de otro equipo de futbol solo para picar a Chuleta.",
         "Chuleta es muy puntual y se lo echa en cara a Pitirre.",
         "Pitirre pierde el movil cada dos por tres."
     ]
@@ -66,8 +66,10 @@ enum RadioNotebook {
                 text += "\nEsta vez puedes retomar de pasada esto de antes: \(again)."
             }
         }
-        text += "\nCOSAS FIJAS DE LOS PERSONAJES (siempre son asi; usalas solo si vienen al caso y en menos de la mitad de las piezas): "
-            + bible.shuffled().prefix(2).joined(separator: " ")
+        // Los rasgos fijos solo en una de cada tres piezas (si no, el primo y la comadre salen en todas).
+        if Int.random(in: 0..<3) == 0 {
+            text += "\nCOSAS FIJAS DE LOS PERSONAJES (siempre son asi; usalas solo si vienen al caso): " + bible.shuffled().prefix(2).joined(separator: " ")
+        }
         return text
     }
 }

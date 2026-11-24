@@ -19,7 +19,7 @@ enum RadioShape: CaseIterable {
         case .dry:
             return "UN solo locutor, UNA frase: presenta con naturalidad, sin chiste, como una radio normal."
         case .solo:
-            return "UN solo locutor habla (de 1 a 4 lineas seguidas) y el otro NO interviene."
+            return "UN solo locutor habla (todas las lineas son suyas; cuantas, segun la LONGITUD) y el otro NO interviene."
         case .listens:
             return "Uno cuenta algo (1 o 2 lineas con sustancia) y el otro solo reacciona con frases de MAXIMO 4 palabras (\"aja\", \"¿en serio?\", \"no me digas\")."
         case .interrupt:
@@ -74,24 +74,26 @@ enum RadioLength {
 
     var maxWords: Int {
         switch self {
-        case .tiny: return 16
+        case .tiny: return 18
         case .short: return 40
         case .medium: return 115
         case .long: return 170
         }
     }
 
-    var minLines: Int {
+    /// El minimo se mide en PALABRAS (un monologo puede venir en una sola linea).
+    var minWords: Int {
         switch self {
-        case .tiny, .short: return 1
-        case .medium: return 2
-        case .long: return 3
+        case .tiny: return 3
+        case .short: return 10
+        case .medium: return 35
+        case .long: return 80
         }
     }
 
     var maxLines: Int {
         switch self {
-        case .tiny: return 1
+        case .tiny: return 2
         case .short: return 3
         case .medium: return 7
         case .long: return 10
@@ -108,9 +110,19 @@ enum RadioLength {
         }
     }
 
+    /// Si ningun intento cumple la longitud, se usa el mas cercano recortado (mejor eso que dejar el paso sin voz): el tiny se queda en su primera linea y los demas
+    /// pierden lineas del final mientras se pasen de palabras.
+    func trimmed(_ turns: [RadioTurn]) -> [RadioTurn] {
+        if self == .tiny { return Array(turns.prefix(1)) }
+        var result = turns
+        func count(_ list: [RadioTurn]) -> Int { list.reduce(0) { $0 + $1.text.split(separator: " ").count } }
+        while result.count > 1, count(result) > maxWords { result.removeLast() }
+        return result
+    }
+
     /// `nil` si cumple; si no, lo que hay que corregir.
     func problem(words: Int, lines: Int) -> String? {
-        if lines < minLines || lines > maxLines || words > maxWords {
+        if lines < 1 || lines > maxLines || words < minWords || words > maxWords {
             return "NO CUMPLE LA LONGITUD (\(lines) lineas, \(words) palabras). " + instruction
         }
         return nil
@@ -158,10 +170,12 @@ struct RadioBlueprint {
             length = Int.random(in: 0..<100) < 18 ? .long : .medium
         }
         // Proposito: el chiste pesa como mucho un 30 %; el resto, radio normal.
-        var options: [(purpose: RadioPurpose, weight: Int)] = [(.banter, 30), (.reaction, 12), (.question, 10)]
-        if hasPrevious { options.append((.backAnnounce, 20)) }
-        if hasLocal { options.append((.local, 16)) }
-        if hasFacts { options.append((.dedication, 12)) }
+        var options: [(purpose: RadioPurpose, weight: Int)] = [
+            (purpose: RadioPurpose.banter, weight: 30), (purpose: RadioPurpose.reaction, weight: 12), (purpose: RadioPurpose.question, weight: 10)
+        ]
+        if hasPrevious { options.append((purpose: RadioPurpose.backAnnounce, weight: 20)) }
+        if hasLocal { options.append((purpose: RadioPurpose.local, weight: 16)) }
+        if hasFacts { options.append((purpose: RadioPurpose.dedication, weight: 12)) }
         if let last = lastPurpose, options.count > 1 { options.removeAll { $0.purpose == last } }
         let total = options.reduce(0) { $0 + $1.weight }
         var roll = Int.random(in: 0..<max(1, total))

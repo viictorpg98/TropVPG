@@ -255,7 +255,7 @@ enum RadioContent {
     private static func songDetail(_ song: SongItem) -> String {
         var parts: [String] = []
         if let album = song.album, !album.isEmpty, album.lowercased() != song.title.lowercased(),
-           !album.hasSuffix("Single"), !album.hasSuffix("EP") {
+           !album.hasSuffix("- Single"), !album.hasSuffix("- EP") {
             parts.append("disco: \(album)")
         }
         if let year = song.year, year > 1900 { parts.append("año: \(year)") }
@@ -320,6 +320,9 @@ enum RadioContent {
         var notice = ""
         var best: [RadioTurn] = []
         var bestTopic: String?
+        // Si ningun intento cumple la longitud, se usa el mas cercano (recortado) antes que dejar el paso sin voz.
+        var lengthFallback: [RadioTurn] = []
+        var fallbackTopic: String?
         for attempt in 0..<3 {
             var prompt = "Escribe la PIEZA que suena entre dos canciones.\n"
             prompt += dataBlock(previous: previous, next: next, spoken: spoken, allowHour: allowHour)
@@ -339,6 +342,10 @@ enum RadioContent {
             let words = turns.reduce(0) { $0 + $1.text.split(separator: " ").count }
             let all = turns.map(\.text).joined(separator: " ")
             if let problem = plan.length.problem(words: words, lines: turns.count) {
+                if !turns.isEmpty, !mentionsFood(all) {
+                    lengthFallback = turns
+                    fallbackTopic = parseTopic(json)
+                }
                 notice = "\n\nTU INTENTO ANTERIOR " + problem
                 continue
             }
@@ -360,6 +367,10 @@ enum RadioContent {
             best = turns
             bestTopic = parseTopic(json)
             break
+        }
+        if best.isEmpty, !lengthFallback.isEmpty {
+            best = plan.length.trimmed(lengthFallback)
+            bestTopic = fallbackTopic
         }
         if !best.isEmpty {
             RadioHistory.add(best)
