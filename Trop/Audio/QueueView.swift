@@ -33,8 +33,18 @@ struct QueueView<ProgressSlider: View>: View {
     @State private var showSaveDialog = false
     @State private var playlistName = ""
 
+    /// Pide analizar la actual y las 12 siguientes para que su tempo y tonalidad salgan en la lista (antes lo hacian el DJ y la pantalla Mix).
+    private func requestBadges() {
+        let store = TrackAnalysisStore.shared
+        for song in np.queueSongs.dropFirst(max(0, np.queueIndex)).prefix(13) where !store.isLong(song.videoId) {
+            store.request(song.videoId)
+        }
+    }
+
     var body: some View {
         queueContent
+            .onAppear { requestBadges() }
+            .onChange(of: np.queueIndex) { requestBadges() }
             .simultaneousGesture(backSwipeGesture)
             .textPrompt(
                 "Save as Playlist",

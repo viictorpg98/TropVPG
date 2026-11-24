@@ -16,15 +16,17 @@ import WidgetKit
 
 struct SonarLockEntry: TimelineEntry {
     let date: Date
+    /// La radio esta en el aire (dato de la app).
+    let radio: Bool
 }
 
 struct SonarLockProvider: TimelineProvider {
     private func entry() -> SonarLockEntry {
-        SonarLockEntry(date: Date())
+        SonarLockEntry(date: Date(), radio: WidgetShared.loadButtonState()?.radio ?? false)
     }
 
     func placeholder(in context: Context) -> SonarLockEntry {
-        SonarLockEntry(date: Date())
+        SonarLockEntry(date: Date(), radio: false)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (SonarLockEntry) -> Void) {
@@ -121,12 +123,13 @@ struct SonarLockMixWidget: Widget {
 
 struct SonarLockRadioWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "SonarLockRadio", provider: SonarLockProvider()) { _ in
-            LockButton(intent: WidgetRadioIntent(), symbol: "dot.radiowaves.left.and.right", title: "Radio")
+        StaticConfiguration(kind: "SonarLockRadio", provider: SonarLockProvider()) { entry in
+            LockButton(intent: WidgetRadioIntent(), symbol: entry.radio ? "dot.radiowaves.left.and.right" : "radio",
+                       title: entry.radio ? "Radio · ON" : "Radio · OFF")
                 .containerBackground(for: .widget) { Color.clear }
         }
         .configurationDisplayName("Sonar · Radio (bloqueo)")
-        .description("Enciende la radio con tu última petición o la apaga. Para la pantalla de bloqueo.")
+        .description("Te pregunta qué radio quieres o la apaga (se ve encendida o apagada). Para la pantalla de bloqueo.")
         .supportedFamilies([.accessoryCircular, .accessoryRectangular])
     }
 }

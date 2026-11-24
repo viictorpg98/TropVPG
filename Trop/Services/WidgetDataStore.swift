@@ -72,6 +72,8 @@ final class WidgetDataStore {
         if let found = WidgetShared.resolved {
             WidgetShared.writeProbe(groupId: found.id, bundleId: Bundle.main.bundleIdentifier ?? "", in: found.url)
         }
+        // La radio no se guarda entre aperturas: si iOS cerro la app con la radio encendida, el widget seguiria diciendo "ON".
+        syncRadioState()
         // El Acceso rapido sale de la base de datos: se vuelve a leer sin esperar a que cambie el inicio.
         schedule(force: false)
         fetchServerListsIfNeeded()
@@ -84,6 +86,55 @@ final class WidgetDataStore {
         PlaybackReport.record(
             "widget: ALTAppGroups=[\(infoGroups)] bundle=\(Bundle.main.bundleIdentifier ?? "?") probados=[\(tried)] carpeta compartida=\(resolved)"
         )
+    }
+
+    // MARK: - Boton Radio
+
+    private var lastRadio: Bool?
+    private var lastButtonsReload = Date.distantPast
+    private var buttonsReloadTask: Task<Void, Never>?
+
+    /// Lo llama `RadioSession` al encender o apagar la radio: deja el dato en la carpeta compartida y recarga los botones para que se vean encendidos o apagados.
+    /// El sistema limita las recargas, asi que como mucho se pide una cada 5 s (si hay mas cambios seguidos, se juntan y queda el ultimo).
+    func radioChanged(_ on: Bool) {
+        guard lastRadio != on else { return }
+        lastRadio = on
+        guard let found = WidgetShared.resolved else { return }
+        WidgetShared.writeButtonState(WidgetButtonState(radio: on, updated: Date()), in: found.url)
+        let sinceLast = Date().timeIntervalSince(lastButtonsReload)
+        buttonsReloadTask?.cancel()
+        if sinceLast >= 5 {
+            reloadButtonWidgets()
+        } else {
+            buttonsReloadTask = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: UInt64((5 - sinceLast) * 1_000_000_000))
+                guard !Task.isCancelled else { return }
+                self?.reloadButtonWidgets()
+            }
+        }
+    }
+
+    /// Al arrancar se vuelve a escribir lo real (por si la app se cerro con la radio encendida).
+    private func syncRadioState() {
+        let active = RadioSession.shared.isActive
+        if lastRadio == nil {
+            lastRadio = active
+            guard let found = WidgetShared.resolved else { return }
+            let stored = WidgetShared.loadButtonState()?.radio
+            if stored != active {
+                WidgetShared.writeButtonState(WidgetButtonState(radio: active, updated: Date()), in: found.url)
+                reloadButtonWidgets()
+            }
+        } else {
+            radioChanged(active)
+        }
+    }
+
+    private func reloadButtonWidgets() {
+        lastButtonsReload = Date()
+        WidgetCenter.shared.reloadTimelines(ofKind: "SonarWidget")
+        // Los de la pantalla de bloqueo tambien enseñan si la radio esta en el aire.
+        WidgetCenter.shared.reloadTimelines(ofKind: "SonarLockRadio")
     }
 
     // MARK: - Datos del inicio

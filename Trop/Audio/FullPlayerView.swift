@@ -403,7 +403,6 @@ struct FullPlayerView: View {
                 if settings.autoMixEnabled {
                     PlayerPillButton(
                         systemImage: "forward.end.fill",
-                        title: "Mix Skip",
                         isActive: settings.mixOnSkip,
                         accessibility: "Mix When Skipping"
                     ) {

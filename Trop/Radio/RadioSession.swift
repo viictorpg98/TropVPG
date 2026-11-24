@@ -358,6 +358,7 @@ final class RadioSession {
         // Se calientan los datos del mundo (sin Gemini) para que el tiempo en directo ya este cuando toque un comentario.
         Task { _ = await RadioWorld.snapshot() }
         isActive = true
+        WidgetDataStore.shared.radioChanged(true)
         loop?.cancel()
         loop = Task { [weak self] in
             while !Task.isCancelled {
@@ -371,6 +372,7 @@ final class RadioSession {
     func stop(reason: String = "parada") {
         guard isActive else { return }
         isActive = false
+        WidgetDataStore.shared.radioChanged(false)
         loop?.cancel()
         loop = nil
         currentSummary = ""

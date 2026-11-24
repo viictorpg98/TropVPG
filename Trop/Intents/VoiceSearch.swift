@@ -810,6 +810,20 @@ enum VoiceSearch {
         log("microfono: cerrado")
     }
 
+    /// La radio desde un widget, un control o la pantalla de bloqueo: si esta en el aire la apaga; si no, hace lo mismo que el boton de la pestaña Radio (pregunta y
+    /// escucha que radio quieres). Con la Live Activity de la voz: sin ella, la grabacion en segundo plano se corta.
+    static func runRadio(source: String) async {
+        let radio = RadioSession.shared
+        if radio.isActive {
+            radio.stop(reason: source)
+            return
+        }
+        guard !radio.isStarting else { return }
+        startActivity()
+        defer { releaseActivity(after: 8) }
+        await radio.begin()
+    }
+
     /// La radio (Sónar FM): escucha UNA frase (permisos, pitido y microfono como la busqueda por voz) y devuelve lo oido, o `nil` si no se oyo nada.
     /// La pregunta la dice la radio antes y la musica se pausa por fuera; aqui siempre se deja la sesion de audio como estaba.
     static func listenForRadio() async -> String? {

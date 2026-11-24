@@ -59,10 +59,10 @@ enum WidgetRotation {
     }
 }
 
-/// El estado de los botones del widget: hoy, si el DJ esta encendido (el boton se ve distinto). Los campos son opcionales para leer
+/// El estado de los botones del widget: hoy, si la radio esta en el aire (el boton se ve distinto). Los campos son opcionales para leer
 /// sin problema lo que dejo una version anterior.
 struct WidgetButtonState: Codable {
-    var dj: Bool?
+    var radio: Bool?
     var updated: Date?
 }
 

@@ -4,7 +4,7 @@
 //
 //  Widget pequeno de Sonar con cuatro botones: un circulo de color con su nombre debajo. Sale en la galeria de widgets del iPhone
 //  y, en iOS 26, tambien en CarPlay (Ajustes > General > CarPlay > tu coche > Personalizar).
-//  Botones: Para ti (tu mezcla), Mezclar (pasar a la siguiente con AutoMix), Radio (enciende Sonar FM con tu ultima peticion o la apaga) y Voz (di que quieres escuchar). El boton
+//  Botones: Para ti (tu mezcla), Mezclar (pasar a la siguiente con AutoMix), Radio (te pregunta que radio quieres o la apaga; se ve ON u OFF) y Voz (di que quieres escuchar). El boton
 //  de actualizar las portadas de los demas widgets esta en su propio widget (SonarRefreshWidget.swift). Las acciones estan en Shared/WidgetIntents.swift y las ejecuta la app.
 //
 //  El efecto de pulsar es el del sistema: el boton se encoge. Para que se encoja SOLO el circulo (y no un bloque entero con su
@@ -19,15 +19,17 @@ import WidgetKit
 
 struct SonarWidgetEntry: TimelineEntry {
     let date: Date
+    /// La radio esta en el aire (dato de la app).
+    let radio: Bool
 }
 
 struct SonarWidgetProvider: TimelineProvider {
     private func entry() -> SonarWidgetEntry {
-        SonarWidgetEntry(date: Date())
+        SonarWidgetEntry(date: Date(), radio: WidgetShared.loadButtonState()?.radio ?? false)
     }
 
     func placeholder(in context: Context) -> SonarWidgetEntry {
-        SonarWidgetEntry(date: Date())
+        SonarWidgetEntry(date: Date(), radio: false)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (SonarWidgetEntry) -> Void) {
@@ -35,7 +37,7 @@ struct SonarWidgetProvider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<SonarWidgetEntry>) -> Void) {
-        // Se relee cada hora: con "nunca", algunos widgets
+        // La app recarga el widget cuando la radio se enciende o se apaga; ademas se relee cada hora: con "nunca", algunos widgets
         // interactivos dejaban de responder tras horas parados (un hilo del foro de Apple lo cuenta).
         completion(Timeline(entries: [entry()], policy: .after(Date().addingTimeInterval(3600))))
     }
@@ -68,6 +70,29 @@ struct SonarWidgetView: View {
             Image(systemName: symbol)
                 .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(Self.iconInk)
+        }
+        .frame(width: 42, height: 42)
+    }
+
+    /// El circulo del boton Radio. En el aire: aro blanco grueso + circulo rojo relleno dentro. Apagada: circulo oscuro con un borde fino y el simbolo atenuado.
+    /// Se distinguen por forma (aro o no) y por brillo, no solo por el tono.
+    private func radioCircle(on: Bool) -> some View {
+        ZStack {
+            if on {
+                Circle().strokeBorder(Color.white, lineWidth: 3)
+                Circle()
+                    .fill(LinearGradient(
+                        colors: [Color(red: 1.00, green: 0.35, blue: 0.35), Color(red: 0.85, green: 0.16, blue: 0.28)],
+                        startPoint: .top, endPoint: .bottom
+                    ))
+                    .padding(6)
+            } else {
+                Circle().fill(Color(red: 0.24, green: 0.24, blue: 0.27))
+                Circle().strokeBorder(Color.white.opacity(0.35), lineWidth: 1)
+            }
+            Image(systemName: "dot.radiowaves.left.and.right")
+                .font(.system(size: 19, weight: .bold))
+                .foregroundStyle(on ? Self.iconInk : Color.white.opacity(0.8))
         }
         .frame(width: 42, height: 42)
     }
@@ -109,9 +134,12 @@ struct SonarWidgetView: View {
                 }
             }
             GridRow {
-                tile(WidgetRadioIntent(), title: "Radio") {
-                    circle(symbol: "dot.radiowaves.left.and.right",
-                           top: Color(red: 1.00, green: 0.35, blue: 0.35), bottom: Color(red: 0.85, green: 0.16, blue: 0.28))
+                tile(
+                    WidgetRadioIntent(),
+                    title: entry.radio ? "Radio · ON" : "Radio · OFF",
+                    titleColor: entry.radio ? .white : Color.white.opacity(0.78)
+                ) {
+                    radioCircle(on: entry.radio)
                 }
                 tile(WidgetVoiceIntent(), title: label("Voz", "Voice")) {
                     circle(symbol: "mic.fill",
@@ -130,7 +158,7 @@ struct SonarWidget: Widget {
             SonarWidgetView(entry: entry)
         }
         .configurationDisplayName("Sonar")
-        .description("Para ti, mezclar ahora, la radio (la enciende con tu última petición o la apaga) y voz: di qué quieres escuchar.")
+        .description("Para ti, mezclar ahora, la radio (te pregunta qué radio quieres, o la apaga; se ve encendida o apagada) y voz: di qué quieres escuchar.")
         .supportedFamilies([.systemSmall])
         // Sin los margenes por defecto (unos 16 pt): el contenido ocupa casi todo el widget, con su propio margen pequeno.
         .contentMarginsDisabled()

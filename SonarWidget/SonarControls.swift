@@ -64,7 +64,7 @@ struct SonarRadioControl: ControlWidget {
             .tint(Color(red: 0.95, green: 0.25, blue: 0.30))
         }
         .displayName("Sonar · Radio")
-        .description("Enciende la radio con tu última petición o la apaga.")
+        .description("Te pregunta qué radio quieres o la apaga.")
     }
 }
 
