@@ -83,7 +83,34 @@ enum SonarMix {
                 let seedList = [(id: seed.videoId, title: seed.title)]
                 radioTask = Task { await ParaTiMix.loadRadios(seedList, limit: 60) }
             }
-            let sections = await withTimeout(seconds: 10) { await loadHomeSections(deep: false) }
+            // El inicio de YouTube se pide YA, pero con historial local no se espera por el: la cola es la radio de la primera cancion (cerca de 1 s) y el inicio
+            // termina de cargar detras (para la mezcla guardada y los widgets). Sin historial, o si la radio no sale, se espera al inicio como antes.
+            let homeTask = Task { await loadHomeSections(deep: false) }
+            if let seed = first, let pendingFast = radioTask {
+                let radios = await withTimeout(seconds: 5) { () async -> ParaTiMix.RadioResult? in await pendingFast.value }
+                if let radios, let queue = ParaTiMix.radioQueue(first: seed, radio: radios.songs) {
+                    let known = Set(profile.familiar.map { $0.song.videoId })
+                    let firstSix = queue.prefix(6).map { "\(known.contains($0.videoId) ? "C" : "N") \(String($0.title.prefix(22)))" }.joined(separator: " | ")
+                    let ready = Int(Date().timeIntervalSince(traceStart) * 1000)
+                    PlaybackReport.record(
+                        "para ti (rapido, sin esperar al inicio): \(profile.eventsRead) eventos leidos (\(profile.songsWithHistory) canciones), conocidas \(profile.familiar.count) "
+                            + "(sueño fuera \(profile.sleepExcluded), saltadas fuera \(profile.skipExcluded)), primera [\(String(seed.title.prefix(22)))] radio \(radios.songs.count) "
+                            + "(cache \(radios.cached), pedidas \(radios.fetched)) -> cola \(queue.count), lista a los \(ready) ms; primeras: \(firstSix)"
+                    )
+                    ParaTiMix.rememberPicks(queue)
+                    if await play(queue, context: "para ti", waitSeconds: 10) {
+                        Task {
+                            if let sections = await homeTask.value {
+                                let homeList = homeSongs(in: sections)
+                                if homeList.count >= 3 { saveCache(homeList) }
+                            }
+                            await refreshCacheIfStale()
+                        }
+                        return true
+                    }
+                }
+            }
+            let sections = await withTimeout(seconds: 10) { await homeTask.value }
             trace(sections.map { "inicio cargado: \($0.count) secciones" } ?? "inicio: sin respuesta a tiempo")
             if let sections {
                 let songs = homeSongs(in: sections)
