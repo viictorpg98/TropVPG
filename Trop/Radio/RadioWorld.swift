@@ -238,7 +238,115 @@ enum RadioWorld {
                 if taken >= query.limit { break }
             }
         }
+        lines += await laLigaFacts()
         return lines
+    }
+
+    // MARK: - Datos de LaLiga (ESPN, sin clave)
+
+    private struct LeagueRow {
+        let id: String
+        let name: String
+        let rank: Int
+        let points: Int
+        let played: Int
+        let wins: Int
+        let draws: Int
+        let losses: Int
+    }
+
+    private static func espnJSON(_ path: String) async -> [String: Any]? {
+        guard let data = await download("https://site.api.espn.com/apis/" + path, timeout: 8) else { return nil }
+        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    }
+
+    private static func fold(_ text: String) -> String {
+        text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil)
+    }
+
+    /// Un partido de ESPN: la fecha, "Local 3-2 Visitante" (o "Local contra Visitante" si no se ha jugado) y si ya termino.
+    private static func match(_ event: [String: Any]) -> (date: Date, line: String, done: Bool)? {
+        guard let dateText = event["date"] as? String,
+              let competition = (event["competitions"] as? [[String: Any]])?.first,
+              let competitors = competition["competitors"] as? [[String: Any]],
+              let home = competitors.first(where: { $0["homeAway"] as? String == "home" }),
+              let away = competitors.first(where: { $0["homeAway"] as? String == "away" }),
+              let homeTeam = home["team"] as? [String: Any], let homeName = homeTeam["displayName"] as? String,
+              let awayTeam = away["team"] as? [String: Any], let awayName = awayTeam["displayName"] as? String else { return nil }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm'Z'"
+        guard let date = formatter.date(from: dateText) else { return nil }
+        var done = false
+        if let status = competition["status"] as? [String: Any], let type = status["type"] as? [String: Any] {
+            done = type["completed"] as? Bool ?? false
+        }
+        func score(_ side: [String: Any]) -> String {
+            if let dict = side["score"] as? [String: Any], let value = dict["displayValue"] as? String { return value }
+            if let value = side["score"] as? String { return value }
+            if let value = side["score"] as? NSNumber { return value.stringValue }
+            return "?"
+        }
+        let line = done ? "\(homeName) \(score(home))-\(score(away)) \(awayName)" : "\(homeName) contra \(awayName)"
+        return (date, line, done)
+    }
+
+    /// La clasificacion de LaLiga y, si el equipo del oyente juega en ella, su posicion, su ultimo partido y el proximo (ESPN, datos exactos).
+    private static func laLigaFacts() async -> [String] {
+        guard let table = await espnJSON("v2/sports/soccer/esp.1/standings"),
+              let children = table["children"] as? [[String: Any]],
+              let standings = children.first?["standings"] as? [String: Any],
+              let entries = standings["entries"] as? [[String: Any]] else { return [] }
+        var rows: [LeagueRow] = []
+        for entry in entries {
+            guard let team = entry["team"] as? [String: Any], let id = team["id"] as? String, let name = team["displayName"] as? String,
+                  let stats = entry["stats"] as? [[String: Any]] else { continue }
+            var values: [String: Int] = [:]
+            for stat in stats {
+                if let key = stat["name"] as? String, let number = stat["value"] as? NSNumber { values[key] = number.intValue }
+            }
+            rows.append(LeagueRow(
+                id: id, name: name, rank: values["rank"] ?? 0, points: values["points"] ?? 0, played: values["gamesPlayed"] ?? 0,
+                wins: values["wins"] ?? 0, draws: values["ties"] ?? 0, losses: values["losses"] ?? 0
+            ))
+        }
+        rows.sort { $0.rank < $1.rank }
+        guard rows.count >= 5, rows[0].rank > 0 else { return [] }
+        var facts: [String] = []
+        let top = rows.prefix(5).map { "\($0.rank).º \($0.name) (\($0.points) puntos)" }.joined(separator: ", ")
+        facts.append("[Dato LaLiga] Clasificación tras \(rows[0].played) jornadas: \(top).")
+
+        var favorite: LeagueRow?
+        for topic in RadioSettings.sportsTopics.map({ fold($0) }) where topic.count >= 4 {
+            if let found = rows.first(where: { fold($0.name).contains(topic) || topic.contains(fold($0.name)) }) {
+                favorite = found
+                break
+            }
+        }
+        guard let team = favorite else { return facts }
+        facts.append("[Dato LaLiga] \(team.name) va \(team.rank).º con \(team.points) puntos en \(team.played) partidos (\(team.wins) ganados, \(team.draws) empatados, \(team.losses) perdidos).")
+        let dayFormatter = DateFormatter()
+        dayFormatter.locale = Locale(identifier: "es_ES")
+        dayFormatter.timeZone = TimeZone(identifier: "Europe/Madrid")
+        if let past = await espnJSON("site/v2/sports/soccer/esp.1/teams/\(team.id)/schedule"),
+           let events = past["events"] as? [[String: Any]] {
+            let last = events.compactMap { match($0) }.filter { $0.done }.max { $0.date < $1.date }
+            if let last {
+                dayFormatter.dateFormat = "d 'de' MMMM"
+                facts.append("[Dato LaLiga] Último partido de \(team.name) (\(dayFormatter.string(from: last.date))): \(last.line).")
+            }
+        }
+        if let future = await espnJSON("site/v2/sports/soccer/esp.1/teams/\(team.id)/schedule?fixture=true"),
+           let events = future["events"] as? [[String: Any]] {
+            let now = Date()
+            let next = events.compactMap { match($0) }.filter { !$0.done && $0.date > now }.min { $0.date < $1.date }
+            if let next {
+                dayFormatter.dateFormat = "EEEE d 'de' MMMM, HH:mm 'h'"
+                facts.append("[Dato LaLiga] Próximo partido de \(team.name) (hora de España, \(dayFormatter.string(from: next.date))): \(next.line).")
+            }
+        }
+        return facts
     }
 
     private static func currentWeather() async -> RadioWeather? {
