@@ -201,7 +201,7 @@ enum ParaTiMix {
 
     /// Las conocidas que encajan con la primera cancion. Con el juicio de Gemini (`approved`, al menos 10): las locales aprobadas y las nuevas de "Listen again" (que no se
     /// juzgaron) cuyo artista es de uno aprobado, de la radio de la primera o la propia. Sin juicio, o si deja menos de 10: las del mismo artista o de artistas de su radio. Si
-    /// tampoco salen 10, la lista entera (como antes). `note` explica como se filtro (para el informe).
+    /// tampoco salen 10, solo las pocas que encajan (el resto sale de la radio de la primera). `note` explica como se filtro (para el informe).
     static func coherentFamiliar(first: SongItem, familiar: [Candidate], approved: Set<String>, localIds: Set<String>, radio: [SongItem]) -> (list: [Candidate], note: String) {
         let pool = familiar.filter { $0.song.videoId != first.videoId }
         var artists = Set(radio.map(artistKey))
@@ -218,7 +218,9 @@ enum ParaTiMix {
         artists.remove("")
         let byArtist = pool.filter { artists.contains(artistKey($0.song)) }
         if byArtist.count >= 10 { return (byArtist, "por artistas de su radio: \(byArtist.count) de \(pool.count)") }
-        return (pool, "sin filtro de estilo (\(byArtist.count) por artistas)")
+        // Pocas conocidas encajan: mejor pocas y de verdad parecidas (la radio de la primera pone el resto) que toda la biblioteca, que salta de un estilo a otro.
+        let few = pool.filter { approved.contains($0.song.videoId) || artists.contains(artistKey($0.song)) }
+        return (few, "pocas encajan (\(few.count)): el resto sale de la radio de la primera")
     }
 
     private static func saveSeeds(_ songs: [SongItem]) {
