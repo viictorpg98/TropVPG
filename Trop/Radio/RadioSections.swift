@@ -32,19 +32,21 @@ enum RadioSections {
     - Nada de bromas con muertes, accidentes, violencia ni victimas: si un dato es asi, usa otro.
     - Si nombras la emisora, escribe su nombre como "Sónar efe eme" (no hace falta nombrarla en cada frase). Si no estas seguro de algo, no lo digas.
     - Suena a gente real hablando: frases cortas (maximo 18 palabras), alguna duda o muletilla leve. Sin descripciones entre parentesis; para una risa usa la etiqueta <laugh> (maximo dos).
-    - Lo que dicen suena natural, como en una conversacion de verdad (reaccionan a lo que dice el otro, no recitan), con el tono de dos locutores de radio, el mas natural en cada momento. La jerga (nene, brutal, ay bendito...) es un condimento: como mucho una vez en toda la seccion. Prohibido decir "wepa".
+    - Lo que dicen suena natural, como en una conversacion de verdad (reaccionan a lo que dice el otro, no recitan), con el tono de dos locutores de radio, el mas natural en cada momento. La jerga puertorriqueña es un condimento escaso: como mucho una expresion en toda la seccion, nunca la misma que en piezas anteriores y nunca para cerrar. Prohibido decir "wepa".
     - Cada linea puede llevar un campo opcional "tono" con UNO de estos valores: \(RadioTone.names). Pon el tono con el que la diria un locutor de radio en ese momento, el mas natural (si el de siempre del personaje encaja, omite el campo); susurro, grito e incredulo solo cuando el contenido lo pida de verdad.
     - Responde SOLO con un JSON, sin texto antes ni despues: una lista de objetos {"speaker": "Pitirre" o "Chuleta", "text": "...", "tono": "..." (opcional)}.
     """
 
     /// Reglas de los mensajes de oyentes: aqui TODO es ficcion evidente, asi que no rige "solo datos reales", pero si no inventar nada de la cancion.
-    private static let listenerRules = """
+    private static var listenerRules: String { listenerBase.replacingOccurrences(of: "{PUEBLOS}", with: RadioLocal.townsText) }
+
+    private static let listenerBase = """
     REGLAS (MENSAJES DE OYENTES: todo es ficcion evidente):
-    - Los oyentes y sus mensajes son INVENTADOS: nombres de pila normales y pueblos de Cataluña o de Madrid, nunca famosos ni personas reales. Peticiones y saludos cotidianos, cariñosos y creibles (un cumpleaños, un dia duro, una apuesta entre amigos...).
+    - Los oyentes y sus mensajes son INVENTADOS: nombres de pila normales y pueblos y barrios de la zona de la emisora ({PUEBLOS}), nunca famosos ni personas reales. Peticiones y saludos cotidianos, cariñosos y creibles (un cumpleaños, un dia duro, una apuesta entre amigos...).
     - De la cancion SOLO conoces el titulo y el artista que se te dan: no inventes nada mas sobre ellos.
     - Nada de comida, bebida ni cocina. Sin insultos, politica ni marcas comerciales. Sin descripciones entre parentesis; para una risa usa <laugh> (maximo dos).
     - Si nombras la emisora, escribe su nombre como "Sónar efe eme". Frases cortas (maximo 18 palabras).
-    - Lo que dicen suena natural, como en una conversacion de verdad, con el tono de dos locutores de radio. La jerga (nene, brutal, ay bendito...) como mucho una vez. Prohibido decir "wepa".
+    - Lo que dicen suena natural, como en una conversacion de verdad, con el tono de dos locutores de radio. La jerga puertorriqueña casi nunca, y nunca para cerrar. Prohibido decir "wepa".
     - Cada linea puede llevar un campo opcional "tono" con UNO de estos valores: \(RadioTone.names). Pon el tono mas natural para ese momento (el oyente de la nota de voz, sin tono: habla como un oyente normal); si el de siempre encaja, omite el campo; susurro, grito e incredulo solo cuando el contenido lo pida de verdad.
     - Responde SOLO con un JSON, sin texto antes ni despues: una lista de objetos {"speaker": "Pitirre" o "Chuleta" o el nombre del oyente, "text": "...", "tono": "..." (opcional)}.
     """
@@ -73,9 +75,13 @@ enum RadioSections {
         switch kind {
         case .noticiero:
             guard let world, world.headlines.count >= 6 else { return nil }
+            // Los titulares locales (marcados "[Local: ciudad]") siempre entran: la emisora es de alli.
+            let local = world.headlines.filter { $0.hasPrefix("[Local") }
+            let national = world.headlines.filter { !$0.hasPrefix("[Local") }
+            let pool = Array(local.shuffled().prefix(3)) + Array(national.shuffled().prefix(11))
             return Spec(
-                instruction: "Haz un NOTICIERO LOCO de unos 35 a 45 segundos: los dos locutores comentan 3 de estos titulares (los mas graciosos o absurdos), con humor y picandose entre si. Cita cada titular de forma natural, sin leerlo entero. Cierra devolviendo a la musica.",
-                data: numbered(Array(world.headlines.shuffled().prefix(14))), minWords: 75, maxWords: 130, minTurns: 6
+                instruction: "Haz un NOTICIERO LOCO de unos 35 a 45 segundos: los dos locutores comentan 3 de estos titulares (los mas graciosos o absurdos), con humor y picandose entre si. Si hay titulares marcados [Local: ciudad], comenta al menos uno como vecinos de esa ciudad (pueden venir en catalan: cuentalos en español con naturalidad, sin inventar nada). Cita cada titular de forma natural, sin leerlo entero. Cierra devolviendo a la musica.",
+                data: numbered(pool.shuffled()), minWords: 75, maxWords: 130, minTurns: 6
             )
         case .tiempo:
             guard let weather = world?.weather else { return nil }
@@ -135,7 +141,9 @@ enum RadioSections {
         var notice = ""
         var hostTurns: [RadioTurn] = []
         var noteTurns: [RadioTurn] = []
-        for _ in 0..<2 {
+        var fallbackHosts: [RadioTurn] = []
+        var fallbackNote: [RadioTurn] = []
+        for attempt in 0..<2 {
             let prompt = spec.instruction + "\n\nDATOS \(spec.guest == nil ? "REALES " : "")DE HOY (unica fuente de hechos):\n" + spec.data
                 + RadioHistory.promptBlock(count: 3) + notice
             guard let json = try? await Gemini.text(
@@ -147,18 +155,30 @@ enum RadioSections {
             let words = hosts.reduce(0) { $0 + $1.text.split(separator: " ").count }
             let noteWords = note.reduce(0) { $0 + $1.text.split(separator: " ").count }
             let noteOK = spec.guest == nil ? note.isEmpty : (noteWords >= 12 && noteWords <= 60)
-            let foodOK = spec.guest == nil || !RadioContent.mentionsFood(turns.map(\.text).joined(separator: " "))
-            if hosts.count >= spec.minTurns - (spec.guest == nil ? 0 : 1), words >= spec.minWords - (spec.guest == nil ? 0 : 20),
-               words <= spec.maxWords, noteOK, foodOK {
+            let allText = turns.map(\.text).joined(separator: " ")
+            let foodHit = RadioContent.mentionsFood(allText)
+            let slangHit = RadioSlang.violations(in: allText)
+            let structureOK = hosts.count >= spec.minTurns - (spec.guest == nil ? 0 : 1) && words >= spec.minWords - (spec.guest == nil ? 0 : 20)
+                && words <= spec.maxWords && noteOK
+            // Comida y muletillas repetidas: suave (un reintento y, si sigue, sale igual, para no quedarse sin seccion).
+            if structureOK, (!foodHit && slangHit.isEmpty) || attempt == 1 {
                 hostTurns = hosts
                 noteTurns = note
                 break
             }
-            if !foodOK {
-                notice = "\n\nTU INTENTO ANTERIOR HABLABA DE COMIDA. Reescribelo desde cero sin mencionar nada de comer, beber ni cocina."
+            if structureOK {
+                fallbackHosts = hosts
+                fallbackNote = note
+                notice = foodHit
+                    ? "\n\nTU INTENTO ANTERIOR HABLABA DE COMIDA. Reescribelo desde cero sin mencionar nada de comer, beber ni cocina."
+                    : "\n\nTU INTENTO ANTERIOR USABA MULETILLAS QUE SE HAN REPETIDO DEMASIADO (\(slangHit.joined(separator: ", "))). Reescribelo sin ellas."
             } else {
                 notice = "\n\nTU INTENTO ANTERIOR NO SIRVE (\(words) palabras de los locutores en \(hosts.count) lineas\(spec.guest == nil ? "" : ", \(noteWords) palabras en la nota de voz")). Los locutores: entre \(spec.minWords) y \(spec.maxWords) palabras" + (spec.guest == nil ? " en al menos \(spec.minTurns) lineas." : "; la nota de voz de \(spec.guest?.name ?? ""): entre 15 y 45 palabras.")
             }
+        }
+        if hostTurns.isEmpty, !fallbackHosts.isEmpty {
+            hostTurns = fallbackHosts
+            noteTurns = fallbackNote
         }
         guard !hostTurns.isEmpty else { return nil }
         // El grito de entrada se escribe y se dice NUEVO cada vez, a la vez que el resto (si no sale, la seccion entra solo con su musiquita).

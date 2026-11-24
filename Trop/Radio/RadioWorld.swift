@@ -87,6 +87,7 @@ enum RadioWorld {
             let found = await parseTitles(data).filter { !isSensitive($0) && $0.count > 15 }
             headlines += found.shuffled().prefix(25).map { "[\(feed.source)] \($0)" }
         }
+        headlines += await localHeadlines()
         var trends: [String] = []
         if let data = await download(trendsURL, timeout: 8) {
             trends = await parseTitles(data).filter { !isSensitive($0) }
@@ -347,6 +348,23 @@ enum RadioWorld {
             }
         }
         return facts
+    }
+
+    /// Titulares de la ciudad de la emisora ("[Local: Sabadell] ..."): su diario local si lo hay (Sabadell: el Diari de Sabadell, a veces en catalan); si no, Google Noticias.
+    private static func localHeadlines() async -> [String] {
+        let city = RadioLocal.cityName
+        let feed = RadioLocal.feedURL
+        guard let data = await download(feed ?? searchURL(city), timeout: 8) else { return [] }
+        var lines: [String] = []
+        var seen = Set<String>()
+        for raw in await parseTitles(data) {
+            let title = feed == nil ? withoutSource(raw) : raw
+            let key = String(title.lowercased().prefix(28))
+            guard title.count > 20, !isSensitive(title), seen.insert(key).inserted else { continue }
+            lines.append("[Local: \(city)] \(title)")
+            if lines.count >= 8 { break }
+        }
+        return lines
     }
 
     private static func currentWeather() async -> RadioWeather? {

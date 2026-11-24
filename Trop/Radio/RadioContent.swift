@@ -60,14 +60,20 @@ enum RadioHistory {
         text += recent.map { "- " + $0.map(\.text).joined(separator: " / ") }.joined(separator: "\n")
         let used = usedWords()
         if !used.isEmpty { text += "\nPALABRAS YA MUY USADAS (evitalas): " + used.joined(separator: ", ") }
+        text += RadioSlang.promptLine()
         return text
     }
 }
 
 enum RadioContent {
-    static let ficha = """
+    /// La ficha de la emisora, con la ciudad elegida en Ajustes y el bloque de lo local (ver `RadioLocal`).
+    static var ficha: String {
+        fichaBase.replacingOccurrences(of: "{CIUDAD}", with: RadioLocal.cityName) + "\n" + RadioLocal.block
+    }
+
+    private static let fichaBase = """
     EMISORA: Sónar efe eme, una radio con humor gamberro y mucho cachondeo. Si nombras la emisora, escribe su nombre como "Sónar efe eme".
-    LOCUTORES (personajes inventados, NO personas reales): dos puertorriqueños que viven en España y hacen radio desde Madrid. Hablan español de Puerto Rico informal, como cualquier persona normal (se les nota en alguna palabra suelta: ay bendito, nene, chavos, janguear; sin exagerar ni caricaturizar) y miran España con ojos de fuera, siempre con cariño.
+    LOCUTORES (personajes inventados, NO personas reales): dos puertorriqueños que viven en {CIUDAD} y hacen radio desde alli. Hablan español de Puerto Rico informal, como cualquier persona normal: se les nota el acento y algun giro suelto de vez en cuando, casi nunca el mismo (sin exagerar ni caricaturizar), y miran la zona con ojos de fuera, siempre con cariño.
     - El Pitirre (hombre, 30 y pico): relajado, chulito, arrastra las palabras, se rie facil de sus propios chistes. Presenta. Su speaker es "Pitirre".
     - La Chuleta (mujer, 30 y pico): rapida, picona, se burla de Pitirre sin piedad, interrumpe, se rie con ganas. Lo desmonta todo. Su speaker es "Chuleta".
     RELACION: se pican todo el rato con cariño y se llaman por el mote.
@@ -82,7 +88,8 @@ enum RadioContent {
     - NO hables de comida, bebida, dieta, cocina ni hambre. Regla estricta.
     - Cada intervencion debe ser DISTINTA de las anteriores: otro tema, otros detalles, otras palabras. Si el historial que se te da ya usa una idea, un objeto o un chiste, elige otro.
     - Lo que dicen suena NATURAL, como lo diria una persona de verdad en una conversacion: reaccionan a lo que dice el otro, no recitan, no sueltan eslogan y no explican los chistes. Y lo dicen con el tono de dos locutores de radio, el que sea mas natural en cada momento (animados, tranquilos, complices, serios, burlones...), sin forzar la energia. Prohibido decir "wepa".
-    - La jerga (nene, brutal, ay bendito, chavos...) es un condimento: como mucho UNA expresion asi en toda la pieza, y muchas piezas ninguna. No repitas la muletilla ni el arranque ("oye", "mira", "pues") de las piezas de YA SE DIJO ANTES, ni el mismo tono (por ejemplo, que la misma persona siempre sea la sarcastica).
+    - La jerga puertorriqueña es un condimento MUY escaso: una expresion suelta de vez en cuando (en menos de la mitad de las piezas), nunca la misma que en las piezas de YA SE DIJO ANTES, y nunca como relleno ni para cerrar. No repitas el arranque ("oye", "mira", "pues") de las piezas anteriores, ni el mismo tono (por ejemplo, que la misma persona siempre sea la sarcastica).
+    - No cierres todas las piezas con una frase hecha ("dale fuego", "suena brutal", "vamos con..."): a veces solo presentas la cancion, o la frase acaba donde acaba la idea. Cada pieza debe sonar distinta de las anteriores, no a plantilla.
     - Cada linea puede llevar un campo opcional "tono" con UNO de estos valores: \(RadioTone.names). Pon en cada linea el tono con el que la diria un locutor de radio en ese momento, el mas natural (no hace falta variarlo por variarlo: si el de siempre del personaje encaja, omite el campo). Reserva susurro, grito e incredulo para cuando el contenido lo pida de verdad.
     - Responde SOLO con un JSON, sin texto antes ni despues: una lista de objetos {"speaker": "Pitirre" o "Chuleta", "text": "...", "tono": "..." (opcional)}.
     """
@@ -149,7 +156,7 @@ enum RadioContent {
         "las citas y el ligue", "la escuela y los examenes", "la tecnologia que no funciona", "el banco y los papeles", "la ropa y el pelo",
         "las fiestas y los cumpleaños", "dormir y el insomnio", "el beisbol o el futbol", "las vacaciones", "los apodos y los motes",
         "la musica de cuando eran chicos", "las mudanzas", "las filas y los tramites", "las llamadas equivocadas", "el wifi", "la playa",
-        "los horarios de España", "el metro de Madrid", "el frio de España visto por dos caribeños"
+        "los horarios de España", "el transporte publico de la ciudad", "el frio de España visto por dos caribeños"
     ]
 
     private static let manias = [
@@ -203,11 +210,13 @@ enum RadioContent {
         if !allowStation, text.range(of: "sonar efe eme", options: [.caseInsensitive, .diacriticInsensitive]) != nil {
             problems.append("nombra la emisora (en esta pieza no se nombra)")
         }
+        let slang = RadioSlang.violations(in: text)
+        if !slang.isEmpty { problems.append("usa muletillas que se han repetido demasiado (\(slang.joined(separator: ", ")))") }
         guard !problems.isEmpty else { return nil }
         return "\n\nTU INTENTO ANTERIOR " + problems.joined(separator: " y ") + ". Reescribelo sin eso y manteniendo lo demas."
     }
 
-    private static let slangPattern = try? NSRegularExpression(pattern: "¡?\\b(?:wepa|uepa|guepa)\\b[!,.]?\\s*", options: [.caseInsensitive])
+    private static let slangPattern = try? NSRegularExpression(pattern: "¡?\\b(?:wepa|uepa|guepa|dale fuego|dale candela)\\b[!,.]?\\s*", options: [.caseInsensitive])
 
     /// Quita "wepa" y parecidos (no se quieren) y deja la frase con mayuscula inicial.
     private static func stripBanned(_ line: String) -> String {
