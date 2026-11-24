@@ -129,6 +129,19 @@ enum RadioSections {
         }
     }
 
+    /// Las formas de conversacion que van con cada seccion (un anuncio puede ser un solo locutor; un noticiero, no).
+    private static func allowedShapes(for kind: RadioSectionKind) -> [RadioShape] {
+        switch kind {
+        case .noticiero: return [.duo, .listens, .interrupt, .agree]
+        case .tiempo: return [.solo, .listens, .duo, .agree]
+        case .anuncios: return [.solo, .duo, .interrupt]
+        case .top5: return [.solo, .duo, .listens]
+        case .hoy: return [.solo, .listens, .agree, .duo]
+        case .whatsapp: return [.duo, .agree, .interrupt]
+        case .deportes: return [.duo, .listens, .interrupt, .agree]
+        }
+    }
+
     /// Prepara todo lo de una seccion: el texto, la voz (varios segundos de audio), el grito de entrada, la musiquita y la cuña de salida. `nil` si falta
     /// lo imprescindible (datos, texto o voz); sin musiquita o cuña, la seccion sale igual. `next` es la cancion que viene (para los mensajes de oyentes).
     static func make(kind: RadioSectionKind, next: SongItem? = nil) async -> RadioSectionAssets? {
@@ -143,8 +156,11 @@ enum RadioSections {
         var noteTurns: [RadioTurn] = []
         var fallbackHosts: [RadioTurn] = []
         var fallbackNote: [RadioTurn] = []
+        // La forma de la conversacion (como en las piezas entre canciones): no siempre "habla uno, habla el otro".
+        let shape = RadioBlueprint.drawShape(from: allowedShapes(for: kind))
+        let minLines = (shape == .solo ? min(spec.minTurns, 2) : spec.minTurns) - (spec.guest == nil ? 0 : 1)
         for attempt in 0..<2 {
-            let prompt = spec.instruction + "\n\nDATOS \(spec.guest == nil ? "REALES " : "")DE HOY (unica fuente de hechos):\n" + spec.data
+            let prompt = spec.instruction + "\n\nFORMA DE LA CONVERSACION (respetala): \(shape.instruction)" + "\n\nDATOS \(spec.guest == nil ? "REALES " : "")DE HOY (unica fuente de hechos):\n" + spec.data
                 + RadioHistory.promptBlock(count: 3) + notice
             guard let json = try? await Gemini.text(
                 system: RadioContent.ficha + "\n\n" + spec.rules, prompt: prompt, temperature: 1.1, timeout: 14
@@ -158,10 +174,11 @@ enum RadioSections {
             let allText = turns.map(\.text).joined(separator: " ")
             let foodHit = RadioContent.mentionsFood(allText)
             let slangHit = RadioSlang.violations(in: allText)
-            let structureOK = hosts.count >= spec.minTurns - (spec.guest == nil ? 0 : 1) && words >= spec.minWords - (spec.guest == nil ? 0 : 20)
+            let structureOK = hosts.count >= minLines && words >= spec.minWords - (spec.guest == nil ? 0 : 20)
                 && words <= spec.maxWords && noteOK
             // Comida y muletillas repetidas: suave (un reintento y, si sigue, sale igual, para no quedarse sin seccion).
-            if structureOK, (!foodHit && slangHit.isEmpty) || attempt == 1 {
+            let shapeProblem = shape.problem(in: hosts)
+            if structureOK, (!foodHit && slangHit.isEmpty && shapeProblem == nil) || attempt == 1 {
                 hostTurns = hosts
                 noteTurns = note
                 break
@@ -169,9 +186,13 @@ enum RadioSections {
             if structureOK {
                 fallbackHosts = hosts
                 fallbackNote = note
-                notice = foodHit
-                    ? "\n\nTU INTENTO ANTERIOR HABLABA DE COMIDA. Reescribelo desde cero sin mencionar nada de comer, beber ni cocina."
-                    : "\n\nTU INTENTO ANTERIOR USABA MULETILLAS QUE SE HAN REPETIDO DEMASIADO (\(slangHit.joined(separator: ", "))). Reescribelo sin ellas."
+                if foodHit {
+                    notice = "\n\nTU INTENTO ANTERIOR HABLABA DE COMIDA. Reescribelo desde cero sin mencionar nada de comer, beber ni cocina."
+                } else if !slangHit.isEmpty {
+                    notice = "\n\nTU INTENTO ANTERIOR USABA MULETILLAS QUE SE HAN REPETIDO DEMASIADO (\(slangHit.joined(separator: ", "))). Reescribelo sin ellas."
+                } else {
+                    notice = "\n\nLA FORMA NO SE CUMPLE: " + (shapeProblem ?? "") + ". Reescribelo respetandola."
+                }
             } else {
                 notice = "\n\nTU INTENTO ANTERIOR NO SIRVE (\(words) palabras de los locutores en \(hosts.count) lineas\(spec.guest == nil ? "" : ", \(noteWords) palabras en la nota de voz")). Los locutores: entre \(spec.minWords) y \(spec.maxWords) palabras" + (spec.guest == nil ? " en al menos \(spec.minTurns) lineas." : "; la nota de voz de \(spec.guest?.name ?? ""): entre 15 y 45 palabras.")
             }
@@ -192,6 +213,7 @@ enum RadioSections {
         }
         guard let voice = await RadioVoice.clip(hostTurns, timeout: 30) else { return nil }
         RadioHistory.add(hostTurns + noteTurns)
+        RadioNotebook.add("la seccion de \(kind.name)")
         var assets = RadioSectionAssets(
             kind: kind, turns: hostTurns, voice: voice, shout: await shoutTask.value, bed: RadioSounds.bed(for: kind), outro: nil
         )

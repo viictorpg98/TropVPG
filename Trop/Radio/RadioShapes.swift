@@ -189,12 +189,18 @@ struct RadioBlueprint {
         }
         lastPurpose = purpose
         // Forma: sin repetir las dos ultimas; el dueto clasico pesa la mitad que las demas.
-        var shapes = length.shapes.filter { !recentShapes.suffix(2).contains($0) }
-        if shapes.isEmpty { shapes = length.shapes }
+        let shape = drawShape(from: length.shapes)
+        return RadioBlueprint(purpose: purpose, shape: shape, length: length)
+    }
+
+    /// Una forma de entre las permitidas, sin repetir las dos ultimas (tambien la usan las secciones).
+    static func drawShape(from allowed: [RadioShape]) -> RadioShape {
+        var shapes = allowed.filter { !recentShapes.suffix(2).contains($0) }
+        if shapes.isEmpty { shapes = allowed }
         let weighted = shapes + shapes.filter { $0 != .duo }
         let shape = weighted.randomElement() ?? .duo
         recentShapes.append(shape)
         if recentShapes.count > 6 { recentShapes.removeFirst(recentShapes.count - 6) }
-        return RadioBlueprint(purpose: purpose, shape: shape, length: length)
+        return shape
     }
 }
