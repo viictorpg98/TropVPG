@@ -79,12 +79,9 @@ enum SonarMix {
             // La primera cancion (conocida, de las de mas peso) y su radio, que se pide MIENTRAS llega el inicio: toda la cola parte de ella.
             var first = ParaTiMix.pickFirst(from: profile.familiar)
             var radioTask: Task<ParaTiMix.RadioResult, Never>?
-            // El juicio de Gemini sobre las conocidas (que encajan con la primera) tambien va EN PARALELO: no hace esperar a la musica.
-            var judgeTask: Task<Set<String>, Never>?
             if let seed = first {
                 let seedList = [(id: seed.videoId, title: seed.title)]
-                radioTask = Task { await ParaTiMix.loadRadios(seedList, limit: 40) }
-                judgeTask = Task { await ParaTiMix.judgeFamiliar(first: seed, familiar: profile.familiar) }
+                radioTask = Task { await ParaTiMix.loadRadios(seedList, limit: 60) }
             }
             let sections = await withTimeout(seconds: 10) { await loadHomeSections(deep: false) }
             trace(sections.map { "inicio cargado: \($0.count) secciones" } ?? "inicio: sin respuesta a tiempo")
@@ -98,36 +95,30 @@ enum SonarMix {
                     first = ParaTiMix.firstFromListenAgain(listenAgain)
                     if let first {
                         let seedList = [(id: first.videoId, title: first.title)]
-                        radioTask = Task { await ParaTiMix.loadRadios(seedList, limit: 40) }
+                        radioTask = Task { await ParaTiMix.loadRadios(seedList, limit: 60) }
                     }
                 }
                 let pendingRadios = radioTask
                 let radios = await withTimeout(seconds: 5) { () async -> ParaTiMix.RadioResult? in await pendingRadios?.value }
                 let merged = ParaTiMix.addListenAgain(to: profile.familiar, listenAgain: listenAgain)
-                // Coherencia: solo las conocidas que encajan con la primera; y la mezcla guardada ("Mixed for you", de estilos varios) solo si la radio
-                // de la primera no da para el descubrimiento.
-                var coherence = "sin primera cancion"
-                var familiarList = merged.list
-                var useSaved = true
-                if let first {
-                    // Si el juicio aun no ha vuelto, se espera como mucho 2 s mas; sin el, se filtra por artistas.
-                    let pendingJudge = judgeTask
-                    let approvedIds = await withTimeout(seconds: 2) { () async -> Set<String>? in await pendingJudge?.value } ?? []
-                    let coherent = ParaTiMix.coherentFamiliar(
-                        first: first, familiar: merged.list, approved: approvedIds,
-                        localIds: Set(profile.familiar.map { $0.song.videoId }), radio: radios?.songs ?? []
+                // Como "Iniciar radio" sobre la primera cancion: la cola es la radio de YouTube de esa cancion (estilo parecido de principio a fin). Solo si la
+                // radio no sale (o da menos de 10), la mezcla de antes (conocidas + descubrimiento).
+                let knownIds = Set(merged.list.map { $0.song.videoId })
+                var composition = ParaTiMix.Composition()
+                var coherence = "radio de la primera"
+                if let first, let queue = ParaTiMix.radioQueue(first: first, radio: radios?.songs ?? []) {
+                    composition.queue = queue
+                    composition.isDiscovery = queue.map { !knownIds.contains($0.videoId) }
+                } else {
+                    coherence = "sin radio de la primera: mezcla de antes"
+                    composition = ParaTiMix.compose(
+                        familiar: merged.list,
+                        radios: radios?.songs ?? [],
+                        saved: cachedMix() ?? [],
+                        recentlyPlayed: profile.recentlyPlayed,
+                        first: first
                     )
-                    familiarList = coherent.list
-                    coherence = coherent.note
-                    useSaved = (radios?.songs.count ?? 0) < 12
                 }
-                let composition = ParaTiMix.compose(
-                    familiar: familiarList,
-                    radios: radios?.songs ?? [],
-                    saved: useSaved ? (cachedMix() ?? []) : [],
-                    recentlyPlayed: profile.recentlyPlayed,
-                    first: first
-                )
                 coherence += ", cola lista a los \(Int(Date().timeIntervalSince(traceStart) * 1000)) ms"
                 let discoveryCount = composition.isDiscovery.filter { $0 }.count
                 let firstSix = zip(composition.queue.prefix(6), composition.isDiscovery.prefix(6))

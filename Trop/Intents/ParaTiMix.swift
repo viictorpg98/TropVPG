@@ -13,9 +13,8 @@
 //    historial, palabras del titulo) se quita de TODO: conocidas, "Listen again", semillas, radios de descubrimiento y mezcla guardada.
 //  - DESCUBRIMIENTO (30%): la radio de YouTube de 2 canciones tuyas (semillas fijas 30 min, para aprovechar la cache) y la mezcla guardada
 //    ("Mixed for you"), sin subidas de usuarios, sin lo que ya escuchas y sin lo que sono en los ultimos 3 dias.
-//  - COHERENCIA (nuevo): toda la cola parte de la PRIMERA cancion (una conocida de las de mas peso). Su radio de YouTube es la base del
-//    descubrimiento y, de las conocidas, solo entran las que encajan con su estilo, animo y epoca (Gemini, una peticion de texto; sin clave
-//    o si falla, las del mismo artista o de artistas de su radio). Asi la cola no salta de un estilo a otro.
+//  - COHERENCIA (nuevo): la primera cancion es una conocida de las de mas peso y TODA la cola es la radio de YouTube de esa cancion, como "Iniciar radio" (estilo
+//    parecido de principio a fin). Solo si la radio no sale (menos de 10 canciones) se usa la mezcla de antes (conocidas + descubrimiento).
 //  - Se reparten en un patron fijo (la primera siempre es conocida; una nueva cada 3-4 canciones) y sin repetir artista en 3 seguidas.
 //
 
@@ -181,46 +180,16 @@ enum ParaTiMix {
         listenAgain.filter { !isBlocked($0) }.randomElement()
     }
 
-    /// El juicio de Gemini sobre las conocidas LOCALES: una peticion de texto con las 60 de mas peso. Se lanza al empezar, MIENTRAS llega el inicio de YouTube, para que
-    /// la musica no espere por el. Devuelve los ids que encajan con el estilo, el animo y la epoca de la primera; vacio si no hay clave, "La radio recuerda" esta apagado
-    /// o falla (entonces se filtra por artistas).
-    static func judgeFamiliar(first: SongItem, familiar: [Candidate]) async -> Set<String> {
-        guard RadioSettings.isConfigured, RadioSettings.memoryEnabled else { return [] }
-        let top = Array(familiar.filter { $0.song.videoId != first.videoId }.sorted { $0.weight > $1.weight }.prefix(60))
-        guard top.count >= 12 else { return [] }
-        let lines = top.enumerated().map { "\($0.offset + 1). \($0.element.song.artistNamesDisplay) - \($0.element.song.title)" }.joined(separator: "\n")
-        let system = "Eres un experto en musica. Te doy una cancion de referencia y una lista numerada de canciones. Devuelve SOLO un JSON {\"encajan\": [numeros]} con las canciones de la lista que encajan con el ESTILO, el ANIMO y la EPOCA de la referencia, de modo que sonando seguidas no desentonen. Si dudas, NO la incluyas. No expliques nada."
-        let prompt = "REFERENCIA: \(first.artistNamesDisplay) - \(first.title)\n\nLISTA:\n" + lines
-        guard let json = try? await Gemini.text(system: system, prompt: prompt, temperature: 0.1, timeout: 5),
-              let data = json.data(using: .utf8),
-              let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-              let fits = object["encajan"] as? [Any] else { return [] }
-        let numbers = Set(fits.compactMap { ($0 as? NSNumber)?.intValue })
-        return Set(top.enumerated().filter { numbers.contains($0.offset + 1) }.map { $0.element.song.videoId })
-    }
-
-    /// Las conocidas que encajan con la primera cancion. Con el juicio de Gemini (`approved`, al menos 10): las locales aprobadas y las nuevas de "Listen again" (que no se
-    /// juzgaron) cuyo artista es de uno aprobado, de la radio de la primera o la propia. Sin juicio, o si deja menos de 10: las del mismo artista o de artistas de su radio. Si
-    /// tampoco salen 10, solo las pocas que encajan (el resto sale de la radio de la primera). `note` explica como se filtro (para el informe).
-    static func coherentFamiliar(first: SongItem, familiar: [Candidate], approved: Set<String>, localIds: Set<String>, radio: [SongItem]) -> (list: [Candidate], note: String) {
-        let pool = familiar.filter { $0.song.videoId != first.videoId }
-        var artists = Set(radio.map(artistKey))
-        artists.insert(artistKey(first))
-        if approved.count >= 10 {
-            var approvedArtists = artists
-            for candidate in pool where approved.contains(candidate.song.videoId) { approvedArtists.insert(artistKey(candidate.song)) }
-            approvedArtists.remove("")
-            let kept = pool.filter {
-                approved.contains($0.song.videoId) || (!localIds.contains($0.song.videoId) && approvedArtists.contains(artistKey($0.song)))
-            }
-            if kept.count >= 10 { return (kept, "Gemini: \(approved.count) locales encajan, \(kept.count) en la lista") }
+    /// La cola de "Para ti": como "Iniciar radio" sobre la primera cancion, la radio de YouTube de esa cancion (en su orden, que ya fluye con estilo parecido), sin las
+    /// bloqueadas (no me gusta, artistas ocultos, dormir, explicitas ocultas), sin subidas de usuarios y sin repetidas. `nil` si salen menos de 10.
+    static func radioQueue(first: SongItem, radio: [SongItem]) -> [SongItem]? {
+        var seen: Set<String> = [first.videoId]
+        var queue: [SongItem] = [first]
+        for song in radio {
+            if isBlocked(song) || song.musicVideoType == "MUSIC_VIDEO_TYPE_UGC" { continue }
+            if seen.insert(song.videoId).inserted { queue.append(song) }
         }
-        artists.remove("")
-        let byArtist = pool.filter { artists.contains(artistKey($0.song)) }
-        if byArtist.count >= 10 { return (byArtist, "por artistas de su radio: \(byArtist.count) de \(pool.count)") }
-        // Pocas conocidas encajan: mejor pocas y de verdad parecidas (la radio de la primera pone el resto) que toda la biblioteca, que salta de un estilo a otro.
-        let few = pool.filter { approved.contains($0.song.videoId) || artists.contains(artistKey($0.song)) }
-        return (few, "pocas encajan (\(few.count)): el resto sale de la radio de la primera")
+        return queue.count >= 10 ? Array(queue.prefix(50)) : nil
     }
 
     private static func saveSeeds(_ songs: [SongItem]) {
