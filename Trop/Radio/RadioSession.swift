@@ -584,9 +584,19 @@ final class RadioSession {
             if Int.random(in: 0..<4) == 0, let weather = RadioWorld.weatherLine() { extras.append(weather) }
             // La charla vuelve con un grito NUEVO (texto y voz de cada vez) sobre un golpe musical de Lyria; se prepara a la vez que la charla.
             let identTask: Task<RadioClip?, Never>? = kind == .charla ? Task { await RadioIdent.make(.charla) } : nil
-            let turns = await RadioContent.piece(kind: kind, previous: previous, next: next, facts: facts, extras: extras, spoken: spoken, allowHour: allowHour)
+            var turns = await RadioContent.piece(kind: kind, previous: previous, next: next, facts: facts, extras: extras, spoken: spoken, allowHour: allowHour)
             var clip: RadioClip?
-            if !turns.isEmpty { clip = await RadioVoice.clip(turns) }
+            if !turns.isEmpty {
+                let made = await RadioVoice.attempt(turns)
+                clip = made.clip
+                // Si la VOZ de Google se niega a decir esa pieza (aunque el texto pasara), se escribe otra en suave para no quedarse en silencio.
+                if clip == nil, made.blocked, RadioHumor.current != .mild {
+                    PlaybackReport.record("radio: la voz de Google ha bloqueado una pieza con humor \(RadioHumor.name(RadioHumor.current)); se reescribe en suave")
+                    turns = await RadioContent.piece(kind: kind, previous: previous, next: next, facts: facts, extras: extras, spoken: spoken, allowHour: allowHour, humor: .mild)
+                    if !turns.isEmpty { clip = await RadioVoice.clip(turns) }
+                }
+            }
+            let finalTurns = turns
             var entry: RadioClip?
             if clip != nil { entry = await identTask?.value }
             let golpe = entry != nil ? RadioSounds.golpe() : nil
@@ -605,10 +615,10 @@ final class RadioSession {
                 self.report("\(name): llego con la cancion ya cambiada")
                 return
             }
-            self.ready[key] = ReadyPiece(kind: kind, clip: clip, entry: entry, outro: nil, section: nil, turns: turns, golpe: golpe)
+            self.ready[key] = ReadyPiece(kind: kind, clip: clip, entry: entry, outro: nil, section: nil, turns: finalTurns, golpe: golpe)
             if kind == .charla, RadioSettings.memoryEnabled {
                 Task {
-                    let note = await RadioContent.recallNote(for: turns)
+                    let note = await RadioContent.recallNote(for: finalTurns)
                     RadioDiary.recordNote(note)
                 }
             }
@@ -616,7 +626,7 @@ final class RadioSession {
             var shoutText = ""
             if kind == .charla { shoutText = entry.map { "; grito: «\($0.label)»" } ?? "; sin grito" }
             self.report("\(name) listo en \(elapsed) s (\(String(format: "%.1f", clip.seconds)) s de voz; gasto de hoy \(String(format: "%.3f", RadioSettings.spentToday)) €)\(extraText)\(shoutText)\(allowHour ? "; con hora" : ""): "
-                + turns.map { turn in "\(turn.speaker)\(turn.tone.map { "[\($0)]" } ?? ""): \(turn.text)" }.joined(separator: " / "))
+                + finalTurns.map { turn in "\(turn.speaker)\(turn.tone.map { "[\($0)]" } ?? ""): \(turn.text)" }.joined(separator: " / "))
         }
     }
 

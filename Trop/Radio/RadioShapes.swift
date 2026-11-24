@@ -161,7 +161,7 @@ struct RadioBlueprint {
     nonisolated(unsafe) private static var recentShapes: [RadioShape] = []
     nonisolated(unsafe) private static var lastPurpose: RadioPurpose?
 
-    static func draw(kind: RadioPieceKind, hasPrevious: Bool, hasLocal: Bool, hasFacts: Bool) -> RadioBlueprint {
+    static func draw(kind: RadioPieceKind, hasPrevious: Bool, hasLocal: Bool, hasFacts: Bool, humor: RadioHumorLevel = .mild) -> RadioBlueprint {
         // Longitud: el mini es una frase de 4 s o algo corto; la charla, mediana o (de vez en cuando) larga.
         let length: RadioLength
         if kind == .mini {
@@ -169,9 +169,9 @@ struct RadioBlueprint {
         } else {
             length = Int.random(in: 0..<100) < 18 ? .long : .medium
         }
-        // Proposito: el chiste pesa como mucho un 30 %; el resto, radio normal.
+        // Proposito: el chiste pesa como mucho un 30 % (el doble con humor picante o negro); el resto, radio normal.
         var options: [(purpose: RadioPurpose, weight: Int)] = [
-            (purpose: RadioPurpose.banter, weight: 30), (purpose: RadioPurpose.reaction, weight: 12), (purpose: RadioPurpose.question, weight: 10)
+            (purpose: RadioPurpose.banter, weight: humor == .mild ? 30 : 60), (purpose: RadioPurpose.reaction, weight: 12), (purpose: RadioPurpose.question, weight: 10)
         ]
         if hasPrevious { options.append((purpose: RadioPurpose.backAnnounce, weight: 20)) }
         if hasLocal { options.append((purpose: RadioPurpose.local, weight: 16)) }

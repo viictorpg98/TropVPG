@@ -189,6 +189,7 @@
 "Daily Top Music Videos - %@" = "Videoclips más populares del día - %@";
 "Dance & electronic" = "Dance y electrónica";
 "Dark" = "Oscuro";
+"Dark Humor" = "Negro";
 "Date Released" = "Fecha de lanzamiento";
 "December" = "Diciembre";
 "Deep Cuts" = "Joyas ocultas";
@@ -320,6 +321,7 @@
 "How long the two songs overlap. The mix always starts and ends on the beat." = "Cuánto se solapan las dos canciones. La mezcla siempre empieza y acaba a tempo.";
 "How many minutes?" = "¿Cuántos minutos?";
 "How was the mix?" = "¿Qué tal la mezcla?";
+"Humor" = "Humor";
 "I couldn't find that artist." = "No encuentro ese artista.";
 "I couldn't find that category on your home." = "No encuentro esa categoría en tu inicio.";
 "I couldn't find that song." = "No he encontrado esa canción.";
@@ -426,6 +428,8 @@
 "Memory cleared." = "Memoria borrada.";
 "Metadata & stream information" = "Metadatos e información de la transmisión";
 "Metal" = "Metal";
+"Mild" = "Suave";
+"Mild: the usual jokes. Spicy: cynical and foul-mouthed, like the radios in GTA. Dark Humor: also macabre and absurd (about made-up things). If Google blocks a piece, it is rewritten in Mild." = "Suave: los chistes de siempre. Picante: cínico y malhablado, como las radios de GTA. Negro: además, macabro y absurdo (sobre cosas inventadas). Si Google bloquea una pieza, se reescribe en suave.";
 "Mindfulness & meditation" = "Mindfulness y meditación";
 "Minimum Duration" = "Duración mínima";
 "Minimum Track Duration" = "Duración mínima de la canción";
@@ -744,6 +748,7 @@
 "Source" = "Origen";
 "Speechify API Key" = "Clave de API de Speechify";
 "Speed Dial" = "Acceso rápido";
+"Spicy" = "Picante";
 "Spirituality" = "Espiritualidad";
 "SponsorBlock" = "SponsorBlock";
 "Sports" = "Deportes";

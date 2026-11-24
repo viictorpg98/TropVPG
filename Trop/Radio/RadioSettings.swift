@@ -13,6 +13,7 @@ enum RadioSettings {
     static let enabledKey = "radio.enabled"
     static let talkEveryKey = "radio.talkEvery"
     static let rhythmKey = "radio.rhythm"
+    static let humorKey = "radio.humor"
     static let sportsKey = "radio.sports"
     static let sectionsOffKey = "radio.sectionsOff"
     static let defaultSports = "FC Barcelona, pádel, fútbol sala"
@@ -58,6 +59,12 @@ enum RadioSettings {
     /// Que tan regular es el ritmo: 0 = exacto (siempre cada N), 1 = natural (pequeña variacion), 2 = imprevisible (mas variacion, con algun silencio).
     static var rhythm: Int {
         let saved = UserDefaults.standard.object(forKey: rhythmKey) as? Int ?? 0
+        return min(max(saved, 0), 2)
+    }
+
+    /// El nivel de humor (ver `RadioHumor`): 0 = suave, 1 = picante (por defecto), 2 = negro.
+    static var humor: Int {
+        let saved = UserDefaults.standard.object(forKey: humorKey) as? Int ?? 1
         return min(max(saved, 0), 2)
     }
 

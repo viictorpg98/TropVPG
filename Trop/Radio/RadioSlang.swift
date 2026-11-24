@@ -19,8 +19,20 @@ enum RadioSlang {
         ("mi primo / mi comadre", try? NSRegularExpression(pattern: "\\bmi (primo|prima|comadre|compadre)\\b", options: [.caseInsensitive])),
         ("atención (al empezar)", try? NSRegularExpression(pattern: "^\\W*atenci[oó]n", options: [.caseInsensitive])),
         ("vamos con / vámonos con", try? NSRegularExpression(pattern: "\\bv[aá]monos con\\b|\\bvamos con\\b|\\bsigamos con\\b", options: [.caseInsensitive])),
-        ("hablando de", try? NSRegularExpression(pattern: "\\bhablando de\\b", options: [.caseInsensitive]))
+        ("hablando de", try? NSRegularExpression(pattern: "\\bhablando de\\b", options: [.caseInsensitive])),
+        // Con humor picante, los tacos tambien se reparten: el que sale en dos de las ultimas cinco piezas descansa.
+        ("carajo", try? NSRegularExpression(pattern: "\\bcarajo", options: [.caseInsensitive])),
+        ("joder", try? NSRegularExpression(pattern: "\\bjod[eií]", options: [.caseInsensitive])),
+        ("coño", try? NSRegularExpression(pattern: "\\bco[ñn]o\\b", options: [.caseInsensitive])),
+        ("mierda", try? NSRegularExpression(pattern: "\\bmierda", options: [.caseInsensitive])),
+        ("cabrón", try? NSRegularExpression(pattern: "\\bcabr[oó]n|\\bcabrona", options: [.caseInsensitive])),
+        ("pendejo", try? NSRegularExpression(pattern: "\\bpendej", options: [.caseInsensitive])),
+        ("hijo de puta", try? NSRegularExpression(pattern: "\\bhij[oa] ?(?:de|e) ?puta|\\bhijueputa", options: [.caseInsensitive])),
+        ("cojones", try? NSRegularExpression(pattern: "\\bcojones", options: [.caseInsensitive]))
     ]
+
+    /// Los tacos solo descansan cuando salen en tres de las ultimas cinco piezas (con dos, casi todos estarian prohibidos siempre).
+    private static let swears: Set<String> = ["carajo", "joder", "coño", "mierda", "cabrón", "pendejo", "hijo de puta", "cojones"]
 
     private static func present(in text: String) -> [String] {
         let range = NSRange(text.startIndex..., in: text)
@@ -37,7 +49,7 @@ enum RadioSlang {
             let text = piece.map(\.text).joined(separator: " ")
             for name in present(in: text) { counts[name, default: 0] += 1 }
         }
-        return counts.filter { $0.value >= 2 }.map { $0.key }.sorted()
+        return counts.filter { $0.value >= (swears.contains($0.key) ? 3 : 2) }.map { $0.key }.sorted()
     }
 
     /// Las muletillas prohibidas ahora que aparecen en este texto.

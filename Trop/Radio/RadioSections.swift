@@ -51,6 +51,19 @@ enum RadioSections {
     - Responde SOLO con un JSON, sin texto antes ni despues: una lista de objetos {"speaker": "Pitirre" o "Chuleta" o el nombre del oyente, "text": "...", "tono": "..." (opcional)}.
     """
 
+    /// Con humor picante o negro, las reglas de las secciones se adaptan: los insultos y las bromas duras ya valen (nunca contra grupos ni victimas reales; eso lo dice
+    /// el bloque de limites de la ficha), y la jerga y los chistes dejan de ser "escasos".
+    private static func adapted(_ rules: String, level: RadioHumorLevel) -> String {
+        guard level != .mild else { return rules }
+        return rules
+            .replacingOccurrences(of: "- Sin insultos a personas. Si toca politica,", with: "- Sin insultos a personas reales con nombre. Si toca politica,")
+            .replacingOccurrences(of: "- Nada de bromas con muertes, accidentes, violencia ni victimas: si un dato es asi, usa otro.", with: "- Nada de bromas con muertes, accidentes, violencia ni victimas REALES de los datos: si un dato es asi, usa otro.")
+            .replacingOccurrences(of: "La jerga puertorriqueña es un condimento escaso: como mucho una expresion en toda la seccion, nunca la misma que en piezas anteriores y nunca para cerrar.", with: "La jerga puertorriqueña, con moderacion y sin cerrar siempre con ella.")
+            .replacingOccurrences(of: "Sin insultos, politica ni marcas comerciales.", with: "Sin politica ni marcas comerciales reales; los locutores pueden vacilar con mala leche a los oyentes y entre ellos, y los oyentes inventados pueden ser unos chalados, groseros o desquiciados (siempre inventados).")
+            .replacingOccurrences(of: "La jerga puertorriqueña casi nunca, y nunca para cerrar.", with: "")
+            + RadioHumor.rulesNote(level)
+    }
+
     private struct Spec {
         let instruction: String
         let data: String
@@ -144,7 +157,9 @@ enum RadioSections {
 
     /// Prepara todo lo de una seccion: el texto, la voz (varios segundos de audio), el grito de entrada, la musiquita y la cuña de salida. `nil` si falta
     /// lo imprescindible (datos, texto o voz); sin musiquita o cuña, la seccion sale igual. `next` es la cancion que viene (para los mensajes de oyentes).
-    static func make(kind: RadioSectionKind, next: SongItem? = nil) async -> RadioSectionAssets? {
+    /// `humor`: solo para reescribir en suave una seccion que Google ha bloqueado; normalmente es el nivel elegido en Ajustes.
+    static func make(kind: RadioSectionKind, next: SongItem? = nil, humor: RadioHumorLevel? = nil) async -> RadioSectionAssets? {
+        let level = humor ?? RadioHumor.current
         let world = await RadioWorld.snapshot()
         var top: [String]?
         // Tu top 5 sale de tu historial: va con "La radio recuerda" (con la memoria apagada, esta seccion se salta).
@@ -160,11 +175,19 @@ enum RadioSections {
         let shape = RadioBlueprint.drawShape(from: allowedShapes(for: kind))
         let minLines = (shape == .solo ? min(spec.minTurns, 2) : spec.minTurns) - (spec.guest == nil ? 0 : 1)
         for attempt in 0..<2 {
-            let prompt = spec.instruction + "\n\nFORMA DE LA CONVERSACION (respetala): \(shape.instruction)" + "\n\nDATOS \(spec.guest == nil ? "REALES " : "")DE HOY (unica fuente de hechos):\n" + spec.data
+            let prompt = spec.instruction + RadioHumor.sectionTone(kind, level: level) + "\n\nFORMA DE LA CONVERSACION (respetala): \(shape.instruction)" + "\n\nDATOS \(spec.guest == nil ? "REALES " : "")DE HOY (unica fuente de hechos):\n" + spec.data
                 + RadioHistory.promptBlock(count: 3) + notice
-            guard let json = try? await Gemini.text(
-                system: RadioContent.ficha + "\n\n" + spec.rules, prompt: prompt, temperature: 1.1, timeout: 14
-            ) else { break }
+            let json: String
+            do {
+                json = try await Gemini.text(
+                    system: RadioContent.fichaWith(humor: level) + "\n\n" + adapted(spec.rules, level: level), prompt: prompt, temperature: 1.1, timeout: 14
+                )
+            } catch let failure as Gemini.Failure where failure.isBlocked && level != .mild {
+                PlaybackReport.record("radio: seccion \(kind.name) bloqueada por Google con humor \(RadioHumor.name(level)); se reescribe en suave")
+                return await make(kind: kind, next: next, humor: .mild)
+            } catch {
+                break
+            }
             let turns = RadioContent.parseTurns(json, allowing: spec.guest.map { [$0.name] } ?? [])
             let hosts = turns.filter { $0.speaker == "Pitirre" || $0.speaker == "Chuleta" }
             let note = turns.filter { $0.speaker != "Pitirre" && $0.speaker != "Chuleta" }
@@ -208,10 +231,21 @@ enum RadioSections {
         if spec.guest != nil {
             // La nota de voz va PRIMERO: es lo mas arriesgado (otra voz) y sin ella la seccion no tiene sentido (los locutores ya la habrian anunciado); asi,
             // si falla, no se gasta la peticion de voz de los locutores.
-            guard !noteTurns.isEmpty, let made = await RadioVoice.clip(noteTurns, timeout: 25) else { return nil }
+            guard !noteTurns.isEmpty else { return nil }
+            let madeNote = await RadioVoice.attempt(noteTurns, timeout: 25)
+            if madeNote.blocked, level != .mild {
+                PlaybackReport.record("radio: la voz de Google ha bloqueado la seccion \(kind.name) con humor \(RadioHumor.name(level)); se reescribe en suave")
+                return await make(kind: kind, next: next, humor: .mild)
+            }
+            guard let made = madeNote.clip else { return nil }
             note = made
         }
-        guard let voice = await RadioVoice.clip(hostTurns, timeout: 30) else { return nil }
+        let madeVoice = await RadioVoice.attempt(hostTurns, timeout: 30)
+        if madeVoice.blocked, level != .mild {
+            PlaybackReport.record("radio: la voz de Google ha bloqueado la seccion \(kind.name) con humor \(RadioHumor.name(level)); se reescribe en suave")
+            return await make(kind: kind, next: next, humor: .mild)
+        }
+        guard let voice = madeVoice.clip else { return nil }
         RadioHistory.add(hostTurns + noteTurns)
         RadioNotebook.add("la seccion de \(kind.name)")
         var assets = RadioSectionAssets(

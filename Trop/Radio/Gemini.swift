@@ -14,7 +14,12 @@ enum Gemini {
         let code: Int
         let message: String
         var errorDescription: String? { message }
+        /// Google se ha negado a escribir o a decir esto (filtro de seguridad).
+        var isBlocked: Bool { code == Gemini.blockedCode }
     }
+
+    /// El codigo propio de "Google lo ha bloqueado" (no es un codigo HTTP).
+    static let blockedCode = -7
 
     private static let base = "https://generativelanguage.googleapis.com/v1beta"
     private static let pitirreStyle = "relaxed and cocky, slow smirking drawl, amused, laughing easily"
@@ -49,16 +54,31 @@ enum Gemini {
     /// Pregunta que devuelve JSON (como texto, sin las vallas ```).
     static func text(system: String, prompt: String, temperature: Double, timeout: Double = 8) async throws -> String {
         try ensureUsable(.text)
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "systemInstruction": ["parts": [["text": system]]],
             "contents": [["role": "user", "parts": [["text": prompt]]]],
             "generationConfig": ["temperature": temperature, "responseMimeType": "application/json"]
         ]
+        // Sin el filtro ajustable de Google (BLOCK_NONE) en sus 4 categorias: el humor picante es para adultos y los limites los pone la propia ficha.
+        // Hay un filtro de base que no se puede quitar. Si Google rechazara estos ajustes (error 400), se sigue sin ellos.
+        if !safetyRejected { body["safetySettings"] = safetySettings }
         guard let url = URL(string: "\(base)/models/\(RadioSettings.textModel):generateContent") else {
             throw Failure(code: 0, message: "direccion no valida")
         }
-        let json = try await post(url, body: body, timeout: timeout, scope: .text)
+        let json: [String: Any]
+        do {
+            json = try await post(url, body: body, timeout: timeout, scope: .text)
+        } catch let failure as Failure where failure.code == 400 && body["safetySettings"] != nil && looksBlocked(failure.message) {
+            safetyRejected = true
+            PlaybackReport.record("radio: Google rechazo los ajustes de seguridad (\(failure.message)); se sigue sin ellos")
+            body["safetySettings"] = nil
+            json = try await post(url, body: body, timeout: timeout, scope: .text)
+        }
         RadioSettings.addSpend(0.0004)
+        if let reason = blockReason(json) {
+            PlaybackReport.record("radio: Google bloquea el texto (\(reason))")
+            throw Failure(code: blockedCode, message: "bloqueado por Google: \(reason)")
+        }
         guard let candidates = json["candidates"] as? [[String: Any]],
               let content = candidates.first?["content"] as? [String: Any],
               let parts = content["parts"] as? [[String: Any]],
@@ -73,6 +93,54 @@ enum Gemini {
             text = lines.joined(separator: "\n")
         }
         return text
+    }
+
+    nonisolated(unsafe) private static let safetySettings: [[String: Any]] = [
+        "HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_DANGEROUS_CONTENT"
+    ].map { (name: String) -> [String: Any] in ["category": name, "threshold": "BLOCK_NONE"] }
+    nonisolated(unsafe) private static var safetyRejected = false
+
+    /// ¿Un error 400 habla de seguridad o de politicas (y no de otra cosa)?
+    private static func looksBlocked(_ message: String) -> Bool {
+        let lower = message.lowercased()
+        return ["safety", "harm", "threshold", "blocked", "policy", "prohibited"].contains { lower.contains($0) }
+    }
+
+    /// Por que Google no ha escrito el texto (peticion bloqueada o respuesta cortada por seguridad), con las categorias que puntuaron alto; `nil` si no hay bloqueo.
+    private static func blockReason(_ json: [String: Any]) -> String? {
+        if let feedback = json["promptFeedback"] as? [String: Any], let reason = feedback["blockReason"] as? String {
+            return "peticion: " + reason
+        }
+        guard let candidate = (json["candidates"] as? [[String: Any]])?.first else { return nil }
+        let finish = candidate["finishReason"] as? String ?? ""
+        guard ["SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "SPII", "OTHER", "RECITATION"].contains(finish) else { return nil }
+        let ratings = (candidate["safetyRatings"] as? [[String: Any]] ?? [])
+            .filter { ["HIGH", "MEDIUM"].contains($0["probability"] as? String ?? "") }
+            .compactMap { $0["category"] as? String }
+        return finish + (ratings.isEmpty ? "" : " " + ratings.joined(separator: ","))
+    }
+
+    /// Si la respuesta de voz explica por que no hay audio (un bloqueo o un final raro), una nota corta con eso; "" si no hay nada que decir.
+    private static func voiceHint(_ node: Any, depth: Int = 0) -> String {
+        guard depth < 6 else { return "" }
+        let keys: Set<String> = ["blockReason", "block_reason", "finishReason", "finish_reason", "status", "reason"]
+        let normal: Set<String> = ["STOP", "completed", "COMPLETED", "ok"]
+        if let dictionary = node as? [String: Any] {
+            var found: [String] = []
+            for (key, value) in dictionary {
+                if let text = value as? String {
+                    if keys.contains(key), !text.isEmpty, !normal.contains(text) { found.append("\(key)=\(text)") }
+                } else {
+                    let inner = voiceHint(value, depth: depth + 1)
+                    if !inner.isEmpty { found.append(inner) }
+                }
+            }
+            return found.sorted().joined(separator: ", ")
+        }
+        if let array = node as? [Any] {
+            return array.map { voiceHint($0, depth: depth + 1) }.filter { !$0.isEmpty }.joined(separator: ", ")
+        }
+        return ""
     }
 
     // MARK: - Voz
@@ -127,10 +195,17 @@ enum Gemini {
             "generation_config": config
         ]
         guard let url = URL(string: "\(base)/interactions") else { throw Failure(code: 0, message: "direccion no valida") }
-        let json = try await post(url, body: body, timeout: timeout, scope: .voice(model))
+        let json: [String: Any]
+        do {
+            json = try await post(url, body: body, timeout: timeout, scope: .voice(model))
+        } catch let failure as Failure where failure.code == 400 && looksBlocked(failure.message) {
+            throw Failure(code: blockedCode, message: "bloqueado por Google: \(failure.message)")
+        }
         guard let found = findAudio(json), let raw = Data(base64Encoded: found.data),
               let parsed = RadioAudio.samples(from: raw), parsed.rate > 0, !parsed.samples.isEmpty else {
-            throw Failure(code: 0, message: "la respuesta de voz no traia audio")
+            let hint = String(voiceHint(json).prefix(160))
+            let blocked = ["SAFETY", "BLOCK", "PROHIBITED", "SPII", "RECITATION"].contains { hint.uppercased().contains($0) }
+            throw Failure(code: blocked ? blockedCode : 0, message: "la respuesta de voz no traia audio" + (hint.isEmpty ? "" : " (\(hint))"))
         }
         let seconds = Double(parsed.samples.count) / Double(parsed.rate)
         // Gasto estimado: el audio son ~25 tokens por segundo a ~6 dolares el millon (unos 0,00014 € por segundo) mas el texto de entrada.

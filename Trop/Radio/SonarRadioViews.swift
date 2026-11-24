@@ -15,6 +15,7 @@ struct RadioSettingsView: View {
     @AppStorage(RadioSettings.enabledKey) private var enabled = true
     @AppStorage(RadioSettings.talkEveryKey) private var talkEvery = 2
     @AppStorage(RadioSettings.rhythmKey) private var rhythm = 0
+    @AppStorage(RadioSettings.humorKey) private var humor = 1
     @AppStorage(RadioSettings.sportsKey) private var sports = RadioSettings.defaultSports
     @AppStorage(RadioSettings.dailyCapKey) private var cap = 0.30
     @AppStorage(RadioSettings.voiceGainKey) private var gain = 2.6
@@ -62,6 +63,14 @@ struct RadioSettingsView: View {
                     Text("Unpredictable").tag(2)
                 }
                 Text("Exact: they talk exactly as often as you choose. Natural: a little variation. Unpredictable: more variation, with some silences and some comments back to back. With “Every song”, the last two just mean they sometimes skip a song.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Picker("Humor", selection: $humor) {
+                    Text("Mild").tag(0)
+                    Text("Spicy").tag(1)
+                    Text("Dark Humor").tag(2)
+                }
+                Text("Mild: the usual jokes. Spicy: cynical and foul-mouthed, like the radios in GTA. Dark Humor: also macabre and absurd (about made-up things). If Google blocks a piece, it is rewritten in Mild.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                 Picker("Daily Spending Limit", selection: $cap) {

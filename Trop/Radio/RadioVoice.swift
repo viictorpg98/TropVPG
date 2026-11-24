@@ -11,16 +11,21 @@ import Foundation
 enum RadioVoice {
     /// El audio de unos turnos: de la cache o generado ahora (`nil` si no se puede: sin clave, sin red, tope de gasto...).
     static func clip(_ turns: [RadioTurn], style: String? = nil, fixed: Bool = false, timeout: Double = 15) async -> RadioClip? {
-        guard !turns.isEmpty else { return nil }
+        await attempt(turns, style: style, fixed: fixed, timeout: timeout).clip
+    }
+
+    /// Lo mismo, pero diciendo tambien si Google se ha negado a decirlo (`blocked`): quien lo llama puede reescribir el texto mas suave.
+    static func attempt(_ turns: [RadioTurn], style: String? = nil, fixed: Bool = false, timeout: Double = 15) async -> (clip: RadioClip?, blocked: Bool) {
+        guard !turns.isEmpty else { return (nil, false) }
         let key = cacheKey(turns, style: style)
-        if let cached = RadioAudio.cached(key: key, fixed: fixed) { return cached }
+        if let cached = RadioAudio.cached(key: key, fixed: fixed) { return (cached, false) }
         do {
             let generated = try await Gemini.speech(turns, style: style, timeout: timeout)
             RadioAudio.store(generated, key: key, fixed: fixed)
-            return generated
+            return (generated, false)
         } catch {
             PlaybackReport.record("radio: voz fallo (\(error.localizedDescription))")
-            return nil
+            return (nil, (error as? Gemini.Failure)?.isBlocked ?? false)
         }
     }
 

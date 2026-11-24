@@ -189,6 +189,7 @@
 "Daily Top Music Videos - %@" = "Daily Top Music Videos - %@";
 "Dance & electronic" = "Dance & electronic";
 "Dark" = "Dark";
+"Dark Humor" = "Dark Humor";
 "Date Released" = "Date Released";
 "December" = "December";
 "Deep Cuts" = "Deep Cuts";
@@ -320,6 +321,7 @@
 "How long the two songs overlap. The mix always starts and ends on the beat." = "How long the two songs overlap. The mix always starts and ends on the beat.";
 "How many minutes?" = "How many minutes?";
 "How was the mix?" = "How was the mix?";
+"Humor" = "Humor";
 "I couldn't find that artist." = "I couldn't find that artist.";
 "I couldn't find that category on your home." = "I couldn't find that category on your home.";
 "I couldn't find that song." = "I couldn't find that song.";
@@ -426,6 +428,8 @@
 "Memory cleared." = "Memory cleared.";
 "Metadata & stream information" = "Metadata & stream information";
 "Metal" = "Metal";
+"Mild" = "Mild";
+"Mild: the usual jokes. Spicy: cynical and foul-mouthed, like the radios in GTA. Dark Humor: also macabre and absurd (about made-up things). If Google blocks a piece, it is rewritten in Mild." = "Mild: the usual jokes. Spicy: cynical and foul-mouthed, like the radios in GTA. Dark Humor: also macabre and absurd (about made-up things). If Google blocks a piece, it is rewritten in Mild.";
 "Mindfulness & meditation" = "Mindfulness & meditation";
 "Minimum Duration" = "Minimum Duration";
 "Minimum Track Duration" = "Minimum Track Duration";
@@ -744,6 +748,7 @@
 "Source" = "Source";
 "Speechify API Key" = "Speechify API Key";
 "Speed Dial" = "Speed Dial";
+"Spicy" = "Spicy";
 "Spirituality" = "Spirituality";
 "SponsorBlock" = "SponsorBlock";
 "Sports" = "Sports";

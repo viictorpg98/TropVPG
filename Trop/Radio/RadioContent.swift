@@ -67,8 +67,11 @@ enum RadioHistory {
 
 enum RadioContent {
     /// La ficha de la emisora, con la ciudad elegida en Ajustes y el bloque de lo local (ver `RadioLocal`).
-    static var ficha: String {
-        fichaBase.replacingOccurrences(of: "{CIUDAD}", with: RadioLocal.cityName) + "\n" + RadioLocal.block
+    static var ficha: String { fichaWith(humor: RadioHumor.current) }
+
+    /// La ficha con el texto del nivel de humor (ver `RadioHumor`).
+    static func fichaWith(humor: RadioHumorLevel) -> String {
+        fichaBase.replacingOccurrences(of: "{CIUDAD}", with: RadioLocal.cityName) + "\n" + RadioLocal.block + RadioHumor.block(for: humor)
     }
 
     private static let fichaBase = """
@@ -104,6 +107,16 @@ enum RadioContent {
     - Las frases pueden quedar a medias, con dudas o con una interrupcion, como en una conversacion real.
 
     """ + commonRules
+
+    /// Las reglas de las piezas segun el nivel de humor: con picante o negro se quitan las lineas que piden poca gracia, pullas pequeñas o jerga escasa (si no, se
+    /// contradicen con el humor). La prueba del PC (`humor-prueba.py`) repite estos mismos cambios.
+    private static func rules(for level: RadioHumorLevel) -> String {
+        guard level != .mild else { return pieceRules }
+        return pieceRules
+            .replacingOccurrences(of: "- No todo es chiste: la mayoria de las piezas son radio normal, con calidez. Las pullas entre ellos, como mucho una pequeña, y no en todas las piezas.", with: "- Casi todas las piezas llevan chiste y mala leche; las pullas entre ellos pueden ser duras. De vez en cuando basta con presentar la cancion con calidez.")
+            .replacingOccurrences(of: "Prefiere una observacion sencilla y concreta sobre algo cotidiano a un chiste: NO todas las intervenciones necesitan gracia, a veces solo presentan la cancion con naturalidad, como una radio normal. Cuando haya humor, que sea pequeño y concreto. Prohibido:", with: "El humor es concreto, con veneno y sobre algo cotidiano muy especifico. Prohibido:")
+            .replacingOccurrences(of: "es un condimento MUY escaso: una expresion suelta de vez en cuando (en menos de la mitad de las piezas), nunca la misma", with: "se usa con moderacion, nunca la misma")
+    }
 
     private static let charlaFormats = [
         "una dedicatoria absurda pero creible de un oyente a otro oyente (nombres de pila normales inventados, nada de famosos)",
@@ -166,6 +179,10 @@ enum RadioContent {
 
     nonisolated(unsafe) private static var miniDeck: [String] = []
     nonisolated(unsafe) private static var charlaDeck: [String] = []
+    // Cada nivel de humor tiene sus propios mazos (si no, al reescribir en suave una pieza bloqueada saldria un formato picante del mazo del otro nivel).
+    nonisolated(unsafe) private static var spicyMiniDeck: [String] = []
+    nonisolated(unsafe) private static var spicyCharlaDeck: [String] = []
+    nonisolated(unsafe) private static var darkCharlaDeck: [String] = []
     nonisolated(unsafe) private static var topicDeck: [String] = []
     nonisolated(unsafe) private static var maniaDeck: [String] = []
     nonisolated(unsafe) private static var miniHourDeck: [String] = []
@@ -291,10 +308,12 @@ enum RadioContent {
     /// `facts`: lo que la radio sabe de la persona (solo para las charlas; "" si la memoria esta apagada).
     /// `extras`: datos reales opcionales (de lo que suena, de tu historial, el tiempo) de los que puede usar UNO.
     /// `allowHour`: si esta pieza puede hablar de la hora y del momento del dia (ver `reserveHourSlot`).
-    static func piece(kind: RadioPieceKind, previous: SongItem?, next: SongItem, facts: String = "", extras: [String] = [], spoken: Date = Date(), allowHour: Bool = false) async -> [RadioTurn] {
+    /// `humor`: solo para reescribir en suave una pieza que Google ha bloqueado; normalmente es el nivel elegido en Ajustes.
+    static func piece(kind: RadioPieceKind, previous: SongItem?, next: SongItem, facts: String = "", extras: [String] = [], spoken: Date = Date(), allowHour: Bool = false, humor: RadioHumorLevel? = nil) async -> [RadioTurn] {
         let isMini = kind == .mini
+        let level = humor ?? RadioHumor.current
         let nearby = RadioWorld.nearbyLines()
-        let plan = RadioBlueprint.draw(kind: kind, hasPrevious: previous != nil, hasLocal: !nearby.isEmpty, hasFacts: !facts.isEmpty)
+        let plan = RadioBlueprint.draw(kind: kind, hasPrevious: previous != nil, hasLocal: !nearby.isEmpty, hasFacts: !facts.isEmpty, humor: level)
         // El nombre de la emisora, solo en una de cada cuatro piezas.
         let allowStation = Int.random(in: 0..<4) == 0
         // De que va: el chiste sale de los mazos de formatos de siempre; lo demas, de su texto fijo (con su dato).
@@ -305,9 +324,23 @@ enum RadioContent {
         switch plan.purpose {
         case .banter:
             if isMini {
-                purpose = allowHour ? draw(&miniHourDeck, from: miniHourFormats) : draw(&miniDeck, from: miniFormats)
+                if allowHour {
+                    purpose = draw(&miniHourDeck, from: miniHourFormats)
+                } else if level == .mild {
+                    purpose = draw(&miniDeck, from: miniFormats)
+                } else {
+                    purpose = draw(&spicyMiniDeck, from: RadioHumor.miniFormats)
+                }
             } else {
-                purpose = allowHour ? draw(&charlaHourDeck, from: charlaHourFormats) : draw(&charlaDeck, from: charlaFormats)
+                if allowHour {
+                    purpose = draw(&charlaHourDeck, from: charlaHourFormats)
+                } else {
+                    switch level {
+                    case .mild: purpose = draw(&charlaDeck, from: charlaFormats)
+                    case .spicy: purpose = draw(&spicyCharlaDeck, from: RadioHumor.charlaFormats)
+                    case .dark: purpose = draw(&darkCharlaDeck, from: RadioHumor.charlaFormats + RadioHumor.darkCharlaFormats)
+                    }
+                }
                 topic = draw(&topicDeck, from: topics)
                 mania = draw(&maniaDeck, from: manias)
             }
@@ -316,7 +349,7 @@ enum RadioContent {
         default:
             break
         }
-        let system = ficha + "\n\n" + pieceRules
+        let system = fichaWith(humor: level) + "\n\n" + rules(for: level) + RadioHumor.rulesNote(level)
         var notice = ""
         var best: [RadioTurn] = []
         var bestTopic: String?
@@ -337,7 +370,16 @@ enum RadioContent {
             }
             if !facts.isEmpty { prompt += "\n\n" + facts }
             prompt += RadioHistory.promptBlock(count: 6) + RadioNotebook.promptBlock() + notice
-            guard let json = try? await Gemini.text(system: system, prompt: prompt, temperature: 1.2, timeout: 10) else { break }
+            let json: String
+            do {
+                json = try await Gemini.text(system: system, prompt: prompt, temperature: 1.2, timeout: 10)
+            } catch let failure as Gemini.Failure where failure.isBlocked && level != .mild {
+                // Google se ha negado: la pieza se vuelve a escribir en suave (con su propio plan), para no quedarse sin ella.
+                PlaybackReport.record("radio: pieza bloqueada por Google con humor \(RadioHumor.name(level)); se reescribe en suave")
+                return await piece(kind: kind, previous: previous, next: next, facts: facts, extras: extras, spoken: spoken, allowHour: allowHour, humor: .mild)
+            } catch {
+                break
+            }
             let turns = parseTurns(json)
             let words = turns.reduce(0) { $0 + $1.text.split(separator: " ").count }
             let all = turns.map(\.text).joined(separator: " ")
