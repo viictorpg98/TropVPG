@@ -59,7 +59,7 @@ enum RadioWorld {
     private static let trendsURL = "https://trends.google.com/trending/rss?geo=ES"
 
     private static let sensitive = try? NSRegularExpression(
-        pattern: "muer[et]|mata\\b|matan|falleci|asesin|crimen|violaci|agresi[oó]n|accidente|terroris|v[ií]ctima|suicid|incendio|guerra|ataque|tiroteo|apuñal|cad[aá]ver|\bmorts?\b|\bmor\b|assassin|accident\b|incendi\b|\batac\b|tiroteig|agressi|\bcrim\b|su[ïi]cid|ferits?\b|v[ií]ctimes|defunci",
+        pattern: "muer[et]|mata\\b|matan|falleci|asesin|crimen|violaci|agresi[oó]n|accidente|terroris|v[ií]ctima|suicid|incendio|guerra|ataque|tiroteo|apuñal|cad[aá]ver|\\bmorts?\\b|\\bmor\\b|assassin|accident\\b|incendi\\b|\\batac\\b|tiroteig|agressi|\\bcrim\\b|su[ïi]cid|ferits?\\b|v[ií]ctimes|defunci",
         options: [.caseInsensitive]
     )
 
