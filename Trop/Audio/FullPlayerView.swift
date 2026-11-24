@@ -13,7 +13,6 @@ struct FullPlayerView: View {
     @Environment(SettingsStore.self) private var settings
     private let player = PlayerController.shared
     @Bindable private var np = NowPlaying.shared
-    private let dj = DJSettings.shared
     @State private var editingProgress: Float = 0
     @State private var isEditingSlider = false
     @GestureState(resetTransaction: Transaction(animation: .spring(response: 0.3, dampingFraction: 0.85)))
@@ -337,7 +336,7 @@ struct FullPlayerView: View {
             hasNext: np.hasNext,
             onPrevious: { np.playPrevious() },
             onPlayPause: { player.togglePlayPause() },
-            onNext: { DJSession.shared.next() },
+            onNext: { AutoMixEngine.shared.skipToNext() },
             showsModes: true
         )
         .scaleEffect(isCompact ? 0.94 : 1)
@@ -400,21 +399,6 @@ struct FullPlayerView: View {
                     }
                 }
 
-                // DJ: una sesion que se enciende y se apaga aqui. Encendido, el boton se ilumina y las ondas se animan mientras mezcla.
-                PlayerPillButton(
-                    systemImage: dj.sessionActive ? "waveform" : "mic",
-                    title: "DJ",
-                    isActive: dj.sessionActive,
-                    accessibility: "DJ",
-                    pulses: dj.sessionActive && AutoMixVisuals.shared.isMixing
-                ) {
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    let on = DJSession.shared.toggle()
-                    PlaybackNotice.shared.show(NSLocalizedString(
-                        on ? "DJ on. It sorts the queue and mixes the songs." : "DJ stopped.", comment: ""
-                    ))
-                }
-
                 PlayerPillButton(
                     systemImage: "plus.square.on.square",
                     title: "Save",
@@ -457,7 +441,7 @@ struct FullPlayerView: View {
                 guard settings.artworkSwipeNavigation else { return }
                 guard abs(value.translation.width) > abs(value.translation.height) else { return }
                 if value.translation.width < -60, np.hasNext {
-                    DJSession.shared.next()
+                    AutoMixEngine.shared.skipToNext()
                     slideInArtwork(fromLeft: false)
                 } else if value.translation.width > 60, np.hasPrevious {
                     np.playPrevious()

@@ -177,7 +177,6 @@ final class AutoMixEngine {
                 forcedIncomingMs: inputs.forcedIncomingMs
             )
         }
-        if let note = inputs.djNote { PlaybackReport.record("dj: \(outId) -> \(inId): \(note)") }
         let plan = result?.plan
         planCache = (outId, inId, plan)
         PlaybackReport.record(result.map {
@@ -534,6 +533,17 @@ final class AutoMixEngine {
         manualRetries = 0
         Task { await runManualMix(outId: outId, inId: inId, extraLead: 0) }
         return true
+    }
+
+    /// "Siguiente" (boton, deslizar la portada, pantalla de bloqueo o CarPlay): con AutoMix encendido se pasa a ella con una mezcla (como "Mezclar ya": empieza
+    /// en unos segundos); si no se puede mezclar ahora, es el salto de siempre. Un segundo toque mientras la mezcla se prepara salta de golpe.
+    func skipToNext() {
+        let np = NowPlaying.shared
+        if np.hasNext, np.isPlaying, mixNow() {
+            PlaybackReport.record("automix: siguiente pedido, se pasa a ella con una mezcla")
+            return
+        }
+        np.playNext()
     }
 
     /// La mezcla que viene ya la esta preparando el propio AutoMix: se deja el aviso animado hasta que empiece (se apaga solo

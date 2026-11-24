@@ -16,17 +16,15 @@ import WidgetKit
 
 struct SonarLockEntry: TimelineEntry {
     let date: Date
-    /// El DJ esta encendido (dato de la app).
-    let dj: Bool
 }
 
 struct SonarLockProvider: TimelineProvider {
     private func entry() -> SonarLockEntry {
-        SonarLockEntry(date: Date(), dj: WidgetShared.loadButtonState()?.dj ?? false)
+        SonarLockEntry(date: Date())
     }
 
     func placeholder(in context: Context) -> SonarLockEntry {
-        SonarLockEntry(date: Date(), dj: false)
+        SonarLockEntry(date: Date())
     }
 
     func getSnapshot(in context: Context, completion: @escaping (SonarLockEntry) -> Void) {
@@ -121,24 +119,11 @@ struct SonarLockMixWidget: Widget {
     }
 }
 
-struct SonarLockDJWidget: Widget {
-    var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "SonarLockDJ", provider: SonarLockProvider()) { entry in
-            LockButton(intent: WidgetDJIntent(), symbol: entry.dj ? "power.circle.fill" : "power", title: entry.dj ? "DJ · ON" : "DJ · OFF")
-                .containerBackground(for: .widget) { Color.clear }
-        }
-        .configurationDisplayName("Sonar · DJ (bloqueo)")
-        .description("Enciende o apaga el DJ (se ve encendido o apagado). Para la pantalla de bloqueo.")
-        .supportedFamilies([.accessoryCircular, .accessoryRectangular])
-    }
-}
-
 /// Los widgets de la pantalla de bloqueo, agrupados (un `WidgetBundle` admite pocos widgets directos).
 struct SonarLockBundle: WidgetBundle {
     var body: some Widget {
         SonarLockVoiceWidget()
         SonarLockForYouWidget()
         SonarLockMixWidget()
-        SonarLockDJWidget()
     }
 }

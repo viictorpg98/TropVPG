@@ -119,7 +119,7 @@ struct QueueView<ProgressSlider: View>: View {
                         hasNext: np.hasNext,
                         onPrevious: { np.playPrevious() },
                         onPlayPause: { player.togglePlayPause() },
-                        onNext: { DJSession.shared.next() }
+                        onNext: { AutoMixEngine.shared.skipToNext() }
                     )
                 }
             }
@@ -266,14 +266,6 @@ struct QueueView<ProgressSlider: View>: View {
                 showMixEditor = true
             } label: {
                 Label("Edit Mix", systemImage: "slider.horizontal.3")
-            }
-            Button {
-                let on = DJSession.shared.toggle()
-                PlaybackNotice.shared.show(NSLocalizedString(
-                    on ? "DJ on. It sorts the queue and mixes the songs." : "DJ stopped.", comment: ""
-                ))
-            } label: {
-                Label(LocalizedStringKey(DJSettings.shared.sessionActive ? "Stop DJ" : "Start DJ"), systemImage: "mic")
             }
             Button(role: .destructive) {
                 np.clearUpcoming()

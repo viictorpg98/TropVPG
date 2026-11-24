@@ -72,8 +72,6 @@ final class WidgetDataStore {
         if let found = WidgetShared.resolved {
             WidgetShared.writeProbe(groupId: found.id, bundleId: Bundle.main.bundleIdentifier ?? "", in: found.url)
         }
-        // La app acaba de abrirse o de volver: si el DJ se quedo "encendido" en el dato de la ultima vez, se corrige.
-        syncDJState()
         // El Acceso rapido sale de la base de datos: se vuelve a leer sin esperar a que cambie el inicio.
         schedule(force: false)
         fetchServerListsIfNeeded()
@@ -86,57 +84,6 @@ final class WidgetDataStore {
         PlaybackReport.record(
             "widget: ALTAppGroups=[\(infoGroups)] bundle=\(Bundle.main.bundleIdentifier ?? "?") probados=[\(tried)] carpeta compartida=\(resolved)"
         )
-    }
-
-    // MARK: - Boton DJ
-
-    private var lastDJ: Bool?
-    private var lastButtonsReload = Date.distantPast
-    private var buttonsReloadTask: Task<Void, Never>?
-
-    /// Lo llama `DJSession` al encender o apagar el DJ: deja el dato en la carpeta compartida y recarga el widget de botones para que
-    /// el boton se vea encendido o apagado. El sistema limita las recargas, asi que como mucho se pide una cada 5 s (si hay mas
-    /// cambios seguidos, se juntan y queda el ultimo).
-    func djChanged(_ on: Bool) {
-        guard lastDJ != on else { return }
-        lastDJ = on
-        guard let found = WidgetShared.resolved else { return }
-        WidgetShared.writeButtonState(WidgetButtonState(dj: on, updated: Date()), in: found.url)
-        let sinceLast = Date().timeIntervalSince(lastButtonsReload)
-        buttonsReloadTask?.cancel()
-        if sinceLast >= 5 {
-            reloadButtonWidgets()
-        } else {
-            buttonsReloadTask = Task { [weak self] in
-                try? await Task.sleep(nanoseconds: UInt64((5 - sinceLast) * 1_000_000_000))
-                guard !Task.isCancelled else { return }
-                self?.reloadButtonWidgets()
-            }
-        }
-    }
-
-    /// El DJ no se guarda entre aperturas: si iOS cerro la app con el DJ encendido, el dato de la carpeta compartida seguiria diciendo
-    /// "encendido". Al arrancar se vuelve a escribir lo real.
-    private func syncDJState() {
-        let active = DJSession.shared.isActive
-        if lastDJ == nil {
-            lastDJ = active
-            guard let found = WidgetShared.resolved else { return }
-            let stored = WidgetShared.loadButtonState()?.dj
-            if stored != active {
-                WidgetShared.writeButtonState(WidgetButtonState(dj: active, updated: Date()), in: found.url)
-                reloadButtonWidgets()
-            }
-        } else {
-            djChanged(active)
-        }
-    }
-
-    private func reloadButtonWidgets() {
-        lastButtonsReload = Date()
-        WidgetCenter.shared.reloadTimelines(ofKind: "SonarWidget")
-        // Los de la pantalla de bloqueo tambien enseñan si el DJ esta encendido.
-        WidgetCenter.shared.reloadTimelines(ofKind: "SonarLockDJ")
     }
 
     // MARK: - Datos del inicio

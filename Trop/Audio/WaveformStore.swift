@@ -107,8 +107,6 @@ final class WaveformStore {
 
     /// Una cancion empieza a sonar: se prepara su onda y la de las proximas.
     func songStarted(current: String, upcoming: [String]) {
-        // Se ejecuta en todos los cambios de cancion: aqui tambien se avisa al DJ (que solo hace algo si esta en marcha).
-        DJSession.shared.songStarted(videoId: current)
         guard SettingsStore.shared.waveformProgressBar else { return }
         request(current, urgent: true)
         for id in upcoming.prefix(2) { request(id, urgent: false) }

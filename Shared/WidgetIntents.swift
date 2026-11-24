@@ -44,33 +44,6 @@ struct WidgetMixNowIntent: AudioPlaybackIntent {
     }
 }
 
-/// "DJ": enciende o apaga la sesion de DJ (la misma tarjeta del Inicio). Al encenderla, si no suena nada, arranca tu mezcla; si algo ya
-/// suena, el DJ se une a lo que haya en la cola. El boton del widget se recarga solo (`WidgetDataStore.djChanged`).
-struct WidgetDJIntent: AudioPlaybackIntent {
-    static let title: LocalizedStringResource = "DJ"
-    static let isDiscoverable = false
-    /// Se puede ejecutar con el movil bloqueado (los widgets y controles de la pantalla de bloqueo no piden desbloquear).
-    static let authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
-
-    @MainActor
-    func perform() async throws -> some IntentResult {
-        #if !WIDGET_EXTENSION
-        let dj = DJSession.shared
-        if dj.isActive {
-            dj.stop()
-            return .result()
-        }
-        dj.start()
-        let np = NowPlaying.shared
-        if !(np.isPlaying && np.queueSongs.indices.contains(np.queueIndex)) {
-            let started = await SonarMix.start()
-            if !started { dj.stop() }
-        }
-        #endif
-        return .result()
-    }
-}
-
 /// "Actualizar": vuelve a pedir el inicio y cambia las portadas de los demas widgets (Selecciones rapidas y Acceso rapido).
 struct WidgetRefreshIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Refresh"

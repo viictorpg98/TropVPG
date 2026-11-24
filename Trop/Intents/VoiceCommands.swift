@@ -22,8 +22,6 @@ enum VoiceCommand: Equatable {
     case mix
     case nowPlaying
     case cancelTimer
-    /// `on`: `true` activar, `false` apagar, `nil` cambiar (como el boton del widget).
-    case dj(on: Bool?)
     /// `minutes`: `nil` si se pidio el temporizador pero no se entendio el tiempo.
     case sleepTimer(minutes: Int?)
     case category(SonarCategory)
@@ -32,7 +30,7 @@ enum VoiceCommand: Equatable {
     var couldBeSongTitle: Bool {
         switch self {
         case .downloads, .forYou, .liked, .random, .quickPicks, .mix, .category: return true
-        case .nowPlaying, .cancelTimer, .dj, .sleepTimer: return false
+        case .nowPlaying, .cancelTimer, .sleepTimer: return false
         }
     }
 
@@ -55,10 +53,6 @@ extension VoiceCommand: CustomStringConvertible {
         case .mix: return "mezclar"
         case .nowPlaying: return "que suena"
         case .cancelTimer: return "cancelar temporizador"
-        case .dj(let on):
-            if on == true { return "dj (activar)" }
-            if on == false { return "dj (apagar)" }
-            return "dj (cambiar)"
         case .sleepTimer(let minutes):
             if let minutes { return "temporizador (\(minutes) min)" }
             return "temporizador (sin minutos)"
@@ -231,10 +225,6 @@ enum VoiceCommands {
         "cancela", "cancelar", "anula", "anular", "quita", "quitar", "desactiva", "desactivar", "elimina", "borra", "cancel"
     ]
 
-    private static let djAliases = [
-        "dj", "dis", "diyei", "dijei", "deyei", "dejota", "diyey", "dijey", "deyey", "didyei", "didjei", "djay", "diyay", "dyei", "dijay",
-        "dejay", "deyay"
-    ]
     private static let mixAliases = ["mezcla", "mezclar", "mezclalo", "mezclame", "mezclanos", "mix", "mixnow", "mixit"]
     private static let forYouAliases = ["parati", "mimezcla", "mimusica", "paratimezcla", "mimezclaparati", "foryou", "mymix", "mymusic"]
     private static let downloadsAliases = [
@@ -290,13 +280,6 @@ enum VoiceCommands {
         guard !core.isEmpty else { return nil }
         let compact = core.joined()
 
-        // El DJ (se oye de muchas formas: "di yei", "de jota"...).
-        // "de jota" se oye mucho para "DJ", pero "de" es una palabra de relleno y se habria quitado: se mira aparte.
-        if hit(compact, djAliases, fuzzy: fuzzy) || (compact == "jota" && tokenSet.contains("de")) {
-            if !tokenSet.isDisjoint(with: offVerbs), tokenSet.isDisjoint(with: ["on"]) { return .dj(on: false) }
-            if !tokenSet.isDisjoint(with: onVerbs) { return .dj(on: true) }
-            return .dj(on: nil)
-        }
         if hit(compact, forYouAliases, fuzzy: fuzzy) { return .forYou }
         if hit(compact, mixAliases, fuzzy: fuzzy) { return .mix }
         if hit(compact, downloadsAliases, fuzzy: fuzzy) { return .downloads }

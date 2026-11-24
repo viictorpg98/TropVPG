@@ -4,7 +4,7 @@
 //
 //  Controles de Sonar (iOS 18+): botones para el Centro de Control, las dos esquinas de abajo de la pantalla de bloqueo y el BOTON DE ACCION del
 //  iPhone (Ajustes > Boton de accion > Controles). Cada uno ejecuta la misma accion que su boton del widget (Shared/WidgetIntents.swift) en la
-//  app, sin abrirla. Voz es el mas util en el coche: con una pulsacion, sin mirar, y por voz se hace casi todo ("mezcla", "activa el DJ"...).
+//  app, sin abrirla. Voz es el mas util en el coche: con una pulsacion, sin mirar, y por voz se hace casi todo ("mezcla", "para ti"...).
 //
 
 import AppIntents
@@ -55,25 +55,11 @@ struct SonarMixControl: ControlWidget {
     }
 }
 
-struct SonarDJControl: ControlWidget {
-    var body: some ControlWidgetConfiguration {
-        StaticControlConfiguration(kind: "SonarDJControl") {
-            ControlWidgetButton(action: WidgetDJIntent()) {
-                Label("DJ", systemImage: "power")
-            }
-            .tint(Color(red: 0.10, green: 0.68, blue: 0.40))
-        }
-        .displayName("Sonar · DJ")
-        .description("Enciende o apaga el DJ.")
-    }
-}
-
 /// Los controles, agrupados.
 struct SonarControlsBundle: WidgetBundle {
     var body: some Widget {
         SonarVoiceControl()
         SonarForYouControl()
         SonarMixControl()
-        SonarDJControl()
     }
 }

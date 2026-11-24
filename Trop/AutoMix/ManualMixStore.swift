@@ -96,10 +96,10 @@ final class ManualMixStore {
 /// Guardar la transicion elegida para una pareja y aplicarla: si es la de la cancion que suena con la siguiente, se rehace el plan.
 @MainActor
 enum MixTransition {
-    /// Hay mezclas: con AutoMix encendido en Ajustes o con una sesion de DJ en marcha (el DJ mezcla aunque AutoMix este apagado).
+    /// Hay mezclas: con AutoMix encendido en Ajustes.
     static var mixingEnabled: Bool {
         // La radio (Sonar FM) apaga la mezcla en el paso donde va a hacer un corte con una seccion (la cancion se funde y la siguiente empieza desde cero).
-        (SettingsStore.shared.autoMixEnabled || DJSettings.shared.sessionActive) && !RadioSession.shared.holdsMix
+        SettingsStore.shared.autoMixEnabled && !RadioSession.shared.holdsMix
     }
 
     /// Guarda la eleccion (`nil`: que decida AutoMix) y devuelve el texto que explica cuando se aplicara.
@@ -146,8 +146,6 @@ enum MixTransition {
         var style: MixStyle
         var forcedStartMs: Int64?
         var forcedIncomingMs: Int64?
-        /// Lo que decidio el DJ (para el informe), si decidio algo.
-        var djNote: String?
     }
 
     /// - `currentTime`: donde va la saliente ahora (0 si no es la que suena). Un punto de salida elegido a mano que ya queda a menos de
@@ -181,12 +179,6 @@ enum MixTransition {
         if let manual = choice {
             if let start = manual.outStartMs, start >= minStartMs { inputs.forcedStartMs = start }
             inputs.forcedIncomingMs = manual.inStartMs
-        } else if DJSettings.shared.sessionActive {
-            let decision = DJPlanner.decide(outId: outId, outgoing: outgoing, incoming: incoming, currentTime: currentTime)
-            inputs.forcedStartMs = decision.cutMs
-            if let length = decision.length { style.length = length }
-            if let cap = decision.vocalCapMs { style.vocalCapMs = cap }
-            inputs.djNote = decision.note
         }
         inputs.style = style
         return inputs

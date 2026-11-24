@@ -409,26 +409,6 @@ enum VoiceSearch {
         es: ["Poniendo {c}.", "Ahí va {c}.", "Marchando {c}."],
         en: ["Playing {c}.", "Here goes {c}.", "Coming up, {c}."]
     )
-    private static let djOnVariants = Variants(
-        key: "cmd-dj-on",
-        es: ["Activando el DJ.", "DJ activado.", "Vamos con el DJ."],
-        en: ["Turning the DJ on.", "DJ on.", "Let's go with the DJ."]
-    )
-    private static let djOffVariants = Variants(
-        key: "cmd-dj-off",
-        es: ["Apagando el DJ.", "DJ apagado.", "Vale, sin DJ."],
-        en: ["Turning the DJ off.", "DJ off.", "Okay, no DJ."]
-    )
-    private static let djAlreadyOnVariants = Variants(
-        key: "cmd-dj-already-on",
-        es: ["El DJ ya está activado."],
-        en: ["The DJ is already on."]
-    )
-    private static let djAlreadyOffVariants = Variants(
-        key: "cmd-dj-already-off",
-        es: ["El DJ ya estaba apagado."],
-        en: ["The DJ was already off."]
-    )
     private static let mixOKVariants = Variants(
         key: "cmd-mix",
         es: ["Mezclando.", "Mezclando ahora.", "Vamos con la mezcla."],
@@ -537,10 +517,6 @@ enum VoiceSearch {
         case .mix: return phrase("¿Mezclo ahora?", "Shall I mix now?")
         case .nowPlaying: return ""
         case .cancelTimer: return phrase("¿Cancelo el temporizador?", "Shall I cancel the timer?")
-        case .dj(let on):
-            if on == true { return phrase("¿Activo el DJ?", "Shall I turn the DJ on?") }
-            if on == false { return phrase("¿Apago el DJ?", "Shall I turn the DJ off?") }
-            return phrase("¿Cambio el DJ?", "Shall I toggle the DJ?")
         case .sleepTimer(let minutes):
             let duration = VoiceCommands.spokenDuration(minutes ?? 0, spanish: spanish)
             return phrase("¿Te apago la música en \(duration)?", "Shall I stop the music in \(duration)?")
@@ -613,30 +589,6 @@ enum VoiceSearch {
             }
             await speaker.speak(pick(couldNotVariants))
             return false
-        case .dj(let on):
-            let dj = DJSession.shared
-            let wantOn = on ?? !dj.isActive
-            if wantOn == dj.isActive {
-                await speaker.speak(pick(wantOn ? djAlreadyOnVariants : djAlreadyOffVariants))
-                return false
-            }
-            await speaker.speak(pick(wantOn ? djOnVariants : djOffVariants))
-            resumeMusic()
-            try? await Task.sleep(nanoseconds: 800_000_000)
-            if wantOn {
-                dj.start()
-                let np = NowPlaying.shared
-                if !(np.isPlaying && np.queueSongs.indices.contains(np.queueIndex)) {
-                    if !(await SonarMix.start()) {
-                        dj.stop()
-                        await speaker.speak(pick(couldNotVariants))
-                        return false
-                    }
-                }
-            } else {
-                dj.stop()
-            }
-            return true
         case .mix:
             await speaker.speak(pick(mixOKVariants))
             resumeMusic()

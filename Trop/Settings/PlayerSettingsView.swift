@@ -30,9 +30,6 @@ struct PlayerSettingsView: View {
                 SettingsNavigationRow("AutoMix", icon: "wand.and.stars", value: settings.autoMixEnabled ? "On" : "Off") {
                     AutoMixSettingsView()
                 }
-                SettingsNavigationRow("DJ", icon: "mic", value: DJSettings.shared.sessionActive ? "On" : nil) {
-                    DJSettingsView()
-                }
             } header: {
                 Text("Audio")
             }

@@ -111,8 +111,7 @@ struct HomeScreenView: View {
                 ChipsRowView(
                     chips: viewModel.homePage?.chips ?? [],
                     selectedChip: viewModel.selectedChip,
-                    onChipTap: { viewModel.toggleChip($0) },
-                    leading: AnyView(DJChip())
+                    onChipTap: { viewModel.toggleChip($0) }
                 )
 
                 if viewModel.isChipLoading {
