@@ -113,7 +113,7 @@ enum RadioContent {
         "una dedicatoria absurda pero creible de un oyente a otro oyente (nombres de pila normales inventados, nada de famosos)",
         "discuten fingiendo enfado por una tonteria cotidiana muy concreta del TEMA",
         "uno cuenta una anecdota corta de lo que le paso hoy y el otro no se la cree",
-        "una falsa noticia local de la emisora, de tres frases, con un dato ridiculo y muy concreto",
+        "una noticia falsa y absurda de un sitio INVENTADO (negocios, calles y personas con nombres inventados; nada de lugares, clubes ni empresas reales), de tres frases, con un dato ridiculo y muy concreto, como cachondeo de la emisora",
         "un fallo en directo (se les cruza un papel, entra una llamada equivocada, se cuelga el equipo) y lo resuelven mal",
         "una apuesta tonta entre ellos sobre algo de la proxima cancion (el titulo, el nombre del artista) con un premio ridiculo",
         "un consejo gamberro para el oyente que va conduciendo o trabajando",

@@ -97,7 +97,9 @@ enum RadioLocal {
         }
         text += "No inventes nada de la ciudad: ni calles, ni locales, ni eventos, ni noticias locales. "
         if city != "Madrid" { text += "No hables de Madrid ni de otras ciudades como si vivieran alli, salvo que un dato lo pida. " }
-        text += "No hables del tiempo (calor, frio, lluvia, sol) salvo que se te de el dato del tiempo en esta pieza."
+        text += "Las noticias, anuncios y bromas INVENTADOS llevan nombres inventados: nunca atribuyas cosas falsas a lugares, clubes, empresas o personas reales de la ciudad. "
+        text += "No hables del tiempo (calor, frio, lluvia, sol) salvo que se te de el dato del tiempo en esta pieza. "
+        text += "No saludes con \"buenos dias\", \"buenas tardes\" o \"buenas noches\" ni digas la hora o el momento del dia salvo que se te de la hora en esta pieza."
         return text
     }
 }
