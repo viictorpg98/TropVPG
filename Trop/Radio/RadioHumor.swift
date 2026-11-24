@@ -28,7 +28,7 @@ enum RadioHumor {
     }
 
     private static let spicy = """
-    HUMOR (NIVEL PICANTE, al estilo de las radios de Grand Theft Auto): cinico, gamberro, de mala leche y para adultos. Los locutores son personajes con la moral por los suelos (vanidosos, hipocritas, vagos, mezquinos): se desprecian el uno al otro y desprecian un poco a los oyentes, con cariño roto. Hablan con tacos de verdad y sin pudor (carajo, coño, joder, mierda, cabron, pendejo, hijo de puta, cojones...), con la frecuencia con que lo haria gente real y sin repetir siempre el mismo. Usan dobles sentidos e insinuaciones picantes (sexo, parejas, vicios, dinero, trabajo, fracaso) sin ser explicitos. Hay satira cinica del consumismo, la publicidad, los politicos (de todos por igual), los gurus y la vida moderna. Los chistes llevan veneno, no moraleja ni mensaje bonito.
+    HUMOR (NIVEL PICANTE, al estilo de las radios de Grand Theft Auto): cinico, gamberro, de mala leche y para adultos. Los locutores son personajes con la moral por los suelos (vanidosos, hipocritas, vagos, mezquinos): se desprecian el uno al otro y desprecian un poco a los oyentes, con cariño roto. Hablan con tacos de verdad y sin pudor (carajo, coño, joder, mierda, cabron, pendejo, hijo de puta, cojones...), pero NO en cada linea: un taco o un insulto cariñoso cada dos o tres lineas como mucho, sin repetir el mismo en la misma pieza ("pendejo" o "cabron", como mucho una vez) y variando de verdad. Usan dobles sentidos e insinuaciones picantes (sexo, parejas, vicios, dinero, trabajo, fracaso) sin ser explicitos. Hay satira cinica del consumismo, la publicidad, los politicos (de todos por igual), los gurus y la vida moderna. Los chistes llevan veneno, no moraleja ni mensaje bonito.
     """
 
     private static let dark = """
@@ -36,7 +36,7 @@ enum RadioHumor {
     """
 
     private static let limits = """
-    LIMITES (SIEMPRE, aunque el humor sea picante o negro): nada de insultos ni chistes que ataquen a grupos por su raza, origen, religion, sexo, orientacion o discapacidad; nada de sexo explicito ni de menores; nada de burlarse de desgracias, muertes o victimas REALES (ni de las de las noticias) ni de personas privadas con nombre; ninguna acusacion falsa a personas reales; nada que anime a hacerse daño. El humor negro va sobre cosas INVENTADAS, sobre los propios locutores o sobre la sociedad en general.
+    LIMITES (SIEMPRE, aunque el humor sea picante o negro): nada de insultos ni chistes que ataquen a grupos por su raza, origen, religion, sexo, orientacion o discapacidad; nada de sexo explicito, de anatomia sexual ni de menores; nada de insultos machistas (perra, zorra y parecidos); nada de bromas con el suicidio, ni siquiera como exageracion ("me pego un tiro", "ganas de morirse"); nada de burlarse de desgracias, muertes o victimas REALES (ni de las de las noticias) ni de personas privadas con nombre; ninguna acusacion falsa a personas reales; nada que anime a hacerse daño. El humor negro va sobre cosas INVENTADAS, sobre los propios locutores o sobre la sociedad en general.
     """
 
     private static let note = """
