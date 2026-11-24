@@ -119,6 +119,18 @@ enum RadioWorld {
         return "El tiempo hace un rato en \(weather.city): \(Int(weather.now.rounded())) grados, \(weather.text); hoy maxima de \(Int(weather.max.rounded())) y minima de \(Int(weather.min.rounded()))."
     }
 
+    /// Datos de la zona YA bajados (sin pedir nada a la red) para las piezas entre canciones: titulares locales y datos exactos de LaLiga, sin la etiqueta.
+    static func nearbyLines() -> [String] {
+        guard let current = memory ?? stored() else { return [] }
+        func plain(_ line: String) -> String {
+            guard let close = line.firstIndex(of: "]") else { return line }
+            return String(line[line.index(after: close)...]).trimmingCharacters(in: .whitespaces)
+        }
+        let local = current.headlines.filter { $0.hasPrefix("[Local") }.map(plain)
+        let facts = (current.sports ?? []).filter { $0.hasPrefix("[Dato LaLiga]") }.map(plain)
+        return local + facts
+    }
+
     /// Los hechos de "un dia como hoy" solo valen si son de HOY (los guardados de ayer no).
     static func onThisDayToday(_ world: RadioWorldData) -> [String] {
         guard world.onThisDayKey == dayKey() else { return [] }

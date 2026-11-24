@@ -91,21 +91,17 @@ enum RadioContent {
     - La jerga puertorriqueña es un condimento MUY escaso: una expresion suelta de vez en cuando (en menos de la mitad de las piezas), nunca la misma que en las piezas de YA SE DIJO ANTES, y nunca como relleno ni para cerrar. No repitas el arranque ("oye", "mira", "pues") de las piezas anteriores, ni el mismo tono (por ejemplo, que la misma persona siempre sea la sarcastica).
     - No cierres todas las piezas con una frase hecha ("dale fuego", "suena brutal", "vamos con..."): a veces solo presentas la cancion, o la frase acaba donde acaba la idea. Cada pieza debe sonar distinta de las anteriores, no a plantilla.
     - Cada linea puede llevar un campo opcional "tono" con UNO de estos valores: \(RadioTone.names). Pon en cada linea el tono con el que la diria un locutor de radio en ese momento, el mas natural (no hace falta variarlo por variarlo: si el de siempre del personaje encaja, omite el campo). Reserva susurro, grito e incredulo para cuando el contenido lo pida de verdad.
-    - Responde SOLO con un JSON, sin texto antes ni despues: una lista de objetos {"speaker": "Pitirre" o "Chuleta", "text": "...", "tono": "..." (opcional)}.
+    - Responde SOLO con un JSON, sin texto antes ni despues: un objeto {"tema": "de que va la pieza en 3 a 6 palabras", "lineas": [{"speaker": "Pitirre" o "Chuleta", "text": "...", "tono": "..." (opcional)}]}.
     """
 
-    private static let charlaRules = """
-    REGLAS (CHARLA):
-    - Entre 4 y 6 lineas en total, unas 60-90 palabras (20 a 25 segundos), alternando los dos locutores, con alguna interrupcion. UN solo chiste fuerte, el resto es radio normal. Maximo un <laugh>.
-    - Anuncia la cancion que viene (titulo y artista) hacia el final, de forma natural, y cierra con una frase corta.
+    /// Reglas de las piezas entre canciones; la forma, el proposito y la longitud de cada una vienen en su PLAN (ver `RadioShapes`).
+    private static let pieceRules = """
+    REGLAS (PIEZA ENTRE CANCIONES):
+    - El PLAN del mensaje dice de que va, la FORMA de la conversacion y la LONGITUD: respetalos. Como mucho un <laugh>.
+    - Nombra la cancion que viene (titulo y artista) cuando sea natural: al principio o al final; en las piezas muy cortas puede bastar con eso.
     - Si se te dan DATOS REALES o RECUERDOS de la persona, puedes usarlos tal cual (solo esos; no inventes ningun otro dato sobre ella).
-
-    """ + commonRules
-
-    private static let miniRules = """
-    REGLAS (MINI-COMENTARIO, es algo RAPIDO entre dos canciones):
-    - 1 o 2 lineas en total, MAXIMO 28 palabras entre todas. Un solo chascarrillo concreto, o simplemente presentar la siguiente con gracia. Nada de montar una escena.
-    - Si cabe natural, nombra la cancion que viene; si no cabe, no pasa nada. A lo sumo un <laugh>.
+    - No todo es chiste: la mayoria de las piezas son radio normal, con calidez. Las pullas entre ellos, como mucho una pequeña, y no en todas las piezas.
+    - Las frases pueden quedar a medias, con dudas o con una interrupcion, como en una conversacion real.
 
     """ + commonRules
 
@@ -239,9 +235,9 @@ enum RadioContent {
     private static func dataBlock(previous: SongItem?, next: SongItem, spoken: Date, allowHour: Bool) -> String {
         var text = ""
         if let previous {
-            text += "Acaba de sonar: «\(previous.title)»\(byArtist(previous)).\n"
+            text += "Acaba de sonar: «\(previous.title)»\(byArtist(previous))\(songDetail(previous)).\n"
         }
-        text += "A continuacion suena: «\(next.title)»\(byArtist(next)).\n"
+        text += "A continuacion suena: «\(next.title)»\(byArtist(next))\(songDetail(next)).\n"
         if allowHour {
             let weekday = DateFormatter()
             weekday.locale = Locale(identifier: "es_ES")
@@ -253,6 +249,17 @@ enum RadioContent {
             text += "En esta pieza NO hables de la hora, ni del momento del dia, ni del dia de la semana.\n"
         }
         return text
+    }
+
+    /// El disco y el año de una cancion, si se saben (para repasar lo que sono con datos seguros).
+    private static func songDetail(_ song: SongItem) -> String {
+        var parts: [String] = []
+        if let album = song.album, !album.isEmpty, album.lowercased() != song.title.lowercased(),
+           !album.hasSuffix("Single"), !album.hasSuffix("EP") {
+            parts.append("disco: \(album)")
+        }
+        if let year = song.year, year > 1900 { parts.append("año: \(year)") }
+        return parts.isEmpty ? "" : " (" + parts.joined(separator: "; ") + ")"
     }
 
     private static func byArtist(_ song: SongItem) -> String {
@@ -280,71 +287,93 @@ enum RadioContent {
         return turns
     }
 
-    /// El texto de un comentario entre dos canciones (vacio si no sale a la tercera).
+    /// El texto de una pieza entre dos canciones (vacio si no sale a la tercera). Cada pieza sale de un PLAN: de que va, forma de la conversacion y longitud (ver `RadioShapes`).
     /// `facts`: lo que la radio sabe de la persona (solo para las charlas; "" si la memoria esta apagada).
     /// `extras`: datos reales opcionales (de lo que suena, de tu historial, el tiempo) de los que puede usar UNO.
     /// `allowHour`: si esta pieza puede hablar de la hora y del momento del dia (ver `reserveHourSlot`).
     static func piece(kind: RadioPieceKind, previous: SongItem?, next: SongItem, facts: String = "", extras: [String] = [], spoken: Date = Date(), allowHour: Bool = false) async -> [RadioTurn] {
         let isMini = kind == .mini
+        let nearby = RadioWorld.nearbyLines()
+        let plan = RadioBlueprint.draw(kind: kind, hasPrevious: previous != nil, hasLocal: !nearby.isEmpty, hasFacts: !facts.isEmpty)
         // El nombre de la emisora, solo en una de cada cuatro piezas.
         let allowStation = Int.random(in: 0..<4) == 0
-        var format: String
-        if isMini {
-            format = allowHour ? draw(&miniHourDeck, from: miniHourFormats) : draw(&miniDeck, from: miniFormats)
-        } else {
-            format = allowHour ? draw(&charlaHourDeck, from: charlaHourFormats) : draw(&charlaDeck, from: charlaFormats)
+        // De que va: el chiste sale de los mazos de formatos de siempre; lo demas, de su texto fijo (con su dato).
+        var purpose = plan.purpose.instruction
+        var topic = ""
+        var mania = ""
+        var zoneLine: String?
+        switch plan.purpose {
+        case .banter:
+            if isMini {
+                purpose = allowHour ? draw(&miniHourDeck, from: miniHourFormats) : draw(&miniDeck, from: miniFormats)
+            } else {
+                purpose = allowHour ? draw(&charlaHourDeck, from: charlaHourFormats) : draw(&charlaDeck, from: charlaFormats)
+                topic = draw(&topicDeck, from: topics)
+                mania = draw(&maniaDeck, from: manias)
+            }
+        case .local:
+            zoneLine = nearby.randomElement()
+        default:
+            break
         }
-        if !isMini, !facts.isEmpty, Int.random(in: 0..<3) == 0 { format = dataFormat }
-        let topic = draw(&topicDeck, from: topics)
-        let mania = draw(&maniaDeck, from: manias)
-        let system = ficha + "\n\n" + (isMini ? miniRules : charlaRules)
+        let system = ficha + "\n\n" + pieceRules
         var notice = ""
         var best: [RadioTurn] = []
+        var bestTopic: String?
         for attempt in 0..<3 {
-            var prompt = isMini ? "Escribe el MINI-COMENTARIO que suena entre dos canciones.\n" : "Escribe la CHARLA que suena entre dos canciones.\n"
+            var prompt = "Escribe la PIEZA que suena entre dos canciones.\n"
             prompt += dataBlock(previous: previous, next: next, spoken: spoken, allowHour: allowHour)
             prompt += allowStation ? "Puedes nombrar la emisora UNA vez, solo si cabe natural.\n" : "En esta pieza NO nombres la emisora.\n"
-            if isMini {
-                prompt += "TIPO DE COMENTARIO DE ESTA VEZ: \(format).\n"
-            } else {
-                prompt += "TEMA DE ESTA VEZ: \(topic).\nTIPO DE CHARLA DE ESTA VEZ: \(format).\n"
-                prompt += "MANIA DE ESTA VEZ (opcional, solo si cabe natural; no la fuerces): \(mania).\n"
-            }
+            prompt += "PLAN DE ESTA PIEZA (respetalo):\n- DE QUE VA: \(purpose)\n- FORMA: \(plan.shape.instruction)\n- LONGITUD: \(plan.length.instruction)\n"
+            if !topic.isEmpty { prompt += "TEMA DE ESTA VEZ (opcional): \(topic).\n" }
+            if !mania.isEmpty { prompt += "MANIA DE ESTA VEZ (opcional, solo si cabe natural; no la fuerces): \(mania).\n" }
+            if let zoneLine { prompt += "DATO DE LA ZONA (usa SOLO este dato, tal cual, sin inventar nada mas): \(zoneLine)\n" }
             prompt += "Recuerda: solo conoces esos datos; no inventes nada mas sobre las canciones ni los artistas."
             if !extras.isEmpty {
                 prompt += "\n\nDATOS REALES EXTRA (usa UNO solo, tal cual, y solo si cabe natural):\n" + extras.map { "- " + $0 }.joined(separator: "\n")
             }
-            if !isMini, !facts.isEmpty { prompt += "\n\n" + facts }
-            prompt += RadioHistory.promptBlock(count: isMini ? 8 : 4) + notice
-            guard let json = try? await Gemini.text(system: system, prompt: prompt, temperature: 1.2, timeout: 10) else { return best }
+            if !facts.isEmpty { prompt += "\n\n" + facts }
+            prompt += RadioHistory.promptBlock(count: 6) + RadioNotebook.promptBlock() + notice
+            guard let json = try? await Gemini.text(system: system, prompt: prompt, temperature: 1.2, timeout: 10) else { break }
             let turns = parseTurns(json)
             let words = turns.reduce(0) { $0 + $1.text.split(separator: " ").count }
             let all = turns.map(\.text).joined(separator: " ")
-            if isMini {
-                if turns.isEmpty || words > 40 {
-                    notice = "\n\nTU INTENTO ANTERIOR FUE DEMASIADO LARGO O VACIO. Maximo 28 palabras en total, 1 o 2 lineas."
-                    continue
-                }
-            } else if turns.count < 3 || words > 120 {
-                notice = "\n\nTU INTENTO ANTERIOR NO SIRVE (muy corto o muy largo). Escribe entre 4 y 6 lineas y MAXIMO 90 palabras en total."
+            if let problem = plan.length.problem(words: words, lines: turns.count) {
+                notice = "\n\nTU INTENTO ANTERIOR " + problem
                 continue
             }
             if mentionsFood(all) {
                 notice = "\n\nTU INTENTO ANTERIOR HABLABA DE COMIDA. Reescribelo desde cero sin mencionar nada de comer, beber ni cocina."
                 best = []
+                bestTopic = nil
                 continue
             }
-            if attempt < 2, let problem = styleProblem(all, allowHour: allowHour, allowStation: allowStation) {
+            // La forma, la hora, la emisora y las muletillas se comprueban "suave": se reintenta y, al ultimo intento, sale igual.
+            let shapeProblem = plan.shape.problem(in: turns)
+            let styleNotice = styleProblem(all, allowHour: allowHour, allowStation: allowStation)
+            if attempt < 2, shapeProblem != nil || styleNotice != nil {
                 best = turns  // si los reintentos fallan por otra cosa, esta vale
-                notice = problem
+                bestTopic = parseTopic(json)
+                notice = (styleNotice ?? "") + (shapeProblem.map { "\n\nLA FORMA NO SE CUMPLE: " + $0 + "." } ?? "")
                 continue
             }
             best = turns
+            bestTopic = parseTopic(json)
             break
         }
-        let result = isMini ? Array(best.prefix(2)) : best
-        if !result.isEmpty { RadioHistory.add(result) }
-        return result
+        if !best.isEmpty {
+            RadioHistory.add(best)
+            if let bestTopic { RadioNotebook.add(bestTopic) }
+        }
+        return best
+    }
+
+    /// El campo "tema" de la respuesta de una pieza (de que ha ido), para el cuaderno del programa.
+    static func parseTopic(_ text: String) -> String? {
+        guard let data = text.data(using: .utf8),
+              let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let topic = (object["tema"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !topic.isEmpty else { return nil }
+        return String(topic.prefix(80))
     }
 
     /// Una frase corta para recordar de una charla (algo que quedo pendiente o un gag), para retomarla otro dia. Vacia si no sale.
