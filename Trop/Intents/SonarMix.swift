@@ -79,9 +79,12 @@ enum SonarMix {
             // La primera cancion (conocida, de las de mas peso) y su radio, que se pide MIENTRAS llega el inicio: toda la cola parte de ella.
             var first = ParaTiMix.pickFirst(from: profile.familiar)
             var radioTask: Task<ParaTiMix.RadioResult, Never>?
-            if let first {
-                let seedList = [(id: first.videoId, title: first.title)]
+            // El juicio de Gemini sobre las conocidas (que encajan con la primera) tambien va EN PARALELO: no hace esperar a la musica.
+            var judgeTask: Task<Set<String>, Never>?
+            if let seed = first {
+                let seedList = [(id: seed.videoId, title: seed.title)]
                 radioTask = Task { await ParaTiMix.loadRadios(seedList, limit: 40) }
+                judgeTask = Task { await ParaTiMix.judgeFamiliar(first: seed, familiar: profile.familiar) }
             }
             let sections = await withTimeout(seconds: 10) { await loadHomeSections(deep: false) }
             trace(sections.map { "inicio cargado: \($0.count) secciones" } ?? "inicio: sin respuesta a tiempo")
@@ -107,7 +110,13 @@ enum SonarMix {
                 var familiarList = merged.list
                 var useSaved = true
                 if let first {
-                    let coherent = await ParaTiMix.coherentFamiliar(first: first, familiar: merged.list, radio: radios?.songs ?? [])
+                    // Si el juicio aun no ha vuelto, se espera como mucho 2 s mas; sin el, se filtra por artistas.
+                    let pendingJudge = judgeTask
+                    let approvedIds = await withTimeout(seconds: 2) { () async -> Set<String>? in await pendingJudge?.value } ?? []
+                    let coherent = ParaTiMix.coherentFamiliar(
+                        first: first, familiar: merged.list, approved: approvedIds,
+                        localIds: Set(profile.familiar.map { $0.song.videoId }), radio: radios?.songs ?? []
+                    )
                     familiarList = coherent.list
                     coherence = coherent.note
                     useSaved = (radios?.songs.count ?? 0) < 12
@@ -119,6 +128,7 @@ enum SonarMix {
                     recentlyPlayed: profile.recentlyPlayed,
                     first: first
                 )
+                coherence += ", cola lista a los \(Int(Date().timeIntervalSince(traceStart) * 1000)) ms"
                 let discoveryCount = composition.isDiscovery.filter { $0 }.count
                 let firstSix = zip(composition.queue.prefix(6), composition.isDiscovery.prefix(6))
                     .map { "\($0.1 ? "N" : "C") \(String($0.0.title.prefix(22)))" }

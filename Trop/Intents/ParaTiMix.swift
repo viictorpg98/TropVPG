@@ -181,27 +181,40 @@ enum ParaTiMix {
         listenAgain.filter { !isBlocked($0) }.randomElement()
     }
 
-    /// Las conocidas que encajan con la primera cancion (estilo, animo, epoca). `note` explica como se filtro (para el informe).
-    /// Con la clave de Gemini y "La radio recuerda" activado: una peticion de texto con las 60 de mas peso. Si no, o si falla o deja menos de 10:
-    /// las del mismo artista o de artistas de su radio. Si tampoco salen 10, la lista entera (como antes).
-    static func coherentFamiliar(first: SongItem, familiar: [Candidate], radio: [SongItem]) async -> (list: [Candidate], note: String) {
+    /// El juicio de Gemini sobre las conocidas LOCALES: una peticion de texto con las 60 de mas peso. Se lanza al empezar, MIENTRAS llega el inicio de YouTube, para que
+    /// la musica no espere por el. Devuelve los ids que encajan con el estilo, el animo y la epoca de la primera; vacio si no hay clave, "La radio recuerda" esta apagado
+    /// o falla (entonces se filtra por artistas).
+    static func judgeFamiliar(first: SongItem, familiar: [Candidate]) async -> Set<String> {
+        guard RadioSettings.isConfigured, RadioSettings.memoryEnabled else { return [] }
+        let top = Array(familiar.filter { $0.song.videoId != first.videoId }.sorted { $0.weight > $1.weight }.prefix(60))
+        guard top.count >= 12 else { return [] }
+        let lines = top.enumerated().map { "\($0.offset + 1). \($0.element.song.artistNamesDisplay) - \($0.element.song.title)" }.joined(separator: "\n")
+        let system = "Eres un experto en musica. Te doy una cancion de referencia y una lista numerada de canciones. Devuelve SOLO un JSON {\"encajan\": [numeros]} con las canciones de la lista que encajan con el ESTILO, el ANIMO y la EPOCA de la referencia, de modo que sonando seguidas no desentonen. Si dudas, NO la incluyas. No expliques nada."
+        let prompt = "REFERENCIA: \(first.artistNamesDisplay) - \(first.title)\n\nLISTA:\n" + lines
+        guard let json = try? await Gemini.text(system: system, prompt: prompt, temperature: 0.1, timeout: 5),
+              let data = json.data(using: .utf8),
+              let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let fits = object["encajan"] as? [Any] else { return [] }
+        let numbers = Set(fits.compactMap { ($0 as? NSNumber)?.intValue })
+        return Set(top.enumerated().filter { numbers.contains($0.offset + 1) }.map { $0.element.song.videoId })
+    }
+
+    /// Las conocidas que encajan con la primera cancion. Con el juicio de Gemini (`approved`, al menos 10): las locales aprobadas y las nuevas de "Listen again" (que no se
+    /// juzgaron) cuyo artista es de uno aprobado, de la radio de la primera o la propia. Sin juicio, o si deja menos de 10: las del mismo artista o de artistas de su radio. Si
+    /// tampoco salen 10, la lista entera (como antes). `note` explica como se filtro (para el informe).
+    static func coherentFamiliar(first: SongItem, familiar: [Candidate], approved: Set<String>, localIds: Set<String>, radio: [SongItem]) -> (list: [Candidate], note: String) {
         let pool = familiar.filter { $0.song.videoId != first.videoId }
-        let top = Array(pool.sorted { $0.weight > $1.weight }.prefix(60))
-        if RadioSettings.isConfigured, RadioSettings.memoryEnabled, top.count >= 12 {
-            let lines = top.enumerated().map { "\($0.offset + 1). \($0.element.song.artistNamesDisplay) - \($0.element.song.title)" }.joined(separator: "\n")
-            let system = "Eres un experto en musica. Te doy una cancion de referencia y una lista numerada de canciones. Devuelve SOLO un JSON {\"encajan\": [numeros]} con las canciones de la lista que encajan con el ESTILO, el ANIMO y la EPOCA de la referencia, de modo que sonando seguidas no desentonen. Si dudas, NO la incluyas. No expliques nada."
-            let prompt = "REFERENCIA: \(first.artistNamesDisplay) - \(first.title)\n\nLISTA:\n" + lines
-            if let json = try? await Gemini.text(system: system, prompt: prompt, temperature: 0.1, timeout: 6),
-               let data = json.data(using: .utf8),
-               let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-               let fits = object["encajan"] as? [Any] {
-                let numbers = Set(fits.compactMap { ($0 as? NSNumber)?.intValue })
-                let kept = top.enumerated().filter { numbers.contains($0.offset + 1) }.map { $0.element }
-                if kept.count >= 10 { return (kept, "Gemini: \(kept.count) de \(top.count) encajan") }
-            }
-        }
         var artists = Set(radio.map(artistKey))
         artists.insert(artistKey(first))
+        if approved.count >= 10 {
+            var approvedArtists = artists
+            for candidate in pool where approved.contains(candidate.song.videoId) { approvedArtists.insert(artistKey(candidate.song)) }
+            approvedArtists.remove("")
+            let kept = pool.filter {
+                approved.contains($0.song.videoId) || (!localIds.contains($0.song.videoId) && approvedArtists.contains(artistKey($0.song)))
+            }
+            if kept.count >= 10 { return (kept, "Gemini: \(approved.count) locales encajan, \(kept.count) en la lista") }
+        }
         artists.remove("")
         let byArtist = pool.filter { artists.contains(artistKey($0.song)) }
         if byArtist.count >= 10 { return (byArtist, "por artistas de su radio: \(byArtist.count) de \(pool.count)") }
