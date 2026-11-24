@@ -76,11 +76,12 @@ enum SonarMix {
             // El historial local se lee y las radios de las semillas se piden MIENTRAS llega el inicio (se solapan).
             let listening = (try? await DatabaseService.shared.fetchListeningStats()) ?? (stats: [], eventsRead: 0)
             let profile = ParaTiMix.localProfile(stats: listening.stats, eventsRead: listening.eventsRead, now: Date())
-            var seeds = ParaTiMix.pickSeeds(from: profile.familiar)
+            // La primera cancion (conocida, de las de mas peso) y su radio, que se pide MIENTRAS llega el inicio: toda la cola parte de ella.
+            var first = ParaTiMix.pickFirst(from: profile.familiar)
             var radioTask: Task<ParaTiMix.RadioResult, Never>?
-            if !seeds.isEmpty {
-                let seedList = seeds
-                radioTask = Task { await ParaTiMix.loadRadios(seedList) }
+            if let first {
+                let seedList = [(id: first.videoId, title: first.title)]
+                radioTask = Task { await ParaTiMix.loadRadios(seedList, limit: 40) }
             }
             let sections = await withTimeout(seconds: 10) { await loadHomeSections(deep: false) }
             trace(sections.map { "inicio cargado: \($0.count) secciones" } ?? "inicio: sin respuesta a tiempo")
@@ -90,27 +91,39 @@ enum SonarMix {
                 if songs.count >= 3 { saveCache(songs) }
                 // "Listen again" (el historial de tu cuenta): conocidas; y semillas si el historial local esta vacio.
                 let listenAgain = homeSongs(in: sections.filter { HomeSectionTitles.isKeepListening($0.title) })
-                if seeds.isEmpty {
-                    seeds = ParaTiMix.seedsFromListenAgain(listenAgain)
-                    if !seeds.isEmpty {
-                        let seedList = seeds
-                        radioTask = Task { await ParaTiMix.loadRadios(seedList) }
+                if first == nil {
+                    first = ParaTiMix.firstFromListenAgain(listenAgain)
+                    if let first {
+                        let seedList = [(id: first.videoId, title: first.title)]
+                        radioTask = Task { await ParaTiMix.loadRadios(seedList, limit: 40) }
                     }
                 }
                 let pendingRadios = radioTask
                 let radios = await withTimeout(seconds: 5) { () async -> ParaTiMix.RadioResult? in await pendingRadios?.value }
                 let merged = ParaTiMix.addListenAgain(to: profile.familiar, listenAgain: listenAgain)
+                // Coherencia: solo las conocidas que encajan con la primera; y la mezcla guardada ("Mixed for you", de estilos varios) solo si la radio
+                // de la primera no da para el descubrimiento.
+                var coherence = "sin primera cancion"
+                var familiarList = merged.list
+                var useSaved = true
+                if let first {
+                    let coherent = await ParaTiMix.coherentFamiliar(first: first, familiar: merged.list, radio: radios?.songs ?? [])
+                    familiarList = coherent.list
+                    coherence = coherent.note
+                    useSaved = (radios?.songs.count ?? 0) < 12
+                }
                 let composition = ParaTiMix.compose(
-                    familiar: merged.list,
+                    familiar: familiarList,
                     radios: radios?.songs ?? [],
-                    saved: cachedMix() ?? [],
-                    recentlyPlayed: profile.recentlyPlayed
+                    saved: useSaved ? (cachedMix() ?? []) : [],
+                    recentlyPlayed: profile.recentlyPlayed,
+                    first: first
                 )
                 let discoveryCount = composition.isDiscovery.filter { $0 }.count
                 let firstSix = zip(composition.queue.prefix(6), composition.isDiscovery.prefix(6))
                     .map { "\($0.1 ? "N" : "C") \(String($0.0.title.prefix(22)))" }
                     .joined(separator: " | ")
-                let seedTitles = seeds.map { String($0.title.prefix(22)) }.joined(separator: ", ")
+                let seedTitles = first.map { String($0.title.prefix(22)) } ?? ""
                 // Sueño: por que se quito cada una del historial y cuantas de "Listen again" y de las radios se habrian colado sin el filtro.
                 let reasons = profile.sleepReasons
                 let sleepNight = reasons[.night] ?? 0
@@ -124,7 +137,7 @@ enum SonarMix {
                 PlaybackReport.record(
                     "para ti: \(profile.eventsRead) eventos leidos (\(profile.songsWithHistory) canciones), conocidas \(merged.list.count) "
                         + "(sueño fuera \(profile.sleepExcluded) [\(sleepDetail)], saltadas fuera \(profile.skipExcluded), Listen again nuevas \(merged.used) de \(listenAgain.count)), "
-                        + "semillas [\(seedTitles)] radios \(radios?.songs.count ?? 0) (cache \(radios?.cached ?? 0), pedidas \(radios?.fetched ?? 0)"
+                        + "primera [\(seedTitles)] (\(coherence)) radio \(radios?.songs.count ?? 0) (cache \(radios?.cached ?? 0), pedidas \(radios?.fetched ?? 0)"
                         + "\(radios == nil && radioTask != nil ? ", sin respuesta a tiempo" : "")), guardada \(cachedMix()?.count ?? 0) "
                         + "-> cola \(composition.queue.count - discoveryCount) conocidas + \(discoveryCount) nuevas; primeras: \(firstSix)"
                 )

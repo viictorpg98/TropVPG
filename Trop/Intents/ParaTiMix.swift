@@ -13,6 +13,9 @@
 //    historial, palabras del titulo) se quita de TODO: conocidas, "Listen again", semillas, radios de descubrimiento y mezcla guardada.
 //  - DESCUBRIMIENTO (30%): la radio de YouTube de 2 canciones tuyas (semillas fijas 30 min, para aprovechar la cache) y la mezcla guardada
 //    ("Mixed for you"), sin subidas de usuarios, sin lo que ya escuchas y sin lo que sono en los ultimos 3 dias.
+//  - COHERENCIA (nuevo): toda la cola parte de la PRIMERA cancion (una conocida de las de mas peso). Su radio de YouTube es la base del
+//    descubrimiento y, de las conocidas, solo entran las que encajan con su estilo, animo y epoca (Gemini, una peticion de texto; sin clave
+//    o si falla, las del mismo artista o de artistas de su radio). Asi la cola no salta de un estilo a otro.
 //  - Se reparten en un patron fijo (la primera siempre es conocida; una nueva cada 3-4 canciones) y sin repetir artista en 3 seguidas.
 //
 
@@ -168,6 +171,43 @@ enum ParaTiMix {
         return picked.map { (id: $0.videoId, title: $0.title) }
     }
 
+    /// La primera cancion de la cola: una conocida de las de mas peso (al azar ponderado: cada "Para ti" parte de un estilo distinto).
+    static func pickFirst(from familiar: [Candidate]) -> SongItem? {
+        weightedOrder(familiar).first
+    }
+
+    /// Sin historial local: una de "Listen again" al azar.
+    static func firstFromListenAgain(_ listenAgain: [SongItem]) -> SongItem? {
+        listenAgain.filter { !isBlocked($0) }.randomElement()
+    }
+
+    /// Las conocidas que encajan con la primera cancion (estilo, animo, epoca). `note` explica como se filtro (para el informe).
+    /// Con la clave de Gemini y "La radio recuerda" activado: una peticion de texto con las 60 de mas peso. Si no, o si falla o deja menos de 10:
+    /// las del mismo artista o de artistas de su radio. Si tampoco salen 10, la lista entera (como antes).
+    static func coherentFamiliar(first: SongItem, familiar: [Candidate], radio: [SongItem]) async -> (list: [Candidate], note: String) {
+        let pool = familiar.filter { $0.song.videoId != first.videoId }
+        let top = Array(pool.sorted { $0.weight > $1.weight }.prefix(60))
+        if RadioSettings.isConfigured, RadioSettings.memoryEnabled, top.count >= 12 {
+            let lines = top.enumerated().map { "\($0.offset + 1). \($0.element.song.artistNamesDisplay) - \($0.element.song.title)" }.joined(separator: "\n")
+            let system = "Eres un experto en musica. Te doy una cancion de referencia y una lista numerada de canciones. Devuelve SOLO un JSON {\"encajan\": [numeros]} con las canciones de la lista que encajan con el ESTILO, el ANIMO y la EPOCA de la referencia, de modo que sonando seguidas no desentonen. Si dudas, NO la incluyas. No expliques nada."
+            let prompt = "REFERENCIA: \(first.artistNamesDisplay) - \(first.title)\n\nLISTA:\n" + lines
+            if let json = try? await Gemini.text(system: system, prompt: prompt, temperature: 0.1, timeout: 6),
+               let data = json.data(using: .utf8),
+               let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+               let fits = object["encajan"] as? [Any] {
+                let numbers = Set(fits.compactMap { ($0 as? NSNumber)?.intValue })
+                let kept = top.enumerated().filter { numbers.contains($0.offset + 1) }.map { $0.element }
+                if kept.count >= 10 { return (kept, "Gemini: \(kept.count) de \(top.count) encajan") }
+            }
+        }
+        var artists = Set(radio.map(artistKey))
+        artists.insert(artistKey(first))
+        artists.remove("")
+        let byArtist = pool.filter { artists.contains(artistKey($0.song)) }
+        if byArtist.count >= 10 { return (byArtist, "por artistas de su radio: \(byArtist.count) de \(pool.count)") }
+        return (pool, "sin filtro de estilo (\(byArtist.count) por artistas)")
+    }
+
     private static func saveSeeds(_ songs: [SongItem]) {
         guard !songs.isEmpty else { return }
         UserDefaults.standard.set(
@@ -177,7 +217,7 @@ enum ParaTiMix {
     }
 
     /// La radio de YouTube de cada semilla (hasta 2 peticiones cada una; con la cache de 10 min, ninguna). `cached`: respondio al instante.
-    static func loadRadios(_ seeds: [(id: String, title: String)]) async -> RadioResult {
+    static func loadRadios(_ seeds: [(id: String, title: String)], limit: Int = 25) async -> RadioResult {
         let ids = seeds.map { $0.id }
         let allowExplicit = !SettingsStore.shared.hideExplicit
         return await withTaskGroup(of: (songs: [SongItem], cached: Bool).self) { group in
@@ -186,7 +226,7 @@ enum ParaTiMix {
                     let started = Date()
                     let radio = try? await PersonalizationService.shared.fetchRadio(
                         videoId: id,
-                        options: RadioOptions(style: .similar, limit: 25, allowExplicit: allowExplicit),
+                        options: RadioOptions(style: .similar, limit: limit, allowExplicit: allowExplicit),
                         playlistId: nil
                     )
                     return (radio?.songs ?? [], Date().timeIntervalSince(started) < 0.05)
@@ -214,7 +254,7 @@ enum ParaTiMix {
             .map { $0.song }
     }
 
-    static func compose(familiar: [Candidate], radios: [SongItem], saved: [SongItem], recentlyPlayed: Set<String>) -> Composition {
+    static func compose(familiar: [Candidate], radios: [SongItem], saved: [SongItem], recentlyPlayed: Set<String>, first: SongItem? = nil) -> Composition {
         var composition = Composition()
         var familiarQueue = weightedOrder(familiar)
         let familiarIds = Set(familiar.map(\.song.videoId))
@@ -244,7 +284,15 @@ enum ParaTiMix {
             return nil
         }
 
-        for position in 0 ..< queueSize {
+        // La primera cancion (la de la que parte toda la cola) va en la posicion 0.
+        var startPosition = 0
+        if let first {
+            used.insert(first.videoId)
+            composition.queue.append(first)
+            composition.isDiscovery.append(false)
+            startPosition = 1
+        }
+        for position in startPosition ..< queueSize {
             // Una nueva en las posiciones 3, 6, 9, 13, 16, 19... (30%); la primera siempre es conocida.
             let wantsDiscovery = position >= 3 && ((position + 1) * 3 / 10 > position * 3 / 10)
             var pick: SongItem?
