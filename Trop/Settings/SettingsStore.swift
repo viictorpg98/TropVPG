@@ -270,6 +270,11 @@ final class SettingsStore {
         didSet { Self.defaults.set(autoMixEnabled, forKey: Keys.autoMixEnabled) }
     }
 
+    /// "Siguiente" pasa a la siguiente cancion con una mezcla lo antes posible (como un DJ); un segundo toque salta de golpe. Solo con AutoMix encendido.
+    var mixOnSkip: Bool {
+        didSet { Self.defaults.set(mixOnSkip, forKey: Keys.mixOnSkip) }
+    }
+
     /// Cuando acaba la mezcla respecto al final de la musica de la cancion que suena.
     var autoMixTiming: AutoMixTiming {
         didSet { Self.defaults.set(autoMixTiming.rawValue, forKey: Keys.autoMixTiming) }
@@ -532,6 +537,7 @@ final class SettingsStore {
         static let audioNormalization = "settings.audioNormalization"
         static let gaplessPlayback = "settings.gaplessPlayback"
         static let autoMixEnabled = "settings.autoMixEnabled"
+        static let mixOnSkip = "settings.mixOnSkip"
         static let autoMixUsesMobileData = "settings.autoMixUsesMobileData"
         static let autoMixLearns = "settings.autoMixLearns"
         static let autoMixTiming = "settings.autoMixTiming"
@@ -621,6 +627,7 @@ final class SettingsStore {
         audioNormalization = false
         gaplessPlayback = true
         autoMixEnabled = Self.load(Keys.autoMixEnabled, default: false)
+        mixOnSkip = Self.load(Keys.mixOnSkip, default: false)
         let extrasMobile = Self.load(Keys.extrasUseMobileData, default: false)
         extrasUseMobileData = extrasMobile
         autoMixUsesMobileData = extrasMobile

@@ -535,11 +535,11 @@ final class AutoMixEngine {
         return true
     }
 
-    /// "Siguiente" (boton, deslizar la portada, pantalla de bloqueo o CarPlay): con AutoMix encendido se pasa a ella con una mezcla (como "Mezclar ya": empieza
+    /// "Siguiente" (boton, deslizar la portada, pantalla de bloqueo o CarPlay): con AutoMix encendido y el ajuste "Mezclar al saltar" se pasa a ella con una mezcla (como "Mezclar ya": empieza
     /// en unos segundos); si no se puede mezclar ahora, es el salto de siempre. Un segundo toque mientras la mezcla se prepara salta de golpe.
     func skipToNext() {
         let np = NowPlaying.shared
-        if np.hasNext, np.isPlaying, mixNow(announceFailure: false) {
+        if SettingsStore.shared.mixOnSkip, np.hasNext, np.isPlaying, mixNow(announceFailure: false) {
             PlaybackReport.record("automix: siguiente pedido, se pasa a ella con una mezcla")
             return
         }

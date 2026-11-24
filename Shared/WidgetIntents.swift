@@ -44,6 +44,27 @@ struct WidgetMixNowIntent: AudioPlaybackIntent {
     }
 }
 
+/// "Radio": enciende la radio (Sonar FM) con tu ultima peticion (o "algo que me guste" si no hay ninguna) o la apaga si ya esta en el aire. Sin hablar.
+struct WidgetRadioIntent: AudioPlaybackIntent {
+    static let title: LocalizedStringResource = "Radio"
+    static let isDiscoverable = false
+    /// Se puede ejecutar con el movil bloqueado (los widgets y controles de la pantalla de bloqueo no piden desbloquear).
+    static let authenticationPolicy: IntentAuthenticationPolicy = .alwaysAllowed
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        #if !WIDGET_EXTENSION
+        let radio = RadioSession.shared
+        if radio.isActive {
+            radio.stop(reason: "widget")
+        } else {
+            await radio.begin(request: RadioRecents.all.first ?? "Pon musica que me guste")
+        }
+        #endif
+        return .result()
+    }
+}
+
 /// "Actualizar": vuelve a pedir el inicio y cambia las portadas de los demas widgets (Selecciones rapidas y Acceso rapido).
 struct WidgetRefreshIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Refresh"

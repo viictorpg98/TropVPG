@@ -431,8 +431,10 @@
 "Minimum Track Duration" = "Duración mínima de la canción";
 "Minutes" = "Minutos";
 "Mix" = "Mix";
+"Mix Skip" = "Mezcla al saltar";
 "Mix Streamed Songs on Mobile Data" = "Mezclar canciones en streaming con datos móviles";
 "Mix Timing" = "Momento de la mezcla";
+"Mix When Skipping" = "Mezclar al saltar";
 "Mix now" = "Mezclar";
 "Mix starts at" = "La mezcla empieza en";
 "Mixed for you" = "Mezclado para ti";
@@ -476,7 +478,9 @@
 "Next" = "Siguiente";
 "Next Cloud Voice" = "Siguiente voz";
 "Next Transition" = "Próxima transición";
+"Next now mixes into the next song." = "Ahora «siguiente» pasa con una mezcla.";
 "Next section: %@" = "Siguiente sección: %@";
+"Next skips right away." = "«Siguiente» salta al instante.";
 "Next song enters at" = "La siguiente entra en";
 "No Downloads Yet" = "Aún no hay descargas";
 "No Effect" = "Sin efecto";
@@ -879,6 +883,7 @@
 "Which song?" = "¿Qué canción?";
 "Wi-Fi Only" = "Solo Wi-Fi";
 "Wider mix around this song" = "Mezcla más amplia en torno a esta canción";
+"With AutoMix on, the next button blends into the next song as soon as possible, like a DJ. Tap it again to skip right away." = "Con AutoMix encendido, el botón siguiente pasa a la siguiente canción con una mezcla lo antes posible, como un DJ. Púlsalo otra vez para saltar al instante.";
 "Words about sleeping in the title" = "Palabras de dormir en el título";
 "Workout" = "Entrenamiento";
 "Yesterday" = "Ayer";

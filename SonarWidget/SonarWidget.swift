@@ -4,7 +4,7 @@
 //
 //  Widget pequeno de Sonar con cuatro botones: un circulo de color con su nombre debajo. Sale en la galeria de widgets del iPhone
 //  y, en iOS 26, tambien en CarPlay (Ajustes > General > CarPlay > tu coche > Personalizar).
-//  Botones: Para ti (tu mezcla), Mezclar (pasar a la siguiente con AutoMix), Actualizar (cambia las portadas de los demas widgets) y Voz (di que quieres escuchar). El boton
+//  Botones: Para ti (tu mezcla), Mezclar (pasar a la siguiente con AutoMix), Radio (enciende Sonar FM con tu ultima peticion o la apaga) y Voz (di que quieres escuchar). El boton
 //  de actualizar las portadas de los demas widgets esta en su propio widget (SonarRefreshWidget.swift). Las acciones estan en Shared/WidgetIntents.swift y las ejecuta la app.
 //
 //  El efecto de pulsar es el del sistema: el boton se encoge. Para que se encoja SOLO el circulo (y no un bloque entero con su
@@ -109,9 +109,9 @@ struct SonarWidgetView: View {
                 }
             }
             GridRow {
-                tile(WidgetRefreshIntent(), title: label("Actualizar", "Refresh")) {
-                    circle(symbol: "arrow.clockwise",
-                           top: Color(red: 0.62, green: 0.84, blue: 0.40), bottom: Color(red: 0.30, green: 0.68, blue: 0.36))
+                tile(WidgetRadioIntent(), title: "Radio") {
+                    circle(symbol: "dot.radiowaves.left.and.right",
+                           top: Color(red: 1.00, green: 0.35, blue: 0.35), bottom: Color(red: 0.85, green: 0.16, blue: 0.28))
                 }
                 tile(WidgetVoiceIntent(), title: label("Voz", "Voice")) {
                     circle(symbol: "mic.fill",
@@ -130,7 +130,7 @@ struct SonarWidget: Widget {
             SonarWidgetView(entry: entry)
         }
         .configurationDisplayName("Sonar")
-        .description("Para ti, mezclar ahora, actualizar las portadas y voz: di qué quieres escuchar.")
+        .description("Para ti, mezclar ahora, la radio (la enciende con tu última petición o la apaga) y voz: di qué quieres escuchar.")
         .supportedFamilies([.systemSmall])
         // Sin los margenes por defecto (unos 16 pt): el contenido ocupa casi todo el widget, con su propio margen pequeno.
         .contentMarginsDisabled()

@@ -22,6 +22,12 @@ struct AutoMixSettingsView: View {
             }
 
             Section {
+                SettingsToggleRow("Mix When Skipping", icon: "forward.end.fill", isOn: $settings.mixOnSkip)
+            } footer: {
+                Text("With AutoMix on, the next button blends into the next song as soon as possible, like a DJ. Tap it again to skip right away.")
+            }
+
+            Section {
                 SettingsPickerRow("Mix Timing", icon: "timer", selection: $settings.autoMixTiming)
             } footer: {
                 Text("When the mix ends. Early: right after the last chorus (up to 30 s before the end). Balanced: never earlier than 15 s before the end of the music. Late: at the very end of the song. The intro of the next song is always skipped.")

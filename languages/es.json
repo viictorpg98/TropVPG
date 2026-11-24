@@ -895,5 +895,10 @@
   "Exact: they talk exactly as often as you choose. Natural: a little variation. Unpredictable: more variation, with some silences and some comments back to back. With “Every song”, the last two just mean they sometimes skip a song.": "Exacta: hablan justo con la frecuencia que elijas. Natural: una pequeña variación. Imprevisible: más variación, con algún silencio y algunos comentarios seguidos. Con «Cada canción», las dos últimas solo significan que a veces se saltan una.",
   "Sports Corner": "El rincón deportivo",
   "My Sports": "Mis deportes",
-  "Teams and sports you follow, separated by commas (up to 4). They are used to look for sports headlines and are sent to Google, like the rest of your tastes.": "Equipos y deportes que sigues, separados por comas (hasta 4). Se usan para buscar titulares deportivos y se envían a Google, como el resto de tus gustos."
+  "Teams and sports you follow, separated by commas (up to 4). They are used to look for sports headlines and are sent to Google, like the rest of your tastes.": "Equipos y deportes que sigues, separados por comas (hasta 4). Se usan para buscar titulares deportivos y se envían a Google, como el resto de tus gustos.",
+  "Mix When Skipping": "Mezclar al saltar",
+  "Mix Skip": "Mezcla al saltar",
+  "With AutoMix on, the next button blends into the next song as soon as possible, like a DJ. Tap it again to skip right away.": "Con AutoMix encendido, el botón siguiente pasa a la siguiente canción con una mezcla lo antes posible, como un DJ. Púlsalo otra vez para saltar al instante.",
+  "Next now mixes into the next song.": "Ahora «siguiente» pasa con una mezcla.",
+  "Next skips right away.": "«Siguiente» salta al instante."
 }

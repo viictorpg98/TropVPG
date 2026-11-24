@@ -431,8 +431,10 @@
 "Minimum Track Duration" = "Minimum Track Duration";
 "Minutes" = "Minutes";
 "Mix" = "Mix";
+"Mix Skip" = "Mix Skip";
 "Mix Streamed Songs on Mobile Data" = "Mix Streamed Songs on Mobile Data";
 "Mix Timing" = "Mix Timing";
+"Mix When Skipping" = "Mix When Skipping";
 "Mix now" = "Mix now";
 "Mix starts at" = "Mix starts at";
 "Mixed for you" = "Mixed for you";
@@ -476,7 +478,9 @@
 "Next" = "Next";
 "Next Cloud Voice" = "Next Voice";
 "Next Transition" = "Next Transition";
+"Next now mixes into the next song." = "Next now mixes into the next song.";
 "Next section: %@" = "Next section: %@";
+"Next skips right away." = "Next skips right away.";
 "Next song enters at" = "Next song enters at";
 "No Downloads Yet" = "No Downloads Yet";
 "No Effect" = "No Effect";
@@ -879,6 +883,7 @@
 "Which song?" = "Which song?";
 "Wi-Fi Only" = "Wi-Fi Only";
 "Wider mix around this song" = "Wider mix around this song";
+"With AutoMix on, the next button blends into the next song as soon as possible, like a DJ. Tap it again to skip right away." = "With AutoMix on, the next button blends into the next song as soon as possible, like a DJ. Tap it again to skip right away.";
 "Words about sleeping in the title" = "Words about sleeping in the title";
 "Workout" = "Workout";
 "Yesterday" = "Yesterday";

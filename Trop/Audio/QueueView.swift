@@ -32,15 +32,10 @@ struct QueueView<ProgressSlider: View>: View {
     @State private var searchText = ""
     @State private var showSaveDialog = false
     @State private var playlistName = ""
-    @State private var showMixEditor = false
-    @State private var isSorting = false
 
     var body: some View {
         queueContent
             .simultaneousGesture(backSwipeGesture)
-            .sheet(isPresented: $showMixEditor) {
-                MixEditorView()
-            }
             .textPrompt(
                 "Save as Playlist",
                 isPresented: $showSaveDialog,
@@ -218,16 +213,6 @@ struct QueueView<ProgressSlider: View>: View {
         }
     }
 
-    /// Reordena lo que queda por sonar por tempo y tonalidad: pide analizar las siguientes, espera un poco y ordena (ver `QueueSmartOrder`).
-    private func sortByTempoAndKey() {
-        guard !isSorting else { return }
-        isSorting = true
-        Task {
-            await QueueSmartOrder.sortAndAnnounce()
-            isSorting = false
-        }
-    }
-
     private func removeDuplicates() {
         let removed = np.removeDuplicateSongs()
         let message = removed > 0
@@ -256,16 +241,6 @@ struct QueueView<ProgressSlider: View>: View {
                 removeDuplicates()
             } label: {
                 Label("Remove Duplicates", systemImage: "rectangle.on.rectangle.slash")
-            }
-            Button {
-                sortByTempoAndKey()
-            } label: {
-                Label("Sort by BPM & Key", systemImage: "arrow.up.arrow.down")
-            }
-            Button {
-                showMixEditor = true
-            } label: {
-                Label("Edit Mix", systemImage: "slider.horizontal.3")
             }
             Button(role: .destructive) {
                 np.clearUpcoming()
@@ -432,22 +407,6 @@ struct QueueView<ProgressSlider: View>: View {
             }
 
             Spacer()
-
-            // La pantalla Mix (tempo, tonalidad y editor de cada transicion), a un toque como en Spotify.
-            Button {
-                showMixEditor = true
-            } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: "slider.horizontal.3")
-                    Text("Mix")
-                }
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.white)
-                .padding(.horizontal, 12)
-                .frame(height: 30)
-                .glassEffect(.regular.interactive(), in: Capsule())
-            }
-            .buttonStyle(.plain)
 
             queueOptionsMenu
         }

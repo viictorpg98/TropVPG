@@ -55,11 +55,25 @@ struct SonarMixControl: ControlWidget {
     }
 }
 
+struct SonarRadioControl: ControlWidget {
+    var body: some ControlWidgetConfiguration {
+        StaticControlConfiguration(kind: "SonarRadioControl") {
+            ControlWidgetButton(action: WidgetRadioIntent()) {
+                Label("Radio", systemImage: "dot.radiowaves.left.and.right")
+            }
+            .tint(Color(red: 0.95, green: 0.25, blue: 0.30))
+        }
+        .displayName("Sonar · Radio")
+        .description("Enciende la radio con tu última petición o la apaga.")
+    }
+}
+
 /// Los controles, agrupados.
 struct SonarControlsBundle: WidgetBundle {
     var body: some Widget {
         SonarVoiceControl()
         SonarForYouControl()
         SonarMixControl()
+        SonarRadioControl()
     }
 }

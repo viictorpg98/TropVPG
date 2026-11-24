@@ -399,6 +399,22 @@ struct FullPlayerView: View {
                     }
                 }
 
+                // "Siguiente" mezcla (como un DJ): con AutoMix encendido, al pulsar siguiente se pasa a la siguiente con una mezcla lo antes posible.
+                if settings.autoMixEnabled {
+                    PlayerPillButton(
+                        systemImage: "forward.end.fill",
+                        title: "Mix Skip",
+                        isActive: settings.mixOnSkip,
+                        accessibility: "Mix When Skipping"
+                    ) {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        settings.mixOnSkip.toggle()
+                        PlaybackNotice.shared.show(NSLocalizedString(
+                            settings.mixOnSkip ? "Next now mixes into the next song." : "Next skips right away.", comment: ""
+                        ))
+                    }
+                }
+
                 PlayerPillButton(
                     systemImage: "plus.square.on.square",
                     title: "Save",

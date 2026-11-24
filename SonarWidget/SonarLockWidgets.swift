@@ -119,11 +119,24 @@ struct SonarLockMixWidget: Widget {
     }
 }
 
+struct SonarLockRadioWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "SonarLockRadio", provider: SonarLockProvider()) { _ in
+            LockButton(intent: WidgetRadioIntent(), symbol: "dot.radiowaves.left.and.right", title: "Radio")
+                .containerBackground(for: .widget) { Color.clear }
+        }
+        .configurationDisplayName("Sonar · Radio (bloqueo)")
+        .description("Enciende la radio con tu última petición o la apaga. Para la pantalla de bloqueo.")
+        .supportedFamilies([.accessoryCircular, .accessoryRectangular])
+    }
+}
+
 /// Los widgets de la pantalla de bloqueo, agrupados (un `WidgetBundle` admite pocos widgets directos).
 struct SonarLockBundle: WidgetBundle {
     var body: some Widget {
         SonarLockVoiceWidget()
         SonarLockForYouWidget()
         SonarLockMixWidget()
+        SonarLockRadioWidget()
     }
 }
