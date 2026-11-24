@@ -172,6 +172,29 @@ struct RadioHostView: View {
     }
 }
 
+// MARK: - Secciones una a una
+
+/// Un interruptor por seccion (en los ajustes de Radio): las apagadas no salen.
+struct RadioSectionToggles: View {
+    @AppStorage(RadioSettings.sectionsOffKey) private var off = ""
+
+    var body: some View {
+        ForEach(RadioSectionKind.allCases, id: \.self) { kind in
+            Toggle(isOn: Binding(
+                get: { !RadioSettings.disabledSections(from: off).contains(kind.name) },
+                set: { isOn in
+                    var names = RadioSettings.disabledSections(from: off)
+                    if isOn { names.remove(kind.name) } else { names.insert(kind.name) }
+                    off = names.sorted().joined(separator: ",")
+                }
+            )) {
+                Label(LocalizedStringKey(kind.displayKey), systemImage: kind.icon)
+            }
+            .padding(.leading, 12)
+        }
+    }
+}
+
 // MARK: - Ajustes rapidos
 
 struct RadioQuickSettingsSheet: View {

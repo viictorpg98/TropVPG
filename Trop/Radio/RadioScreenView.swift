@@ -47,7 +47,7 @@ struct RadioScreenView: View {
                         header
                         studio
                         if radio.isActive { nowRow }
-                        if radio.isActive, sectionsOn { sectionStrip }
+                        if radio.isActive, sectionsOn, !RadioSettings.enabledSections.isEmpty { sectionStrip }
                         if !recents.isEmpty { recentsBlock }
                         Text(usageText)
                             .font(.footnote)
@@ -134,10 +134,11 @@ struct RadioScreenView: View {
     private var studio: some View {
         VStack(spacing: 14) {
             HStack(spacing: 30) {
+                // Si habla un oyente (nota de voz), los dos locutores se apagan.
                 RadioHostView(name: "Pitirre", title: "El Pitirre", speaking: radio.speakingHost == "Pitirre", size: 92,
-                              dimmed: radio.speakingHost == "Chuleta")
+                              dimmed: radio.speakingHost != nil && radio.speakingHost != "Pitirre")
                 RadioHostView(name: "Chuleta", title: "La Chuleta", speaking: radio.speakingHost == "Chuleta", size: 92,
-                              dimmed: radio.speakingHost == "Pitirre")
+                              dimmed: radio.speakingHost != nil && radio.speakingHost != "Chuleta")
             }
             .padding(.top, 6)
             captionCard

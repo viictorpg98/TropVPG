@@ -14,6 +14,7 @@ enum RadioSettings {
     static let talkEveryKey = "radio.talkEvery"
     static let rhythmKey = "radio.rhythm"
     static let sportsKey = "radio.sports"
+    static let sectionsOffKey = "radio.sectionsOff"
     static let defaultSports = "FC Barcelona, pádel, fútbol sala"
     static let dailyCapKey = "radio.dailyCap"
     static let voiceGainKey = "radio.voiceGain"
@@ -58,6 +59,17 @@ enum RadioSettings {
     static var rhythm: Int {
         let saved = UserDefaults.standard.object(forKey: rhythmKey) as? Int ?? 0
         return min(max(saved, 0), 2)
+    }
+
+    /// Las secciones apagadas una a una (nombres separados por comas; vacio = todas encendidas).
+    static func disabledSections(from raw: String) -> Set<String> {
+        Set(raw.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })
+    }
+
+    /// Las secciones que pueden salir (todas menos las apagadas en Ajustes).
+    static var enabledSections: [RadioSectionKind] {
+        let off = disabledSections(from: UserDefaults.standard.string(forKey: sectionsOffKey) ?? "")
+        return RadioSectionKind.allCases.filter { !off.contains($0.name) }
     }
 
     /// Los deportes y equipos del oyente (hasta 4, separados por comas) para la seccion de deportes.

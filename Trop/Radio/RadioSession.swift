@@ -128,7 +128,7 @@ final class RadioSession {
     /// Saca la siguiente seccion del mazo barajado (si se acaba, se baraja otra vez evitando repetir la ultima).
     private func refillSections(avoiding last: RadioSectionKind? = nil) {
         guard sectionQueue.isEmpty else { return }
-        var deck = RadioSectionKind.allCases.shuffled()
+        var deck = RadioSettings.enabledSections.shuffled()
         if let last, deck.first == last, deck.count > 1 { deck.append(deck.removeFirst()) }
         sectionQueue = deck
     }
@@ -538,7 +538,7 @@ final class RadioSession {
             if since >= sectionInterval {
                 lastSectionTalk = talkCount
                 sectionInterval = Int.random(in: 3...4)
-                if RadioSettings.sectionsEnabled {
+                if RadioSettings.sectionsEnabled, !RadioSettings.enabledSections.isEmpty {
                     plannedKind[id] = RadioPieceKind.section
                     lastTalkWasCharla = false
                 } else {
@@ -654,12 +654,20 @@ final class RadioSession {
 
     /// Prepara una seccion para el paso actual (noticiero, tiempo, anuncios o tendencias, rotando; si una no tiene datos, prueba la siguiente).
     private func generateSection(key: String, next: SongItem) {
+        // Las secciones apagadas en Ajustes no salen (aunque estuvieran ya en el mazo); si no queda ninguna, este paso va sin seccion.
+        let enabled = RadioSettings.enabledSections
+        sectionQueue.removeAll { !enabled.contains($0) }
+        refillSections()
+        guard !sectionQueue.isEmpty else {
+            played.insert(key)
+            setHold(false)
+            return
+        }
         generating.insert(key)
         let started = Date()
         // El mazo barajado: la primera es la que tocaba; si no tiene datos o no sale, se prueban las demas por orden.
-        refillSections()
         let first = sectionQueue.removeFirst()
-        let order = [first] + sectionQueue + RadioSectionKind.allCases.filter { $0 != first && !sectionQueue.contains($0) }
+        let order = [first] + sectionQueue + enabled.filter { $0 != first && !sectionQueue.contains($0) }
         sectionCount += 1
         refillSections(avoiding: first)
         nextSectionKind = sectionQueue.first ?? first
@@ -784,7 +792,7 @@ final class RadioSession {
         if !Task.isCancelled, let note = section.note {
             // La nota de voz del oyente (otra voz, sin locutores en pantalla); la siguiente cancion entra por debajo de ella.
             scheduleHandover(clipSeconds: note.seconds)
-            _ = await playClipOverBed(note)
+            _ = await playClipOverBed(note, turns: section.noteTurns)
         }
         guard !Task.isCancelled else { return }
 

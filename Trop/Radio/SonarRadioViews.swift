@@ -70,6 +70,7 @@ struct RadioSettingsView: View {
                     }
                 }
                 Toggle("Sections", isOn: $sections)
+                if sections { RadioSectionToggles() }
                 Picker("City for the Weather", selection: $city) {
                     ForEach(RadioSettings.cities, id: \.name) { place in
                         Text(verbatim: place.name).tag(place.name)
