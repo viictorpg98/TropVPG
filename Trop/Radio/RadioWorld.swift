@@ -42,6 +42,8 @@ struct RadioWorldData: Codable {
     var onThisDayKey: String? = nil
     /// Titulares de deportes (de Google Noticias): "[Deporte en general] ...", "[LaLiga] ...", "[Tu tema: X] ...". Vacio si no se pudo bajar; `nil` si es de una version anterior.
     var sports: [String]? = nil
+    /// La ciudad de la emisora con la que se bajo (si cambia en Ajustes, los titulares locales se vuelven a bajar).
+    var localCity: String? = nil
 }
 
 enum RadioWorld {
@@ -57,7 +59,7 @@ enum RadioWorld {
     private static let trendsURL = "https://trends.google.com/trending/rss?geo=ES"
 
     private static let sensitive = try? NSRegularExpression(
-        pattern: "muer[et]|mata\\b|matan|falleci|asesin|crimen|violaci|agresi[oó]n|accidente|terroris|v[ií]ctima|suicid|incendio|guerra|ataque|tiroteo|apuñal|cad[aá]ver",
+        pattern: "muer[et]|mata\\b|matan|falleci|asesin|crimen|violaci|agresi[oó]n|accidente|terroris|v[ií]ctima|suicid|incendio|guerra|ataque|tiroteo|apuñal|cad[aá]ver|\bmorts?\b|\bmor\b|assassin|accident\b|incendi\b|\batac\b|tiroteig|agressi|\bcrim\b|su[ïi]cid|ferits?\b|v[ií]ctimes|defunci",
         options: [.caseInsensitive]
     )
 
@@ -74,7 +76,7 @@ enum RadioWorld {
     /// Los datos de hoy: de la memoria o del movil si tienen menos de 3 horas; si no, se bajan (como mucho 8 s por fuente). Con fallo de red se usan los de
     /// hace menos de 24 horas; si no hay nada, `nil`.
     static func snapshot() async -> RadioWorldData? {
-        if let current = memory ?? stored(), current.sports != nil, Date().timeIntervalSince(current.fetchedAt) < freshSeconds {
+        if let current = memory ?? stored(), current.sports != nil, current.localCity == RadioLocal.cityName, Date().timeIntervalSince(current.fetchedAt) < freshSeconds {
             memory = current
             return current
         }
@@ -102,11 +104,11 @@ enum RadioWorld {
         }
         let result = RadioWorldData(
             headlines: headlines, trends: trends, wiki: wiki, weather: weather, fetchedAt: Date(),
-            onThisDay: today.isEmpty ? nil : today, onThisDayKey: today.isEmpty ? nil : dayKey(), sports: sports
+            onThisDay: today.isEmpty ? nil : today, onThisDayKey: today.isEmpty ? nil : dayKey(), sports: sports, localCity: RadioLocal.cityName
         )
         memory = result
         if let data = try? JSONEncoder().encode(result) { UserDefaults.standard.set(data, forKey: cacheKey) }
-        PlaybackReport.record("radio: datos del mundo: \(headlines.count) titulares, \(trends.count) tendencias, \(wiki.count) de la Wikipedia, \(today.count) de un dia como hoy, \(sports.count) de deportes, tiempo \(weather != nil ? "si" : "no")")
+        PlaybackReport.record("radio: datos del mundo: \(headlines.count) titulares, \(trends.count) tendencias, \(wiki.count) de la Wikipedia, \(today.count) de un dia como hoy, \(sports.count) de deportes, \(headlines.filter { $0.hasPrefix("[Local") }.count) locales, tiempo \(weather != nil ? "si" : "no")")
         return result
     }
 

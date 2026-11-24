@@ -24,7 +24,7 @@ enum RadioSlang {
 
     private static func present(in text: String) -> [String] {
         let range = NSRange(text.startIndex..., in: text)
-        return terms.compactMap { term in
+        return terms.compactMap { (term) -> String? in
             guard let regex = term.regex, regex.firstMatch(in: text, options: [], range: range) != nil else { return nil }
             return term.name
         }

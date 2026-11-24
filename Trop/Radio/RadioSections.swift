@@ -148,7 +148,7 @@ enum RadioSections {
                 + RadioHistory.promptBlock(count: 3) + notice
             guard let json = try? await Gemini.text(
                 system: RadioContent.ficha + "\n\n" + spec.rules, prompt: prompt, temperature: 1.1, timeout: 14
-            ) else { return nil }
+            ) else { break }
             let turns = RadioContent.parseTurns(json, allowing: spec.guest.map { [$0.name] } ?? [])
             let hosts = turns.filter { $0.speaker == "Pitirre" || $0.speaker == "Chuleta" }
             let note = turns.filter { $0.speaker != "Pitirre" && $0.speaker != "Chuleta" }
