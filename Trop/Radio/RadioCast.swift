@@ -13,7 +13,7 @@ enum RadioTone {
     /// Clave que escribe el modelo de texto -> indicacion de estilo para el modelo de voz (en ingles, como lo entiende mejor).
     static let styles: [String: String] = [
         "susurro": "whispering conspiratorially, low and close to the microphone",
-        "grito": "shouting excitedly, loud and full of energy",
+        "grito": "projecting loudly with big energy, like an announcer hyping the crowd, clear and controlled, never screaming or yelling",
         "sarcasmo": "dry, deadpan sarcasm",
         "cansado": "tired and low on energy, almost yawning",
         "emocionado": "thrilled, fast and bubbly, can't contain the excitement",

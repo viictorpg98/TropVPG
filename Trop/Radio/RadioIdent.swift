@@ -34,7 +34,7 @@ enum RadioIdent {
             case .top5:
                 return ("las cinco canciones que la persona mas ha escuchado esta semana", ["¡Tus cinco de la semana! ¡Los que no has soltado!", "¡Cuenta atrás! ¡Tus cinco favoritos de la semana!", "¡Cinco! / ¡Tus cinco de la semana, en Sónar efe eme!"])
             case .hoy:
-                return ("'un dia como hoy': hechos de la historia ocurridos en la fecha de hoy", ["¡Un día como hoy, hace un montón de años!", "¡Abre la máquina del tiempo! ¡Un día como hoy!", "¿Qué pasó un día como hoy? / ¡Pues escucha!"])
+                return ("'un dia como hoy': hechos de otros años ocurridos en la fecha de hoy", ["¡Un día como hoy, hace un montón de años!", "¡Abre la máquina del tiempo! ¡Un día como hoy!", "¿Qué pasó un día como hoy? / ¡Pues escucha!"])
             case .deportes:
                 return ("el rincon deportivo (los titulares del deporte de hoy)",
                         ["¡Se calienta el vestuario! ¡El rincón deportivo!", "¡Árbitro, pita ya! ¡Deportes en Sónar efe eme!", "¿Quién ganó? / ¡Toca el rincón deportivo!"])
@@ -45,7 +45,9 @@ enum RadioIdent {
     }
 
     private static let rules = """
-    REGLAS (GRITO DE EMISORA): es lo que gritan los locutores para ANUNCIAR algo, con energia de radio de verdad.
+    REGLAS (GRITO DE EMISORA): es lo que dicen los locutores con energia para ANUNCIAR algo, como en una radio de verdad.
+    - Tiene que ANUNCIAR de verdad lo que viene (la seccion por su nombre, o que vuelven a charlar): que quien lo oiga sepa que empieza. Como mucho, un remate corto con gracia.
+    - Sin insultos, sin tacos y sin burlas al oyente: es un anuncio de emisora, no una pulla. Nada de frases sueltas sin sentido.
     - UNA o DOS lineas muy cortas, MAXIMO 14 palabras en total: un locutor solo, o los dos en pregunta y respuesta.
     - Original, con personalidad y un punto de humor. Evita lo tipico: nada de "atencion, atencion", "wepa", "uepa", "damas y caballeros" ni exclamaciones genericas.
     - A veces (no siempre) nombra la emisora, escrita como "Sónar efe eme".
@@ -74,7 +76,7 @@ enum RadioIdent {
             let used = recent()
             if !used.isEmpty { prompt += "\n\nGRITOS YA USADOS (no repitas ni su idea ni sus palabras):\n" + used.suffix(10).map { "- " + $0 }.joined(separator: "\n") }
             prompt += notice
-            guard let json = try? await Gemini.text(system: RadioContent.ficha + "\n\n" + rules, prompt: prompt, temperature: 1.3, timeout: 8) else { return nil }
+            guard let json = try? await Gemini.text(system: RadioContent.fichaWith(humor: .mild) + "\n\n" + rules, prompt: prompt, temperature: 1.1, timeout: 8) else { return nil }
             let turns = RadioContent.parseTurns(json)
             let words = turns.reduce(0) { $0 + $1.text.split(separator: " ").count }
             let all = turns.map(\.text).joined(separator: " ")

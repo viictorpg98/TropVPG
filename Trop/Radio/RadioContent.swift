@@ -262,6 +262,46 @@ enum RadioContent {
         return bannedJokePattern.firstMatch(in: text, options: [], range: NSRange(text.startIndex..., in: text)) != nil
     }
 
+    /// Escribe con el modelo del humor si `strong`: si no responde (un 503 de "mucha demanda", el tiempo, un limite), reintenta UNA vez a los 3 s (las piezas se escriben con
+    /// minutos de adelanto) y despues usa el de siempre. Un bloqueo de Google se deja pasar: lo trata quien llama (reescribe en suave).
+    static func humorText(system: String, prompt: String, temperature: Double, strong: Bool, strongTimeout: Double, timeout: Double) async throws -> String {
+        guard strong else { return try await Gemini.text(system: system, prompt: prompt, temperature: temperature, timeout: timeout) }
+        for round in 0..<2 {
+            do {
+                return try await Gemini.text(system: system, prompt: prompt, temperature: temperature, timeout: strongTimeout, model: RadioSettings.humorModel, thinking: "low")
+            } catch let failure as Gemini.Failure where failure.isBlocked {
+                throw failure
+            } catch {
+                PlaybackReport.record("radio: el modelo del humor no respondio (\(error.localizedDescription))" + (round == 0 ? "; se reintenta en 3 s" : "; se usa el de siempre"))
+                if round == 0 { try? await Task.sleep(nanoseconds: 3_000_000_000) }
+            }
+        }
+        return try await Gemini.text(system: system, prompt: prompt, temperature: temperature, timeout: timeout)
+    }
+
+    private static let zoneDayKey = "radio.zoneDay"
+    private static let zoneLinesKey = "radio.zoneLines"
+
+    private static func dayStamp() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: Date())
+    }
+
+    /// Los datos de la zona que ya salieron HOY.
+    private static func usedZoneLines() -> [String] {
+        let defaults = UserDefaults.standard
+        guard defaults.string(forKey: zoneDayKey) == dayStamp() else { return [] }
+        return defaults.stringArray(forKey: zoneLinesKey) ?? []
+    }
+
+    private static func markZoneLine(_ line: String) {
+        let defaults = UserDefaults.standard
+        let used = usedZoneLines() + [line]
+        defaults.set(dayStamp(), forKey: zoneDayKey)
+        defaults.set(used, forKey: zoneLinesKey)
+    }
+
     static func mentionsFood(_ text: String) -> Bool {
         guard let foodPattern else { return false }
         return foodPattern.firstMatch(in: text, options: [], range: NSRange(text.startIndex..., in: text)) != nil
@@ -338,12 +378,13 @@ enum RadioContent {
     static func piece(kind: RadioPieceKind, previous: SongItem?, next: SongItem, facts: String = "", extras: [String] = [], spoken: Date = Date(), allowHour: Bool = false, humor: RadioHumorLevel? = nil) async -> [RadioTurn] {
         let isMini = kind == .mini
         let level = humor ?? RadioHumor.current
-        let nearby = RadioWorld.nearbyLines()
+        // Los datos de la zona (titulares locales, LaLiga) no se repiten el mismo dia: la misma noticia en tres piezas seguidas cansa.
+        let nearby = RadioWorld.nearbyLines().filter { !usedZoneLines().contains($0) }
         let plan = RadioBlueprint.draw(kind: kind, hasPrevious: previous != nil, hasLocal: !nearby.isEmpty, hasFacts: !facts.isEmpty, humor: level)
         // El nombre de la emisora, solo en una de cada cuatro piezas.
         let allowStation = Int.random(in: 0..<4) == 0
         // De que va: el chiste sale de los mazos de formatos de siempre; lo demas, de su texto fijo (con su dato).
-        var purpose = plan.purpose.instruction
+        var purpose = plan.purpose.instruction(for: level)
         var topic = ""
         var mania = ""
         var zoneLine: String?
@@ -372,6 +413,7 @@ enum RadioContent {
             }
         case .local:
             zoneLine = nearby.randomElement()
+            if let zoneLine { markZoneLine(zoneLine) }
         default:
             break
         }
@@ -382,8 +424,8 @@ enum RadioContent {
         // Si ningun intento cumple la longitud, se usa el mas cercano (recortado) antes que dejar el paso sin voz.
         var lengthFallback: [RadioTurn] = []
         var fallbackTopic: String?
-        // Con picante o negro, las charlas las escribe el modelo del humor (las minis, el de siempre): si no responde, se sigue con el de siempre.
-        var strong = kind == .charla && level != .mild
+        // Con picante o negro, las charlas las escribe el modelo del humor (las minis, el de siempre).
+        let strong = kind == .charla && level != .mild
         for attempt in 0..<3 {
             var prompt = "Escribe la PIEZA que suena entre dos canciones.\n"
             prompt += dataBlock(previous: previous, next: next, spoken: spoken, allowHour: allowHour)
@@ -400,20 +442,12 @@ enum RadioContent {
             prompt += RadioHistory.promptBlock(count: 6) + RadioNotebook.promptBlock() + notice
             let json: String
             do {
-                json = try await Gemini.text(
-                    system: system, prompt: prompt, temperature: level == .mild ? 1.2 : 1.1, timeout: strong ? 25 : 12,
-                    model: strong ? RadioSettings.humorModel : nil, thinking: strong ? "low" : nil
-                )
+                json = try await humorText(system: system, prompt: prompt, temperature: level == .mild ? 1.2 : 1.1, strong: strong, strongTimeout: 25, timeout: 12)
             } catch let failure as Gemini.Failure where failure.isBlocked && level != .mild {
                 // Google se ha negado: la pieza se vuelve a escribir en suave (con su propio plan), para no quedarse sin ella.
                 PlaybackReport.record("radio: pieza bloqueada por Google con humor \(RadioHumor.name(level)); se reescribe en suave")
                 return await piece(kind: kind, previous: previous, next: next, facts: facts, extras: extras, spoken: spoken, allowHour: allowHour, humor: .mild)
             } catch {
-                if strong {
-                    PlaybackReport.record("radio: el modelo del humor no respondio (\(error.localizedDescription)); se usa el de siempre")
-                    strong = false
-                    continue
-                }
                 break
             }
             let turns = parseTurns(json)

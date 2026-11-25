@@ -25,7 +25,7 @@ enum Gemini {
     private static let pitirreStyle = "relaxed and cocky, slow smirking drawl, amused, laughing easily"
     private static let chuletaStyle = "fast, teasing and energetic, hype-man, interrupting and laughing"
     /// Estilo de las cuñas ("¡Sónar efe eme!").
-    static let announcerStyle = "booming radio station announcer, loud, big energy, shouting the station name with a smile"
+    static let announcerStyle = "punchy radio station announcer, clear and energetic, big smile in the voice, projecting but controlled, never screaming or yelling"
 
     /// Cada tipo de peticion (el texto y cada modelo de voz) tiene su propio limite: que se agote la voz no debe parar el texto.
     private enum Scope: Hashable {

@@ -168,26 +168,21 @@ enum RadioSections {
         // La forma de la conversacion (como en las piezas entre canciones): no siempre "habla uno, habla el otro".
         let shape = RadioBlueprint.drawShape(from: allowedShapes(for: kind))
         let minLines = (shape == .solo ? min(spec.minTurns, 2) : spec.minTurns) - (spec.guest == nil ? 0 : 1)
-        // Con picante o negro, las secciones las escribe el modelo del humor: si no responde, se sigue con el de siempre.
-        var strong = level != .mild
+        // Con picante o negro, las secciones las escribe el modelo del humor (con un reintento y, si no responde, el de siempre: ver `RadioContent.humorText`).
+        let strong = level != .mild
         for attempt in 0..<2 {
             let prompt = spec.instruction + RadioHumor.sectionTone(kind, level: level) + "\n\nFORMA DE LA CONVERSACION (respetala): \(shape.instruction)" + "\n\nDATOS \(spec.guest == nil ? "REALES " : "")DE HOY (unica fuente de hechos):\n" + spec.data
                 + RadioHistory.promptBlock(count: 3) + notice
             let json: String
             do {
-                json = try await Gemini.text(
-                    system: RadioContent.fichaWith(humor: level) + "\n\n" + adapted(spec.rules, guest: spec.guest != nil, level: level), prompt: prompt, temperature: level == .mild ? 1.1 : 1.0, timeout: strong ? 30 : 16,
-                    model: strong ? RadioSettings.humorModel : nil, thinking: strong ? "low" : nil
+                json = try await RadioContent.humorText(
+                    system: RadioContent.fichaWith(humor: level) + "\n\n" + adapted(spec.rules, guest: spec.guest != nil, level: level), prompt: prompt,
+                    temperature: level == .mild ? 1.1 : 1.0, strong: strong, strongTimeout: 30, timeout: 16
                 )
             } catch let failure as Gemini.Failure where failure.isBlocked && level != .mild {
                 PlaybackReport.record("radio: seccion \(kind.name) bloqueada por Google con humor \(RadioHumor.name(level)); se reescribe en suave")
                 return await make(kind: kind, next: next, humor: .mild)
             } catch {
-                if strong {
-                    PlaybackReport.record("radio: el modelo del humor no respondio (\(error.localizedDescription)); se usa el de siempre")
-                    strong = false
-                    continue
-                }
                 break
             }
             let turns = RadioContent.parseTurns(json, allowing: spec.guest.map { [$0.name] } ?? [])

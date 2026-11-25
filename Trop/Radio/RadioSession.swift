@@ -604,10 +604,13 @@ final class RadioSession {
             // Datos reales opcionales: lo que has escuchado de la siguiente (4 de cada 10 veces) y el tiempo ya bajado (1 de cada 4).
             var extras: [String] = []
             // Lo del historial va con "La radio recuerda": con la memoria apagada no se manda ningun titulo de lo que has escuchado.
-            if RadioSettings.memoryEnabled, Int.random(in: 0..<10) < 4, let line = await RadioSongFacts.line(for: next) { extras.append(line) }
-            if Int.random(in: 0..<4) == 0, let weather = RadioWorld.weatherLine() { extras.append(weather) }
+            // Con picante o negro, las minis no reciben estos datos (las convertian en un parte del tiempo o en una ficha): solo las charlas, donde dan para una burla.
+            let extrasAllowed = kind == .charla || RadioHumor.current == .mild
+            if extrasAllowed, RadioSettings.memoryEnabled, Int.random(in: 0..<10) < 4, let line = await RadioSongFacts.line(for: next) { extras.append(line) }
+            if extrasAllowed, Int.random(in: 0..<4) == 0, let weather = RadioWorld.weatherLine() { extras.append(weather) }
             // La charla vuelve con un grito NUEVO (texto y voz de cada vez) sobre un golpe musical de Lyria; se prepara a la vez que la charla.
-            let identTask: Task<RadioClip?, Never>? = kind == .charla ? Task { await RadioIdent.make(.charla) } : nil
+            // Solo una de cada tres charlas vuelve con grito (las secciones siempre): en todas cansaba.
+            let identTask: Task<RadioClip?, Never>? = kind == .charla && Int.random(in: 0..<3) == 0 ? Task { await RadioIdent.make(.charla) } : nil
             var turns = await RadioContent.piece(kind: kind, previous: previous, next: next, facts: facts, extras: extras, spoken: spoken, allowHour: allowHour)
             var clip: RadioClip?
             if !turns.isEmpty {

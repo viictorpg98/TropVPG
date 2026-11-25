@@ -152,6 +152,27 @@ enum RadioPurpose {
     }
 }
 
+extension RadioPurpose {
+    /// El texto del proposito segun el nivel de humor: con picante o negro, los que antes pedian "sin chiste" o "sincera" piden una pulla con gracia.
+    func instruction(for level: RadioHumorLevel) -> String {
+        guard level != .mild else { return instruction }
+        switch self {
+        case .banter:
+            return ""
+        case .backAnnounce:
+            return "repasan lo que ACABA de sonar (titulo y artista) con una pulla ingeniosa y concreta, y presentan la siguiente."
+        case .reaction:
+            return "una reaccion exagerada y con gracia a lo que acaba de sonar o a la que viene (sin afirmar nada concreto sobre la cancion ni el artista), con un detalle concreto."
+        case .local:
+            return "una pulla ingeniosa con UNA cosa de la zona, usando SOLO el dato de la zona de abajo, y presentan la siguiente."
+        case .dedication:
+            return "dedican la cancion que viene a la persona con una pulla, usando SOLO uno de sus datos reales de abajo (son datos DE ELLA y se los dicen a ella), sin inventar nada."
+        case .question:
+            return "le hacen a la persona una pregunta de mala leche, concreta y con gracia (sin esperar respuesta), y presentan la siguiente."
+        }
+    }
+}
+
 /// El plan de una pieza: proposito, forma y longitud, sorteados sin repetir lo ultimo que salio.
 struct RadioBlueprint {
     let purpose: RadioPurpose

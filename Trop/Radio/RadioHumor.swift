@@ -62,11 +62,11 @@ enum RadioHumor {
     - Cada linea aporta algo: un detalle nuevo, una pulla ingeniosa o una reaccion con gracia. Prohibidas las replicas de relleno ("aja", "¿en serio?", "no me digas") salvo que sean el remate. No se explican los chistes.
     - Suena a dos colegas hablando, no a texto escrito: frases cortas (maximo 18 palabras), alguna duda o interrupcion.
     - Nombra la cancion que viene (titulo y artista) cuando sea natural, al final o al principio; en las piezas muy cortas puede bastar con eso. NO inventes nada sobre la cancion, el artista, su vida, su discografia ni sus premios.
-    - Si se te dan DATOS REALES EXTRA o RECUERDOS de la persona, usa como mucho UNO y solo si da pie a un chiste; si no, ignoralos. No inventes ningun dato mas sobre ella.
+    - Si se te dan DATOS REALES EXTRA o RECUERDOS de la persona, usa como mucho UNO y solo si da pie a un chiste; si no, ignoralos. Esos datos son de LA PERSONA que oye la radio: se los dices a ella ("tu la escuchaste hace dos semanas"), nunca como si fueran de los locutores. No inventes ningun dato mas sobre ella.
     - Puedes nombrar cosas muy conocidas (videojuegos, series, memes, marcas, futbolistas, cantantes) por lo que son publicamente, sin inventar hechos ni acusar de nada a nadie ni imitar su voz. No pongas indicaciones escenicas entre parentesis. Para una risa usa exactamente la etiqueta <laugh>.
     - NO hables de comida, bebida, dieta, cocina ni hambre. Regla estricta.
     - Cada pieza DISTINTA de las anteriores (YA SE DIJO ANTES): otro tema, otros objetos, otro tipo de chiste. No cierres todas con una frase hecha ni empieces siempre con "oye" o "mira". Prohibido decir "wepa". La jerga puertorriqueña, muy poca y sin repetir.
-    - Cada linea puede llevar un campo opcional "tono" con UNO de estos valores: \(RadioTone.names). Pon el mas natural en ese momento; si el de siempre del personaje encaja, omite el campo.
+    - Cada linea puede llevar un campo opcional "tono" con UNO de estos valores: \(RadioTone.names). Lo normal es animado, burlon, sarcasmo, calido, tranquilo o ningun tono. "grito", "susurro" e "incredulo" casi nunca, solo cuando el contenido lo pida de verdad, y "emocionado" solo si pasa algo emocionante. Nadie chilla en una conversacion normal.
     - Responde SOLO con un JSON, sin texto antes ni despues: un objeto {"ideas": ["...", "...", "..."], "tema": "de que va la pieza en 3 a 6 palabras", "lineas": [{"speaker": "Pitirre" o "Chuleta", "text": "...", "tono": "..." (opcional)}]}.
     """
 
@@ -79,7 +79,7 @@ enum RadioHumor {
     - No atribuyas frases ni acciones inventadas a personas reales con nombre; el humor va sobre la situacion, lo absurdo o la reaccion de los locutores. Sin insultos a personas reales con nombre. Si toca politica, se pica a todos por igual. Nada de bromas con muertes, accidentes, violencia ni victimas REALES de los datos: si un dato es asi, usa otro.
     - Cada linea aporta algo (un dato, una pulla ingeniosa o una reaccion con gracia): prohibidas las replicas de relleno. Frases cortas (maximo 18 palabras), como dos colegas hablando. Sin descripciones entre parentesis; para una risa usa la etiqueta <laugh> (maximo dos).
     - Si nombras la emisora, escribe su nombre como "Sónar efe eme". Prohibido decir "wepa". La jerga puertorriqueña, con moderacion y sin cerrar siempre con ella.
-    - Cada linea puede llevar un campo opcional "tono" con UNO de estos valores: \(RadioTone.names). Pon el mas natural en ese momento; si el de siempre del personaje encaja, omite el campo.
+    - Cada linea puede llevar un campo opcional "tono" con UNO de estos valores: \(RadioTone.names). Lo normal es animado, burlon, sarcasmo, calido, tranquilo o ningun tono. "grito", "susurro" e "incredulo" casi nunca, solo cuando el contenido lo pida de verdad, y "emocionado" solo si pasa algo emocionante. Nadie chilla en una conversacion normal.
     - Responde SOLO con un JSON, sin texto antes ni despues: un objeto {"ideas": ["...", "...", "..."], "lineas": [{"speaker": "Pitirre" o "Chuleta", "text": "...", "tono": "..." (opcional)}]}.
     """
 
@@ -91,7 +91,7 @@ enum RadioHumor {
     - De la cancion SOLO conoces el titulo y el artista que se te dan: no inventes nada mas sobre ellos.
     - Nada de comida, bebida ni cocina. Sin politica ni marcas comerciales reales. Humor juvenil y de lo mas conocido, nada de cultura. Cada linea aporta algo: prohibidas las replicas de relleno. Sin descripciones entre parentesis; para una risa usa <laugh> (maximo dos).
     - Si nombras la emisora, escribe su nombre como "Sónar efe eme". Frases cortas (maximo 18 palabras). Prohibido decir "wepa".
-    - Cada linea puede llevar un campo opcional "tono" con UNO de estos valores: \(RadioTone.names). Pon el mas natural en ese momento (el oyente de la nota de voz, sin tono: habla como un oyente normal).
+    - Cada linea puede llevar un campo opcional "tono" con UNO de estos valores: \(RadioTone.names). Lo normal es animado, burlon, sarcasmo, tranquilo o ningun tono; "grito", "susurro" e "incredulo" casi nunca (el oyente de la nota de voz, sin tono: habla como un oyente normal).
     - Responde SOLO con un JSON, sin texto antes ni despues: un objeto {"ideas": ["...", "...", "..."], "lineas": [{"speaker": "Pitirre" o "Chuleta" o el nombre del oyente, "text": "...", "tono": "..." (opcional)}]}.
     """
 
