@@ -86,6 +86,9 @@ final class RadioSession {
     @ObservationIgnored private var breakStartedAt = Date()
     /// Cuanto puede durar el corte antes de que el vigilante lo de por colgado: 90 s, o mas si la seccion es larga (nota de voz, efectos).
     @ObservationIgnored private var breakLimit: TimeInterval = 90
+    /// Cuando la radio pauso la cancion saliente del corte, y hasta cuando no cuenta que suene como "has pulsado reproducir" (un final tardio de la cancion).
+    @ObservationIgnored private var breakPausedAt: Date?
+    @ObservationIgnored private var ignorePlayUntil = Date.distantPast
     @ObservationIgnored private var breakTask: Task<Void, Never>?
     @ObservationIgnored private var handoverTask: Task<Void, Never>?
     /// Durante el relevo (la siguiente cancion ya entra bajo la voz): la musiquita se desvanece sola y el cambio de cancion que provoco el propio relevo no cancela el corte.
@@ -441,7 +444,7 @@ final class RadioSession {
             if Date().timeIntervalSince(breakStartedAt) > breakLimit {
                 report("corte: pasaron \(Int(breakLimit)) s, se reanuda la musica")
                 cancelBreak(resume: true)
-            } else if pausedByRadio, np.isPlaying {
+            } else if pausedByRadio, np.isPlaying, Date() > ignorePlayUntil {
                 report("corte: has pulsado reproducir, se salta la seccion")
                 cancelBreak(resume: id == breakOutId)
             }
@@ -525,8 +528,29 @@ final class RadioSession {
         if breakActive, handingOver {
             // El primer cambio durante el relevo es el que provoca el propio relevo (aunque cambie el titulo o el id por la version de audio); otro distinto es que has saltado.
             if let own = handoverSongId, own != id { cancelBreak(resume: false) } else { handoverSongId = id }
+        } else if breakActive, pausedByRadio, id != breakOutId, RadioBlocklist.key(for: song) == breakNextKey,
+                  let pausedAt = breakPausedAt, Date().timeIntervalSince(pausedAt) < 3 {
+            // La cancion saliente acabo SOLA justo cuando la radio la pausaba (un tiron de la pantalla basta): no es que hayas saltado. La siguiente que ha entrado se
+            // pausa en cuanto suena y vuelve a empezar desde 0 cuando acabe la seccion (como cuando la siguiente arranca sola antes de pausar).
+            report("corte: la cancion acabo sola al pausarla; la seccion sigue")
+            breakPausedId = id
+            breakResumesCurrent = true
+            ignorePlayUntil = Date().addingTimeInterval(5)
+            let controller = PlayerController.shared
+            controller.volumeScale = 0
+            controller.applyPlayerVolume()
+            Task { [weak self] in
+                let np = NowPlaying.shared
+                var waited = 0
+                while waited < 60, np.loadingTrackId != nil || !np.isPlaying {
+                    try? await Task.sleep(nanoseconds: 50_000_000)
+                    waited += 1
+                }
+                guard let self, self.breakActive else { return }
+                controller.setPaused(true)
+            }
         } else if breakActive, pausedByRadio || RadioBlocklist.key(for: song) != breakNextKey {
-            cancelBreak(resume: false)
+            cancelBreak(resume: false, reason: "cambio la cancion durante el corte (pausada por la radio: \(pausedByRadio ? "si" : "no"), era la esperada: \(RadioBlocklist.key(for: song) == breakNextKey ? "si" : "no"))")
         }
         // La voz sigue si la que suena ahora es la que esperaba (se compara por titulo y artista: el id puede cambiar a la version de audio).
         if speaking, speakingToKey != RadioBlocklist.key(for: song) { cancelSpeech() }
@@ -731,6 +755,8 @@ final class RadioSession {
         breakOutId = outId
         breakNextKey = nextKey
         breakPausedId = nil
+        breakPausedAt = nil
+        ignorePlayUntil = .distantPast
         handoverTask = nil
         handingOver = false
         handoverSongId = nil
@@ -754,7 +780,8 @@ final class RadioSession {
         airingSection = section.kind
         // 1) Fundido cruzado: la musiquita entra desde su principio mientras la cancion baja hasta apagarse justo en su final.
         let total0 = controller.duration > 0 ? controller.duration : np.duration
-        let cross = min(7.0, max(2.5, total0 - controller.currentTime - 0.35))
+        // El fundido acaba con 1,5 s de margen antes del final (antes 0,35 s: un tiron de la pantalla y la cancion acababa sola antes de pausarla).
+        let cross = min(7.0, max(2.5, total0 - controller.currentTime - 1.5))
         if let url = section.bed { bedPlayer.start(url: url, volume: 0) }
         let started = Date()
         while !Task.isCancelled {
@@ -774,6 +801,7 @@ final class RadioSession {
                 controller.setPaused(true)
                 pausedByRadio = true
                 breakPausedId = np.videoId
+                breakPausedAt = Date()
                 breakResumesCurrent = true
                 break
             }
@@ -782,10 +810,11 @@ final class RadioSession {
             controller.applyPlayerVolume()
             bedPlayer.volume = Float(sin(progress * .pi / 2)) * 0.9
             let total = controller.duration > 0 ? controller.duration : np.duration
-            if progress >= 1 || total - controller.currentTime <= 0.3 {
+            if progress >= 1 || total - controller.currentTime <= 1.2 {
                 controller.setPaused(true)
                 pausedByRadio = true
                 breakPausedId = np.videoId
+                breakPausedAt = Date()
                 break
             }
             try? await Task.sleep(nanoseconds: 50_000_000)
@@ -897,7 +926,7 @@ final class RadioSession {
 
     /// Corta un corte (otra cancion, reproducir, 90 s, fin de la radio): para la voz y la musiquita y devuelve el volumen. Con `resume`, si la radio habia
     /// pausado la musica, sigue con la siguiente cancion (o con esta, si era la que ya habia empezado).
-    private func cancelBreak(resume: Bool) {
+    private func cancelBreak(resume: Bool, reason: String = "") {
         guard breakActive else { return }
         let paused = pausedByRadio
         let resumesCurrent = breakResumesCurrent
@@ -930,7 +959,7 @@ final class RadioSession {
                 controller.setPaused(false)
             }
         }
-        report("corte cancelado")
+        report("corte cancelado" + (reason.isEmpty ? "" : ": " + reason))
     }
 
     // MARK: - Volumen

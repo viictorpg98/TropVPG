@@ -57,7 +57,7 @@ enum RadioHumor {
     private static let pieceRulesText = """
     REGLAS (PIEZA ENTRE CANCIONES, HUMOR):
     - El PLAN dice de que va, la FORMA de la conversacion y la LONGITUD: respetalos. Como mucho un <laugh>.
-    - PRIMERO PIENSA EL CHISTE: en "ideas" escribe 3 premisas distintas y concretas (con un nombre inventado, una cifra, un objeto o una marca muy famosa o ficticia). Elige la mas graciosa, desarrollala con escalada y pon el remate en la ULTIMA linea. Si el PLAN es presentar la cancion sin chiste, "ideas" va vacio.
+    - PRIMERO PIENSA EL CHISTE: en "ideas" escribe 3 premisas distintas y concretas (con un nombre inventado, una cifra, un objeto o una marca muy famosa o ficticia). Elige la MAS CONCRETA y graciosa (la que lleve un detalle preciso: una cifra, un objeto, una hora; no una comparacion vaga), desarrollala con escalada y pon el remate en la ULTIMA linea. Si la pieza es de UNA sola frase, el chiste entero cabe en esa frase: una escena concreta, no un juego de palabras con el titulo de la cancion. Si el PLAN es presentar la cancion sin chiste, "ideas" va vacio.
     - Humor juvenil y de lo MAS conocido (movil, redes, trabajo, parejas, futbol, videojuegos, series, fiesta, dinero, marcas famosas) con un giro absurdo o exagerado. Nada de historia, cultura, arte ni datos curiosos.
     - Cada linea aporta algo: un detalle nuevo, una pulla ingeniosa o una reaccion con gracia. Prohibidas las replicas de relleno ("aja", "¿en serio?", "no me digas") salvo que sean el remate. No se explican los chistes.
     - Suena a dos colegas hablando, no a texto escrito: frases cortas (maximo 18 palabras), alguna duda o interrupcion.
@@ -129,13 +129,13 @@ enum RadioHumor {
 
     /// Para las piezas cortas (entre canciones, sin charla). Con el nivel picante o negro sustituyen a los de siempre.
     static let miniFormats = [
-        "una pulla de UNA frase, ingeniosa y concreta, de un locutor al otro, y anuncia la siguiente cancion",
-        "una exageracion absurda sobre lo que acaba de sonar (sin afirmar nada concreto de la cancion) y anuncia la siguiente",
-        "un chiste de UNA frase con una referencia muy conocida (una app, un videojuego, una serie, el futbol) y anuncia la siguiente",
-        "un comentario de mala leche sobre el oyente (que lleva toda la tarde sin hacer nada), con un detalle muy concreto, y anuncia la siguiente",
-        "una queja cinica y concreta sobre algo cotidiano (el jefe, el banco, el wifi, la pareja) en una frase, y presentan la siguiente de mala gana",
-        "una amenaza absurda e inofensiva de un locutor al otro y anuncia la siguiente",
-        "un chiste malo a proposito sobre el titulo de la cancion que VIENE, y el otro se queja de lo malo que es",
+        "una escena concreta del oyente en UNA frase, con un detalle absurdo y preciso (una cifra, un objeto, una hora: 'seis horas actualizando el driver de una impresora de 2005'), y anuncia la siguiente cancion",
+        "una queja cinica y concreta de un locutor sobre algo cotidiano (el jefe, el banco, el wifi, la pareja, el vecino) con un detalle preciso, y presentan la siguiente de mala gana",
+        "una pulla ingeniosa de UNA frase de un locutor al otro, sobre algo concreto de su vida (su coche, su trabajo, su ultima cita), y anuncia la siguiente cancion",
+        "una exageracion absurda y concreta sobre lo que acaba de sonar (sin afirmar nada concreto de la cancion) y anuncia la siguiente",
+        "una amenaza absurda e inofensiva de un locutor al otro, con un detalle preciso, y anuncia la siguiente",
+        "un comentario de mala leche sobre el oyente (que lleva toda la tarde sin hacer nada), con una escena precisa, y anuncia la siguiente",
+        "un chiste de UNA frase con una referencia muy conocida (una app, un videojuego, una serie, el futbol) contado como una ESCENA concreta, no como una comparacion, y anuncia la siguiente",
         "presentar la siguiente cancion con un solo taco bien puesto y mucha chuleria, sin chiste"
     ]
 
