@@ -134,7 +134,8 @@ enum RadioWorld {
     /// Los hechos de "un dia como hoy" solo valen si son de HOY (los guardados de ayer no).
     static func onThisDayToday(_ world: RadioWorldData) -> [String] {
         guard world.onThisDayKey == dayKey() else { return [] }
-        return world.onThisDay ?? []
+        // Solo hechos modernos (desde 1975): la historia antigua no hace gracia a nadie en una radio de colegas. Lo guardado por versiones anteriores tambien se filtra.
+        return (world.onThisDay ?? []).filter { (Int($0.prefix(4)) ?? 0) >= 1975 }
     }
 
     private static func dayKey() -> String {
@@ -206,7 +207,7 @@ enum RadioWorld {
               let events = json["events"] as? [[String: Any]] else { return [] }
         let lines = events.compactMap { event -> String? in
             guard let text = event["text"] as? String, let year = (event["year"] as? NSNumber)?.intValue,
-                  text.count >= 25, text.count <= 220, !isSensitive(text) else { return nil }
+                  year >= 1975, text.count >= 25, text.count <= 220, !isSensitive(text) else { return nil }
             return "\(year): \(text)"
         }
         return Array(lines.shuffled().prefix(25))

@@ -27,9 +27,8 @@ enum RadioSongFacts {
         }) ?? []
         let now = Date()
         let label = "«\(title)»"
-        guard let last = dates.first else {
-            return "\(label): segun el historial de la app, no consta ninguna escucha anterior de esta cancion."
-        }
+        // Sin escuchas anteriores no hay nada que decir (esa linea solo daba "suena por primera vez" en todas las piezas).
+        guard let last = dates.first else { return nil }
         let monthAgo = now.addingTimeInterval(-30 * 86_400)
         let month = dates.filter { $0 > monthAgo }.count
         let days = Int(now.timeIntervalSince(last) / 86_400)

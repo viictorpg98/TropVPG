@@ -26,6 +26,7 @@ struct RadioSettingsView: View {
     @AppStorage(RadioSettings.fallbackKey) private var fallback = true
     @AppStorage(RadioSettings.fallbackModelKey) private var fallbackModel = ""
     @AppStorage(RadioSettings.textModelKey) private var textModel = ""
+    @AppStorage(RadioSettings.humorModelKey) private var humorModel = ""
     @AppStorage(RadioSettings.voiceModelKey) private var voiceModel = ""
     @AppStorage(RadioSettings.pitirreVoiceKey) private var pitirreVoice = ""
     @AppStorage(RadioSettings.chuletaVoiceKey) private var chuletaVoice = ""
@@ -163,6 +164,9 @@ struct RadioSettingsView: View {
 
             Section {
                 TextField("Text Model", text: $textModel, prompt: Text(verbatim: RadioSettings.defaultTextModel))
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                TextField("Humor Model", text: $humorModel, prompt: Text(verbatim: RadioSettings.defaultHumorModel))
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
                 TextField("Voice Model", text: $voiceModel, prompt: Text(verbatim: RadioSettings.defaultVoiceModel))

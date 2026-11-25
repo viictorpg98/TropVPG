@@ -27,6 +27,7 @@ enum RadioSettings {
     static let sectionsKey = "radio.sections"
     static let cityKey = "radio.city"
     static let textModelKey = "radio.textModel"
+    static let humorModelKey = "radio.humorModel"
     static let voiceModelKey = "radio.voiceModel"
     static let pitirreVoiceKey = "radio.voice.pitirre"
     static let chuletaVoiceKey = "radio.voice.chuleta"
@@ -36,6 +37,8 @@ enum RadioSettings {
     private static let keyFallbackKey = "radio.key.fallback"
 
     static let defaultTextModel = "gemini-3.1-flash-lite"
+    /// El modelo que escribe las charlas y las secciones con humor picante o negro: mucho mas gracioso que el barato (probado en el PC) y unas 3 veces mas caro.
+    static let defaultHumorModel = "gemini-3.8-flash"
     static let defaultVoiceModel = "gemini-3.8-flash-lite-tts"
     /// La voz de reserva (cuesta un 50 % mas por audio): se usa cuando el modelo barato llega a su limite.
     static let defaultFallbackModel = "gemini-3.8-flash-tts"
@@ -145,6 +148,7 @@ enum RadioSettings {
     static var fallbackModel: String { stored(fallbackModelKey, default: defaultFallbackModel) }
 
     static var textModel: String { stored(textModelKey, default: defaultTextModel) }
+    static var humorModel: String { stored(humorModelKey, default: defaultHumorModel) }
     static var voiceModel: String { stored(voiceModelKey, default: defaultVoiceModel) }
     static var pitirreVoice: String { stored(pitirreVoiceKey, default: defaultPitirreVoice) }
     static var chuletaVoice: String { stored(chuletaVoiceKey, default: defaultChuletaVoice) }

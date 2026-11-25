@@ -108,14 +108,10 @@ enum RadioContent {
 
     """ + commonRules
 
-    /// Las reglas de las piezas segun el nivel de humor: con picante o negro se quitan las lineas que piden poca gracia, pullas pequeñas o jerga escasa (si no, se
-    /// contradicen con el humor). La prueba del PC (`humor-prueba.py`) repite estos mismos cambios.
+    /// Las reglas de las piezas segun el nivel de humor: con picante o negro valen las propias de `RadioHumor` (piden pensar el chiste antes y rematarlo al final);
+    /// en suave, las de siempre.
     private static func rules(for level: RadioHumorLevel) -> String {
-        guard level != .mild else { return pieceRules }
-        return pieceRules
-            .replacingOccurrences(of: "- No todo es chiste: la mayoria de las piezas son radio normal, con calidez. Las pullas entre ellos, como mucho una pequeña, y no en todas las piezas.", with: "- Casi todas las piezas llevan chiste y mala leche; las pullas entre ellos pueden ser duras. De vez en cuando basta con presentar la cancion con calidez.")
-            .replacingOccurrences(of: "Prefiere una observacion sencilla y concreta sobre algo cotidiano a un chiste: NO todas las intervenciones necesitan gracia, a veces solo presentan la cancion con naturalidad, como una radio normal. Cuando haya humor, que sea pequeño y concreto. Prohibido:", with: "El humor es concreto, con veneno y sobre algo cotidiano muy especifico. Prohibido:")
-            .replacingOccurrences(of: "es un condimento MUY escaso: una expresion suelta de vez en cuando (en menos de la mitad de las piezas), nunca la misma", with: "se usa con moderacion, nunca la misma")
+        RadioHumor.pieceRules(for: level) ?? pieceRules
     }
 
     private static let charlaFormats = [
@@ -215,7 +211,7 @@ enum RadioContent {
     )
 
     /// Lo que sobra en una pieza segun lo permitido en esta ocasion (hora, nombre de la emisora); `nil` si esta bien. Solo sirve para reintentar.
-    private static func styleProblem(_ text: String, allowHour: Bool, allowStation: Bool) -> String? {
+    private static func styleProblem(_ text: String, allowHour: Bool, allowStation: Bool, tagInsults: Int = 0) -> String? {
         var problems: [String] = []
         if !allowHour, let clockPattern, clockPattern.firstMatch(in: text, options: [], range: NSRange(text.startIndex..., in: text)) != nil {
             problems.append("menciona la hora o el momento del dia (en esta pieza no se habla de eso)")
@@ -225,6 +221,8 @@ enum RadioContent {
         }
         let slang = RadioSlang.violations(in: text)
         if !slang.isEmpty { problems.append("usa muletillas que se han repetido demasiado (\(slang.joined(separator: ", ")))") }
+        if tagInsults >= 2 { problems.append("cierra varias lineas con un insulto suelto al final (\", pendejo\", \", cabron\"): el insulto va dentro de la frase y tiene que ser ingenioso y concreto") }
+        if hasBannedJoke(text) { problems.append("usa frases prohibidas (\"a ver si aprendes\", \"pocilga\", \"ojala no sea tan... como tu...\")") }
         guard !problems.isEmpty else { return nil }
         return "\n\nTU INTENTO ANTERIOR " + problems.joined(separator: " y ") + ". Reescribelo sin eso y manteniendo lo demas."
     }
@@ -239,6 +237,24 @@ enum RadioContent {
         let result = slangPattern.stringByReplacingMatches(in: line, options: [], range: range, withTemplate: "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard let first = result.first, first.isLowercase else { return result }
         return String(first).uppercased() + String(result.dropFirst())
+    }
+
+    private static let tagInsultPattern = try? NSRegularExpression(
+        pattern: ",\\s*(?:pendejo|pendeja|cabr[oó]n|cabrona|imb[eé]cil|idiota|gilipollas|bruja|in[uú]til)\\s*[.!?¡…]*\\s*(?:<laugh>)?\\s*[.!?]*\\s*$",
+        options: [.caseInsensitive]
+    )
+    private static let bannedJokePattern = try? NSRegularExpression(pattern: "a ver si aprendes|pocilga|ojal[aá] no sea tan", options: [.caseInsensitive])
+
+    /// Cuantas lineas acaban con un insulto suelto (", pendejo"): la pulla facil que no es un chiste.
+    static func tagInsults(in turns: [RadioTurn]) -> Int {
+        guard let tagInsultPattern else { return 0 }
+        return turns.filter { tagInsultPattern.firstMatch(in: $0.text, options: [], range: NSRange($0.text.startIndex..., in: $0.text)) != nil }.count
+    }
+
+    /// Frases hechas que el modelo repite una y otra vez y que no se quieren.
+    static func hasBannedJoke(_ text: String) -> Bool {
+        guard let bannedJokePattern else { return false }
+        return bannedJokePattern.firstMatch(in: text, options: [], range: NSRange(text.startIndex..., in: text)) != nil
     }
 
     static func mentionsFood(_ text: String) -> Bool {
@@ -289,8 +305,13 @@ enum RadioContent {
         var list: [Any] = []
         if let array = object as? [Any] {
             list = array
-        } else if let dictionary = object as? [String: Any], let found = dictionary.values.first(where: { $0 is [Any] }) as? [Any] {
-            list = found
+        } else if let dictionary = object as? [String: Any] {
+            // Con "ideas" y "lineas" a la vez valen las lineas (un diccionario no tiene orden: no se puede coger "la primera lista").
+            if let lines = dictionary["lineas"] as? [Any] {
+                list = lines
+            } else if let found = dictionary.values.first(where: { $0 is [Any] }) as? [Any] {
+                list = found
+            }
         }
         let allowed = Set(["Pitirre", "Chuleta"] + guests)
         var turns: [RadioTurn] = []
@@ -356,6 +377,8 @@ enum RadioContent {
         // Si ningun intento cumple la longitud, se usa el mas cercano (recortado) antes que dejar el paso sin voz.
         var lengthFallback: [RadioTurn] = []
         var fallbackTopic: String?
+        // Con picante o negro, las charlas las escribe el modelo del humor (las minis, el de siempre): si no responde, se sigue con el de siempre.
+        var strong = kind == .charla && level != .mild
         for attempt in 0..<3 {
             var prompt = "Escribe la PIEZA que suena entre dos canciones.\n"
             prompt += dataBlock(previous: previous, next: next, spoken: spoken, allowHour: allowHour)
@@ -372,12 +395,20 @@ enum RadioContent {
             prompt += RadioHistory.promptBlock(count: 6) + RadioNotebook.promptBlock() + notice
             let json: String
             do {
-                json = try await Gemini.text(system: system, prompt: prompt, temperature: 1.2, timeout: 10)
+                json = try await Gemini.text(
+                    system: system, prompt: prompt, temperature: level == .mild ? 1.2 : 1.1, timeout: strong ? 25 : 12,
+                    model: strong ? RadioSettings.humorModel : nil, thinking: strong ? "low" : nil
+                )
             } catch let failure as Gemini.Failure where failure.isBlocked && level != .mild {
                 // Google se ha negado: la pieza se vuelve a escribir en suave (con su propio plan), para no quedarse sin ella.
                 PlaybackReport.record("radio: pieza bloqueada por Google con humor \(RadioHumor.name(level)); se reescribe en suave")
                 return await piece(kind: kind, previous: previous, next: next, facts: facts, extras: extras, spoken: spoken, allowHour: allowHour, humor: .mild)
             } catch {
+                if strong {
+                    PlaybackReport.record("radio: el modelo del humor no respondio (\(error.localizedDescription)); se usa el de siempre")
+                    strong = false
+                    continue
+                }
                 break
             }
             let turns = parseTurns(json)
@@ -399,7 +430,7 @@ enum RadioContent {
             }
             // La forma, la hora, la emisora y las muletillas se comprueban "suave": se reintenta y, al ultimo intento, sale igual.
             let shapeProblem = plan.shape.problem(in: turns)
-            let styleNotice = styleProblem(all, allowHour: allowHour, allowStation: allowStation)
+            let styleNotice = styleProblem(all, allowHour: allowHour, allowStation: allowStation, tagInsults: level == .mild ? 0 : tagInsults(in: turns))
             if attempt < 2, shapeProblem != nil || styleNotice != nil {
                 best = turns  // si los reintentos fallan por otra cosa, esta vale
                 bestTopic = parseTopic(json)

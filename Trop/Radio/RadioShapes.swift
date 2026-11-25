@@ -17,11 +17,11 @@ enum RadioShape: CaseIterable {
     var instruction: String {
         switch self {
         case .dry:
-            return "UN solo locutor, UNA frase: presenta con naturalidad, sin chiste, como una radio normal."
+            return "UN solo locutor, UNA frase: presenta la cancion; si el DE QUE VA trae un chiste o una pulla, esa frase ES el chiste (corto y con remate); si no, con naturalidad, como una radio normal."
         case .solo:
             return "UN solo locutor habla (todas las lineas son suyas; cuantas, segun la LONGITUD) y el otro NO interviene."
         case .listens:
-            return "Uno cuenta algo (1 o 2 lineas con sustancia) y el otro solo reacciona con frases de MAXIMO 4 palabras (\"aja\", \"¿en serio?\", \"no me digas\")."
+            return "Uno cuenta algo (1 o 2 lineas con sustancia) y el otro solo reacciona con frases de MAXIMO 6 palabras, pero CON GRACIA (una pulla corta o una reaccion absurda; prohibido \"aja\", \"¿en serio?\" y \"no me digas\")."
         case .interrupt:
             return "Una de las lineas se corta a mitad de frase (acaba en \"—\") porque el otro entra a corregir o a completar; la linea cortada no se termina."
         case .agree:
@@ -65,7 +65,7 @@ enum RadioLength {
 
     var instruction: String {
         switch self {
-        case .tiny: return "UNA sola linea de UN locutor, de 4 a 12 palabras (3 a 5 segundos): un saludo, un aviso o presentar la cancion."
+        case .tiny: return "UNA sola linea de UN locutor, de 4 a 12 palabras (3 a 5 segundos): una pulla o un chiste de una frase (con remate) o, si el DE QUE VA no es de chiste, un saludo, un aviso o presentar la cancion."
         case .short: return "De 1 a 3 lineas y de 14 a 32 palabras en total (8 a 12 segundos)."
         case .medium: return "De 3 a 6 lineas y de 50 a 90 palabras en total (20 a 30 segundos)."
         case .long: return "De 5 a 8 lineas y de 100 a 140 palabras en total (40 a 55 segundos)."

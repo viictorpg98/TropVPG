@@ -30,8 +30,12 @@ enum Gemini {
     /// Cada tipo de peticion (el texto y cada modelo de voz) tiene su propio limite: que se agote la voz no debe parar el texto.
     private enum Scope: Hashable {
         case text
+        case humor
         case voice(String)
     }
+
+    /// Los modelos que han rechazado el ajuste de pensamiento (error 400): con ellos se sigue sin el.
+    nonisolated(unsafe) private static var thinkingRejected: Set<String> = []
 
     nonisolated(unsafe) private static var coolDowns: [Scope: Date] = [:]
 
@@ -51,30 +55,49 @@ enum Gemini {
 
     // MARK: - Texto
 
-    /// Pregunta que devuelve JSON (como texto, sin las vallas ```).
-    static func text(system: String, prompt: String, temperature: Double, timeout: Double = 8) async throws -> String {
-        try ensureUsable(.text)
+    /// Pregunta que devuelve JSON (como texto, sin las vallas ```). `model`: otro modelo distinto del de siempre (el del humor, con su propio limite de peticiones);
+    /// `thinking`: nivel de pensamiento ("low"): sin limitarlo, el modelo del humor tardaba 15-25 s en pensar y con "low" tarda 5-7 s y escribe igual de bien.
+    static func text(system: String, prompt: String, temperature: Double, timeout: Double = 8, model: String? = nil, thinking: String? = nil) async throws -> String {
+        let scope: Scope = model == nil ? .text : .humor
+        try ensureUsable(scope)
+        var config: [String: Any] = ["temperature": temperature, "responseMimeType": "application/json"]
+        if let thinking, !thinkingRejected.contains(model ?? "") { config["thinkingConfig"] = ["thinkingLevel": thinking] }
         var body: [String: Any] = [
             "systemInstruction": ["parts": [["text": system]]],
             "contents": [["role": "user", "parts": [["text": prompt]]]],
-            "generationConfig": ["temperature": temperature, "responseMimeType": "application/json"]
+            "generationConfig": config
         ]
         // Sin el filtro ajustable de Google (BLOCK_NONE) en sus 4 categorias: el humor picante es para adultos y los limites los pone la propia ficha.
         // Hay un filtro de base que no se puede quitar. Si Google rechazara estos ajustes (error 400), se sigue sin ellos.
         if !safetyRejected { body["safetySettings"] = safetySettings }
-        guard let url = URL(string: "\(base)/models/\(RadioSettings.textModel):generateContent") else {
+        guard let url = URL(string: "\(base)/models/\(model ?? RadioSettings.textModel):generateContent") else {
             throw Failure(code: 0, message: "direccion no valida")
         }
-        let json: [String: Any]
-        do {
-            json = try await post(url, body: body, timeout: timeout, scope: .text)
-        } catch let failure as Failure where failure.code == 400 && body["safetySettings"] != nil && looksBlocked(failure.message) {
-            safetyRejected = true
-            PlaybackReport.record("radio: Google rechazo los ajustes de seguridad (\(failure.message)); se sigue sin ellos")
-            body["safetySettings"] = nil
-            json = try await post(url, body: body, timeout: timeout, scope: .text)
+        var answer: [String: Any]?
+        var retries = 0
+        while answer == nil {
+            do {
+                answer = try await post(url, body: body, timeout: timeout, scope: scope)
+            } catch let failure as Failure where failure.code == 400 && retries < 2 {
+                retries += 1
+                if config["thinkingConfig"] != nil, failure.message.lowercased().contains("thinking") {
+                    // Este modelo no admite el ajuste de pensamiento: se recuerda y se repite sin el.
+                    thinkingRejected.insert(model ?? "")
+                    PlaybackReport.record("radio: el modelo no admite el ajuste de pensamiento (\(failure.message)); se sigue sin el")
+                    config["thinkingConfig"] = nil
+                    body["generationConfig"] = config
+                } else if body["safetySettings"] != nil, looksBlocked(failure.message) {
+                    safetyRejected = true
+                    PlaybackReport.record("radio: Google rechazo los ajustes de seguridad (\(failure.message)); se sigue sin ellos")
+                    body["safetySettings"] = nil
+                } else {
+                    throw failure
+                }
+            }
         }
-        RadioSettings.addSpend(0.0004)
+        guard let json = answer else { throw Failure(code: 0, message: "respuesta de texto vacia") }
+        // Gasto estimado: el modelo del humor cuesta unas 3 veces mas que el de siempre (con los prompts de ahora, ~2.000 tokens de entrada y ~400 de salida).
+        RadioSettings.addSpend(model == nil ? 0.0008 : 0.003)
         if let reason = blockReason(json) {
             PlaybackReport.record("radio: Google bloquea el texto (\(reason))")
             throw Failure(code: blockedCode, message: "bloqueado por Google: \(reason)")

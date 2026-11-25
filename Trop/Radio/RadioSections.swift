@@ -51,17 +51,11 @@ enum RadioSections {
     - Responde SOLO con un JSON, sin texto antes ni despues: una lista de objetos {"speaker": "Pitirre" o "Chuleta" o el nombre del oyente, "text": "...", "tono": "..." (opcional)}.
     """
 
-    /// Con humor picante o negro, las reglas de las secciones se adaptan: los insultos y las bromas duras ya valen (nunca contra grupos ni victimas reales; eso lo dice
-    /// el bloque de limites de la ficha), y la jerga y los chistes dejan de ser "escasos".
-    private static func adapted(_ rules: String, level: RadioHumorLevel) -> String {
-        guard level != .mild else { return rules }
-        return rules
-            .replacingOccurrences(of: "- Sin insultos a personas. Si toca politica,", with: "- Sin insultos a personas reales con nombre. Si toca politica,")
-            .replacingOccurrences(of: "- Nada de bromas con muertes, accidentes, violencia ni victimas: si un dato es asi, usa otro.", with: "- Nada de bromas con muertes, accidentes, violencia ni victimas REALES de los datos: si un dato es asi, usa otro.")
-            .replacingOccurrences(of: "La jerga puertorriqueña es un condimento escaso: como mucho una expresion en toda la seccion, nunca la misma que en piezas anteriores y nunca para cerrar.", with: "La jerga puertorriqueña, con moderacion y sin cerrar siempre con ella.")
-            .replacingOccurrences(of: "Sin insultos, politica ni marcas comerciales.", with: "Sin politica ni marcas comerciales reales; los locutores pueden vacilar con mala leche a los oyentes y entre ellos, y los oyentes inventados pueden ser unos chalados, groseros o desquiciados (siempre inventados).")
-            .replacingOccurrences(of: "La jerga puertorriqueña casi nunca, y nunca para cerrar.", with: "")
-            + RadioHumor.rulesNote(level)
+    /// Con humor picante o negro las secciones usan las reglas propias de `RadioHumor` (datos tal cual, pensar el chiste antes, humor juvenil, remate al final); en suave,
+    /// las de siempre.
+    private static func adapted(_ rules: String, guest: Bool, level: RadioHumorLevel) -> String {
+        guard let own = RadioHumor.sectionRules(for: level, listeners: guest) else { return rules }
+        return own.replacingOccurrences(of: "{PUEBLOS}", with: RadioLocal.townsText) + RadioHumor.rulesNote(level)
     }
 
     private struct Spec {
@@ -122,7 +116,7 @@ enum RadioSections {
             let events = RadioWorld.onThisDayToday(world)
             guard events.count >= 4 else { return nil }
             return Spec(
-                instruction: "Haz UN DIA COMO HOY de unos 20 a 25 segundos: los locutores comentan 2 de estos hechos que ocurrieron un dia como hoy (di el año tal cual viene), con curiosidad y humor suave, sin inventar ni causas, ni consecuencias, ni personas, ni detalles que no esten en el dato. Cierra devolviendo a la musica.",
+                instruction: "Haz UN DIA COMO HOY de unos 20 a 25 segundos: los locutores comentan 2 de estos hechos que ocurrieron un dia como hoy (di el año tal cual viene), en una frase clara cada uno y como dos colegas en un bar, sin dar una clase de historia, sin inventar ni causas, ni consecuencias, ni personas, ni detalles que no esten en el dato. Cierra devolviendo a la musica.",
                 data: numbered(Array(events.shuffled().prefix(6))), minWords: 45, maxWords: 90, minTurns: 3
             )
         case .deportes:
@@ -174,18 +168,26 @@ enum RadioSections {
         // La forma de la conversacion (como en las piezas entre canciones): no siempre "habla uno, habla el otro".
         let shape = RadioBlueprint.drawShape(from: allowedShapes(for: kind))
         let minLines = (shape == .solo ? min(spec.minTurns, 2) : spec.minTurns) - (spec.guest == nil ? 0 : 1)
+        // Con picante o negro, las secciones las escribe el modelo del humor: si no responde, se sigue con el de siempre.
+        var strong = level != .mild
         for attempt in 0..<2 {
             let prompt = spec.instruction + RadioHumor.sectionTone(kind, level: level) + "\n\nFORMA DE LA CONVERSACION (respetala): \(shape.instruction)" + "\n\nDATOS \(spec.guest == nil ? "REALES " : "")DE HOY (unica fuente de hechos):\n" + spec.data
                 + RadioHistory.promptBlock(count: 3) + notice
             let json: String
             do {
                 json = try await Gemini.text(
-                    system: RadioContent.fichaWith(humor: level) + "\n\n" + adapted(spec.rules, level: level), prompt: prompt, temperature: 1.1, timeout: 14
+                    system: RadioContent.fichaWith(humor: level) + "\n\n" + adapted(spec.rules, guest: spec.guest != nil, level: level), prompt: prompt, temperature: level == .mild ? 1.1 : 1.0, timeout: strong ? 30 : 16,
+                    model: strong ? RadioSettings.humorModel : nil, thinking: strong ? "low" : nil
                 )
             } catch let failure as Gemini.Failure where failure.isBlocked && level != .mild {
                 PlaybackReport.record("radio: seccion \(kind.name) bloqueada por Google con humor \(RadioHumor.name(level)); se reescribe en suave")
                 return await make(kind: kind, next: next, humor: .mild)
             } catch {
+                if strong {
+                    PlaybackReport.record("radio: el modelo del humor no respondio (\(error.localizedDescription)); se usa el de siempre")
+                    strong = false
+                    continue
+                }
                 break
             }
             let turns = RadioContent.parseTurns(json, allowing: spec.guest.map { [$0.name] } ?? [])
@@ -197,11 +199,13 @@ enum RadioSections {
             let allText = turns.map(\.text).joined(separator: " ")
             let foodHit = RadioContent.mentionsFood(allText)
             let slangHit = RadioSlang.violations(in: allText)
+            // Insultos sueltos al final de la linea y frases hechas prohibidas (solo con humor): suave, como la comida y las muletillas.
+            let styleHit = level != .mild && (RadioContent.tagInsults(in: turns) >= 2 || RadioContent.hasBannedJoke(allText))
             let structureOK = hosts.count >= minLines && words >= spec.minWords - (spec.guest == nil ? 0 : 20)
                 && words <= spec.maxWords && noteOK
             // Comida y muletillas repetidas: suave (un reintento y, si sigue, sale igual, para no quedarse sin seccion).
             let shapeProblem = shape.problem(in: hosts)
-            if structureOK, (!foodHit && slangHit.isEmpty && shapeProblem == nil) || attempt == 1 {
+            if structureOK, (!foodHit && slangHit.isEmpty && !styleHit && shapeProblem == nil) || attempt == 1 {
                 hostTurns = hosts
                 noteTurns = note
                 break
@@ -213,6 +217,8 @@ enum RadioSections {
                     notice = "\n\nTU INTENTO ANTERIOR HABLABA DE COMIDA. Reescribelo desde cero sin mencionar nada de comer, beber ni cocina."
                 } else if !slangHit.isEmpty {
                     notice = "\n\nTU INTENTO ANTERIOR USABA MULETILLAS QUE SE HAN REPETIDO DEMASIADO (\(slangHit.joined(separator: ", "))). Reescribelo sin ellas."
+                } else if styleHit {
+                    notice = "\n\nTU INTENTO ANTERIOR CERRABA VARIAS LINEAS CON UN INSULTO SUELTO (\", pendejo\") O USABA FRASES PROHIBIDAS (\"a ver si aprendes\", \"pocilga\"). Reescribelo con insultos ingeniosos y concretos DENTRO de la frase."
                 } else {
                     notice = "\n\nLA FORMA NO SE CUMPLE: " + (shapeProblem ?? "") + ". Reescribelo respetandola."
                 }
