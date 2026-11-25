@@ -20,7 +20,15 @@ enum RadioVoice {
         let key = cacheKey(turns, style: style)
         if let cached = RadioAudio.cached(key: key, fixed: fixed) { return (cached, false) }
         do {
-            let generated = try await Gemini.speech(turns, style: style, timeout: timeout)
+            let generated: RadioClip
+            do {
+                generated = try await Gemini.speech(turns, style: style, timeout: timeout)
+            } catch let failure as Gemini.Failure where failure.code == -1 {
+                // Sin respuesta (el tiempo se agoto o se corto la red un instante): una pieza perdida es una peticion de voz tirada, asi que se reintenta una vez.
+                PlaybackReport.record("radio: voz sin respuesta; se reintenta una vez")
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                generated = try await Gemini.speech(turns, style: style, timeout: timeout)
+            }
             RadioAudio.store(generated, key: key, fixed: fixed)
             return (generated, false)
         } catch {

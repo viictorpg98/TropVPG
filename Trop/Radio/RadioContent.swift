@@ -263,20 +263,28 @@ enum RadioContent {
     }
 
     /// Escribe con el modelo del humor si `strong`: si no responde (un 503 de "mucha demanda", el tiempo, un limite), reintenta UNA vez a los 3 s (las piezas se escriben con
-    /// minutos de adelanto) y despues usa el de siempre. Un bloqueo de Google se deja pasar: lo trata quien llama (reescribe en suave).
-    static func humorText(system: String, prompt: String, temperature: Double, strong: Bool, strongTimeout: Double, timeout: Double) async throws -> String {
-        guard strong else { return try await Gemini.text(system: system, prompt: prompt, temperature: temperature, timeout: timeout) }
-        for round in 0..<2 {
-            do {
-                return try await Gemini.text(system: system, prompt: prompt, temperature: temperature, timeout: strongTimeout, model: RadioSettings.humorModel, thinking: "low")
-            } catch let failure as Gemini.Failure where failure.isBlocked {
-                throw failure
-            } catch {
-                PlaybackReport.record("radio: el modelo del humor no respondio (\(error.localizedDescription))" + (round == 0 ? "; se reintenta en 3 s" : "; se usa el de siempre"))
-                if round == 0 { try? await Task.sleep(nanoseconds: 3_000_000_000) }
+    /// minutos de adelanto) y despues usa el de siempre. Un bloqueo de Google se deja pasar: lo trata quien llama (reescribe en suave). El informe dice con que modelo se
+    /// escribio (`label`: "charla", "mini", "seccion hoy"...) y cuanto tardo.
+    static func humorText(system: String, prompt: String, temperature: Double, strong: Bool, strongTimeout: Double, timeout: Double, label: String) async throws -> String {
+        let started = Date()
+        func took() -> String { String(format: "%.1f", Date().timeIntervalSince(started)) }
+        if strong {
+            for round in 0..<2 {
+                do {
+                    let text = try await Gemini.text(system: system, prompt: prompt, temperature: temperature, timeout: strongTimeout, model: RadioSettings.humorModel, thinking: "low")
+                    PlaybackReport.record("radio: \(label) escrito con \(RadioSettings.humorModel) en \(took()) s")
+                    return text
+                } catch let failure as Gemini.Failure where failure.isBlocked {
+                    throw failure
+                } catch {
+                    PlaybackReport.record("radio: el modelo del humor no respondio para \(label) (\(error.localizedDescription))" + (round == 0 ? "; se reintenta en 3 s" : "; se usa el de siempre"))
+                    if round == 0 { try? await Task.sleep(nanoseconds: 3_000_000_000) }
+                }
             }
         }
-        return try await Gemini.text(system: system, prompt: prompt, temperature: temperature, timeout: timeout)
+        let text = try await Gemini.text(system: system, prompt: prompt, temperature: temperature, timeout: timeout)
+        PlaybackReport.record("radio: \(label) escrito con \(RadioSettings.textModel) en \(took()) s")
+        return text
     }
 
     private static let zoneDayKey = "radio.zoneDay"
@@ -442,7 +450,7 @@ enum RadioContent {
             prompt += RadioHistory.promptBlock(count: 6) + RadioNotebook.promptBlock() + notice
             let json: String
             do {
-                json = try await humorText(system: system, prompt: prompt, temperature: level == .mild ? 1.2 : 1.1, strong: strong, strongTimeout: 25, timeout: 12)
+                json = try await humorText(system: system, prompt: prompt, temperature: level == .mild ? 1.2 : 1.1, strong: strong, strongTimeout: 25, timeout: 12, label: kind == .charla ? "charla" : "mini")
             } catch let failure as Gemini.Failure where failure.isBlocked && level != .mild {
                 // Google se ha negado: la pieza se vuelve a escribir en suave (con su propio plan), para no quedarse sin ella.
                 PlaybackReport.record("radio: pieza bloqueada por Google con humor \(RadioHumor.name(level)); se reescribe en suave")

@@ -76,7 +76,13 @@ enum RadioIdent {
             let used = recent()
             if !used.isEmpty { prompt += "\n\nGRITOS YA USADOS (no repitas ni su idea ni sus palabras):\n" + used.suffix(10).map { "- " + $0 }.joined(separator: "\n") }
             prompt += notice
-            guard let json = try? await Gemini.text(system: RadioContent.fichaWith(humor: .mild) + "\n\n" + rules, prompt: prompt, temperature: 1.1, timeout: 8) else { return nil }
+            let json: String
+            do {
+                json = try await Gemini.text(system: RadioContent.fichaWith(humor: .mild) + "\n\n" + rules, prompt: prompt, temperature: 1.1, timeout: 8)
+            } catch {
+                PlaybackReport.record("radio: grito: no se pudo escribir (\(error.localizedDescription))")
+                return nil
+            }
             let turns = RadioContent.parseTurns(json)
             let words = turns.reduce(0) { $0 + $1.text.split(separator: " ").count }
             let all = turns.map(\.text).joined(separator: " ")
@@ -86,7 +92,10 @@ enum RadioIdent {
             }
             notice = "\n\nTU INTENTO ANTERIOR NO SIRVE (debe ser 1 o 2 lineas, entre 3 y 14 palabras, sin comida). Escribelo de nuevo."
         }
-        guard !chosen.isEmpty else { return nil }
+        guard !chosen.isEmpty else {
+            PlaybackReport.record("radio: grito: el texto no valia tras 2 intentos (1-2 lineas, 3 a 18 palabras, sin comida)")
+            return nil
+        }
         let shouted = chosen.map { RadioTurn(speaker: $0.speaker, text: $0.text, tone: "grito") }
         let speakers = Set(shouted.map(\.speaker))
         // Un locutor: estilo de locutor de emisora; dos (duo): el tono "grito" de cada frase.

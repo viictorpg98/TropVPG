@@ -69,6 +69,28 @@ enum RadioSections {
         var rules: String = RadioSections.realRules
     }
 
+    private static let hoyDayKey = "radio.hoyDay"
+    private static let hoyLinesKey = "radio.hoyLines"
+
+    private static func hoyStamp() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: Date())
+    }
+
+    /// Los hechos de "un dia como hoy" que ya se ofrecieron HOY.
+    private static func usedHoyLines() -> [String] {
+        let defaults = UserDefaults.standard
+        guard defaults.string(forKey: hoyDayKey) == hoyStamp() else { return [] }
+        return defaults.stringArray(forKey: hoyLinesKey) ?? []
+    }
+
+    private static func markHoyLines(_ lines: [String]) {
+        let defaults = UserDefaults.standard
+        defaults.set(hoyStamp(), forKey: hoyDayKey)
+        defaults.set(usedHoyLines() + lines, forKey: hoyLinesKey)
+    }
+
     private static func numbered(_ list: [String]) -> String {
         list.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: "\n")
     }
@@ -113,17 +135,21 @@ enum RadioSections {
             )
         case .hoy:
             guard let world else { return nil }
-            let events = RadioWorld.onThisDayToday(world)
+            // Los hechos que ya salieron HOY no vuelven (si no quedan 4, esta seccion no sale mas hoy); los de 1995 en adelante van primero (los mas conocidos).
+            let events = RadioWorld.onThisDayToday(world).filter { !usedHoyLines().contains($0) }
             guard events.count >= 4 else { return nil }
+            let recent = events.filter { (Int($0.prefix(4)) ?? 0) >= 1995 }
+            let shown = Array((recent.count >= 4 ? recent : events).shuffled().prefix(6))
+            markHoyLines(shown)
             return Spec(
-                instruction: "Haz UN DIA COMO HOY de unos 20 a 25 segundos: los locutores comentan 2 de estos hechos que ocurrieron un dia como hoy (di el año tal cual viene), en una frase clara cada uno y como dos colegas en un bar, sin dar una clase de historia, sin inventar ni causas, ni consecuencias, ni personas, ni detalles que no esten en el dato. Cierra devolviendo a la musica.",
-                data: numbered(Array(events.shuffled().prefix(6))), minWords: 45, maxWords: 90, minTurns: 3
+                instruction: "Haz UN DIA COMO HOY de unos 20 a 25 segundos: los locutores comentan 2 de estos hechos que ocurrieron un dia como hoy (los 2 mas conocidos o mas cercanos a la vida de hoy: musica, cine, deporte, tecnologia; di el año tal cual viene), en una frase clara cada uno y como dos colegas en un bar, sin dar una clase de historia, sin inventar ni causas, ni consecuencias, ni personas, ni detalles que no esten en el dato. Cierra devolviendo a la musica.",
+                data: numbered(shown), minWords: 45, maxWords: 90, minTurns: 3
             )
         case .deportes:
             guard let sports = world?.sports, sports.count >= 6 else { return nil }
             let favorites = RadioSettings.sportsTopics.joined(separator: ", ")
             return Spec(
-                instruction: "Haz EL RINCON DEPORTIVO de unos 25 a 35 segundos: los locutores comentan 3 de estos titulares de deporte de hoy (los mas importantes o graciosos), con humor de vestuario y picandose entre si. Mezcla deporte y LaLiga en general con, como mucho, UN titular de los temas favoritos del oyente (los marcados 'Tu tema'; sus temas son: \(favorites)) y solo si de verdad es destacado (un resultado, un partido importante, una polemica); si no lo es, no lo metas. La Chuleta comparte los gustos del oyente (si entre sus temas hay un equipo, es de ese equipo) y El Pitirre la pica con cariño siendo de un equipo rival cualquiera. Las lineas marcadas 'Dato LaLiga' son datos exactos (clasificacion y, del equipo del oyente, su posicion, su ultimo partido y el proximo): usalos con naturalidad si encajan (por ejemplo, su posicion o con quien juega a continuacion), tal cual. Cita marcadores y datos solo tal cual vienen. Nada de burlas personales a jugadores ni arbitros con nombre, nada de lesiones, desgracias ni apuestas. Cierra devolviendo a la musica.",
+                instruction: "Haz EL RINCON DEPORTIVO de unos 25 a 35 segundos: los locutores comentan 3 de estos titulares de deporte de hoy (los mas importantes o graciosos), con humor de vestuario y picandose entre si. Mezcla deporte y LaLiga en general con, como mucho, UN titular de los temas favoritos del oyente (los marcados 'Tu tema'; sus temas son: \(favorites)) y solo si de verdad es destacado (un resultado, un partido importante, una polemica); si no lo es, no lo metas. La Chuleta comparte los gustos del oyente (si entre sus temas hay un equipo, es de ese equipo) y El Pitirre la pica con cariño siendo de un equipo rival cualquiera. Las lineas marcadas 'Dato LaLiga' son datos exactos (clasificacion y, del equipo del oyente, su posicion, su ultimo partido y el proximo): usalos con naturalidad si encajan (por ejemplo, su posicion o con quien juega a continuacion), tal cual. Cita marcadores y datos solo tal cual vienen. Nada de burlas personales a jugadores ni arbitros con nombre, nada de lesiones (ni reales ni hipoteticas, y menos de alguien con nombre), desgracias ni apuestas. Cierra devolviendo a la musica.",
                 data: numbered(sports.shuffled()), minWords: 60, maxWords: 120, minTurns: 5
             )
         case .whatsapp:
@@ -177,7 +203,7 @@ enum RadioSections {
             do {
                 json = try await RadioContent.humorText(
                     system: RadioContent.fichaWith(humor: level) + "\n\n" + adapted(spec.rules, guest: spec.guest != nil, level: level), prompt: prompt,
-                    temperature: level == .mild ? 1.1 : 1.0, strong: strong, strongTimeout: 30, timeout: 16
+                    temperature: level == .mild ? 1.1 : 1.0, strong: strong, strongTimeout: 30, timeout: 16, label: "seccion \(kind.name)"
                 )
             } catch let failure as Gemini.Failure where failure.isBlocked && level != .mild {
                 PlaybackReport.record("radio: seccion \(kind.name) bloqueada por Google con humor \(RadioHumor.name(level)); se reescribe en suave")
