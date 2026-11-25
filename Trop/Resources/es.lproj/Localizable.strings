@@ -661,6 +661,8 @@
 "Rock" = "Rock";
 "Romance" = "Romance";
 "Romanize Current Track" = "Romanizar la canción actual";
+"Rundown Next" = "Luego";
+"Rundown Now" = "Ahora";
 "Running hits" = "Éxitos para correr";
 "Sad" = "Tristeza";
 "Save" = "Guardar";
@@ -905,6 +907,7 @@
 "medium mixes" = "mezclas medias";
 "s" = "s";
 "short mixes" = "mezclas cortas";
+"speaking" = "hablando";
 "subscribers" = "suscriptores";
 "tempo left alone" = "tempo sin tocar";
 "tempo matched" = "tempo igualado";

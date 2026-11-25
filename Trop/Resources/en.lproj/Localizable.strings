@@ -661,6 +661,8 @@
 "Rock" = "Rock";
 "Romance" = "Romance";
 "Romanize Current Track" = "Romanize Current Track";
+"Rundown Next" = "Next";
+"Rundown Now" = "Now";
 "Running hits" = "Running hits";
 "Sad" = "Sad";
 "Save" = "Save";
@@ -905,6 +907,7 @@
 "medium mixes" = "medium mixes";
 "s" = "s";
 "short mixes" = "short mixes";
+"speaking" = "speaking";
 "subscribers" = "subscribers";
 "tempo left alone" = "tempo left alone";
 "tempo matched" = "tempo matched";
