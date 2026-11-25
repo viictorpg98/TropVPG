@@ -60,6 +60,7 @@ enum RadioHumor {
     - PRIMERO PIENSA EL CHISTE: en "ideas" escribe 3 premisas distintas y concretas (con un nombre inventado, una cifra, un objeto o una marca muy famosa o ficticia). Elige la MAS CONCRETA y graciosa (la que lleve un detalle preciso: una cifra, un objeto, una hora; no una comparacion vaga), desarrollala con escalada y pon el remate en la ULTIMA linea. Si la pieza es de UNA sola frase, el chiste entero cabe en esa frase: una escena concreta, no un juego de palabras con el titulo de la cancion. Si el PLAN es presentar la cancion sin chiste, "ideas" va vacio.
     - Humor juvenil y de lo MAS conocido (movil, redes, trabajo, parejas, futbol, videojuegos, series, fiesta, dinero, marcas famosas) con un giro absurdo o exagerado. Nada de historia, cultura, arte ni datos curiosos.
     - Cada linea aporta algo: un detalle nuevo, una pulla ingeniosa o una reaccion con gracia. Prohibidas las replicas de relleno ("aja", "¿en serio?", "no me digas") salvo que sean el remate. No se explican los chistes.
+    - EN UNA PIEZA CORTA con una escena o una queja, la segunda linea AÑADE el detalle peor o un giro absurdo (nunca una opinion generica del tipo "necesitas terapia"), y la presentacion de la cancion sale de lo anterior con una frase puente ("pues para olvidarlo...", "asi que..."): nunca un anuncio suelto pegado al final. La emisora, solo si encaja.
     - Suena a dos colegas hablando, no a texto escrito: frases cortas (maximo 18 palabras), alguna duda o interrupcion.
     - Nombra la cancion que viene (titulo y artista) cuando sea natural, al final o al principio; en las piezas muy cortas puede bastar con eso. NO inventes nada sobre la cancion, el artista, su vida, su discografia ni sus premios.
     - Si se te dan DATOS REALES EXTRA o RECUERDOS de la persona, usa como mucho UNO y solo si da pie a un chiste; si no, ignoralos. Esos datos son de LA PERSONA que oye la radio: se los dices a ella ("tu la escuchaste hace dos semanas"), nunca como si fueran de los locutores. No inventes ningun dato mas sobre ella.
@@ -129,8 +130,8 @@ enum RadioHumor {
 
     /// Para las piezas cortas (entre canciones, sin charla). Con el nivel picante o negro sustituyen a los de siempre.
     static let miniFormats = [
-        "una escena concreta del oyente en UNA frase, con un detalle absurdo y preciso (una cifra, un objeto, una hora: 'seis horas actualizando el driver de una impresora de 2005'), y anuncia la siguiente cancion",
-        "una queja cinica y concreta de un locutor sobre algo cotidiano (el jefe, el banco, el wifi, la pareja, el vecino) con un detalle preciso, y presentan la siguiente de mala gana",
+        "una escena concreta del oyente en UNA frase, con un detalle absurdo y preciso (una cifra, un objeto, una hora: 'seis horas actualizando el driver de una impresora de 2005'), y la presentacion de la siguiente sale de la escena con una frase puente",
+        "una queja cinica y concreta de un locutor sobre algo cotidiano (el jefe, el banco, el wifi, la pareja, el vecino) con un detalle preciso y un giro en la segunda linea (no una opinion generica), y presentan la siguiente con una frase puente de mala gana",
         "una pulla ingeniosa de UNA frase de un locutor al otro, sobre algo concreto de su vida (su coche, su trabajo, su ultima cita), y anuncia la siguiente cancion",
         "una exageracion absurda y concreta sobre lo que acaba de sonar (sin afirmar nada concreto de la cancion) y anuncia la siguiente",
         "una amenaza absurda e inofensiva de un locutor al otro, con un detalle preciso, y anuncia la siguiente",

@@ -222,7 +222,7 @@ enum RadioContent {
         let slang = RadioSlang.violations(in: text)
         if !slang.isEmpty { problems.append("usa muletillas que se han repetido demasiado (\(slang.joined(separator: ", ")))") }
         if tagInsults { problems.append("cierra varias lineas con un insulto suelto al final (\", pendejo\", \", cabron\"): el insulto va dentro de la frase y tiene que ser ingenioso y concreto") }
-        if hasBannedJoke(text) { problems.append("usa frases prohibidas (\"a ver si aprendes\", \"pocilga\", \"ojala no sea tan... como tu...\")") }
+        if hasBannedJoke(text) { problems.append("usa frases prohibidas (\"a ver si aprendes\", \"pocilga\", \"ojala no sea tan... como tu...\", \"terapia urgente\")") }
         guard !problems.isEmpty else { return nil }
         return "\n\nTU INTENTO ANTERIOR " + problems.joined(separator: " y ") + ". Reescribelo sin eso y manteniendo lo demas."
     }
@@ -243,7 +243,7 @@ enum RadioContent {
         pattern: ",\\s*(?:pendejo|pendeja|cabr[oó]n|cabrona|imb[eé]cil|idiota|gilipollas|bruja|in[uú]til)\\s*[.!?¡…]*\\s*(?:<laugh>)?\\s*[.!?]*\\s*$",
         options: [.caseInsensitive]
     )
-    private static let bannedJokePattern = try? NSRegularExpression(pattern: "a ver si aprendes|pocilga|ojal[aá] no sea tan", options: [.caseInsensitive])
+    private static let bannedJokePattern = try? NSRegularExpression(pattern: "a ver si aprendes|pocilga|ojal[aá] no sea tan|terapia urgente|necesit\\w* (?:una )?terapia|falta (?:una )?terapia", options: [.caseInsensitive])
 
     /// Cuantas lineas acaban con un insulto suelto (", pendejo"): la pulla facil que no es un chiste.
     static func tagInsults(in turns: [RadioTurn]) -> Int {

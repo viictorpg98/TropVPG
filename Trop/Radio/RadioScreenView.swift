@@ -2,11 +2,12 @@
 //  RadioScreenView.swift
 //  Trop
 //
-//  La pestaña "Radio" (entre Inicio y Biblioteca) como una CABINA DE RADIO PIRATA: el cartel "en el aire" en neon, el dial con la frecuencia (106.6) como protagonista, los
-//  dos locutores en ventanas de estudio (el que habla se enciende con su medidor), los subtitulos en un bocadillo que señala a quien habla, el programa (ahora / luego),
-//  tus ultimas peticiones y, fijos encima del mini reproductor, los botones para pedir musica por voz o parar la radio. El color de fondo sigue la portada de lo que suena.
-//  El gasto del dia es un indicador de combustible pequeño; los ajustes estan detras del boton de arriba a la derecha.
-//  Las animaciones solo corren con la pestaña a la vista y sin "Reducir movimiento"; el dial y los medidores se mueven solo mientras alguien habla.
+//  La pestaña "Radio" (entre Inicio y Biblioteca), con el lenguaje del resto de la app (fondo del sistema, tipografia del sistema, capsulas grises, un solo color vivo: el rojo de
+//  "en el aire") y una estructura de estudio en directo: la pastilla "en el aire", el dial con la frecuencia como protagonista, los dos locutores en ventanas de estudio
+//  (el que habla se ilumina y el otro se apaga), los subtitulos en un bocadillo que señala a quien habla, el programa (ahora / luego), tus ultimas peticiones y, fijos encima
+//  del mini reproductor, los botones para pedir musica por voz o parar la radio. El color de la portada de lo que suena tiñe la parte de arriba. El gasto del dia es un
+//  indicador pequeño; los ajustes estan detras del boton de arriba a la derecha. Las animaciones solo corren con la pestaña a la vista y sin "Reducir movimiento"; el dial y
+//  los medidores se mueven solo mientras alguien habla.
 //
 
 import SwiftUI
@@ -29,21 +30,8 @@ enum RadioRecents {
     }
 }
 
-/// Los colores de la cabina: berenjena de fondo, crema para el papel y las placas, ambar para lo que esta vivo y un unico rojo (el cartel "en el aire").
-enum RadioPalette {
-    static let base = Color(red: 0.110, green: 0.071, blue: 0.125)
-    static let line = Color(red: 0.227, green: 0.153, blue: 0.251)
-    static let cream = Color(red: 0.953, green: 0.890, blue: 0.765)
-    static let ink = Color(red: 0.165, green: 0.106, blue: 0.180)
-    static let inkSoft = Color(red: 0.290, green: 0.231, blue: 0.310)
-    static let amber = Color(red: 1.000, green: 0.702, blue: 0.278)
-    static let neon = Color(red: 1.000, green: 0.455, blue: 0.408)
-    static let mauve = Color(red: 0.718, green: 0.608, blue: 0.725)
-    static let rec = Color(red: 0.878, green: 0.224, blue: 0.169)
-    static let label = Color(red: 0.612, green: 0.231, blue: 0.165)
-}
-
 struct RadioScreenView: View {
+    @Environment(SettingsStore.self) private var settings
     @Environment(MiniPlayerScrollState.self) private var miniScroll
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var router = AppRouter.shared
@@ -53,7 +41,7 @@ struct RadioScreenView: View {
     @State private var voiceBlocked = Gemini.voiceExhaustedForDay
     @State private var showSettings = false
     @State private var visible = false
-    @ScaledMetric(relativeTo: .largeTitle) private var frequencySize: CGFloat = 44
+    @ScaledMetric(relativeTo: .largeTitle) private var frequencySize: CGFloat = 46
     @AppStorage(RadioSettings.sectionsKey) private var sectionsOn = true
 
     /// Las animaciones solo corren con la pestaña a la vista y sin "Reducir movimiento".
@@ -84,7 +72,7 @@ struct RadioScreenView: View {
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
                         .padding(.bottom, 8 + miniScroll.insetHeight)
-                        .background(RadioPalette.base.opacity(0.94))
+                        .background(Color(.systemBackground).opacity(0.92))
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
@@ -103,28 +91,36 @@ struct RadioScreenView: View {
 
     // MARK: - Fondo y cabecera
 
-    /// Berenjena fija con el color de la portada de lo que suena arriba (oscurecido hacia el fondo, para que el crema y el ambar se lean con cualquier portada).
+    /// El color de la portada de lo que suena, suave, arriba (solo con la radio en el aire).
     private var background: some View {
-        let tint = radio.isActive ? (np.dominantColors.first ?? RadioPalette.base) : RadioPalette.base
-        let top = tint.mix(with: RadioPalette.base, by: 0.35)
+        let tint = radio.isActive ? (np.dominantColors.first ?? Color.clear) : Color.clear
         return ZStack(alignment: .top) {
-            RadioPalette.base
-            LinearGradient(colors: [top.opacity(0.55), RadioPalette.base.opacity(0)], startPoint: .top, endPoint: .bottom)
-                .frame(height: 520)
+            Color(.systemBackground)
+            LinearGradient(colors: [tint.opacity(0.45), Color.clear], startPoint: .top, endPoint: .bottom)
+                .frame(height: 460)
         }
         .ignoresSafeArea()
         .animation(.easeInOut(duration: 0.8), value: np.videoId)
     }
 
-    /// En el aire: el cartel de neon. Apagada: el titulo de siempre. A la derecha, el indicador de gasto y los ajustes.
+    /// En el aire: la pastilla roja. Apagada: el titulo de siempre. A la derecha, el indicador de gasto y los ajustes.
     private var header: some View {
-        HStack(alignment: .center, spacing: 12) {
+        HStack(spacing: 10) {
             if radio.isActive {
-                RadioNeonSign(animated: animate)
+                HStack(spacing: 6) {
+                    OnAirDot(pulsing: animate)
+                    Text("On the Air")
+                        .font(.caption.weight(.bold))
+                        .textCase(.uppercase)
+                        .foregroundStyle(Color.red)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(Color.red.opacity(0.15)))
             } else {
                 Text("Radio")
-                    .font(.system(.largeTitle, design: .rounded).weight(.heavy))
-                    .foregroundStyle(RadioPalette.cream)
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
             }
             Spacer(minLength: 8)
             RadioFuelGauge(spent: RadioSettings.spentToday, cap: RadioSettings.dailyCap, accessibility: usageText)
@@ -133,35 +129,36 @@ struct RadioScreenView: View {
             } label: {
                 Image(systemName: "slider.horizontal.3")
                     .font(.title3)
-                    .foregroundStyle(RadioPalette.mauve)
+                    .foregroundStyle(.secondary)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Text("Radio Settings"))
         }
+        .padding(.top, 4)
     }
 
     // MARK: - El dial: la frecuencia manda
 
     private var dialBlock: some View {
-        ZStack(alignment: .bottom) {
+        VStack(spacing: 0) {
             RadioDialView(
                 frequency: radio.frequency, active: radio.isActive, tuning: radio.isStarting && !reduceMotion,
-                alive: animate && radio.speakingHost != nil, ink: RadioPalette.cream, needleColor: RadioPalette.neon, height: 150
+                alive: animate && radio.speakingHost != nil, ink: .primary, needleColor: .red, height: 124
             )
-            VStack(spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(verbatim: frequencyText)
-                    .font(.system(size: frequencySize, weight: .black, design: .rounded))
-                    .foregroundStyle(radio.isActive ? RadioPalette.amber : RadioPalette.mauve)
-                    .shadow(color: RadioPalette.amber.opacity(radio.isActive ? 0.45 : 0), radius: 12)
+                    .font(.system(size: frequencySize, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(radio.isActive ? Color.primary : Color.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                Text(verbatim: "FM · SÓNAR")
-                    .font(.system(.caption2, design: .monospaced).weight(.medium))
-                    .tracking(2)
-                    .foregroundStyle(RadioPalette.mauve)
+                Text(verbatim: "FM · Sónar")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
             }
+            .padding(.top, -2)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(verbatim: radio.isActive ? frequencyText + " FM · Sónar" : "Sónar FM"))
@@ -227,12 +224,15 @@ struct RadioScreenView: View {
     @ViewBuilder private var rundown: some View {
         if radio.isActive {
             VStack(alignment: .leading, spacing: 8) {
-                RadioRundownRow(tag: "Rundown Now", text: nowText, strong: true)
+                RadioRundownRow(tag: "Rundown Now", text: nowText)
                 if sectionsOn, !RadioSettings.enabledSections.isEmpty {
-                    RadioRundownRow(tag: "Rundown Next", text: nextText, strong: false)
+                    RadioRundownRow(tag: "Rundown Next", text: nextText)
                 }
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.primary.opacity(0.08)))
         }
     }
 
@@ -255,7 +255,7 @@ struct RadioScreenView: View {
     // MARK: - Botones y peticiones
 
     private var controls: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Button(action: tap) { mainLabel }
                 .buttonStyle(.plain)
                 .disabled(radio.isStarting)
@@ -267,9 +267,9 @@ struct RadioScreenView: View {
                 } label: {
                     Image(systemName: "mic.fill")
                         .font(.title3)
-                        .foregroundStyle(RadioPalette.ink)
                         .frame(width: 52, height: 52)
-                        .background(Circle().fill(RadioPalette.amber))
+                        .background(Circle().fill(Color.red.opacity(0.15)))
+                        .foregroundStyle(Color.red)
                 }
                 .buttonStyle(.plain)
                 .disabled(radio.isStarting)
@@ -279,30 +279,29 @@ struct RadioScreenView: View {
         .opacity(radio.isStarting ? 0.6 : 1)
     }
 
+    /// Parar: capsula gris con el cuadrado rojo. Pedir musica (radio apagada): capsula con el color de acento de la app.
     private var mainLabel: some View {
         HStack(spacing: 10) {
             if radio.isActive {
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .fill(RadioPalette.rec)
+                    .fill(Color.red)
                     .frame(width: 11, height: 11)
             } else {
                 Image(systemName: "mic.fill")
             }
             Text(LocalizedStringKey(radio.isActive ? "Stop the Radio" : "Ask for Music"))
-                .font(.system(.headline, design: .rounded).weight(.heavy))
-                .textCase(.uppercase)
-                .tracking(0.5)
+                .font(.headline)
         }
-        .foregroundStyle(RadioPalette.ink)
         .frame(maxWidth: .infinity, minHeight: 52)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(radio.isActive ? RadioPalette.cream : RadioPalette.amber))
+        .background(Capsule().fill(radio.isActive ? Color(.systemGray5) : settings.accentColor))
+        .foregroundColor(radio.isActive ? .primary : settings.accentOnColor)
     }
 
     private var recentsBlock: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Recent Requests")
                 .font(.footnote)
-                .foregroundStyle(RadioPalette.mauve)
+                .foregroundStyle(.secondary)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(recents, id: \.self) { text in
@@ -321,16 +320,14 @@ struct RadioScreenView: View {
             Task { await radio.begin(request: text) }
         } label: {
             Text(verbatim: text)
-                .font(.system(.footnote, design: .rounded).weight(.medium))
-                .foregroundStyle(RadioPalette.cream)
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundColor(.primary)
                 .lineLimit(1)
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 16)
                 .frame(minHeight: 44)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(RadioPalette.mauve.opacity(0.7), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                )
-                .contentShape(Rectangle())
+                .background(Capsule().fill(Color(.systemGray5)))
+                .contentShape(Capsule())
         }
         .buttonStyle(.plain)
     }
@@ -373,27 +370,7 @@ struct RadioScreenView: View {
     }
 }
 
-// MARK: - Piezas de la cabina
-
-/// El cartel de neon "en el aire": el punto late solo si hay animaciones.
-struct RadioNeonSign: View {
-    let animated: Bool
-
-    var body: some View {
-        HStack(spacing: 7) {
-            OnAirDot(pulsing: animated, color: RadioPalette.neon)
-            Text("On the Air")
-                .font(.system(.caption, design: .rounded).weight(.heavy))
-                .textCase(.uppercase)
-                .tracking(1)
-                .foregroundStyle(RadioPalette.neon)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(RadioPalette.neon, lineWidth: 2))
-        .shadow(color: RadioPalette.neon.opacity(0.4), radius: 8)
-    }
-}
+// MARK: - Piezas de la pantalla
 
 /// El punto que late cuando hay animaciones.
 struct OnAirDot: View {
@@ -412,7 +389,7 @@ struct OnAirDot: View {
     }
 }
 
-/// El indicador de combustible: lo gastado hoy frente al tope diario (rojo neon al acercarse al tope). Sin tope, solo el gasto.
+/// El indicador de gasto: lo gastado hoy frente al tope diario (rojo al acercarse al tope). Sin tope, solo el gasto.
 struct RadioFuelGauge: View {
     let spent: Double
     let cap: Double
@@ -427,16 +404,17 @@ struct RadioFuelGauge: View {
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
             Text(verbatim: label)
-                .font(.system(.caption2, design: .monospaced).weight(.medium))
-                .foregroundStyle(RadioPalette.mauve)
+                .font(.caption2)
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
             if cap > 0 {
                 Capsule()
-                    .fill(RadioPalette.line)
-                    .frame(width: 74, height: 5)
+                    .fill(Color.primary.opacity(0.15))
+                    .frame(width: 62, height: 4)
                     .overlay(alignment: .leading) {
                         Capsule()
-                            .fill(fraction > 0.85 ? RadioPalette.neon : RadioPalette.amber)
-                            .frame(width: 74 * fraction, height: 5)
+                            .fill(fraction > 0.85 ? Color.red : Color.primary.opacity(0.8))
+                            .frame(width: 62 * fraction, height: 4)
                     }
             }
         }
@@ -445,7 +423,7 @@ struct RadioFuelGauge: View {
     }
 }
 
-/// El bocadillo de los subtitulos: papel crema con la tinta oscura (legible con cualquier fondo) y una cola que apunta a quien habla.
+/// El bocadillo de los subtitulos: una sola pieza translucida (cuerpo y cola) con una cola que apunta a quien habla.
 struct RadioBubble: View {
     enum Tail { case none, leading, trailing }
 
@@ -460,17 +438,17 @@ struct RadioBubble: View {
         VStack(alignment: .leading, spacing: 6) {
             if !label.isEmpty { labelRow }
             Text(verbatim: text)
-                .font(.system(.body, design: .rounded).weight(.semibold))
-                .foregroundStyle(strong ? RadioPalette.ink : RadioPalette.inkSoft)
+                .font(.body.weight(.medium))
+                .foregroundStyle(strong ? Color.primary : Color.secondary)
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .animation(.easeInOut(duration: 0.25), value: text)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 13)
-        .frame(maxWidth: .infinity, minHeight: 88, alignment: .topLeading)
-        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(RadioPalette.cream))
-        .overlay(alignment: .top) { tailRow }
+        .padding(.horizontal, 15)
+        .padding(.top, 13 + RadioBubbleShape.tailHeight)
+        .padding(.bottom, 13)
+        .frame(maxWidth: .infinity, minHeight: 92, alignment: .topLeading)
+        .background(RadioBubbleShape(tail: tail).fill(Color.primary.opacity(0.1)))
     }
 
     private var labelRow: some View {
@@ -478,69 +456,50 @@ struct RadioBubble: View {
             if let icon {
                 Image(systemName: icon)
             } else if live {
-                Circle().fill(RadioPalette.rec).frame(width: 6, height: 6)
+                Circle().fill(Color.red).frame(width: 6, height: 6)
             }
             Text(verbatim: label)
                 .textCase(.uppercase)
         }
-        .font(.system(.caption2, design: .monospaced).weight(.bold))
-        .tracking(1)
-        .foregroundStyle(RadioPalette.label)
-    }
-
-    /// Dos huecos del ancho de las ventanas de los locutores (mismo espacio entre ellos): la cola va en el de quien habla.
-    private var tailRow: some View {
-        HStack(spacing: 22) {
-            tailSlot(.leading)
-            tailSlot(.trailing)
-        }
-        .offset(y: -9)
-        .accessibilityHidden(true)
-    }
-
-    private func tailSlot(_ side: Tail) -> some View {
-        Color.clear
-            .frame(width: 112, height: 10)
-            .overlay {
-                if tail == side {
-                    RadioBubbleTail()
-                        .fill(RadioPalette.cream)
-                        .frame(width: 20, height: 10)
-                }
-            }
+        .font(.caption2.weight(.bold))
+        .foregroundStyle(live ? Color.red : Color.secondary)
     }
 }
 
-struct RadioBubbleTail: Shape {
+/// Cuerpo redondeado con una cola arriba que apunta a la ventana de quien habla: las ventanas miden 112 pt y van separadas 22 pt, centradas.
+struct RadioBubbleShape: Shape {
+    static let tailHeight: CGFloat = 9
+    let tail: RadioBubble.Tail
+
     func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
-        path.closeSubpath()
+        let body = CGRect(x: rect.minX, y: rect.minY + Self.tailHeight, width: rect.width, height: rect.height - Self.tailHeight)
+        var path = Path(roundedRect: body, cornerRadius: 18, style: .continuous)
+        if tail != .none {
+            let centerX = rect.midX + (tail == .leading ? -67 : 67)
+            path.move(to: CGPoint(x: centerX - 10, y: body.minY + 1))
+            path.addLine(to: CGPoint(x: centerX, y: rect.minY))
+            path.addLine(to: CGPoint(x: centerX + 10, y: body.minY + 1))
+            path.closeSubpath()
+        }
         return path
     }
 }
 
-/// Una fila del programa: una etiqueta (ahora / luego) y lo que es, en letra de maquina de escribir.
+/// Una fila del programa: una etiqueta pequeña (ahora / luego) y lo que es.
 struct RadioRundownRow: View {
     let tag: LocalizedStringKey
     let text: String
-    let strong: Bool
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 9) {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text(tag)
-                .font(.system(.caption2, design: .monospaced).weight(.bold))
+                .font(.caption2.weight(.semibold))
                 .textCase(.uppercase)
-                .tracking(0.8)
-                .foregroundStyle(strong ? RadioPalette.ink : RadioPalette.cream)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(RoundedRectangle(cornerRadius: 3, style: .continuous).fill(strong ? RadioPalette.cream : RadioPalette.line))
+                .foregroundStyle(.secondary)
+                .frame(minWidth: 48, alignment: .leading)
             Text(verbatim: text)
-                .font(.system(.footnote, design: .monospaced).weight(.medium))
-                .foregroundStyle(RadioPalette.cream)
+                .font(.footnote)
+                .foregroundStyle(.primary)
                 .lineLimit(2)
             Spacer(minLength: 0)
         }

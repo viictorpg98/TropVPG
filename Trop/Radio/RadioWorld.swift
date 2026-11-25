@@ -215,9 +215,15 @@ enum RadioWorld {
 
     /// Lo que no se quiere de los titulares de deportes: lesiones, compras y ofertas, apuestas y guias de horarios.
     private static let sportsNoise = try? NSRegularExpression(
-        pattern: "lesi[oó]n|lesionad|molestias|fractura|rotura|operad|operaci[oó]n|descuento|\\bdto\\b|oferta|chollo|black friday|precio|apuest|cuota|bonus|casino|pron[oó]stic|quiniela|horarios|c[oó]mo ver|d[oó]nde ver|en qu[eé] canal|ciberataque",
+        pattern: "lesi[oó]n|lesionad|molestias|fractura|rotura|operad|operaci[oó]n|descuento|\\bdto\\b|oferta|chollo|black friday|precio|apuest|cuota|bonus|casino|pron[oó]stic|quiniela|horarios|c[oó]mo ver|d[oó]nde ver|en qu[eé] canal|ciberataque|tribunal|juicio|absuelt|condena|acusad|detenid|agresi[oó]n|test[ií]culo|delito|fiscal[ií]a|denuncia|imputad",
         options: [.caseInsensitive]
     )
+
+    /// ¿Un titular de deportes es de los que no se quieren (lesiones, juicios, ofertas, apuestas...)? Tambien se aplica a lo ya guardado de otras veces.
+    static func isSportsNoise(_ text: String) -> Bool {
+        guard let sportsNoise else { return false }
+        return sportsNoise.firstMatch(in: text, options: [], range: NSRange(text.startIndex..., in: text)) != nil
+    }
 
     private static func searchURL(_ topic: String) -> String {
         let encoded = topic.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? topic

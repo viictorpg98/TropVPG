@@ -178,7 +178,7 @@ struct RadioHostView: View {
 
 // MARK: - Ventanas de estudio
 
-/// Un locutor en su ventana de estudio (arco arriba): el que habla se enciende con aro ambar y medidor; el otro se atenua. La placa lleva su nombre.
+/// Un locutor en su ventana de estudio (arco arriba): el que habla se enciende con aro rojo y medidor; el otro se atenua. Debajo, su nombre.
 struct RadioStudioWindow: View {
     let name: String
     let title: String
@@ -191,18 +191,16 @@ struct RadioStudioWindow: View {
     }
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 7) {
             window
             Text(verbatim: title)
-                .font(.system(.caption2, design: .rounded).weight(.heavy))
-                .textCase(.uppercase)
-                .tracking(0.8)
-                .foregroundStyle(RadioPalette.ink)
-                .padding(.horizontal, 9)
-                .padding(.vertical, 4)
-                .background(RoundedRectangle(cornerRadius: 3, style: .continuous).fill(RadioPalette.cream))
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(speaking ? Color.primary : Color.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .frame(width: 112)
         }
-        .opacity(dimmed ? 0.6 : 1)
+        .opacity(dimmed ? 0.55 : 1)
         .animation(.easeInOut(duration: 0.25), value: speaking)
         .animation(.easeInOut(duration: 0.25), value: dimmed)
         .accessibilityElement(children: .ignore)
@@ -215,7 +213,7 @@ struct RadioStudioWindow: View {
                 .frame(width: 112, height: 134)
                 .clipShape(shape)
             shape
-                .strokeBorder(speaking ? RadioPalette.amber : RadioPalette.line, lineWidth: 3)
+                .strokeBorder(speaking ? Color.red : Color.primary.opacity(0.15), lineWidth: 2.5)
                 .frame(width: 112, height: 134)
             if speaking {
                 RadioVUBars(animated: animated)
@@ -223,14 +221,14 @@ struct RadioStudioWindow: View {
             }
         }
         .frame(width: 112, height: 134)
-        .shadow(color: speaking ? RadioPalette.amber.opacity(0.4) : .clear, radius: 14, y: 4)
+        .shadow(color: speaking ? Color.red.opacity(0.35) : .clear, radius: 14, y: 4)
     }
 
     @ViewBuilder private var avatar: some View {
         if let image = RadioSounds.avatar(name) {
             Image(uiImage: image).resizable().scaledToFill()
         } else {
-            Rectangle().fill(RadioPalette.line)
+            Rectangle().fill(Color(.systemGray4))
         }
     }
 }
@@ -245,7 +243,7 @@ struct RadioVUBars: View {
             HStack(alignment: .bottom, spacing: 2) {
                 ForEach(0..<4, id: \.self) { index in
                     RoundedRectangle(cornerRadius: 1)
-                        .fill(RadioPalette.amber)
+                        .fill(Color.red)
                         .frame(width: 3, height: animated ? 5 + 10 * CGFloat(abs(sin(time * 7 + Double(index) * 1.1))) : 9)
                 }
             }
