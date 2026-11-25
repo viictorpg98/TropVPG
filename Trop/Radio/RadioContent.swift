@@ -211,7 +211,7 @@ enum RadioContent {
     )
 
     /// Lo que sobra en una pieza segun lo permitido en esta ocasion (hora, nombre de la emisora); `nil` si esta bien. Solo sirve para reintentar.
-    private static func styleProblem(_ text: String, allowHour: Bool, allowStation: Bool, tagInsults: Int = 0) -> String? {
+    private static func styleProblem(_ text: String, allowHour: Bool, allowStation: Bool, tagInsults: Bool = false) -> String? {
         var problems: [String] = []
         if !allowHour, let clockPattern, clockPattern.firstMatch(in: text, options: [], range: NSRange(text.startIndex..., in: text)) != nil {
             problems.append("menciona la hora o el momento del dia (en esta pieza no se habla de eso)")
@@ -221,7 +221,7 @@ enum RadioContent {
         }
         let slang = RadioSlang.violations(in: text)
         if !slang.isEmpty { problems.append("usa muletillas que se han repetido demasiado (\(slang.joined(separator: ", ")))") }
-        if tagInsults >= 2 { problems.append("cierra varias lineas con un insulto suelto al final (\", pendejo\", \", cabron\"): el insulto va dentro de la frase y tiene que ser ingenioso y concreto") }
+        if tagInsults { problems.append("cierra varias lineas con un insulto suelto al final (\", pendejo\", \", cabron\"): el insulto va dentro de la frase y tiene que ser ingenioso y concreto") }
         if hasBannedJoke(text) { problems.append("usa frases prohibidas (\"a ver si aprendes\", \"pocilga\", \"ojala no sea tan... como tu...\")") }
         guard !problems.isEmpty else { return nil }
         return "\n\nTU INTENTO ANTERIOR " + problems.joined(separator: " y ") + ". Reescribelo sin eso y manteniendo lo demas."
@@ -249,6 +249,11 @@ enum RadioContent {
     static func tagInsults(in turns: [RadioTurn]) -> Int {
         guard let tagInsultPattern else { return 0 }
         return turns.filter { tagInsultPattern.firstMatch(in: $0.text, options: [], range: NSRange($0.text.startIndex..., in: $0.text)) != nil }.count
+    }
+
+    /// ¿Hay insultos sueltos de mas? En una pieza de 3 lineas o menos (las minis) ya basta uno; en las demas, dos.
+    static func hasTagInsults(in turns: [RadioTurn]) -> Bool {
+        tagInsults(in: turns) >= (turns.count <= 3 ? 1 : 2)
     }
 
     /// Frases hechas que el modelo repite una y otra vez y que no se quieren.
@@ -430,7 +435,7 @@ enum RadioContent {
             }
             // La forma, la hora, la emisora y las muletillas se comprueban "suave": se reintenta y, al ultimo intento, sale igual.
             let shapeProblem = plan.shape.problem(in: turns)
-            let styleNotice = styleProblem(all, allowHour: allowHour, allowStation: allowStation, tagInsults: level == .mild ? 0 : tagInsults(in: turns))
+            let styleNotice = styleProblem(all, allowHour: allowHour, allowStation: allowStation, tagInsults: level != .mild && hasTagInsults(in: turns))
             if attempt < 2, shapeProblem != nil || styleNotice != nil {
                 best = turns  // si los reintentos fallan por otra cosa, esta vale
                 bestTopic = parseTopic(json)

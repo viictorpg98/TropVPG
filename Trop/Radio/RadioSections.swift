@@ -200,7 +200,7 @@ enum RadioSections {
             let foodHit = RadioContent.mentionsFood(allText)
             let slangHit = RadioSlang.violations(in: allText)
             // Insultos sueltos al final de la linea y frases hechas prohibidas (solo con humor): suave, como la comida y las muletillas.
-            let styleHit = level != .mild && (RadioContent.tagInsults(in: turns) >= 2 || RadioContent.hasBannedJoke(allText))
+            let styleHit = level != .mild && (RadioContent.hasTagInsults(in: turns) || RadioContent.hasBannedJoke(allText))
             let structureOK = hosts.count >= minLines && words >= spec.minWords - (spec.guest == nil ? 0 : 20)
                 && words <= spec.maxWords && noteOK
             // Comida y muletillas repetidas: suave (un reintento y, si sigue, sale igual, para no quedarse sin seccion).
