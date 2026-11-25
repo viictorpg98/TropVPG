@@ -148,7 +148,7 @@ struct RadioScreenView: View {
         ZStack(alignment: .bottom) {
             RadioDialView(
                 frequency: radio.frequency, active: radio.isActive, tuning: radio.isStarting && !reduceMotion,
-                alive: animate && radio.speakingHost != nil, ink: RadioPalette.cream, needle: RadioPalette.neon, height: 150
+                alive: animate && radio.speakingHost != nil, ink: RadioPalette.cream, needleColor: RadioPalette.neon, height: 150
             )
             VStack(spacing: 2) {
                 Text(verbatim: frequencyText)

@@ -17,7 +17,7 @@ struct RadioDialView: View {
     /// Alguien habla: la aguja tiembla un poco. Sin esto (y sin sintonizar) el dial es una imagen fija y no gasta bateria.
     var alive = false
     var ink: Color = .primary
-    var needle: Color = .red
+    var needleColor: Color = .red
     var height: CGFloat = 130
 
     var body: some View {
@@ -72,7 +72,7 @@ struct RadioDialView: View {
         var needle = Path()
         needle.move(to: center)
         needle.addLine(to: point(position, radius - 8))
-        let color: Color = dim ? ink.opacity(0.35) : needle
+        let color: Color = dim ? ink.opacity(0.35) : needleColor
         context.stroke(needle, with: .color(color), style: StrokeStyle(lineWidth: 2.6, lineCap: .round))
         context.fill(Path(ellipseIn: CGRect(x: center.x - 6, y: center.y - 6, width: 12, height: 12)), with: .color(color))
     }
