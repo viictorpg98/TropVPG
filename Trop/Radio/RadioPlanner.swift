@@ -60,9 +60,9 @@ enum RadioPlanner {
     Eres el "cerebro musical" de una radio dentro de una app de musica. Una persona acaba de decir en voz alta lo que quiere escuchar (el texto viene de un reconocedor de voz y puede tener errores de transcripcion, sobre todo en nombres propios). Conviertelo en una receta para buscar musica en YouTube Music.
     Devuelve SOLO un objeto JSON con estas claves:
     - "resumen": 2 a 5 palabras en español que describen lo pedido.
-    - "busquedas": entre 3 y 6 consultas de busqueda cortas (maximo 6 palabras cada una), distintas entre si (genero y epoca, exitos, subgeneros). Sin comillas ni operadores. Si la peticion tiene EPOCA ("los 2000", "los 90", "del 2005"), TODAS las consultas llevan la decada escrita como "años 2000" o "años 90" (la decada entera: "los 2000" son 2000-2009; no uses un año suelto).
+    - "busquedas": entre 3 y 6 consultas de busqueda cortas (maximo 6 palabras cada una), distintas entre si (genero y epoca, exitos, subgeneros, nombres de artistas representativos). Sin comillas ni operadores. NUNCA metas en una consulta el PARA QUE lo quiere ni su estado de animo (motivarme, entrenar, fiesta, relajarme, estudiar, coche...): eso se traduce en que artistas y canciones escoges, no en palabras de busqueda; esas palabras traen playlists y musica generica. Tampoco uses "playlist", "mix", "beat", "instrumental" ni "mejores". Si la peticion tiene EPOCA ("los 2000", "los 90", "del 2005"), TODAS las consultas llevan la decada escrita como "años 2000" o "años 90" (la decada entera: "los 2000" son 2000-2009; no uses un año suelto).
     - "artistas": entre 6 y 12 artistas reales y representativos. Solo los que estes SEGURO de que existen.
-    - "canciones": entre 0 y 6 canciones muy conocidas con formato "Artista - Titulo". Solo las que estes SEGURO de que existen. Si la peticion tiene EPOCA, entre 10 y 15 canciones muy conocidas DE ESA EPOCA (publicadas dentro de ella), de artistas distintos.
+    - "canciones": entre 8 y 12 canciones muy conocidas con formato "Artista - Titulo", de artistas distintos, que encajen con lo pedido. Solo las que estes SEGURO de que existen. Si la peticion tiene EPOCA, que sean DE ESA EPOCA (publicadas dentro de ella). Si la peticion es de CALIDAD ("del bueno", "lo mejor", "clasicos", "top", "de referencia"), son los artistas y temas mas respetados y reconocidos del genero, no relleno.
     - "evitar": lista de estilos o palabras que NO encajan con lo pedido.
     - "usa_gustos": true si has usado los gustos de la persona para escoger artistas o canciones.
     - "confianza": numero de 0 a 1: cuanto estas seguro de haber entendido bien lo pedido.
@@ -235,27 +235,29 @@ enum RadioPlanner {
     }
 
     /// La cola de la radio (hasta 30 canciones) y cuantas peticiones a YouTube hizo. `exclude`: lo que ya sono o esta en la cola.
-    /// `anchors`: con epoca, busca primero las canciones concretas de la receta (solo al empezar; en las ampliaciones de la cola ya estan).
+    /// `anchors`: busca primero las canciones concretas de la receta (solo al empezar; en las ampliaciones de la cola ya estan). Antes solo con epoca: sin ella la cola
+    /// salia de busquedas por palabras y de radios sembradas con sus primeros resultados (a menudo relleno).
     static func buildQueue(recipe: RadioRecipe, familiar: [SongItem], exclude: Set<String>, anchors useAnchors: Bool = true) async -> (songs: [SongItem], requests: Int) {
         var requests = 0
         var anchorSongs: [SongItem] = []
         var found: [SongItem] = []
         let hasEra = !recipe.era.isEmpty
-        // Con epoca: las canciones concretas que el modelo conoce de ESA epoca van primero (hasta 5, una tras otra); son lo que mejor ancla la cola.
-        if useAnchors, hasEra {
+        // Las canciones concretas que el modelo conoce de lo pedido (de ESA epoca, si la hay) van primero (hasta 5, una tras otra); son lo que mejor ancla la cola.
+        let ranAnchors = useAnchors && !recipe.songs.isEmpty
+        if ranAnchors {
             for entry in recipe.songs.prefix(5) {
                 requests += 1
                 anchorSongs += await searchSongs(entry, limit: 1)
             }
-            PlaybackReport.record("radio: canciones de la receta para la epoca \(recipe.era): \(anchorSongs.count) encontradas de \(min(5, recipe.songs.count))")
+            PlaybackReport.record("radio: canciones de la receta\(hasEra ? " para la epoca \(recipe.era)" : ""): \(anchorSongs.count) encontradas de \(min(5, recipe.songs.count))")
         }
-        // Busquedas: como mucho 3 (2 con epoca, que ya gasta mas en las canciones), UNA TRAS OTRA (SearchService cancela la anterior si se lanzan a la vez, y asi no se rafaguea a YouTube).
-        for query in recipe.searches.prefix(hasEra ? 2 : 3) {
+        // Busquedas: como mucho 3 (2 si ya se buscaron las canciones de la receta, que gastan mas), UNA TRAS OTRA (SearchService cancela la anterior si se lanzan a la vez, y asi no se rafaguea a YouTube).
+        for query in recipe.searches.prefix(ranAnchors ? 2 : 3) {
             requests += 1
             found += await searchSongs(query, limit: 8)
         }
         // Canciones concretas de la receta: solo si salen pocas (el modelo puede equivocarse de titulo; solo suena lo que se encuentra).
-        if !hasEra, found.count < 12 {
+        if !hasEra, !ranAnchors, found.count < 12 {
             for entry in recipe.songs.prefix(3) {
                 requests += 1
                 found += await searchSongs(entry, limit: 1)
@@ -301,7 +303,7 @@ enum RadioPlanner {
         var prompt = "PETICION: \(recipe.request) (resumen: \(recipe.summary))"
         if !recipe.era.isEmpty { prompt += "\nEPOCA PEDIDA: \(recipe.era) (canciones publicadas dentro de esos años)" }
         prompt += "\n\nCANCIONES:\n" + lines
-        let system = "Eres un experto en musica. Te doy la peticion de una persona y una lista numerada de canciones. Devuelve SOLO un JSON {\"fuera\": [numeros]} con los numeros de las canciones que CLARAMENTE no encajan con lo pedido (sobre todo si son de otra epoca o de otro genero). Si dudas, NO la incluyas. No expliques nada."
+        let system = "Eres un experto en musica. Te doy la peticion de una persona y una lista numerada de canciones. Devuelve SOLO un JSON {\"fuera\": [numeros]} con los numeros de las canciones que CLARAMENTE no encajan con lo pedido (sobre todo si son de otra epoca o de otro genero). Si la peticion pide CALIDAD (\"del bueno\", \"lo mejor\", \"clasicos\", \"top\"), tambien van fuera las genericas: beats, instrumentales, mezclas o temas de artistas sin reconocimiento. NO descartes una cancion por su idioma ni por su animo (motivador, triste, tranquilo...): el animo es para que lo quiere, no el estilo. Si dudas, NO la incluyas. No expliques nada."
         guard let json = try? await Gemini.text(system: system, prompt: prompt, temperature: 0.1, timeout: 8),
               let data = json.data(using: .utf8),
               let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
