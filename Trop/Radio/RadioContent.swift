@@ -16,7 +16,10 @@ enum RadioPieceKind {
 /// Lo ultimo que dijeron, para que no se repitan ideas ni palabras.
 enum RadioHistory {
     private static let key = "radio.history.v1"
-    private static let limit = 12
+    /// Las ultimas 30 piezas (antes 12): con pocas, las muletillas de un tema (el patinete, el Bizum, el jefe) volvian de una sesion a otra.
+    private static let limit = 30
+    /// Palabras cortas que se cuentan igual que las largas (los temas fijos de las bromas).
+    private static let watched: Set<String> = ["jefe", "jefa"]
 
     private static let stopWords: Set<String> = Set("""
     para pero como esta este esto esas esos estoy estas pues porque cuando donde tambien entonces ahora siempre nunca todo toda todos todas aqui alli algo alguien
@@ -38,7 +41,7 @@ enum RadioHistory {
     }
 
     /// Palabras de 5 letras o mas que ya salieron 3 veces o mas.
-    static func usedWords(minimum: Int = 3, top: Int = 14) -> [String] {
+    static func usedWords(minimum: Int = 3, top: Int = 18) -> [String] {
         var counts: [String: Int] = [:]
         for turns in all() {
             for turn in turns {
@@ -49,7 +52,7 @@ enum RadioHistory {
     }
 
     private static func words(in text: String) -> [String] {
-        text.lowercased().components(separatedBy: CharacterSet.letters.inverted).filter { $0.count >= 5 }
+        text.lowercased().components(separatedBy: CharacterSet.letters.inverted).filter { $0.count >= 5 || watched.contains($0) }
     }
 
     /// El bloque que se añade al prompt.
