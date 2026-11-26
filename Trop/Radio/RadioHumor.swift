@@ -90,6 +90,7 @@ enum RadioHumor {
     - Los oyentes y sus mensajes son INVENTADOS: nombres de pila normales y pueblos y barrios de la zona de la emisora ({PUEBLOS}), nunca famosos ni personas reales. Cada mensaje es una mini historia absurda y concreta (una cifra, un objeto, un detalle ridiculo) que empeora con cada frase, y los locutores se burlan de ellos con ingenio.
     - PRIMERO PIENSA EL CHISTE: en "ideas" escribe 3 ideas de mensajes distintos y elige las mejores.
     - De la cancion SOLO conoces el titulo y el artista que se te dan: no inventes nada mas sobre ellos.
+    - La nota de voz del oyente suena a AUDIO DE WHATSAPP real: sin ceremonia, con muletillas y frases a medias, español de Catalunya ("poned", "ponedme", "porfa", "tio/tia"), y se despide a lo informal.
     - Nada de comida, bebida ni cocina. Sin politica ni marcas comerciales reales. Humor juvenil y de lo mas conocido, nada de cultura. Cada linea aporta algo: prohibidas las replicas de relleno. Sin descripciones entre parentesis; para una risa usa <laugh> (maximo dos).
     - Si nombras la emisora, escribe su nombre como "Sónar efe eme". Frases cortas (maximo 18 palabras). Prohibido decir "wepa".
     - Cada linea puede llevar un campo opcional "tono" con UNO de estos valores: \(RadioTone.names). Lo normal es animado, burlon, sarcasmo, tranquilo o ningun tono; "grito", "susurro" e "incredulo" casi nunca (el oyente de la nota de voz, sin tono: habla como un oyente normal).

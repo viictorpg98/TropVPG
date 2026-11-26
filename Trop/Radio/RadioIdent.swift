@@ -70,6 +70,7 @@ enum RadioIdent {
         let info = brief(for: target)
         var notice = ""
         var chosen: [RadioTurn] = []
+        var rejected = ""
         for _ in 0..<2 {
             var prompt = "Escribe el grito para anunciar: \(info.what).\nEjemplos del tono (NO los copies ni los imites: inventa otro distinto):\n"
             prompt += info.examples.map { "- " + $0 }.joined(separator: "\n")
@@ -90,10 +91,11 @@ enum RadioIdent {
                 chosen = turns
                 break
             }
+            rejected = "(\(turns.count) lineas, \(words) palabras\(RadioContent.mentionsFood(all) ? ", palabra de comida" : "")) " + all
             notice = "\n\nTU INTENTO ANTERIOR NO SIRVE (debe ser 1 o 2 lineas, entre 3 y 14 palabras, sin comida). Escribelo de nuevo."
         }
         guard !chosen.isEmpty else {
-            PlaybackReport.record("radio: grito: el texto no valia tras 2 intentos (1-2 lineas, 3 a 18 palabras, sin comida)")
+            PlaybackReport.record("radio: grito: el texto no valia tras 2 intentos (1-2 lineas, 3 a 18 palabras, sin comida): " + rejected)
             return nil
         }
         let shouted = chosen.map { RadioTurn(speaker: $0.speaker, text: $0.text, tone: "grito") }

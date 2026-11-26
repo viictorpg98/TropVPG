@@ -241,7 +241,7 @@ enum Gemini {
     /// El estilo de una frase: el tono que se pidio para ella (si es de la lista), o el de siempre del personaje.
     private static func styleFor(_ turn: RadioTurn) -> String {
         if let tone = turn.tone, let style = RadioTone.styles[tone] { return style }
-        if RadioGuests.guest(named: turn.speaker) != nil { return RadioGuests.style }
+        if let guest = RadioGuests.guest(named: turn.speaker) { return guest.style }
         return turn.speaker == "Chuleta" ? chuletaStyle : pitirreStyle
     }
 

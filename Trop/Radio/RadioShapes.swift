@@ -110,6 +110,12 @@ enum RadioLength {
         }
     }
 
+    /// Las formas que caben con picante o negro: una pieza corta lleva SIEMPRE los dos locutores (una sola frase no da para el giro y el puente hacia la cancion).
+    func shapes(for level: RadioHumorLevel) -> [RadioShape] {
+        guard level != .mild, self == .short else { return shapes }
+        return [.listens, .agree, .duo]
+    }
+
     /// Si ningun intento cumple la longitud, se usa el mas cercano recortado (mejor eso que dejar el paso sin voz): el tiny se queda en su primera linea y los demas
     /// pierden lineas del final mientras se pasen de palabras.
     func trimmed(_ turns: [RadioTurn]) -> [RadioTurn] {
@@ -186,7 +192,8 @@ struct RadioBlueprint {
         // Longitud: el mini es una frase de 4 s o algo corto; la charla, mediana o (de vez en cuando) larga.
         let length: RadioLength
         if kind == .mini {
-            length = Int.random(in: 0..<100) < 35 ? .tiny : .short
+            // Las de una frase (tiny) son las mas planas: con picante o negro salen poco.
+            length = Int.random(in: 0..<100) < (humor == .mild ? 35 : 12) ? .tiny : .short
         } else {
             length = Int.random(in: 0..<100) < 18 ? .long : .medium
         }
@@ -210,7 +217,7 @@ struct RadioBlueprint {
         }
         lastPurpose = purpose
         // Forma: sin repetir las dos ultimas; el dueto clasico pesa la mitad que las demas.
-        let shape = drawShape(from: length.shapes)
+        let shape = drawShape(from: length.shapes(for: humor))
         return RadioBlueprint(purpose: purpose, shape: shape, length: length)
     }
 

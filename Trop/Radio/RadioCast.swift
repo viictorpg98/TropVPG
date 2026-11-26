@@ -46,19 +46,23 @@ struct RadioGuest {
     let voice: String
     /// Como se la presenta al modelo de texto (edad y pueblo), para que lo que dice suene a ella.
     let profile: String
+    /// Como habla (para el modelo de voz): acento, ritmo, tono. Sin esto, las voces de la biblioteca suenan a centralita.
+    let style: String
 }
 
 enum RadioGuests {
     static let all: [RadioGuest] = [
-        RadioGuest(name: "Marta", voice: "es-es-concierge-3", profile: "Marta, 24 años, de Terrassa"),
-        RadioGuest(name: "Dani", voice: "es-es-training-9", profile: "Dani, 23 años, de Sabadell"),
-        RadioGuest(name: "Irene", voice: "es-es-techagent-5", profile: "Irene, 29 años, de Mataró"),
-        RadioGuest(name: "Montse", voice: "es-es-csagent-6", profile: "Montse, 56 años, de Badalona"),
-        RadioGuest(name: "Paco", voice: "es-es-assistant-3", profile: "Paco, 59 años, de Cerdanyola")
+        RadioGuest(name: "Marta", voice: "es-es-concierge-3", profile: "Marta, 24 años, de Terrassa",
+                   style: "A young woman in her mid-twenties from Terrassa, near Barcelona, recording a quick WhatsApp voice message for a friend. Peninsular Spanish with a clear Catalan accent. Fast, casual, a little out of breath, slightly sloppy diction, laughing here and there. Not a presenter, not polished."),
+        RadioGuest(name: "Dani", voice: "es-es-training-9", profile: "Dani, 23 años, de Sabadell",
+                   style: "A guy of 23 from Sabadell leaving a tired, relaxed voice message on his phone. Spanish with a Catalan accent, mumbling slightly, drawn-out filler words, friendly and chilled. Not a presenter."),
+        RadioGuest(name: "Irene", voice: "es-es-techagent-5", profile: "Irene, 29 años, de Mataró",
+                   style: "A woman of 29 from Mataro talking to her phone from inside a car, energetic and chatty, Catalan-accented Spanish, smiling while she talks, speaking fast. Not a presenter."),
+        RadioGuest(name: "Montse", voice: "es-es-csagent-6", profile: "Montse, 56 años, de Badalona",
+                   style: "A warm woman in her mid-fifties from Badalona recording a voice message a little awkwardly, as people who are not used to it do. Catalan-accented Spanish, sweet, slightly flustered, repeating goodbyes."),
+        RadioGuest(name: "Paco", voice: "es-es-assistant-3", profile: "Paco, 59 años, de Cerdanyola",
+                   style: "A gruff, good-humored man of 59 from Cerdanyola, Catalan-accented Spanish, talking a bit too loud into his phone as if he did not trust it, joking. Not a presenter.")
     ]
-
-    /// Como suena una nota de voz de un oyente (se pasa como estilo al modelo de voz).
-    static let style = "a regular radio listener leaving a friendly, casual voice note on their phone"
 
     static func guest(named name: String) -> RadioGuest? {
         all.first { $0.name == name }

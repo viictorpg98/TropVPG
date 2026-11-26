@@ -201,7 +201,7 @@ enum RadioContent {
     }
 
     private static let foodPattern = try? NSRegularExpression(
-        pattern: "comid|dieta|arroz|pollo|nevera|hambre|caf[eé]|t[aá]per|tupper|cocin|comer|comi[oó]|comiste|cena\\b|almuerz|pizza|desayun|merienda|habichuela|plato|fritur|sandwich|hamburg|paella|tortilla|croqueta|bocata",
+        pattern: "\\b(?:comid|dieta|arroz|pollo|nevera|hambre|caf[eé]\\b|t[aá]per|tupper|cocin|comer\\b|comerse|comiend|comi[oó]\\b|comiste|cena\\b|cenar|almuerz|pizza|desayun|merienda|habichuela|platos?\\b|fritur|sandwich|hamburg|paella|tortilla|croqueta|bocata)",
         options: [.caseInsensitive]
     )
 
