@@ -210,6 +210,7 @@
 "Dislike" = "Dislike";
 "Dismiss" = "Dismiss";
 "Done" = "Done";
+"Done: %d new listener voices." = "Done: %d new listener voices.";
 "Done: %d new phrases." = "Done: %d new phrases.";
 "Download" = "Download";
 "Download Quality" = "Download Quality";
@@ -598,8 +599,10 @@
 "Pop" = "Pop";
 "Power boost" = "Power boost";
 "Preferences" = "Preferences";
+"Prepare Listener Voices" = "Prepare Listener Voices";
 "Prepare Phrases" = "Prepare Phrases";
 "Prepare Phrases saves the questions and short phrases once, so the radio starts instantly." = "Prepare Phrases saves the questions and short phrases once, so the radio starts instantly.";
+"Preparing listener voices…" = "Preparing listener voices…";
 "Preparing phrases…" = "Preparing phrases…";
 "Preparing the mix…" = "Preparing the mix…";
 "Preparing the preview…" = "Preparing the preview…";

@@ -77,6 +77,9 @@ enum RadioLocal {
 
     static var feedURL: String? { info?.feed }
 
+    /// Los pueblos de alrededor como lista (para crear las voces de los oyentes).
+    static var townList: [String] { info?.towns ?? [] }
+
     /// Los pueblos de alrededor, para los oyentes inventados.
     static var townsText: String {
         guard let towns = info?.towns, !towns.isEmpty else { return "pueblos y barrios de la zona" }

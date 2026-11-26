@@ -140,6 +140,18 @@ struct RadioSettingsView: View {
                 .disabled(busy || key.isEmpty)
                 Button {
                     busy = true
+                    message = NSLocalizedString("Preparing listener voices…", comment: "")
+                    Task {
+                        let made = await RadioGuestPool.prepare(count: 4)
+                        message = String(format: NSLocalizedString("Done: %d new listener voices.", comment: ""), made)
+                        busy = false
+                    }
+                } label: {
+                    Label("Prepare Listener Voices", systemImage: "person.wave.2")
+                }
+                .disabled(busy || key.isEmpty)
+                Button {
+                    busy = true
                     Task {
                         if let question = await RadioContent.question() {
                             _ = await RadioClipPlayer().play(RadioAudio.boosted(question.wav))

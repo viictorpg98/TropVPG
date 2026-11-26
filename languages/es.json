@@ -909,5 +909,8 @@
   "Humor Model": "Modelo del humor",
   "Rundown Now": "Ahora",
   "Rundown Next": "Luego",
-  "speaking": "hablando"
+  "speaking": "hablando",
+  "Preparing listener voices…": "Preparando voces de oyentes…",
+  "Done: %d new listener voices.": "Hecho: %d voces de oyentes nuevas.",
+  "Prepare Listener Voices": "Preparar voces de oyentes"
 }

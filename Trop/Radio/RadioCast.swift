@@ -64,7 +64,13 @@ enum RadioGuests {
                    style: "A gruff, good-humored man of 59 from Cerdanyola, Catalan-accented Spanish, talking a bit too loud into his phone as if he did not trust it, joking. Not a presenter.")
     ]
 
+    /// El oyente por su nombre: primero los del banco de voces creadas (sus nombres no se repiten con los de siempre), despues los de siempre.
     static func guest(named name: String) -> RadioGuest? {
-        all.first { $0.name == name }
+        RadioGuestPool.guest(named: name) ?? all.first { $0.name == name }
+    }
+
+    /// Uno de los 5 de siempre (los que se usan mientras el banco de voces creadas es pequeño).
+    static func usual() -> RadioGuest {
+        all[Int.random(in: 0..<all.count)]
     }
 }

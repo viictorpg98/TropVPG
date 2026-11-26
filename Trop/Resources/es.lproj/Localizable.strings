@@ -210,6 +210,7 @@
 "Dislike" = "No me gusta";
 "Dismiss" = "Descartar";
 "Done" = "Listo";
+"Done: %d new listener voices." = "Hecho: %d voces de oyentes nuevas.";
 "Done: %d new phrases." = "Hecho: %d frases nuevas.";
 "Download" = "Descargar";
 "Download Quality" = "Calidad de descarga";
@@ -598,8 +599,10 @@
 "Pop" = "Pop";
 "Power boost" = "Subidón de energía";
 "Preferences" = "Preferencias";
+"Prepare Listener Voices" = "Preparar voces de oyentes";
 "Prepare Phrases" = "Preparar frases";
 "Prepare Phrases saves the questions and short phrases once, so the radio starts instantly." = "Preparar frases guarda una vez las preguntas y frases cortas, para que la radio empiece al instante.";
+"Preparing listener voices…" = "Preparando voces de oyentes…";
 "Preparing phrases…" = "Preparando frases…";
 "Preparing the mix…" = "Preparando la mezcla…";
 "Preparing the preview…" = "Preparando la escucha…";

@@ -31,6 +31,7 @@ enum Gemini {
     private enum Scope: Hashable {
         case text
         case humor
+        case voiceDesign
         case voice(String)
     }
 
@@ -271,14 +272,39 @@ enum Gemini {
         return nil
     }
 
+    // MARK: - Voces de oyente (Voice Design)
+
+    /// Crea una voz nueva a partir de una descripcion (POST /v1beta/voices). Sin "model": Google usa su modelo de creacion y la voz sirve luego con cualquier modelo de voz
+    /// (con el flash-lite en la peticion de crear da error 400). Tarda 15-20 s. Devuelve su id ("voice_...").
+    static func createVoice(description: String, gender: String, displayName: String) async throws -> String {
+        try ensureUsable(.voiceDesign)
+        let body: [String: Any] = [
+            "store": true,
+            "voice": ["type": "prompted", "display_name": displayName, "gender": gender, "language_code": "es-ES", "prompted": ["input": description]]
+        ]
+        guard let url = URL(string: "\(base)/voices") else { throw Failure(code: 0, message: "direccion no valida") }
+        let json = try await post(url, body: body, timeout: 60, scope: .voiceDesign)
+        guard let id = json["id"] as? String, !id.isEmpty else { throw Failure(code: 0, message: "la voz creada no traia id") }
+        // Coste: Google no lo da en la documentacion; se apunta una estimacion y lo que devuelve el campo "usage" para poder ajustarla con el informe.
+        RadioSettings.addSpend(0.004)
+        PlaybackReport.record("radio: voz creada con la API; uso: \(json["usage"] ?? "sin dato")")
+        return id
+    }
+
+    /// Borra una voz creada (DELETE /v1beta/voices/{id}); si falla, no pasa nada (se borra sola tras un año sin usarla).
+    static func deleteVoice(_ id: String) async {
+        guard let url = URL(string: "\(base)/voices/\(id)") else { return }
+        _ = try? await post(url, body: nil, timeout: 20, scope: .voiceDesign, method: "DELETE")
+    }
+
     // MARK: - Red
 
-    private static func post(_ url: URL, body: [String: Any], timeout: Double, scope: Scope) async throws -> [String: Any] {
+    private static func post(_ url: URL, body: [String: Any]?, timeout: Double, scope: Scope, method: String = "POST") async throws -> [String: Any] {
         var request = URLRequest(url: url)
-        request.httpMethod = "POST"
+        request.httpMethod = method
         request.setValue(RadioSettings.apiKey, forHTTPHeaderField: "x-goog-api-key")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        if let body { request.httpBody = try JSONSerialization.data(withJSONObject: body) }
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = timeout
         configuration.timeoutIntervalForResource = timeout + 1
@@ -296,6 +322,10 @@ enum Gemini {
             let message = explain(code, result.0, scope)
             RadioSettings.status = message
             throw Failure(code: code, message: message)
+        }
+        if result.0.isEmpty {
+            RadioSettings.status = "ok"
+            return [:]
         }
         guard let json = try? JSONSerialization.jsonObject(with: result.0) as? [String: Any] else {
             throw Failure(code: 0, message: "respuesta que no es JSON")

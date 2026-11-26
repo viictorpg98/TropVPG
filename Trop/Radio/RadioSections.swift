@@ -186,7 +186,7 @@ enum RadioSections {
         var top: [String]?
         // Tu top 5 sale de tu historial: va con "La radio recuerda" (con la memoria apagada, esta seccion se salta).
         if kind == .top5, RadioSettings.memoryEnabled { top = await RadioSongFacts.weeklyTop() }
-        let guest = kind == .whatsapp ? RadioGuests.all.randomElement() : nil
+        let guest = kind == .whatsapp ? RadioGuestPool.pick() : nil
         guard let spec = spec(for: kind, world: world, top: top, next: next, guest: guest) else { return nil }
         var notice = ""
         var hostTurns: [RadioTurn] = []
@@ -267,7 +267,8 @@ enum RadioSections {
                 return await make(kind: kind, next: next, humor: .mild)
             }
             guard let made = madeNote.clip else { return nil }
-            note = made
+            // La nota de voz suena a audio de WhatsApp (sin graves ni agudos, comprimida), no a estudio.
+            note = RadioPhoneFilter.apply(made)
         }
         let madeVoice = await RadioVoice.attempt(hostTurns, timeout: 30)
         if madeVoice.blocked, level != .mild {
@@ -276,6 +277,8 @@ enum RadioSections {
         }
         guard let voice = madeVoice.clip else { return nil }
         RadioHistory.add(hostTurns + noteTurns)
+        // Con la seccion ya lista, se crea (en segundo plano) una voz nueva para el banco de oyentes.
+        Task { await RadioGuestPool.replenish() }
         RadioNotebook.add("la seccion de \(kind.name)")
         var assets = RadioSectionAssets(
             kind: kind, turns: hostTurns, voice: voice, shout: await shoutTask.value, bed: RadioSounds.bed(for: kind), outro: nil
