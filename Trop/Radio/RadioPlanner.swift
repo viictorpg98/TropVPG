@@ -237,7 +237,7 @@ enum RadioPlanner {
     /// La cola de la radio (hasta 30 canciones) y cuantas peticiones a YouTube hizo. `exclude`: lo que ya sono o esta en la cola.
     /// `anchors`: busca primero las canciones concretas de la receta (solo al empezar; en las ampliaciones de la cola ya estan). Antes solo con epoca: sin ella la cola
     /// salia de busquedas por palabras y de radios sembradas con sus primeros resultados (a menudo relleno).
-    static func buildQueue(recipe: RadioRecipe, familiar: [SongItem], exclude: Set<String>, anchors useAnchors: Bool = true) async -> (songs: [SongItem], requests: Int) {
+    static func buildQueue(recipe: RadioRecipe, familiar: [SongItem], exclude: Set<String>, anchors useAnchors: Bool = true, seed startSeed: SongItem? = nil) async -> (songs: [SongItem], requests: Int) {
         var requests = 0
         var anchorSongs: [SongItem] = []
         var found: [SongItem] = []
@@ -270,6 +270,11 @@ enum RadioPlanner {
         // Radios: dos semillas de artistas distintos (primero de las canciones de la receta, que son las mas seguras).
         var seeds: [(id: String, title: String)] = []
         var seedArtists = Set<String>()
+        // Si la radio empieza desde una cancion concreta, su propia radio de YouTube es la primera semilla (lo que mas se parece a ella).
+        if let startSeed {
+            seeds.append((id: startSeed.videoId, title: startSeed.title))
+            seedArtists.insert(artistKey(startSeed))
+        }
         for song in anchorPool + searchPool where seeds.count < 2 {
             if seedArtists.insert(artistKey(song)).inserted { seeds.append((id: song.videoId, title: song.title)) }
         }

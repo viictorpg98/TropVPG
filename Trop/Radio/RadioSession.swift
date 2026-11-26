@@ -142,8 +142,16 @@ final class RadioSession {
 
     // MARK: - Empezar
 
+    /// La radio desde el menu de una cancion: esa cancion primero (si ya suena, no se reinicia) y despues parecidas, con los locutores.
+    func begin(from song: SongItem) async {
+        let artists = song.artists.map(\.name).filter { !$0.isEmpty }.joined(separator: ", ")
+        let request = "Música parecida a «\(song.title)»" + (artists.isEmpty ? "" : " de \(artists)")
+        await begin(request: request, startingWith: song)
+    }
+
     /// El flujo completo del boton "Radio" (pregunta, escucha, receta, canciones, confirmacion, musica).
-    func begin(request typed: String? = nil) async {
+    /// `startSong`: la radio empieza por esa cancion (menu de la cancion) y sigue con parecidas; sin pregunta ni micrófono.
+    func begin(request typed: String? = nil, startingWith startSong: SongItem? = nil) async {
         guard !isStarting else { return }
         guard RadioSettings.isConfigured else {
             PlaybackNotice.shared.show(NSLocalizedString("Set up the radio in Settings > Radio first.", comment: ""))
@@ -192,16 +200,22 @@ final class RadioSession {
         let fillerTask = Task { await self.playFiller() }
         let recipe = await SonarMix.withTimeout(seconds: 10) { () async -> RadioRecipe? in await recipeTask.value }
         guard let recipe else {
-            report("receta: sin respuesta a tiempo; se pone Para ti")
             _ = await fillerTask.value
             resume = false
-            _ = await SonarMix.start()
+            if let startSong {
+                report("receta: sin respuesta a tiempo; se pone la radio de YouTube de la cancion")
+                PlaybackQueue.startRadio(for: startSong)
+            } else {
+                report("receta: sin respuesta a tiempo; se pone Para ti")
+                _ = await SonarMix.start()
+            }
             return
         }
         let recipeMs = Int(Date().timeIntervalSince(recipeStarted) * 1000)
         tasteText = taste.text
         RadioDiary.recordSession(request: spoken, summary: recipe.summary)
-        RadioRecents.add(spoken)
+        // Las peticiones desde una cancion no van a las pildoras (repetirlas no empezaria por la cancion).
+        if startSong == nil { RadioRecents.add(spoken) }
         currentSummary = recipe.summary
         frequency = Self.frequency(for: spoken)
         let searches = recipe.searches.joined(separator: " | ")
@@ -209,23 +223,36 @@ final class RadioSession {
 
         // 4) La frase de confirmacion y la cola de canciones, a la vez (la confirmacion va en otra llamada para que sus reintentos no retrasen la musica).
         let confirmationTask = Task { await RadioPlanner.confirmationClip(spoken: spoken, recipe: recipe) }
-        let queueTask = Task { await RadioPlanner.buildQueue(recipe: recipe, familiar: taste.familiar, exclude: []) }
+        let queueTask = Task { await RadioPlanner.buildQueue(recipe: recipe, familiar: taste.familiar, exclude: Set([startSong?.videoId].compactMap { $0 }), seed: startSong) }
         _ = await fillerTask.value
         let built = await SonarMix.withTimeout(seconds: 15) { () async -> (songs: [SongItem], requests: Int)? in await queueTask.value }
         guard let built, built.songs.count >= 5 else {
-            report("cola: \(built?.songs.count ?? 0) canciones (peticiones a YouTube \(built?.requests ?? 0)); se pone Para ti")
+            report("cola: \(built?.songs.count ?? 0) canciones (peticiones a YouTube \(built?.requests ?? 0)); se pone \(startSong == nil ? "Para ti" : "la radio de YouTube de la cancion")")
             resume = false
-            _ = await SonarMix.start()
+            if let startSong {
+                PlaybackQueue.startRadio(for: startSong)
+            } else {
+                _ = await SonarMix.start()
+            }
             return
         }
-        report("cola: \(built.songs.count) canciones, peticiones a YouTube \(built.requests)")
+        // Desde una cancion: ella va la primera y las parecidas detras.
+        let queue = startSong.map { [$0] + built.songs } ?? built.songs
+        report("cola: \(queue.count) canciones, peticiones a YouTube \(built.requests)")
 
         // 5) La musica empieza ya (bajita) y la confirmacion suena por encima.
         let controller = PlayerController.shared
         controller.volumeScale = duckLevel
         controller.applyPlayerVolume()
-        activate(songs: built.songs, recipe: recipe, familiar: taste.familiar)
-        PlaybackQueue.play(built.songs, startIndex: 0, log: Log.nowPlaying, context: "radio")
+        activate(songs: queue, recipe: recipe, familiar: taste.familiar)
+        if let startSong, NowPlaying.shared.videoId == startSong.videoId {
+            // La cancion ya suena: no se reinicia, solo se cambia lo que viene detras.
+            NowPlaying.shared.queueSongs = queue
+            NowPlaying.shared.queueIndex = 0
+            NowPlaying.shared.applyAudioVersions()
+        } else {
+            PlaybackQueue.play(queue, startIndex: 0, log: Log.nowPlaying, context: "radio")
+        }
         resume = false
 
         let confirmation = await SonarMix.withTimeout(seconds: 12) { () async -> RadioClip? in await confirmationTask.value }

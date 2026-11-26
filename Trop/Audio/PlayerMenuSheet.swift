@@ -45,6 +45,17 @@ struct PlayerMenuSheet: View {
                 quickActions
                 MenuCard {
                     MenuRow(icon: "dot.radiowaves.left.and.right", title: "Start Radio") { startRadio() }
+                    if RadioSettings.isConfigured {
+                        Divider()
+                        MenuRow(
+                            icon: "radio",
+                            title: "Sónar FM from This Song",
+                            subtitle: "The hosts join in, starting with this song"
+                        ) {
+                            dismiss()
+                            Task { await RadioSession.shared.begin(from: song) }
+                        }
+                    }
                     Divider()
                     viewArtistRow
                     if !song.artists.isEmpty {

@@ -51,6 +51,17 @@ struct SongMenuSheet: View {
                     MenuRow(icon: "list.bullet", title: "Add to Queue") { addToQueue() }
                     Divider()
                     MenuRow(icon: "dot.radiowaves.left.and.right", title: "Start Radio") { startRadio() }
+                    if RadioSettings.isConfigured {
+                        Divider()
+                        MenuRow(
+                            icon: "radio",
+                            title: "Sónar FM from This Song",
+                            subtitle: "The hosts join in, starting with this song"
+                        ) {
+                            dismiss()
+                            Task { await RadioSession.shared.begin(from: song) }
+                        }
+                    }
                     Divider()
                     MenuRow(icon: "music.mic", title: "View Artist", subtitle: song.artistNamesDisplay) { handleViewArtist() }
                     if !song.artists.isEmpty {

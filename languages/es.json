@@ -912,5 +912,7 @@
   "speaking": "hablando",
   "Preparing listener voices…": "Preparando voces de oyentes…",
   "Done: %d new listener voices.": "Hecho: %d voces de oyentes nuevas.",
-  "Prepare Listener Voices": "Preparar voces de oyentes"
+  "Prepare Listener Voices": "Preparar voces de oyentes",
+  "Sónar FM from This Song": "Sónar FM desde esta canción",
+  "The hosts join in, starting with this song": "Los locutores entran, empezando por esta canción"
 }

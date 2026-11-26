@@ -912,5 +912,7 @@
   "speaking": "speaking",
   "Preparing listener voices…": "Preparing listener voices…",
   "Done: %d new listener voices.": "Done: %d new listener voices.",
-  "Prepare Listener Voices": "Prepare Listener Voices"
+  "Prepare Listener Voices": "Prepare Listener Voices",
+  "Sónar FM from This Song": "Sónar FM from This Song",
+  "The hosts join in, starting with this song": "The hosts join in, starting with this song"
 }
