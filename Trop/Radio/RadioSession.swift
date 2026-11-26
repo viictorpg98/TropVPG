@@ -173,7 +173,7 @@ final class RadioSession {
         var heard: String?
         if let typed {
             heard = typed
-            report("peticion repetida: \"\(typed)\"")
+            report(startSong == nil ? "peticion repetida: \"\(typed)\"" : "desde cancion: \"\(typed)\"")
         } else {
             // 1) La pregunta de los locutores (guardada en el movil; la primera vez de todas se genera ahora).
             if let question = await RadioContent.question() {
@@ -237,7 +237,9 @@ final class RadioSession {
             return
         }
         // Desde una cancion: ella va la primera y las parecidas detras.
-        let queue = startSong.map { [$0] + built.songs } ?? built.songs
+        // (sin otra subida de la misma: el video oficial y el audio, o un remaster, tienen otro id pero la misma clave)
+        let startKey = startSong.map { RadioBlocklist.key(for: $0) }
+        let queue = startSong.map { [$0] + built.songs.filter { RadioBlocklist.key(for: $0) != startKey } } ?? built.songs
         report("cola: \(queue.count) canciones, peticiones a YouTube \(built.requests)")
 
         // 5) La musica empieza ya (bajita) y la confirmacion suena por encima.
