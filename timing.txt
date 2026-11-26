@@ -1,0 +1,28 @@
+preparacion (traducciones, ffmpeg-kit, volumen): 1 s
+paquetes (resolver y descargar): 182 s
+xcodebuild (compilar y enlazar): 493 s
+--- resumen de Xcode ---
+Build Timing Summary
+
+SwiftCompile (6 tasks) | 579.535 seconds
+
+SwiftDriver (6 tasks) | 49.502 seconds
+
+CompileAssetCatalogVariant (1 task) | 30.847 seconds
+
+Ld (8 tasks) | 12.049 seconds
+
+Copy (68 tasks) | 7.466 seconds
+
+GenerateAssetSymbols (1 task) | 6.473 seconds
+
+ExtractAppIntentsMetadata (6 tasks) | 3.691 seconds
+
+ValidateEmbeddedBinary (1 task) | 2.494 seconds
+
+AppIntentsSSUTraining (2 tasks) | 2.201 seconds
+
+ScanDependencies (2 tasks) | 0.698 seconds
+
+empaquetar el IPA: 9 s
+total: 685 s

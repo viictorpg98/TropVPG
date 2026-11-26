@@ -1,0 +1,150 @@
+/Volumes/TropBuild/DerivedDataApp/Build/Products/Release-iphoneos/Trop.app/en.lproj/nlu.appintents/806074a664f0271ba81d26a72f633ac5.version
+
+
+RegisterExecutionPolicyException /Volumes/TropBuild/DerivedDataApp/Build/Products/Release-iphoneos/Trop.app (in target 'Trop' from project 'Trop')
+    cd /Users/runner/work/TropVPG/TropVPG
+    builtin-RegisterExecutionPolicyException /Volumes/TropBuild/DerivedDataApp/Build/Products/Release-iphoneos/Trop.app
+
+Validate /Volumes/TropBuild/DerivedDataApp/Build/Products/Release-iphoneos/Trop.app (in target 'Trop' from project 'Trop')
+    cd /Users/runner/work/TropVPG/TropVPG
+    builtin-validationUtility /Volumes/TropBuild/DerivedDataApp/Build/Products/Release-iphoneos/Trop.app -validate-for-store -shallow-bundle -infoplist-subpath Info.plist
+
+Touch /Volumes/TropBuild/DerivedDataApp/Build/Products/Release-iphoneos/Trop.app (in target 'Trop' from project 'Trop')
+    cd /Users/runner/work/TropVPG/TropVPG
+    /usr/bin/touch -c /Volumes/TropBuild/DerivedDataApp/Build/Products/Release-iphoneos/Trop.app
+
+GenerateClangModulesReport
+
+Full report written to '/Volumes/TropBuild/DerivedDataApp/Build/Intermediates.noindex/XCBuildData/clangmodulesreport'
+GenerateSwiftModulesReport
+AVFAudio (Clang): 1 variant
+AVFoundation (Clang): 1 variant
+AVKit (Clang): 1 variant
+AVRouting (Clang): 1 variant
+Accessibility (Clang): 2 variants
+AudioToolbox (Clang): 1 variant
+CFNetwork (Clang): 2 variants
+CSQLite (Clang): 1 variant
+CoreAudio (Clang): 1 variant
+CoreAudioTypes (Clang): 1 variant
+CoreData (Clang): 2 variants
+CoreFoundation (Clang): 2 variants
+CoreGraphics (Clang): 2 variants
+CoreImage (Clang): 2 variants
+CoreMIDI (Clang): 1 variant
+CoreMedia (Clang): 1 variant
+CoreText (Clang): 2 variants
+CoreTransferable (Clang): 2 variants
+CoreVideo (Clang): 2 variants
+Darwin (Clang): 2 variants
+DataDetection (Clang): 2 variants
+DeveloperToolsSupport (Clang): 2 variants
+Dispatch (Clang): 2 variants
+FileProvider (Clang): 2 variants
+Foundation (Clang): 2 variants
+IOSurface (Clang): 2 variants
+ImageIO (Clang): 2 variants
+LocalAuthentication (Clang): 2 variants
+MachO (Clang): 2 variants
+MediaToolbox (Clang): 1 variant
+Metal (Clang): 2 variants
+Network (Clang): 2 variants
+OSLog (Clang): 2 variants
+ObjectiveC (Clang): 2 variants
+OpenGLES (Clang): 2 variants
+QuartzCore (Clang): 2 variants
+SQLite3 (Clang): 1 variant
+Security (Clang): 2 variants
+Spatial (Clang): 2 variants
+SwiftShims (Clang): 2 variants
+SwiftUI (Clang): 2 variants
+SwiftUICore (Clang): 2 variants
+Symbols (Clang): 2 variants
+UIKit (Clang): 2 variants
+UIUtilities (Clang): 2 variants
+UniformTypeIdentifiers (Clang): 2 variants
+UserNotifications (Clang): 2 variants
+WebKit (Clang): 1 variant
+XPC (Clang): 2 variants
+_AvailabilityInternal (Clang): 2 variants
+_Builtin_float (Clang): 2 variants
+_Builtin_intrinsics (Clang): 2 variants
+_Builtin_inttypes (Clang): 2 variants
+_Builtin_limits (Clang): 2 variants
+_Builtin_stdarg (Clang): 2 variants
+_Builtin_stdatomic (Clang): 2 variants
+_Builtin_stdbool (Clang): 2 variants
+_Builtin_stddef (Clang): 2 variants
+_Builtin_stdint (Clang): 2 variants
+_Builtin_tgmath (Clang): 2 variants
+_DarwinFoundation1 (Clang): 2 variants
+_DarwinFoundation2 (Clang): 2 variants
+_DarwinFoundation3 (Clang): 2 variants
+_SwiftConcurrencyShims (Clang): 2 variants
+dnssd (Clang): 2 variants
+os (Clang): 2 variants
+os_object (Clang): 2 variants
+os_workgroup (Clang): 2 variants
+ptrauth (Clang): 2 variants
+ptrcheck (Clang): 2 variants
+simd (Clang): 2 variants
+string_h (Clang): 1 variant
+sys_types (Clang): 2 variants
+
+Full report written to '/Volumes/TropBuild/DerivedDataApp/Build/Intermediates.noindex/XCBuildData/swiftmodulesreport'
+Build Timing Summary
+
+SwiftCompile (6 tasks) | 579.535 seconds
+
+SwiftDriver (6 tasks) | 49.502 seconds
+
+CompileAssetCatalogVariant (1 task) | 30.847 seconds
+
+Ld (8 tasks) | 12.049 seconds
+
+Copy (68 tasks) | 7.466 seconds
+
+GenerateAssetSymbols (1 task) | 6.473 seconds
+
+ExtractAppIntentsMetadata (6 tasks) | 3.691 seconds
+
+ValidateEmbeddedBinary (1 task) | 2.494 seconds
+
+AppIntentsSSUTraining (2 tasks) | 2.201 seconds
+
+ScanDependencies (2 tasks) | 0.698 seconds
+
+CopySwiftLibs (1 task) | 0.649 seconds
+
+CompileC (2 tasks) | 0.612 seconds
+
+RegisterExecutionPolicyException (10 tasks) | 0.575 seconds
+
+CopyStringsFile (3 tasks) | 0.139 seconds
+
+ProcessInfoPlistFile (4 tasks) | 0.138 seconds
+
+CpResource (22 tasks) | 0.125 seconds
+
+ValidateAppShortcutStringsMetadata (1 task) | 0.054 seconds
+
+PhaseScriptExecution (2 tasks) | 0.040 seconds
+
+WriteAuxiliaryFile (78 tasks) | 0.038 seconds
+
+SwiftDriver Compilation Requirements (6 tasks) | 0.033 seconds
+
+Touch (4 tasks) | 0.029 seconds
+
+Validate (1 task) | 0.017 seconds
+
+SwiftDriver Compilation (6 tasks) | 0.011 seconds
+
+LinkAssetCatalog (1 task) | 0.007 seconds
+
+SwiftMergeGeneratedHeaders (6 tasks) | 0.006 seconds
+
+note: Run script build phase 'SwiftLint' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'Trop' from project 'Trop')
+note: Run script build phase 'InjectUIFileSharingEnabled' will be run during every build because the option to run the script phase "Based on dependency analysis" is unchecked. (in target 'Trop' from project 'Trop')
+** BUILD SUCCEEDED **
+
